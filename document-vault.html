@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Document Vault — FORGE | Powered by ARIS</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="data:image/png;base64,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">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --black:#0D1B2A;--navy:#0f2035;--navy-light:#162840;--navy-mid:#1a3350;
+  --orange:#FF6B2B;--orange-dim:rgba(255,107,43,0.12);
+  --gold:#C89B3C;--gold-dim:rgba(200,155,60,0.15);
+  --green:#22c55e;--green-dim:rgba(34,197,94,0.12);
+  --white:#FFFFFF;--grey:#6B7280;--grey-light:#9CA3AF;
+  --border:rgba(200,155,60,0.18);--border-sub:rgba(255,255,255,0.06);
+  --sidebar-w:260px;
+}
+html,body{height:100%;background:var(--black);color:var(--white);font-family:'Inter',sans-serif;overflow:hidden}
+.app{display:flex;height:100vh;width:100vw}
+
+/* SIDEBAR */
+.sidebar{width:var(--sidebar-w);min-width:var(--sidebar-w);background:var(--navy);border-right:1px solid var(--border-sub);display:flex;flex-direction:column;overflow:hidden}
+.sidebar-logo{padding:24px 20px 20px;border-bottom:1px solid var(--border-sub);display:flex;align-items:center;gap:12px}
+.logo-mark{width:36px;height:36px;background:linear-gradient(135deg,var(--orange),#c04a10);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.logo-mark svg{width:20px;height:20px}
+.logo-words{line-height:1}
+.wordmark{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:3px;color:var(--white)}
+.wordmark span{color:var(--gold)}
+.logo-sub{font-size:9px;letter-spacing:2px;color:var(--grey);text-transform:uppercase;margin-top:2px}
+.sidebar-section{padding:20px 14px 8px}
+.sidebar-section-label{font-size:9px;letter-spacing:2.5px;text-transform:uppercase;color:var(--grey);padding:0 6px;margin-bottom:6px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;color:var(--grey-light);transition:background .15s,color .15s;text-decoration:none;user-select:none}
+.nav-item:hover{background:var(--border-sub);color:var(--white)}
+.nav-item.active{background:var(--orange-dim);color:var(--orange);border:1px solid rgba(255,107,43,0.2)}
+.nav-icon{font-size:15px;width:18px;text-align:center;flex-shrink:0}
+.nav-badge{margin-left:auto;font-size:9px;letter-spacing:1px;text-transform:uppercase;background:var(--border-sub);color:var(--grey);padding:2px 6px;border-radius:3px}
+.sidebar-footer{margin-top:auto;padding:16px 14px;border-top:1px solid var(--border-sub)}
+.profile-chip{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;background:var(--border-sub);cursor:pointer;transition:background .15s}
+.profile-chip:hover{background:var(--navy-mid)}
+.user-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--gold),#a07820);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--black);overflow:hidden;border:2px solid var(--gold);flex-shrink:0}
+.user-avatar img{width:100%;height:100%;object-fit:cover}
+.user-info{line-height:1.2;min-width:0}
+.user-name{font-size:12px;font-weight:600;color:var(--white);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.user-tier{font-size:10px;color:var(--gold);letter-spacing:1px;text-transform:uppercase}
+
+/* MAIN */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+
+/* TOPBAR */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:16px 28px;border-bottom:1px solid var(--border-sub);flex-shrink:0}
+.topbar-left{display:flex;align-items:center;gap:14px}
+.topbar-avatar{width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,var(--gold),#a07820);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--black);overflow:hidden;border:2px solid var(--gold);flex-shrink:0}
+.topbar-avatar img{width:100%;height:100%;object-fit:cover}
+.topbar-greeting{line-height:1.2}
+.topbar-welcome{font-size:11px;color:var(--grey);letter-spacing:1px}
+.topbar-name{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:3px;color:var(--white)}
+.topbar-date{font-size:11px;color:var(--grey)}
+
+/* SCROLL */
+.vault-scroll{flex:1;overflow-y:auto;padding:24px 28px 40px;display:flex;flex-direction:column;gap:20px}
+.vault-scroll::-webkit-scrollbar{width:4px}
+.vault-scroll::-webkit-scrollbar-thumb{background:var(--border-sub);border-radius:2px}
+
+/* PAGE HEADER */
+.page-header{display:flex;align-items:flex-end;justify-content:space-between}
+.page-eyebrow{font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--orange);margin-bottom:6px}
+.page-title{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:3px;color:var(--white)}
+.page-title span{color:var(--gold)}
+.page-sub{font-size:12px;color:var(--grey);margin-top:4px}
+.page-stats{display:flex;gap:20px}
+.pstat{text-align:right}
+.pstat-num{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:var(--gold);line-height:1}
+.pstat-label{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--grey)}
+
+/* CONTROLS */
+.controls-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.search-wrap{position:relative;flex:1;min-width:200px;max-width:360px}
+.search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--grey);font-size:12px;pointer-events:none}
+.search-input{width:100%;background:var(--navy-light);border:1px solid var(--border-sub);border-radius:6px;padding:9px 12px 9px 34px;font-family:'Inter',sans-serif;font-size:13px;color:var(--white);outline:none;transition:border-color .2s}
+.search-input::placeholder{color:var(--grey)}
+.search-input:focus{border-color:var(--border)}
+.sort-select{background:var(--navy-light);border:1px solid var(--border-sub);border-radius:6px;padding:9px 28px 9px 14px;font-family:'Inter',sans-serif;font-size:12px;color:var(--grey-light);cursor:pointer;outline:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236B7280'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;transition:border-color .2s}
+.sort-select:focus{border-color:var(--border)}
+.sort-select option{background:var(--navy)}
+.results-label{font-size:11px;color:var(--grey);margin-left:auto;white-space:nowrap}
+.results-label span{color:var(--gold);font-weight:600}
+
+/* LAYOUT */
+.vault-layout{display:grid;grid-template-columns:196px 1fr;gap:20px;align-items:start}
+
+/* CAT NAV */
+.cat-nav{background:var(--navy-light);border:1px solid var(--border-sub);border-radius:10px;overflow:hidden;position:sticky;top:0}
+.cat-nav-label{padding:12px 14px;font-size:9px;letter-spacing:2.5px;text-transform:uppercase;color:var(--grey);border-bottom:1px solid var(--border-sub)}
+.cat-btn{display:flex;align-items:center;gap:8px;width:100%;padding:9px 14px;background:none;border:none;border-bottom:1px solid rgba(255,255,255,0.03);cursor:pointer;text-align:left;font-family:'Inter',sans-serif;font-size:12px;font-weight:500;color:var(--grey-light);transition:background .15s,color .15s}
+.cat-btn:last-child{border-bottom:none}
+.cat-btn:hover{background:var(--border-sub);color:var(--white)}
+.cat-btn.active{background:var(--orange-dim);color:var(--orange);border-left:2px solid var(--orange)}
+.cat-btn.active .cat-count{color:var(--orange);background:rgba(255,107,43,0.1)}
+.cat-emoji{font-size:13px;width:16px;text-align:center;flex-shrink:0}
+.cat-count{margin-left:auto;font-size:10px;color:var(--grey);background:var(--border-sub);padding:1px 6px;border-radius:8px;flex-shrink:0}
+
+/* DOC GRID */
+.doc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(256px,1fr));gap:12px}
+
+/* DOC CARD */
+.doc-card{background:var(--navy-light);border:1px solid var(--border-sub);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:10px;transition:all .2s;position:relative;cursor:pointer}
+.doc-card:hover{border-color:var(--border);background:var(--navy-mid);transform:translateY(-2px)}
+.doc-card-top{display:flex;align-items:flex-start;gap:10px}
+.doc-icon{width:32px;height:32px;flex-shrink:0;border-radius:6px;background:var(--gold-dim);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:14px}
+.doc-xlsx .doc-icon{background:var(--green-dim);border-color:rgba(34,197,94,0.2)}
+.doc-info{flex:1;min-width:0}
+.doc-badges{display:flex;gap:4px;align-items:center;margin-bottom:4px;flex-wrap:wrap}
+.doc-cat-tag{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--grey);background:var(--border-sub);padding:2px 6px;border-radius:3px}
+.badge-new{font-size:9px;letter-spacing:1px;text-transform:uppercase;font-weight:700;color:var(--black);background:var(--gold);padding:2px 6px;border-radius:3px}
+.doc-title{font-size:13px;font-weight:600;color:var(--white);line-height:1.35}
+.doc-desc{font-size:11px;color:var(--grey);line-height:1.6;flex:1;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.doc-tags{display:flex;gap:4px;flex-wrap:wrap}
+.doc-tag{font-size:9px;color:var(--grey);background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);padding:2px 7px;border-radius:8px}
+.doc-actions{display:flex;gap:6px}
+.btn-preview{flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:7px 10px;background:none;border:1px solid var(--border-sub);border-radius:5px;cursor:pointer;font-family:'Inter',sans-serif;font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--grey-light);transition:all .2s}
+.btn-preview:hover{background:var(--border-sub);color:var(--white)}
+.btn-download{flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:7px 10px;background:var(--gold-dim);border:1px solid var(--border);border-radius:5px;cursor:pointer;font-family:'Inter',sans-serif;font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);text-decoration:none;transition:all .2s}
+.btn-download:hover{background:rgba(200,155,60,0.25);border-color:rgba(200,155,60,0.4);color:var(--white)}
+.dl-badge{position:absolute;top:10px;right:10px;font-size:9px;color:var(--grey);display:flex;align-items:center;gap:2px}
+.dl-badge-num{color:var(--grey-light);font-weight:600}
+
+/* EMPTY */
+.empty-state{grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--grey)}
+.empty-icon{font-size:32px;margin-bottom:12px;opacity:.4}
+.empty-state h3{font-size:14px;color:var(--grey-light);margin-bottom:6px}
+.empty-state p{font-size:12px}
+
+/* PREVIEW PANEL */
+.preview-overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.5);backdrop-filter:blur(3px);opacity:0;pointer-events:none;transition:opacity .25s}
+.preview-overlay.open{opacity:1;pointer-events:all}
+.preview-panel{position:fixed;top:0;right:0;bottom:0;z-index:201;width:min(520px,100vw);background:var(--navy);border-left:1px solid var(--border-sub);display:flex;flex-direction:column;transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);overflow:hidden}
+.preview-panel.open{transform:translateX(0)}
+.pv-header{display:flex;align-items:flex-start;gap:12px;padding:20px 20px 18px;border-bottom:1px solid var(--border-sub);flex-shrink:0}
+.pv-icon{width:40px;height:40px;flex-shrink:0;background:var(--gold-dim);border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px}
+.pv-meta{flex:1;min-width:0}
+.pv-cat{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--grey);margin-bottom:4px}
+.pv-title{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1.5px;color:var(--white);line-height:1.1}
+.pv-close{background:var(--border-sub);border:none;border-radius:5px;width:30px;height:30px;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--grey-light);font-size:14px;transition:background .15s,color .15s}
+.pv-close:hover{background:var(--navy-mid);color:var(--white)}
+.pv-body{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:20px}
+.pv-body::-webkit-scrollbar{width:3px}
+.pv-body::-webkit-scrollbar-thumb{background:var(--border-sub);border-radius:2px}
+.pv-section-label{font-size:9px;letter-spacing:2.5px;text-transform:uppercase;color:var(--grey);margin-bottom:8px}
+.pv-desc{font-size:13px;color:var(--grey-light);line-height:1.75}
+.pv-tags{display:flex;flex-wrap:wrap;gap:6px}
+.pv-tag{font-size:11px;color:var(--grey);background:var(--border-sub);border:1px solid rgba(255,255,255,0.06);padding:4px 10px;border-radius:10px}
+.pv-content{background:var(--black);border:1px solid var(--border-sub);border-radius:8px;padding:16px;font-size:12px;color:var(--grey-light);line-height:1.8}
+.pv-content h4{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:8px;margin-top:14px}
+.pv-content h4:first-child{margin-top:0}
+.pv-content ul{padding-left:14px}
+.pv-content li{margin-bottom:3px}
+.pv-content p{margin-bottom:6px}
+.pv-footer{padding:16px 20px;border-top:1px solid var(--border-sub);display:flex;align-items:center;gap:10px;flex-shrink:0}
+.pv-footer .btn-download{flex:1;padding:10px 16px;font-size:11px;border-radius:6px}
+.pv-dl-count{font-size:11px;color:var(--grey)}
+
+/* REQUEST */
+.request-panel{background:var(--navy-light);border:1px solid var(--border-sub);border-radius:10px;padding:24px}
+.request-header{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.request-aris-av{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#162840,#0D1B2A);border:1.5px solid var(--gold);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:7px;letter-spacing:1px;color:var(--gold);flex-shrink:0}
+.request-label{font-size:9px;letter-spacing:2.5px;text-transform:uppercase;color:var(--gold);font-weight:600}
+.request-title{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;color:var(--white);margin-bottom:4px}
+.request-sub{font-size:12px;color:var(--grey);margin-bottom:18px;line-height:1.6}
+.request-form{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-group.full{grid-column:1/-1}
+.form-label{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--grey)}
+.form-input,.form-select,.form-textarea{background:var(--black);border:1px solid var(--border-sub);border-radius:6px;padding:9px 12px;font-family:'Inter',sans-serif;font-size:13px;color:var(--white);outline:none;transition:border-color .2s;width:100%}
+.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--border)}
+.form-input::placeholder,.form-textarea::placeholder{color:var(--grey)}
+.form-textarea{resize:vertical;min-height:72px}
+.form-select{appearance:none;cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236B7280'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px}
+.form-select option{background:var(--navy)}
+.btn-submit{grid-column:1/-1;display:inline-flex;align-items:center;gap:8px;padding:10px 24px;background:var(--orange);color:var(--white);border:none;border-radius:6px;cursor:pointer;font-family:'Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;transition:opacity .2s;max-width:200px}
+.btn-submit:hover{opacity:.88}
+.form-success{grid-column:1/-1;display:none;padding:10px 14px;border-radius:6px;background:var(--green-dim);border:1px solid rgba(34,197,94,0.2);color:var(--green);font-size:12px}
+
+/* MOBILE */
+@media(max-width:900px){
+  .sidebar{display:none}
+  .vault-layout{grid-template-columns:1fr}
+  .cat-nav{position:static;display:flex;flex-wrap:wrap;border-radius:8px}
+  .cat-nav-label{display:none}
+  .cat-btn{width:auto;flex:1;min-width:100px;border:none;border-bottom:none;border-radius:0;justify-content:center}
+  .cat-btn.active{border-left:none;border-bottom:2px solid var(--orange)}
+  .cat-count{display:none}
+  .vault-scroll{padding:16px 16px 32px}
+}
+@media(max-width:600px){
+  .page-stats{display:none}
+  .preview-panel{width:100vw}
+  .request-form{grid-template-columns:1fr}
+  .form-group.full{grid-column:1}
+}
+@media(prefers-reduced-motion:reduce){
+  .doc-card,.preview-panel,.preview-overlay{transition:none}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M4 17h16v2H4v-2zm2-6h12l-1.5 6H7.5L6 11zm3-6h6l1 4H8l1-4z" fill="white" opacity="0.9"/><path d="M10 5h4v2h-4V5z" fill="white"/></svg>
+      </div>
+      <div class="logo-words">
+        <div class="wordmark">F<span>O</span>RGE</div>
+        <div class="logo-sub">Powered by ARIS</div>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Navigation</div>
+      <a class="nav-item" href="dashboard.html"><span class="nav-icon">🏠</span>Dashboard</a>
+      <a class="nav-item" href="aris-coach.html"><span class="nav-icon">⚡</span>ARIS AI Coach</a>
+      <a class="nav-item" href="deal-analyzer.html"><span class="nav-icon">🔍</span>Deal Analyzer</a>
+      <div class="nav-item"><span class="nav-icon">📍</span>Property Search<span class="nav-badge">Soon</span></div>
+      <div class="nav-item"><span class="nav-icon">🤝</span>Deal Network<span class="nav-badge">Soon</span></div>
+      <div class="nav-item"><span class="nav-icon">🎯</span>Capital Radar<span class="nav-badge">Soon</span></div>
+      <div class="nav-item"><span class="nav-icon">🔮</span>Market Oracle<span class="nav-badge">Soon</span></div>
+      <a class="nav-item active" href="document-vault.html"><span class="nav-icon">📂</span>Document Vault</a>
+      <div class="nav-item"><span class="nav-icon">🏛</span>Education<span class="nav-badge">Soon</span></div>
+    </div>
+    <div class="sidebar-footer">
+      <div class="profile-chip">
+        <div class="user-avatar" id="sidebar-avatar"><span id="sidebar-initials">JD</span></div>
+        <div class="user-info">
+          <div class="user-name" id="sidebar-name">John Dessauer</div>
+          <div class="user-tier">Founding Member</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-avatar" id="topbar-avatar"><span id="topbar-initials">JD</span></div>
+        <div class="topbar-greeting">
+          <div class="topbar-welcome">Document Vault</div>
+          <div class="topbar-name" id="topbar-name">John Dessauer</div>
+        </div>
+      </div>
+      <div class="topbar-date" id="topbar-date"></div>
+    </div>
+
+    <div class="vault-scroll">
+
+      <div class="page-header">
+        <div>
+          <div class="page-eyebrow">Member Resource</div>
+          <div class="page-title">DOCUMENT <span>VAULT</span></div>
+          <div class="page-sub">Every contract, script, checklist, and system — ready to deploy.</div>
+        </div>
+        <div class="page-stats">
+          <div class="pstat"><div class="pstat-num" id="statTotal">—</div><div class="pstat-label">Documents</div></div>
+          <div class="pstat"><div class="pstat-num" id="statNew">—</div><div class="pstat-label">New</div></div>
+          <div class="pstat"><div class="pstat-num" id="statDL">—</div><div class="pstat-label">Downloads</div></div>
+        </div>
+      </div>
+
+      <div class="controls-row">
+        <div class="search-wrap">
+          <span class="search-icon">🔍</span>
+          <input type="text" class="search-input" id="searchInput" placeholder="Search documents…" autocomplete="off">
+        </div>
+        <select class="sort-select" id="sortSelect">
+          <option value="default">Default order</option>
+          <option value="newest">Newest first</option>
+          <option value="az">A → Z</option>
+          <option value="za">Z → A</option>
+          <option value="popular">Most downloaded</option>
+        </select>
+        <div class="results-label">Showing <span id="countNum">0</span> documents</div>
+      </div>
+
+      <div class="vault-layout">
+        <nav class="cat-nav" id="categoryNav"><div class="cat-nav-label">Categories</div></nav>
+        <div class="doc-grid" id="docGrid"></div>
+      </div>
+
+      <div class="request-panel">
+        <div class="request-header">
+          <div class="request-aris-av">ARIS</div>
+          <div class="request-label">Can't find what you need?</div>
+        </div>
+        <div class="request-title">REQUEST A DOCUMENT</div>
+        <div class="request-sub">Tell us what you're looking for. ARIS will flag it for the next vault update.</div>
+        <div class="request-form">
+          <div class="form-group">
+            <label class="form-label">Your Name</label>
+            <input type="text" class="form-input" id="reqName" placeholder="John Dessauer">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Category</label>
+            <select class="form-select" id="reqCat">
+              <option value="">Select…</option>
+              <option>Getting Started</option><option>Finding Deals</option><option>Analyzing Deals</option>
+              <option>Contracts & Agreements</option><option>Financing & Capital</option><option>Rehabbing</option>
+              <option>Rentals</option><option>Marketing</option><option>Checklists</option>
+              <option>Education</option><option>Team Building</option><option>Other</option>
+            </select>
+          </div>
+          <div class="form-group full">
+            <label class="form-label">Document Name or Description</label>
+            <input type="text" class="form-input" id="reqDoc" placeholder="e.g. Contractor Bid Comparison Spreadsheet">
+          </div>
+          <div class="form-group full">
+            <label class="form-label">Why do you need it? (optional)</label>
+            <textarea class="form-textarea" id="reqNotes" placeholder="Give us context so we can build exactly what you need…"></textarea>
+          </div>
+          <button class="btn-submit" onclick="submitRequest()">Submit Request →</button>
+          <div class="form-success" id="formSuccess">✓ Request received. We'll add it to the next vault update.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="preview-overlay" id="previewOverlay" onclick="closePreview()"></div>
+<div class="preview-panel" id="previewPanel">
+  <div class="pv-header">
+    <div class="pv-icon" id="pvIcon">📄</div>
+    <div class="pv-meta">
+      <div class="pv-cat" id="pvCat"></div>
+      <div class="pv-title" id="pvTitle"></div>
+    </div>
+    <button class="pv-close" onclick="closePreview()">✕</button>
+  </div>
+  <div class="pv-body">
+    <div><div class="pv-section-label">About this document</div><div class="pv-desc" id="pvDesc"></div></div>
+    <div id="pvTagsWrap"><div class="pv-section-label">Tags</div><div class="pv-tags" id="pvTags"></div></div>
+    <div><div class="pv-section-label">Document preview</div><div class="pv-content" id="pvContent"></div></div>
+  </div>
+  <div class="pv-footer">
+    <a class="btn-download" id="pvDownload" href="#" download>↓ &nbsp; Download Document</a>
+    <div class="pv-dl-count" id="pvDlCount"></div>
+  </div>
+</div>
+
+<script src="documents.js"></script>
+<script>
+const NEW_THRESHOLD = 118;
+const CATEGORIES = [
+  {id:'all',label:'All Documents',emoji:'📁'},
+  {id:'getting-started',label:'Getting Started',emoji:'🏁'},
+  {id:'finding-deals',label:'Finding Deals',emoji:'🔍'},
+  {id:'analyzing-deals',label:'Analyzing Deals',emoji:'📋'},
+  {id:'contracts',label:'Contracts & Agreements',emoji:'📝'},
+  {id:'financing',label:'Financing & Capital',emoji:'💰'},
+  {id:'rehabbing',label:'Rehabbing',emoji:'🔨'},
+  {id:'rentals',label:'Rentals & Passive Income',emoji:'🏠'},
+  {id:'marketing',label:'Marketing',emoji:'📣'},
+  {id:'checklists',label:'Checklists',emoji:'✅'},
+  {id:'education',label:'Educational Guides',emoji:'📚'},
+  {id:'team-building',label:'Team Building',emoji:'👥'}
+];
+const FILE_ICONS={docx:'📄',xlsx:'📊',pdf:'📑'};
+const CAT_MAP={};
+CATEGORIES.forEach(c=>{CAT_MAP[c.id]=c;});
+
+const DL_KEY='forge_vault_dl';
+function getDL(){try{return JSON.parse(localStorage.getItem(DL_KEY)||'{}')}catch{return{}}}
+function recordDownload(id){const d=getDL();d[id]=(d[id]||0)+1;try{localStorage.setItem(DL_KEY,JSON.stringify(d))}catch{}renderStats()}
+function totalDL(){return Object.values(getDL()).reduce((a,b)=>a+b,0)}
+
+let activeCategory='all',searchQuery='',sortMode='default';
+
+function setDate(){
+  const el=document.getElementById('topbar-date');
+  if(el)el.textContent=new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
+}
+function loadUserData(){
+  const avatar=localStorage.getItem('forge-avatar');
+  if(avatar){
+    ['sidebar-avatar','topbar-avatar'].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el)el.innerHTML=`<img src="${avatar}" alt="avatar">`;
+    });
+  }
+}
+function renderStats(){
+  const s=id=>document.getElementById(id);
+  if(s('statTotal'))s('statTotal').textContent=FORGE_DOCUMENTS.length;
+  if(s('statNew'))s('statNew').textContent=FORGE_DOCUMENTS.filter(d=>d.id>NEW_THRESHOLD).length;
+  if(s('statDL'))s('statDL').textContent=totalDL()||'0';
+}
+function getFiltered(){
+  const q=searchQuery.toLowerCase(),dl=getDL();
+  let docs=FORGE_DOCUMENTS.filter(doc=>{
+    const catOk=activeCategory==='all'||doc.category===activeCategory;
+    const tags=(doc.tags||[]).join(' ').toLowerCase();
+    const searchOk=!q||doc.title.toLowerCase().includes(q)||doc.description.toLowerCase().includes(q)||(CAT_MAP[doc.category]?.label||'').toLowerCase().includes(q)||tags.includes(q);
+    return catOk&&searchOk;
+  });
+  if(sortMode==='newest')docs=[...docs].sort((a,b)=>b.id-a.id);
+  else if(sortMode==='az')docs=[...docs].sort((a,b)=>a.title.localeCompare(b.title));
+  else if(sortMode==='za')docs=[...docs].sort((a,b)=>b.title.localeCompare(a.title));
+  else if(sortMode==='popular')docs=[...docs].sort((a,b)=>(dl[b.id]||0)-(dl[a.id]||0));
+  return docs;
+}
+function renderSidebar(){
+  const counts={all:FORGE_DOCUMENTS.length};
+  FORGE_DOCUMENTS.forEach(d=>{counts[d.category]=(counts[d.category]||0)+1;});
+  const nav=document.getElementById('categoryNav');
+  nav.innerHTML='<div class="cat-nav-label">Categories</div>';
+  CATEGORIES.forEach(cat=>{
+    const count=counts[cat.id]||0;
+    if(cat.id!=='all'&&count===0)return;
+    const btn=document.createElement('button');
+    btn.className='cat-btn'+(cat.id===activeCategory?' active':'');
+    btn.innerHTML=`<span class="cat-emoji">${cat.emoji}</span><span>${cat.label}</span><span class="cat-count">${count}</span>`;
+    btn.onclick=()=>{activeCategory=cat.id;searchQuery='';document.getElementById('searchInput').value='';renderAll();};
+    nav.appendChild(btn);
+  });
+}
+function buildPreview(doc){
+  const ext=(doc.file||'').split('.').pop().toLowerCase();
+  const tags=doc.tags||[];
+  const usage={
+    'contracts':'Review with your attorney before use. Replace all bracketed placeholders with your actual information.',
+    'financing':'Customize all dollar amounts, rates, and terms to match your specific deal.',
+    'education':'Use as a study guide or distribute to clients, partners, or private lenders.',
+    'finding-deals':'Adapt scripts and templates to your local market and personal style.',
+    'rehabbing':'Walk through with your contractor before starting any project.',
+    'checklists':'Work through each item in sequence — print or use digitally.',
+    'getting-started':'Fill in your specific business information and goals.',
+    'analyzing-deals':'Run every deal through this process before making an offer.',
+    'rentals':'Review with your property manager and local landlord-tenant laws.',
+    'marketing':'Customize with your brand, contact info, and market area.',
+    'team-building':'Adapt roles and responsibilities to your team structure.',
+  };
+  let html=`<h4>Document Type</h4><p>${ext==='xlsx'?'📊 Excel Spreadsheet':'📄 Word Document'} — ${CAT_MAP[doc.category]?.label||doc.category}</p>`;
+  html+=`<h4>Summary</h4><p>${doc.description}</p>`;
+  if(tags.length){html+='<h4>Key Topics</h4><ul>';tags.slice(0,6).forEach(t=>{html+=`<li>${t.charAt(0).toUpperCase()+t.slice(1)}</li>`;});html+='</ul>';}
+  html+=`<h4>How to Use</h4><p>${usage[doc.category]||'Customize with your business information before use.'}</p>`;
+  html+=`<h4>File</h4><p>${ext.toUpperCase()} — ready to download and edit</p>`;
+  return html;
+}
+function renderGrid(docs){
+  const grid=document.getElementById('docGrid'),dl=getDL();
+  grid.innerHTML='';
+  if(!docs.length){grid.innerHTML='<div class="empty-state"><div class="empty-icon">📂</div><h3>No documents found</h3><p>Try a different search term or category.</p></div>';return;}
+  docs.forEach(doc=>{
+    const ext=(doc.file||'').split('.').pop().toLowerCase();
+    const isNew=doc.id>NEW_THRESHOLD,dlCount=dl[doc.id]||0,tags=(doc.tags||[]).slice(0,3);
+    const cat=CAT_MAP[doc.category]||{label:doc.category};
+    const card=document.createElement('div');
+    card.className='doc-card'+(ext==='xlsx'?' doc-xlsx':'');
+    card.innerHTML=`
+      ${dlCount>0?`<div class="dl-badge"><span class="dl-badge-num">${dlCount}</span> dl</div>`:''}
+      <div class="doc-card-top">
+        <div class="doc-icon">${FILE_ICONS[ext]||'📄'}</div>
+        <div class="doc-info">
+          <div class="doc-badges"><span class="doc-cat-tag">${cat.label}</span>${isNew?'<span class="badge-new">New</span>':''}</div>
+          <div class="doc-title">${doc.title}</div>
+        </div>
+      </div>
+      <div class="doc-desc">${doc.description}</div>
+      ${tags.length?`<div class="doc-tags">${tags.map(t=>`<span class="doc-tag">${t}</span>`).join('')}</div>`:''}
+      <div class="doc-actions">
+        <button class="btn-preview" onclick="openPreview(${doc.id},event)">👁 Preview</button>
+        <a class="btn-download" href="${doc.file}" download onclick="recordDownload(${doc.id})">↓ Download</a>
+      </div>`;
+    grid.appendChild(card);
+  });
+}
+function renderAll(){
+  renderSidebar();
+  const filtered=getFiltered();
+  renderGrid(filtered);
+  document.getElementById('countNum').textContent=filtered.length;
+  renderStats();
+}
+function openPreview(id,e){
+  if(e)e.stopPropagation();
+  const doc=FORGE_DOCUMENTS.find(d=>d.id===id);
+  if(!doc)return;
+  const ext=(doc.file||'').split('.').pop().toLowerCase(),cat=CAT_MAP[doc.category]||{label:doc.category},dl=getDL(),dlCount=dl[id]||0,tags=doc.tags||[];
+  document.getElementById('pvIcon').textContent=FILE_ICONS[ext]||'📄';
+  document.getElementById('pvCat').textContent=cat.label;
+  document.getElementById('pvTitle').textContent=doc.title;
+  document.getElementById('pvDesc').textContent=doc.description;
+  document.getElementById('pvContent').innerHTML=buildPreview(doc);
+  const tw=document.getElementById('pvTagsWrap'),te=document.getElementById('pvTags');
+  if(tags.length){te.innerHTML=tags.map(t=>`<span class="pv-tag">${t}</span>`).join('');tw.style.display='';}
+  else{tw.style.display='none';}
+  const dl2=document.getElementById('pvDownload');
+  dl2.href=doc.file;dl2.onclick=()=>recordDownload(id);
+  document.getElementById('pvDlCount').textContent=dlCount>0?`${dlCount} download${dlCount!==1?'s':''}`:'' ;
+  document.getElementById('previewOverlay').classList.add('open');
+  document.getElementById('previewPanel').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+function closePreview(){
+  document.getElementById('previewOverlay').classList.remove('open');
+  document.getElementById('previewPanel').classList.remove('open');
+  document.body.style.overflow='';
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closePreview();});
+document.getElementById('searchInput').addEventListener('input',function(){searchQuery=this.value.trim();if(searchQuery)activeCategory='all';renderAll();});
+document.getElementById('sortSelect').addEventListener('change',function(){sortMode=this.value;renderAll();});
+function submitRequest(){
+  const doc=document.getElementById('reqDoc').value.trim();
+  if(!doc){document.getElementById('reqDoc').focus();return;}
+  const reqs=JSON.parse(localStorage.getItem('forge_doc_requests')||'[]');
+  reqs.push({name:document.getElementById('reqName').value,doc,category:document.getElementById('reqCat').value,notes:document.getElementById('reqNotes').value,date:new Date().toISOString()});
+  try{localStorage.setItem('forge_doc_requests',JSON.stringify(reqs));}catch{}
+  ['reqName','reqDoc','reqNotes'].forEach(id=>{document.getElementById(id).value='';});
+  document.getElementById('reqCat').value='';
+  const s=document.getElementById('formSuccess');s.style.display='block';
+  setTimeout(()=>{s.style.display='none';},5000);
+}
+setDate();loadUserData();renderAll();
+</script>
+</body>
+</html>

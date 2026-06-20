@@ -1,0 +1,7 @@
+[functions]
+  directory = "netlify/functions"
+
+[[redirects]]
+  from = "/api/aris-quote"
+  to = "/.netlify/functions/aris-quote"
+  status = 200

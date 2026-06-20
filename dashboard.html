@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard | FORGE</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --black:      #0D1B2A;
+  --navy:       #0f2035;
+  --navy-light: #162840;
+  --navy-mid:   #1a3350;
+  --orange:     #FF6B2B;
+  --orange-dim: rgba(255,107,43,0.12);
+  --gold:       #C89B3C;
+  --gold-dim:   rgba(200,155,60,0.15);
+  --green:      #22c55e;
+  --green-dim:  rgba(34,197,94,0.12);
+  --red:        #ef4444;
+  --red-dim:    rgba(239,68,68,0.12);
+  --yellow:     #f59e0b;
+  --white:      #FFFFFF;
+  --grey:       #6B7280;
+  --grey-light: #9CA3AF;
+  --border:     rgba(200,155,60,0.18);
+  --border-sub: rgba(255,255,255,0.06);
+  --sidebar-w:  260px;
+}
+
+html, body { height: 100%; background: var(--black); color: var(--white); font-family: 'Inter', sans-serif; overflow: visible; }
+
+/* ── LAYOUT ── */
+.app { display: flex; height: 100vh; width: 100vw; }
+
+/* ── SIDEBAR ── */
+.sidebar { width: var(--sidebar-w); min-width: var(--sidebar-w); background: var(--navy); border-right: 1px solid var(--border-sub); display: flex; flex-direction: column; overflow: visible; }
+.sidebar-logo { padding: 24px 20px 20px; border-bottom: 1px solid var(--border-sub); display: flex; align-items: center; gap: 12px; }
+.logo-mark { width: 36px; height: 36px; background: linear-gradient(135deg, var(--orange), #c04a10); border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.logo-mark svg { width: 20px; height: 20px; }
+.logo-words { line-height: 1; }
+.logo-words .wordmark { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 3px; color: var(--white); }
+.logo-words .wordmark span { color: var(--gold); }
+.logo-words .sub { font-size: 9px; letter-spacing: 2px; color: var(--grey); text-transform: uppercase; margin-top: 2px; }
+.sidebar-section { padding: 20px 14px 8px; }
+.sidebar-section-label { font-size: 9px; letter-spacing: 2.5px; text-transform: uppercase; color: var(--grey); padding: 0 6px; margin-bottom: 6px; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--grey-light); transition: background 0.15s, color 0.15s; text-decoration: none; user-select: none; }
+.nav-item:hover { background: var(--border-sub); color: var(--white); }
+.nav-item.active { background: var(--orange-dim); color: var(--orange); border: 1px solid rgba(255,107,43,0.2); }
+.nav-icon { font-size: 15px; width: 18px; text-align: center; flex-shrink: 0; }
+.nav-badge { margin-left: auto; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; background: var(--border-sub); color: var(--grey); padding: 2px 6px; border-radius: 3px; }
+
+/* ── SIDEBAR FOOTER / PROFILE ── */
+.sidebar-footer { margin-top: auto; padding: 16px 14px; border-top: 1px solid var(--border-sub); }
+.profile-chip { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; background: var(--border-sub); cursor: pointer; transition: background 0.15s; position: relative; }
+.profile-chip:hover { background: var(--navy-mid); }
+.avatar-wrap { position: relative; flex-shrink: 0; }
+.user-avatar {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--gold), #a07820);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; color: var(--black);
+  overflow: visible; border: 2px solid var(--gold);
+}
+.user-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.avatar-upload-btn {
+  position: absolute; bottom: -2px; right: -2px;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--orange); border: 1.5px solid var(--navy);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 8px; cursor: pointer; color: white;
+}
+#avatar-input { display: none; }
+.user-info { line-height: 1.2; min-width: 0; }
+.user-name { font-size: 12px; font-weight: 600; color: var(--white); white-space: nowrap; overflow: visible; text-overflow: ellipsis; }
+.user-tier { font-size: 10px; color: var(--gold); letter-spacing: 1px; text-transform: uppercase; }
+
+/* ── MAIN ── */
+.main { flex: 1; display: flex; flex-direction: column; overflow: visible; }
+
+/* ── TOP BAR ── */
+.topbar { display: flex; align-items: center; justify-content: space-between; padding: 16px 28px; border-bottom: 1px solid var(--border-sub); flex-shrink: 0; }
+.topbar-left { display: flex; align-items: center; gap: 14px; }
+.topbar-avatar {
+  width: 42px; height: 42px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--gold), #a07820);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 700; color: var(--black);
+  overflow: visible; border: 2px solid var(--gold); flex-shrink: 0;
+}
+.topbar-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.topbar-greeting { line-height: 1.2; }
+.topbar-welcome { font-size: 11px; color: var(--grey); letter-spacing: 1px; }
+.topbar-name { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 3px; color: var(--white); }
+.topbar-right { display: flex; align-items: center; gap: 8px; }
+.topbar-date { font-size: 11px; color: var(--grey); letter-spacing: 0.5px; }
+
+/* ── SCROLL AREA ── */
+.dashboard-scroll { flex: 1; overflow-y: auto; padding: 24px 28px 32px; display: flex; flex-direction: column; gap: 24px; }
+.dashboard-scroll::-webkit-scrollbar { width: 4px; }
+.dashboard-scroll::-webkit-scrollbar-thumb { background: var(--border-sub); border-radius: 2px; }
+
+/* ── ARIS QUOTE BANNER ── */
+.quote-banner {
+  background: linear-gradient(135deg, var(--navy-light) 0%, #0f2a40 100%);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px 24px;
+  position: relative;
+  overflow: visible;
+}
+.quote-banner::before {
+  content: '"';
+  position: absolute;
+  top: -10px; left: 16px;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 120px;
+  color: var(--gold);
+  opacity: 0.06;
+  line-height: 1;
+  pointer-events: none;
+}
+.quote-banner-top { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.quote-aris-av { width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, #162840, #0D1B2A); border: 1.5px solid var(--gold); display: flex; align-items: center; justify-content: center; font-family: 'Bebas Neue', sans-serif; font-size: 8px; letter-spacing: 1px; color: var(--gold); flex-shrink: 0; }
+.quote-label { font-size: 9px; letter-spacing: 2.5px; text-transform: uppercase; color: var(--gold); font-weight: 600; }
+.quote-type-badge { margin-left: auto; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; padding: 2px 8px; border-radius: 3px; }
+.quote-type-badge.motivational { background: var(--orange-dim); color: var(--orange); border: 1px solid rgba(255,107,43,0.2); }
+.quote-type-badge.tactical { background: var(--gold-dim); color: var(--gold); border: 1px solid rgba(200,155,60,0.3); }
+.quote-text { font-size: 15px; line-height: 1.65; color: #FFFFFF; font-style: italic; margin-bottom: 10px; }
+.quote-text strong { color: var(--gold); font-style: normal; }
+.quote-sig { font-family: 'Bebas Neue', sans-serif; font-size: 12px; letter-spacing: 2px; color: var(--gold); opacity: 0.7; }
+.quote-loading { display: flex; align-items: center; gap: 8px; color: var(--grey); font-size: 13px; }
+.quote-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--gold); opacity: 0.5; animation: pulse 1.4s infinite; }
+.quote-dot:nth-child(2) { animation-delay: 0.2s; }
+.quote-dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes pulse { 0%,80%,100%{opacity:0.3;transform:scale(0.9);} 40%{opacity:1;transform:scale(1.1);} }
+
+/* ── STATS ROW ── */
+.stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.stat-card { background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 10px; padding: 14px 16px; }
+.stat-label { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--grey); margin-bottom: 6px; }
+.stat-value { font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 2px; color: var(--white); line-height: 1; }
+.stat-value.gold { color: var(--gold); }
+.stat-value.orange { color: var(--orange); }
+.stat-sub { font-size: 10px; color: var(--grey); margin-top: 3px; }
+
+/* ── ARIS QUICK CHAT ── */
+.quick-chat-card { background: var(--navy-light); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; }
+.quick-chat-top { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.quick-chat-label { font-size: 9px; letter-spacing: 2.5px; text-transform: uppercase; color: var(--gold); font-weight: 600; }
+.quick-chat-status { font-size: 10px; color: var(--green); display: flex; align-items: center; gap: 4px; margin-left: auto; }
+.quick-chat-status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--green); display: inline-block; }
+.quick-chat-wrap { display: flex; align-items: center; gap: 8px; background: var(--navy-mid); border: 1px solid var(--border-sub); border-radius: 8px; padding: 10px 14px; transition: border-color 0.15s; }
+.quick-chat-wrap:focus-within { border-color: var(--gold); }
+#quick-input { flex: 1; background: none; border: none; outline: none; color: var(--white); font-family: 'Inter', sans-serif; font-size: 13px; caret-color: var(--gold); }
+#quick-input::placeholder { color: var(--grey); }
+.quick-send-btn { background: var(--orange); border: none; border-radius: 6px; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; transition: background 0.15s; }
+.quick-send-btn:hover { background: #e55a1c; }
+.quick-send-btn svg { width: 13px; height: 13px; fill: white; }
+.quick-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+.quick-chip { font-size: 11px; font-family: 'Inter', sans-serif; background: var(--navy-mid); border: 1px solid var(--border-sub); color: var(--grey-light); padding: 5px 12px; border-radius: 20px; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+.quick-chip:hover { border-color: var(--gold); color: var(--gold); background: var(--gold-dim); }
+
+/* ── MODULE GRID ── */
+.section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.section-title { font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 3px; color: var(--white); }
+.section-sub { font-size: 11px; color: var(--grey); }
+.modules-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.module-card {
+  background: var(--navy-light);
+  border: 1px solid var(--border-sub);
+  border-radius: 12px;
+  padding: 18px 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  text-decoration: none;
+  display: block;
+}
+.module-card:hover { border-color: var(--border); transform: translateY(-2px); background: var(--navy-mid); }
+.module-card.live:hover { border-color: var(--orange); }
+.module-card.coming { cursor: default; opacity: 0.6; }
+.module-card.coming:hover { transform: none; border-color: var(--border-sub); background: var(--navy-light); }
+.module-card.phase2 { border-style: dashed; border-color: rgba(200,155,60,0.2); }
+.module-icon { font-size: 26px; margin-bottom: 10px; }
+.module-name { font-family: 'Bebas Neue', sans-serif; font-size: 15px; letter-spacing: 2px; color: var(--white); margin-bottom: 4px; }
+.module-desc { font-size: 11px; color: var(--grey-light); line-height: 1.5; margin-bottom: 10px; }
+.module-status { display: inline-flex; align-items: center; gap: 4px; font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; font-weight: 600; }
+.module-status.live { background: var(--green-dim); color: var(--green); border: 1px solid rgba(34,197,94,0.2); }
+.module-status.soon { background: var(--border-sub); color: var(--grey); border: 1px solid var(--border-sub); }
+.module-status.phase2 { background: var(--gold-dim); color: var(--gold); border: 1px solid var(--border); }
+.module-arrow { position: absolute; top: 16px; right: 16px; font-size: 14px; color: var(--grey); opacity: 0; transition: opacity 0.15s; }
+.module-card.live:hover .module-arrow { opacity: 1; color: var(--orange); }
+
+/* ── RECENT DEALS ── */
+.recent-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.recent-card { background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 10px; padding: 14px 16px; cursor: pointer; transition: all 0.15s; text-decoration: none; display: block; }
+.recent-card:hover { border-color: var(--border); background: var(--navy-mid); }
+.recent-card-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 8px; }
+.recent-deal-name { font-size: 13px; font-weight: 600; color: var(--white); line-height: 1.3; }
+.recent-deal-address { font-size: 11px; color: var(--grey); margin-top: 2px; }
+.recent-verdict { font-size: 9px; font-weight: 700; padding: 3px 8px; border-radius: 4px; letter-spacing: 1px; text-transform: uppercase; white-space: nowrap; flex-shrink: 0; }
+.recent-verdict.go { background: var(--green-dim); color: var(--green); border: 1px solid rgba(34,197,94,0.25); }
+.recent-verdict.caution { background: var(--yellow-dim, rgba(245,158,11,0.12)); color: var(--yellow); border: 1px solid rgba(245,158,11,0.25); }
+.recent-verdict.no-go { background: var(--red-dim); color: var(--red); border: 1px solid rgba(239,68,68,0.25); }
+.recent-deal-meta { display: flex; gap: 10px; font-size: 10px; color: var(--grey); }
+.recent-deal-type { color: var(--gold); }
+.recent-empty { background: var(--navy-light); border: 1px dashed var(--border-sub); border-radius: 10px; padding: 28px; text-align: center; color: var(--grey); font-size: 13px; line-height: 1.6; grid-column: span 3; }
+.recent-empty strong { color: var(--grey-light); }
+
+/* ── ONBOARDING MODAL ── */
+.ob-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.85);
+  z-index: 500;
+  display: flex; align-items: center; justify-content: center;
+  backdrop-filter: blur(4px);
+}
+.ob-modal {
+  background: var(--navy);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  width: 560px;
+  max-width: calc(100vw - 32px);
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 36px;
+}
+.ob-modal::-webkit-scrollbar { width: 4px; }
+.ob-modal::-webkit-scrollbar-thumb { background: var(--border-sub); border-radius: 2px; }
+.ob-header { text-align: center; margin-bottom: 28px; }
+.ob-aris-av {
+  width: 52px; height: 52px; border-radius: 50%;
+  background: linear-gradient(135deg, #162840, #0D1B2A);
+  border: 2px solid var(--gold);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Bebas Neue', sans-serif; font-size: 14px;
+  letter-spacing: 2px; color: var(--gold);
+  margin: 0 auto 14px;
+}
+.ob-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 26px; letter-spacing: 4px;
+  color: var(--white); margin-bottom: 6px;
+}
+.ob-sub { font-size: 13px; color: var(--grey-light); line-height: 1.6; }
+.ob-sub strong { color: var(--gold); }
+.ob-divider { height: 1px; background: var(--border-sub); margin: 24px 0; }
+.ob-question { margin-bottom: 22px; }
+.ob-question-num {
+  font-size: 9px; letter-spacing: 2.5px; text-transform: uppercase;
+  color: var(--gold); font-weight: 600; margin-bottom: 6px;
+}
+.ob-question-text {
+  font-size: 14px; font-weight: 600; color: var(--white);
+  line-height: 1.4; margin-bottom: 10px;
+}
+.ob-question-hint { font-size: 11px; color: var(--grey); margin-bottom: 8px; font-style: italic; }
+.ob-textarea {
+  width: 100%;
+  background: var(--navy-light);
+  border: 1px solid var(--border-sub);
+  border-radius: 8px;
+  padding: 12px 14px;
+  color: var(--white);
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  line-height: 1.6;
+  resize: vertical;
+  min-height: 80px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.ob-textarea:focus { border-color: var(--gold); }
+.ob-textarea::placeholder { color: var(--grey); }
+.ob-actions { display: flex; gap: 10px; margin-top: 24px; }
+.ob-btn {
+  flex: 1; padding: 13px; border-radius: 8px;
+  font-family: 'Inter', sans-serif; font-size: 13px;
+  font-weight: 600; cursor: pointer; border: none;
+  transition: all 0.15s;
+}
+.ob-btn.skip {
+  background: var(--border-sub); color: var(--grey-light);
+  border: 1px solid var(--border-sub);
+}
+.ob-btn.skip:hover { color: var(--white); }
+.ob-btn.save {
+  background: var(--orange); color: white;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 16px; letter-spacing: 3px;
+}
+.ob-btn.save:hover { background: #e55a1c; }
+
+/* ── WHY CARD (on dashboard) ── */
+.why-card {
+  background: var(--navy-light);
+  border: 1px solid var(--border-sub);
+  border-radius: 12px;
+  padding: 16px 20px;
+  display: flex; align-items: flex-start;
+  justify-content: space-between; gap: 16px;
+}
+.why-card-left { flex: 1; min-width: 0; }
+.why-card-label { font-size: 9px; letter-spacing: 2.5px; text-transform: uppercase; color: var(--gold); font-weight: 600; margin-bottom: 6px; }
+.why-preview { font-size: 12px; color: var(--grey-light); line-height: 1.5; font-style: italic; white-space: nowrap; overflow: visible; text-overflow: ellipsis; }
+.why-edit-btn {
+  background: var(--border-sub); border: 1px solid var(--border-sub);
+  color: var(--grey-light); font-size: 11px; font-family: 'Inter', sans-serif;
+  padding: 5px 12px; border-radius: 5px; cursor: pointer;
+  transition: all 0.15s; white-space: nowrap; flex-shrink: 0;
+}
+.why-edit-btn:hover { color: var(--white); border-color: var(--border); }
+.why-prompt { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 18px; background: rgba(200,155,60,0.06); border: 1px solid rgba(200,155,60,0.2); border-radius: 10px; cursor: pointer; transition: background .2s, border-color .2s; }
+.why-prompt:hover { background: rgba(200,155,60,0.1); border-color: rgba(200,155,60,0.35); }
+.why-prompt-left { display: flex; align-items: center; gap: 12px; }
+.why-prompt-av { width: 26px; height: 26px; border-radius: 50%; background: linear-gradient(135deg, #162840, #0D1B2A); border: 1.5px solid var(--gold); display: flex; align-items: center; justify-content: center; font-family: 'Bebas Neue', sans-serif; font-size: 7px; letter-spacing: 1px; color: var(--gold); flex-shrink: 0; }
+.why-prompt-text { line-height: 1.3; }
+.why-prompt-title { font-size: 12px; font-weight: 600; color: var(--white); margin-bottom: 2px; }
+.why-prompt-sub { font-size: 11px; color: var(--grey); }
+.why-prompt-cta { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--gold); white-space: nowrap; flex-shrink: 0; }
+
+/* ── TOAST ── */
+.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--green); color: white; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; z-index: 999; animation: fadeUp 0.2s ease; pointer-events: none; }
+@keyframes fadeUp { from{opacity:0;transform:translateX(-50%) translateY(8px);} to{opacity:1;transform:translateX(-50%) translateY(0);} }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 1100px) { .modules-grid { grid-template-columns: repeat(2, 1fr); } .stats-row { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 768px) { .sidebar { display: none; } .dashboard-scroll { padding: 16px; } .recent-grid { grid-template-columns: 1fr; } .recent-empty { grid-column: span 1; } }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M4 17h16v2H4v-2zm2-6h12l-1.5 6H7.5L6 11zm3-6h6l1 4H8l1-4z" fill="white" opacity="0.9"/><path d="M10 5h4v2h-4V5z" fill="white"/></svg>
+      </div>
+      <div class="logo-words">
+        <div class="wordmark">F<span>O</span>RGE</div>
+        <div class="sub">Powered by ARIS</div>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Navigation</div>
+      <div class="nav-item active"><span class="nav-icon">🏠</span>Dashboard</div>
+      <a class="nav-item" href="aris-coach.html"><span class="nav-icon">⚡</span>ARIS AI Coach</a>
+      <a class="nav-item" href="deal-analyzer.html"><span class="nav-icon">🔍</span>Deal Analyzer</a>
+      <div class="nav-item"><span class="nav-icon">📍</span>Property Search<span class="nav-badge">Soon</span></div>
+      <div class="nav-item"><span class="nav-icon">🤝</span>Deal Network<span class="nav-badge">Soon</span></div>
+      <div class="nav-item"><span class="nav-icon">🎯</span>Capital Radar<span class="nav-badge">Soon</span></div>
+      <div class="nav-item"><span class="nav-icon">🔮</span>Market Oracle<span class="nav-badge">Soon</span></div>
+      <div class="nav-item"><span class="nav-icon">📂</span>Document Vault<span class="nav-badge">Soon</span></div>
+      <div class="nav-item"><span class="nav-icon">🏛</span>Education<span class="nav-badge">Soon</span></div>
+    </div>
+    <div class="sidebar-footer">
+      <input type="file" id="avatar-input" accept="image/*" onchange="handleAvatarUpload(event)" />
+      <div class="profile-chip" onclick="document.getElementById('avatar-input').click()">
+        <div class="avatar-wrap">
+          <div class="user-avatar" id="sidebar-avatar"><span id="sidebar-initials">JD</span></div>
+          <div class="avatar-upload-btn">📷</div>
+        </div>
+        <div class="user-info">
+          <div class="user-name" id="sidebar-name">John Dessauer</div>
+          <div class="user-tier">Founding Member</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- TOP BAR -->
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-avatar" id="topbar-avatar"><span id="topbar-initials">JD</span></div>
+        <div class="topbar-greeting">
+          <div class="topbar-welcome" id="topbar-welcome">Good morning</div>
+          <div class="topbar-name" id="topbar-name">John Dessauer</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="topbar-date" id="topbar-date"></div>
+      </div>
+    </div>
+
+    <!-- DASHBOARD SCROLL -->
+    <div class="dashboard-scroll">
+
+      <!-- ARIS DAILY QUOTE -->
+      <div class="quote-banner" id="quote-banner">
+        <div class="quote-banner-top">
+          <div class="quote-aris-av">ARIS</div>
+          <div class="quote-label">ARIS — Daily Transmission</div>
+          <div class="quote-type-badge motivational" id="quote-type-badge">Motivational</div>
+        </div>
+        <div id="quote-content">
+          <div class="quote-loading">
+            <div class="quote-dot"></div>
+            <div class="quote-dot"></div>
+            <div class="quote-dot"></div>
+            &nbsp; ARIS is generating your daily transmission...
+          </div>
+        </div>
+      </div>
+
+      <!-- WHY PROMPT (shown when Why not set) -->
+      <div id="why-prompt-banner" style="display:none;" onclick="openOnboarding(false)">
+        <div class="why-prompt">
+          <div class="why-prompt-left">
+            <div class="why-prompt-av">ARIS</div>
+            <div class="why-prompt-text">
+              <div class="why-prompt-title">ARIS works better when it knows your Why</div>
+              <div class="why-prompt-sub">Answer 3 quick questions and I'll personalize every coaching session to your goals.</div>
+            </div>
+          </div>
+          <div class="why-prompt-cta">Set My Why →</div>
+        </div>
+      </div>
+
+      <!-- STATS ROW -->
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-label">Deals Saved</div>
+          <div class="stat-value gold" id="stat-deals">0</div>
+          <div class="stat-sub">in your vault</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">ARIS Sessions</div>
+          <div class="stat-value orange" id="stat-sessions">0</div>
+          <div class="stat-sub">total conversations</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Member Since</div>
+          <div class="stat-value" id="stat-since" style="font-size:18px;margin-top:4px;">—</div>
+          <div class="stat-sub">founding member</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Membership</div>
+          <div class="stat-value gold" style="font-size:18px;margin-top:4px;">FOUNDING</div>
+          <div class="stat-sub">$97 / month</div>
+        </div>
+      </div>
+
+      <!-- ARIS QUICK CHAT -->
+      <div class="quick-chat-card">
+        <div class="quick-chat-top">
+          <div class="quote-aris-av">ARIS</div>
+          <div class="quick-chat-label">Ask ARIS Anything</div>
+          <div class="quick-chat-status">Online</div>
+        </div>
+        <div class="quick-chat-wrap">
+          <input type="text" id="quick-input" placeholder="What deal are you working on today?" onkeydown="handleQuickKey(event)" />
+          <button class="quick-send-btn" onclick="sendQuickChat()">
+            <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+          </button>
+        </div>
+        <div class="quick-chips">
+          <div class="quick-chip" onclick="quickChip(this)">Analyze a deal</div>
+          <div class="quick-chip" onclick="quickChip(this)">Find motivated sellers</div>
+          <div class="quick-chip" onclick="quickChip(this)">Raise private capital</div>
+          <div class="quick-chip" onclick="quickChip(this)">Fix & flip strategy</div>
+          <div class="quick-chip" onclick="quickChip(this)">STR cash flow model</div>
+        </div>
+      </div>
+
+      <!-- MODULE GRID -->
+      <div>
+        <div class="section-header">
+          <div class="section-title">Your Platform</div>
+          <div class="section-sub">8 tools. One empire.</div>
+        </div>
+        <div class="modules-grid">
+          <a class="module-card live" href="aris-coach.html">
+            <div class="module-arrow">→</div>
+            <div class="module-icon">⚡</div>
+            <div class="module-name">ARIS AI Coach</div>
+            <div class="module-desc">24/7 real estate coaching across every strategy. No scheduling. No waiting.</div>
+            <div class="module-status live">● Live</div>
+          </a>
+          <a class="module-card live" href="deal-analyzer.html">
+            <div class="module-arrow">→</div>
+            <div class="module-icon">🔍</div>
+            <div class="module-name">Deal Analyzer</div>
+            <div class="module-desc">Wholesale, flip, rental, STR, multifamily. AI-powered analysis in seconds.</div>
+            <div class="module-status live">● Live</div>
+          </a>
+          <div class="module-card coming">
+            <div class="module-icon">📍</div>
+            <div class="module-name">Property Search</div>
+            <div class="module-desc">Motivated seller leads, cash buyers, private lenders. Nationwide data.</div>
+            <div class="module-status soon">Coming Soon</div>
+          </div>
+          <div class="module-card coming">
+            <div class="module-icon">🤝</div>
+            <div class="module-name">Deal Network</div>
+            <div class="module-desc">Post deals, raise capital, connect with investors. Built-in marketplace.</div>
+            <div class="module-status soon">Coming Soon</div>
+          </div>
+          <div class="module-card coming">
+            <div class="module-icon">🎯</div>
+            <div class="module-name">Capital Radar</div>
+            <div class="module-desc">Find private money lenders actively deploying capital in your market.</div>
+            <div class="module-status soon">Coming Soon</div>
+          </div>
+          <div class="module-card coming">
+            <div class="module-icon">🔮</div>
+            <div class="module-name">Market Oracle</div>
+            <div class="module-desc">Score any market across 50+ data points. Buy, Watch, or Avoid verdict.</div>
+            <div class="module-status soon">Coming Soon</div>
+          </div>
+          <div class="module-card coming">
+            <div class="module-icon">📂</div>
+            <div class="module-name">Document Vault</div>
+            <div class="module-desc">Every contract, script, SOP, checklist, and credibility packet you need.</div>
+            <div class="module-status soon">Coming Soon</div>
+          </div>
+          <div class="module-card coming">
+            <div class="module-icon">🏛</div>
+            <div class="module-name">Education</div>
+            <div class="module-desc">Wholesaling, flipping, STR, MTR, multifamily, commercial, tax strategy.</div>
+            <div class="module-status soon">Coming Soon</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RECENT DEALS -->
+      <div>
+        <div class="section-header">
+          <div class="section-title">Recent Deals</div>
+          <a href="deal-analyzer.html" style="font-size:11px;color:var(--gold);text-decoration:none;letter-spacing:0.5px;">View All →</a>
+        </div>
+        <div class="recent-grid" id="recent-deals-grid"></div>
+      </div>
+
+      <!-- WHY CARD (shown after onboarding) -->
+      <div id="why-card" style="display:none;">
+        <div class="why-card">
+          <div class="why-card-left">
+            <div class="why-card-label">Your Why — ARIS Keeps This in Mind</div>
+            <div class="why-preview" id="why-preview"></div>
+          </div>
+          <button class="why-edit-btn" onclick="openOnboarding(true)">Edit</button>
+        </div>
+      </div>
+
+    </div><!-- end dashboard-scroll -->
+  </main>
+</div>
+
+<!-- ONBOARDING MODAL -->
+<div class="ob-overlay" id="ob-overlay" style="display:none;">
+  <div class="ob-modal">
+    <div class="ob-header">
+      <div class="ob-aris-av">ARIS</div>
+      <div class="ob-title">Before We Begin</div>
+      <div class="ob-sub">
+        I'm not just your tool. I'm your advisor.<br>
+        Answer these three questions and I'll use them <strong>every time we work together.</strong>
+      </div>
+    </div>
+    <div class="ob-divider"></div>
+
+    <div class="ob-question">
+      <div class="ob-question-num">Question 01</div>
+      <div class="ob-question-text">Why do you want to be a real estate investor?</div>
+      <div class="ob-question-hint">Be specific. "Financial freedom" is a category. I want your reason.</div>
+      <textarea class="ob-textarea" id="ob-q1" placeholder="e.g. I want to replace my income so I can be present for my kids and stop trading time for money..."></textarea>
+    </div>
+
+    <div class="ob-question">
+      <div class="ob-question-num">Question 02</div>
+      <div class="ob-question-text">When you become proficient and reach your objectives — how are you going to make the world a better place?</div>
+      <div class="ob-question-hint">Your success isn't just about you. What does it unlock?</div>
+      <textarea class="ob-textarea" id="ob-q2" placeholder="e.g. I want to fund a scholarship program in my community and employ people from underserved neighborhoods..."></textarea>
+    </div>
+
+    <div class="ob-question">
+      <div class="ob-question-num">Question 03</div>
+      <div class="ob-question-text">What makes this the right time for you to make this happen?</div>
+      <div class="ob-question-hint">Why now, not a year from now? What has shifted?</div>
+      <textarea class="ob-textarea" id="ob-q3" placeholder="e.g. My youngest just started school. I have 3 hours a day back and I'm done waiting for the right moment..."></textarea>
+    </div>
+
+    <div class="ob-actions">
+      <button class="ob-btn skip" onclick="skipOnboarding()">Skip for now</button>
+      <button class="ob-btn save" onclick="saveOnboarding()">SAVE MY WHY</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── STATE ──
+const ARIS_QUOTE_SYSTEM = `You are ARIS — the Adaptive Real Estate Intelligence System. You are male. Named after Aristotle who tutored Alexander the Great. You are generating a daily transmission for a FORGE member — a real estate investor who has committed to building their portfolio.
+
+Generate ONE of two types — choose based on the day of the week and date provided:
+
+TYPE A — MOTIVATIONAL (Monday, Wednesday, Friday):
+A powerful, sharp quote about mindset, discipline, execution, empire-building, or the investor's journey. Draw from history, strategy, warfare, philosophy. Make it feel like something carved in stone. 2-4 sentences max.
+
+TYPE B — TACTICAL (Tuesday, Thursday, Saturday, Sunday):
+A specific, actionable real estate insight or strategy reminder. Something that makes the investor think "I need to apply this today." Reference a real strategy, formula, or principle. 2-4 sentences max.
+
+Respond ONLY in this exact JSON format — no preamble, no explanation:
+{
+  "type": "motivational" or "tactical",
+  "quote": "The quote text here. Can use **bold** for emphasis."
+}`;
+
+// ── INIT ──
+window.onload = () => {
+  setGreeting();
+  setDate();
+  loadStats();
+  loadRecentDeals();
+  loadAvatar();
+  loadWhyCard();
+  loadDailyQuote();
+  trackSession();
+  checkOnboarding();
+};
+
+// ── GREETING ──
+function setGreeting() {
+  const h = new Date().getHours();
+  const greeting = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+  document.getElementById('topbar-welcome').textContent = greeting;
+}
+
+function setDate() {
+  const d = new Date();
+  const opts = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+  document.getElementById('topbar-date').textContent = d.toLocaleDateString('en-US', opts);
+}
+
+// ── STATS ──
+function loadStats() {
+  const deals = JSON.parse(localStorage.getItem('forge-deals') || '[]');
+  document.getElementById('stat-deals').textContent = deals.length;
+
+  const sessions = parseInt(localStorage.getItem('forge-sessions') || '0');
+  document.getElementById('stat-sessions').textContent = sessions;
+
+  let since = localStorage.getItem('forge-member-since');
+  if (!since) {
+    since = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    localStorage.setItem('forge-member-since', since);
+  }
+  document.getElementById('stat-since').textContent = since;
+}
+
+function trackSession() {
+  const sessions = parseInt(localStorage.getItem('forge-sessions') || '0');
+  localStorage.setItem('forge-sessions', sessions + 1);
+}
+
+// ── DAILY QUOTE ──
+async function loadDailyQuote() {
+  // Always fetch a fresh quote on every session load — no caching
+  try {
+    const day = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+    const why = JSON.parse(localStorage.getItem('forge-member-why') || 'null');
+    const whyContext = why
+      ? `\n\nMEMBER CONTEXT — use this to personalize the transmission when relevant:\n- Why they want to invest: "${why.q1}"\n- How they'll make the world better: "${why.q2}"\n- Why now is their time: "${why.q3}"`
+      : '';
+    const res = await fetch('/api/aris-quote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1000,
+        system: ARIS_QUOTE_SYSTEM + whyContext,
+        messages: [{ role: 'user', content: `Today is ${day}. Generate my daily transmission.` }]
+      })
+    });
+
+    const data = await res.json();
+    const text = data.content?.[0]?.text || '';
+    const clean = text.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(clean);
+
+    renderQuote(parsed.quote, parsed.type);
+  } catch(e) {
+    renderQuote('The investor who executes imperfectly today will always outperform the one who plans perfectly tomorrow. **Your edge is action.** Go build.', 'motivational');
+  }
+}
+
+function renderQuote(quote, type) {
+  const formatted = quote.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  document.getElementById('quote-content').innerHTML = `
+    <div class="quote-text">${formatted}</div>
+    <div class="quote-sig">— ARIS</div>
+  `;
+  const badge = document.getElementById('quote-type-badge');
+  badge.textContent = type === 'tactical' ? 'Tactical' : 'Motivational';
+  badge.className = `quote-type-badge ${type === 'tactical' ? 'tactical' : 'motivational'}`;
+}
+
+// ── RECENT DEALS ──
+function loadRecentDeals() {
+  const saved = JSON.parse(localStorage.getItem('forge-deals') || '[]');
+  const grid = document.getElementById('recent-deals-grid');
+  const tabLabels = { wholesale:'Wholesale', flip:'Fix & Flip', rental:'LT Rental', str:'STR/MTR', multi:'2-4 Units' };
+
+  if (!saved.length) {
+    grid.innerHTML = `<div class="recent-empty"><strong>No saved deals yet.</strong><br>Head to the Deal Analyzer, run your first analysis, and save it here.</div>`;
+    return;
+  }
+
+  grid.innerHTML = saved.slice(0, 3).map(d => {
+    const verdict = d.data?.verdict || 'caution';
+    const verdictText = d.data?.verdictText || 'PENDING';
+    return `
+      <a class="recent-card" href="deal-analyzer.html">
+        <div class="recent-card-top">
+          <div>
+            <div class="recent-deal-name">${d.displayName || d.name || 'Unnamed Deal'}</div>
+            ${d.address && d.nickname ? `<div class="recent-deal-address">📍 ${d.address}</div>` : ''}
+          </div>
+          <div class="recent-verdict ${verdict}">${verdictText}</div>
+        </div>
+        <div class="recent-deal-meta">
+          <span class="recent-deal-type">${tabLabels[d.tab] || d.tab}</span>
+          <span>${new Date(d.timestamp).toLocaleDateString()}</span>
+        </div>
+      </a>
+    `;
+  }).join('');
+}
+
+// ── AVATAR ──
+function handleAvatarUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const dataUrl = ev.target.result;
+    localStorage.setItem('forge-avatar', dataUrl);
+    applyAvatar(dataUrl);
+    showToast('Profile photo updated');
+  };
+  reader.readAsDataURL(file);
+  e.target.value = '';
+}
+
+function loadAvatar() {
+  const avatar = localStorage.getItem('forge-avatar');
+  if (avatar) applyAvatar(avatar);
+}
+
+function applyAvatar(dataUrl) {
+  // Sidebar
+  const sidebarAv = document.getElementById('sidebar-avatar');
+  sidebarAv.innerHTML = `<img src="${dataUrl}" alt="Profile" />`;
+  // Topbar
+  const topbarAv = document.getElementById('topbar-avatar');
+  topbarAv.innerHTML = `<img src="${dataUrl}" alt="Profile" />`;
+}
+
+// ── TOAST ──
+function sendQuickChat() {
+  const input = document.getElementById('quick-input');
+  const text = input.value.trim();
+  if (!text) return;
+  localStorage.setItem('forge-quick-chat', text);
+  window.location.href = 'aris-coach.html';
+}
+
+function quickChip(el) {
+  document.getElementById('quick-input').value = el.textContent;
+  sendQuickChat();
+}
+
+function handleQuickKey(e) {
+  if (e.key === 'Enter') sendQuickChat();
+}
+
+// ── ONBOARDING ──
+function checkOnboarding() {
+  const why = localStorage.getItem('forge-member-why');
+  const skipped = localStorage.getItem('forge-ob-skipped');
+  if (!why && !skipped) {
+    setTimeout(() => openOnboarding(false), 800);
+  }
+}
+
+function openOnboarding(isEdit = false) {
+  // Pre-fill if editing
+  if (isEdit) {
+    const why = JSON.parse(localStorage.getItem('forge-member-why') || '{}');
+    document.getElementById('ob-q1').value = why.q1 || '';
+    document.getElementById('ob-q2').value = why.q2 || '';
+    document.getElementById('ob-q3').value = why.q3 || '';
+  }
+  document.getElementById('ob-overlay').style.display = 'flex';
+}
+
+function skipOnboarding() {
+  localStorage.setItem('forge-ob-skipped', '1');
+  document.getElementById('ob-overlay').style.display = 'none';
+}
+
+function saveOnboarding() {
+  const q1 = document.getElementById('ob-q1').value.trim();
+  const q2 = document.getElementById('ob-q2').value.trim();
+  const q3 = document.getElementById('ob-q3').value.trim();
+
+  if (!q1 && !q2 && !q3) {
+    skipOnboarding();
+    return;
+  }
+
+  const why = { q1, q2, q3, savedAt: new Date().toISOString() };
+  localStorage.setItem('forge-member-why', JSON.stringify(why));
+  localStorage.removeItem('forge-ob-skipped');
+
+  document.getElementById('ob-overlay').style.display = 'none';
+  loadWhyCard();
+  loadDailyQuote();
+  showToast('Your why is saved — ARIS will keep it in mind.');
+}
+
+function loadWhyCard() {
+  const why = JSON.parse(localStorage.getItem('forge-member-why') || 'null');
+  const card = document.getElementById('why-card');
+  const prompt = document.getElementById('why-prompt-banner');
+  if (!why || !why.q1) {
+    card.style.display = 'none';
+    if (prompt) prompt.style.display = 'block';
+    return;
+  }
+  card.style.display = 'block';
+  if (prompt) prompt.style.display = 'none';
+  document.getElementById('why-preview').textContent = `"${why.q1}"`;
+}
+
+// ── WHY CONTEXT FOR ARIS COACH ──
+// Write why to localStorage so ARIS Coach can read it
+function getWhyContext() {
+  const why = JSON.parse(localStorage.getItem('forge-member-why') || 'null');
+  if (!why) return '';
+  return `\n\nMEMBER'S WHY — Reference this periodically when relevant, especially when the member needs motivation, is hesitating, or celebrates a win:\n- Why they want to invest: "${why.q1}"\n- How they'll make the world better: "${why.q2}"\n- Why now is their time: "${why.q3}"\n\nDo NOT reference their why in every single message — only when it adds real impact. When you do use it, make it feel personal and specific, not generic.`;
+}
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2500);
+}
+</script>
+</body>
+</html>
