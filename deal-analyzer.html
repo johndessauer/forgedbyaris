@@ -1212,9 +1212,9 @@ async function sendToARIS(userText, showUserBubble = true) {
   showTyping();
 
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch('/api/aris-quote', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': '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', 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 1000,
