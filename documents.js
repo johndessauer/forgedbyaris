@@ -1,4 +1,4 @@
-const documents = [
+const FORGE_DOCUMENTS = [
 
   // ── GETTING STARTED ───────────────────────────────────────────────────────
   { id: 1, title: "FORGE Welcome Guide", category: "getting-started", file: "docs/FORGE-Welcome-Guide.docx", description: "Your first stop in FORGE. Overview of the platform, how to use ARIS, and how to navigate the Document Vault." },
