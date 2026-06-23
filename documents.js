@@ -1,4 +1,4 @@
-const FORGE_DOCUMENTS = [
+const documents = [
 
   // ── GETTING STARTED ───────────────────────────────────────────────────────
   { id: 1, title: "FORGE Welcome Guide", category: "getting-started", file: "docs/FORGE-Welcome-Guide.docx", description: "Your first stop in FORGE. Overview of the platform, how to use ARIS, and how to navigate the Document Vault." },
@@ -200,5 +200,15 @@ const FORGE_DOCUMENTS = [
   { id: 82, title: "Driver Timetable & Pay Schedule", category: "team-building", file: "docs/FORGE-Driver-Timetable-Pay-Schedule.xlsx", description: "Scheduling and compensation tracker for sign drivers and field workers." },
   { id: 83, title: "Personal Assistant Job Posting", category: "team-building", file: "docs/FORGE-Personal-Assistant-Job-Posting.docx", description: "Ready-to-post job description for a real estate personal assistant role." },
   { id: 84, title: "Master Team Contact Database", category: "team-building", file: "docs/FORGE-Master-Team-Contact-Database.xlsx", description: "Centralized contact database for your full team, vendors, and partners." }
+
+  // ── WHOLESALING ───────────────────────────────────────────────────────────
+  { id: 193, title: 'Seller Lead Sheet', category: 'wholesaling', file: 'docs/FORGE-Seller-Lead-Sheet.docx', description: 'Inbound seller call intake form capturing all property details, financial position, seller motivation, and appointment scheduling.' },
+  { id: 194, title: 'Wholesaler Lead Sheet', category: 'wholesaling', file: 'docs/FORGE-Wholesaler-Lead-Sheet.docx', description: 'Deal evaluation form for properties sourced from other wholesalers — captures all property, seller, and deal analysis data.' },
+  { id: 195, title: 'Wholesaler Lead Sheet with Opening Script', category: 'wholesaling', file: 'docs/FORGE-Wholesaler-Lead-Sheet-with-Opening-Script.docx', description: 'Lead sheet plus a first-call script for reaching out to wholesalers about their available deals.' },
+  { id: 196, title: 'Wholesale Buyer Prequalification Form', category: 'wholesaling', file: 'docs/FORGE-Wholesale-Buyer-Prequalification-Form.docx', description: 'Cash buyer intake form capturing experience, property criteria, geographic focus, price range, and funding source.' },
+  { id: 197, title: 'Wholesale Assignment Checklist', category: 'wholesaling', file: 'docs/FORGE-Wholesale-Assignment-Checklist.docx', description: 'Four-phase assignment tracking checklist from initial seller meeting through post-close — covers marketing, buyer contracting, and closing management.' },
+  { id: 198, title: 'Buyer Conversation Script — Contract Sale', category: 'wholesaling', file: 'docs/FORGE-Buyer-Conversation-Script-Contract-Sale.docx', description: 'Word-for-word phone script for presenting and selling a wholesale contract to a prospective buyer, including objection handling.' },
+  { id: 199, title: 'Option for Purchase and Sale Contract', category: 'wholesaling', file: 'docs/FORGE-Option-for-Purchase-and-Sale-Contract.docx', description: 'Option agreement granting the buyer the exclusive right to purchase a property at a set price within a defined option period.' },
+  { id: 200, title: 'Wholesaling Compliance & Best Practices', category: 'wholesaling', file: 'docs/FORGE-Wholesaling-Compliance-and-Best-Practices.docx', description: 'Legal and regulatory guide covering assignment vs. double-close strategies, licensing rules, disclosure requirements, and marketing compliance.' }
 
 ];

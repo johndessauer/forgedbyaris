@@ -362,7 +362,8 @@ const CATEGORIES = [
   {id:'marketing',label:'Marketing',emoji:'📣'},
   {id:'checklists',label:'Checklists',emoji:'✅'},
   {id:'education',label:'Educational Guides',emoji:'📚'},
-  {id:'team-building',label:'Team Building',emoji:'👥'}
+  {id:'team-building',label:'Team Building',emoji:'👥'},
+  {id:'wholesaling',label:'Wholesaling',emoji:'🏷️'}
 ];
 const FILE_ICONS={docx:'📄',xlsx:'📊',pdf:'📑'};
 const CAT_MAP={};
@@ -438,6 +439,7 @@ function buildPreview(doc){
     'rentals':'Review with your property manager and local landlord-tenant laws.',
     'marketing':'Customize with your brand, contact info, and market area.',
     'team-building':'Adapt roles and responsibilities to your team structure.',
+    'wholesaling':'Review with your real estate attorney for state-specific compliance before use.',
   };
   let html=`<h4>Document Type</h4><p>${ext==='xlsx'?'📊 Excel Spreadsheet':'📄 Word Document'} — ${CAT_MAP[doc.category]?.label||doc.category}</p>`;
   html+=`<h4>Summary</h4><p>${doc.description}</p>`;
