@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Capital Radar | FORGE</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --black:      #0D1B2A;
+  --navy:       #0f2035;
+  --navy-light: #162840;
+  --navy-mid:   #1a3350;
+  --orange:     #FF6B2B;
+  --orange-dim: rgba(255,107,43,0.12);
+  --gold:       #C89B3C;
+  --gold-dim:   rgba(200,155,60,0.15);
+  --green:      #22c55e;
+  --green-dim:  rgba(34,197,94,0.12);
+  --red:        #ef4444;
+  --red-dim:    rgba(239,68,68,0.12);
+  --yellow:     #f59e0b;
+  --yellow-dim: rgba(245,158,11,0.12);
+  --white:      #FFFFFF;
+  --grey:       #6B7280;
+  --grey-light: #9CA3AF;
+  --border:     rgba(200,155,60,0.18);
+  --border-sub: rgba(255,255,255,0.06);
+  --sidebar-w:  260px;
+}
+
+html, body { height: 100%; background: var(--black); color: var(--white); font-family: 'Inter', sans-serif; overflow: hidden; }
+.app { display: flex; height: 100vh; width: 100vw; }
+
+/* ── SIDEBAR ── */
+.sidebar { width: var(--sidebar-w); min-width: var(--sidebar-w); background: var(--navy); border-right: 1px solid var(--border-sub); display: flex; flex-direction: column; overflow: hidden; }
+.sidebar-logo { padding: 24px 20px 20px; border-bottom: 1px solid var(--border-sub); display: flex; align-items: center; gap: 12px; }
+.logo-mark { width: 36px; height: 36px; background: linear-gradient(135deg, var(--orange), #c04a10); border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.logo-mark svg { width: 20px; height: 20px; }
+.logo-words { line-height: 1; }
+.logo-words .wordmark { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 3px; color: var(--white); }
+.logo-words .wordmark span { color: var(--gold); }
+.logo-words .sub { font-size: 9px; letter-spacing: 2px; color: var(--grey); text-transform: uppercase; margin-top: 2px; }
+.sidebar-section { padding: 20px 14px 8px; }
+.sidebar-section-label { font-size: 9px; letter-spacing: 2.5px; text-transform: uppercase; color: var(--grey); padding: 0 6px; margin-bottom: 6px; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--grey-light); transition: background 0.15s, color 0.15s; text-decoration: none; user-select: none; }
+.nav-item:hover { background: var(--border-sub); color: var(--white); }
+.nav-item.active { background: var(--orange-dim); color: var(--orange); border: 1px solid rgba(255,107,43,0.2); }
+.nav-icon { font-size: 15px; width: 18px; text-align: center; flex-shrink: 0; }
+.nav-badge { margin-left: auto; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; background: var(--border-sub); color: var(--grey); padding: 2px 6px; border-radius: 3px; }
+.sidebar-footer { margin-top: auto; padding: 16px 14px; border-top: 1px solid var(--border-sub); }
+.user-chip { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; background: var(--border-sub); }
+.user-avatar { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, var(--gold), #a07820); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--black); flex-shrink: 0; }
+.user-info { line-height: 1.2; min-width: 0; }
+.user-name { font-size: 12px; font-weight: 600; color: var(--white); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-tier { font-size: 10px; color: var(--gold); letter-spacing: 1px; text-transform: uppercase; }
+
+/* ── MAIN ── */
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.topbar { display: flex; align-items: center; justify-content: space-between; padding: 16px 28px; border-bottom: 1px solid var(--border-sub); flex-shrink: 0; }
+.topbar-left { display: flex; align-items: center; gap: 14px; }
+.topbar-icon { width: 42px; height: 42px; border-radius: 50%; background: linear-gradient(135deg, var(--navy-light), var(--black)); border: 1.5px solid var(--gold); display: flex; align-items: center; justify-content: center; font-size: 18px; }
+.topbar-title { line-height: 1.2; }
+.topbar-name { font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 3px; color: var(--white); }
+.topbar-sub { font-size: 11px; color: var(--grey); letter-spacing: 1px; }
+
+/* ── CONTENT ── */
+.content { flex: 1; display: flex; overflow: hidden; }
+
+/* ── LEFT PANEL ── */
+.form-panel { width: 400px; min-width: 400px; display: flex; flex-direction: column; border-right: 1px solid var(--border-sub); overflow: hidden; }
+
+/* ── TABS ── */
+.radar-tabs { display: flex; padding: 16px 16px 0; gap: 4px; border-bottom: 1px solid var(--border-sub); flex-shrink: 0; overflow-x: auto; }
+.radar-tabs::-webkit-scrollbar { display: none; }
+.tab-btn { font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 0.5px; padding: 8px 12px; border-radius: 6px 6px 0 0; border: 1px solid transparent; border-bottom: none; cursor: pointer; white-space: nowrap; transition: all 0.15s; background: none; color: var(--grey); }
+.tab-btn:hover { color: var(--white); background: var(--border-sub); }
+.tab-btn.active { background: var(--navy-light); border-color: var(--border-sub); color: var(--orange); border-bottom: 2px solid var(--orange); }
+
+/* ── FORM SCROLL ── */
+.form-scroll { flex: 1; overflow-y: auto; padding: 20px; }
+.form-scroll::-webkit-scrollbar { width: 4px; }
+.form-scroll::-webkit-scrollbar-thumb { background: var(--border-sub); border-radius: 2px; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+.form-section { margin-bottom: 20px; }
+.form-section-label { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--gold); margin-bottom: 10px; font-weight: 600; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+.form-group { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
+.form-label { font-size: 11px; color: var(--grey-light); font-weight: 500; }
+.form-input { background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 6px; padding: 9px 12px; font-size: 13px; font-family: 'Inter', sans-serif; color: var(--white); outline: none; transition: border-color 0.15s; width: 100%; }
+.form-input:focus { border-color: var(--gold); }
+.form-input::placeholder { color: var(--grey); }
+.form-select { background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 6px; padding: 9px 12px; font-size: 13px; font-family: 'Inter', sans-serif; color: var(--white); outline: none; width: 100%; cursor: pointer; }
+.form-select option { background: var(--navy); }
+
+/* toggle */
+.toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 8px; margin-bottom: 10px; }
+.toggle-info { line-height: 1.3; }
+.toggle-label { font-size: 12px; font-weight: 600; color: var(--white); }
+.toggle-sub { font-size: 10px; color: var(--grey); margin-top: 2px; }
+.toggle { position: relative; width: 40px; height: 22px; flex-shrink: 0; }
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle-slider { position: absolute; inset: 0; background: var(--border-sub); border-radius: 22px; cursor: pointer; transition: 0.2s; }
+.toggle-slider:before { content: ''; position: absolute; width: 16px; height: 16px; left: 3px; top: 3px; background: var(--grey); border-radius: 50%; transition: 0.2s; }
+.toggle input:checked + .toggle-slider { background: var(--orange-dim); border: 1px solid var(--orange); }
+.toggle input:checked + .toggle-slider:before { transform: translateX(18px); background: var(--orange); }
+
+.run-btn { width: 100%; background: var(--orange); border: none; border-radius: 8px; padding: 13px; font-size: 13px; font-weight: 700; font-family: 'Inter', sans-serif; color: white; cursor: pointer; transition: background 0.15s; letter-spacing: 0.5px; margin-top: 8px; }
+.run-btn:hover { background: #e55a1c; }
+.run-btn:disabled { background: var(--grey); cursor: default; }
+
+.tab-desc { font-size: 12px; color: var(--grey); line-height: 1.6; margin-bottom: 20px; padding: 12px 14px; background: var(--navy-light); border-radius: 8px; border-left: 3px solid var(--gold); }
+
+/* ── RESULTS PANEL ── */
+.results-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.results-scroll { flex: 1; overflow-y: auto; padding: 28px; display: flex; flex-direction: column; gap: 20px; }
+.results-scroll::-webkit-scrollbar { width: 4px; }
+.results-scroll::-webkit-scrollbar-thumb { background: var(--border-sub); border-radius: 2px; }
+
+/* empty state */
+.empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--grey); padding: 40px; text-align: center; }
+.empty-icon { font-size: 48px; opacity: 0.3; }
+.empty-title { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 3px; color: var(--grey); }
+.empty-sub { font-size: 12px; line-height: 1.6; max-width: 300px; }
+
+/* loading */
+.loading-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
+.loading-pulse { width: 56px; height: 56px; border-radius: 50%; border: 3px solid var(--border-sub); border-top-color: var(--gold); animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { font-size: 13px; color: var(--grey); letter-spacing: 1px; }
+
+/* result blocks */
+.result-header { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+.result-icon { font-size: 24px; }
+.result-title { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 3px; color: var(--white); }
+.result-sub { font-size: 11px; color: var(--grey); letter-spacing: 1px; }
+
+.result-section { background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 10px; padding: 18px 20px; }
+.result-section-label { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--gold); margin-bottom: 12px; font-weight: 600; }
+.result-text { font-size: 13px; color: var(--grey-light); line-height: 1.75; }
+.result-text strong { color: var(--white); font-weight: 600; }
+.result-text .highlight { color: var(--gold); font-weight: 600; }
+.result-text .orange { color: var(--orange); font-weight: 600; }
+.result-text .green { color: var(--green); font-weight: 600; }
+.result-text .warn { color: var(--yellow); font-weight: 600; }
+
+/* stack layers */
+.stack-layers { display: flex; flex-direction: column; gap: 8px; }
+.stack-layer { display: flex; align-items: center; gap: 14px; padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border-sub); }
+.stack-layer.primary { border-color: var(--orange); background: var(--orange-dim); }
+.stack-layer.secondary { border-color: var(--gold); background: var(--gold-dim); }
+.stack-layer.creative { border-color: var(--green); background: var(--green-dim); }
+.stack-layer.equity { border-color: rgba(139,92,246,0.3); background: rgba(139,92,246,0.08); }
+.layer-icon { font-size: 18px; flex-shrink: 0; }
+.layer-info { flex: 1; line-height: 1.3; }
+.layer-name { font-size: 12px; font-weight: 700; color: var(--white); }
+.layer-detail { font-size: 11px; color: var(--grey-light); margin-top: 2px; }
+.layer-amount { font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 1px; color: var(--white); flex-shrink: 0; }
+
+/* lender cards */
+.lender-cards { display: flex; flex-direction: column; gap: 10px; }
+.lender-card { background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 10px; padding: 16px 18px; }
+.lender-card.top { border-color: var(--orange); }
+.lender-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.lender-card-name { font-family: 'Bebas Neue', sans-serif; font-size: 14px; letter-spacing: 2px; color: var(--white); }
+.lender-rank { font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; font-weight: 600; }
+.rank-best { background: var(--orange-dim); color: var(--orange); border: 1px solid rgba(255,107,43,0.3); }
+.rank-good { background: var(--gold-dim); color: var(--gold); border: 1px solid rgba(200,155,60,0.3); }
+.rank-alt { background: var(--border-sub); color: var(--grey-light); border: 1px solid var(--border-sub); }
+.lender-terms { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
+.lender-term { text-align: center; }
+.lender-term-val { font-family: 'Bebas Neue', sans-serif; font-size: 15px; color: var(--white); }
+.lender-term-label { font-size: 9px; color: var(--grey); letter-spacing: 1px; text-transform: uppercase; margin-top: 2px; }
+.lender-pitch { font-size: 11px; color: var(--grey-light); line-height: 1.6; border-top: 1px solid var(--border-sub); padding-top: 10px; }
+
+/* qualifier meters */
+.qualifier-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.qualifier-card { background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 8px; padding: 14px; }
+.qualifier-card.unlocked { border-color: var(--green); }
+.qualifier-card.partial { border-color: var(--yellow); }
+.qualifier-card.locked { border-color: var(--red); opacity: 0.7; }
+.qualifier-status { font-size: 16px; margin-bottom: 6px; }
+.qualifier-name { font-size: 12px; font-weight: 700; color: var(--white); margin-bottom: 4px; }
+.qualifier-note { font-size: 10px; color: var(--grey-light); line-height: 1.5; }
+
+/* pitch output */
+.pitch-box { background: var(--navy-mid); border: 1px solid var(--border); border-radius: 10px; padding: 20px 22px; font-size: 13px; color: var(--grey-light); line-height: 1.8; white-space: pre-wrap; font-family: 'Inter', sans-serif; }
+.pitch-box strong { color: var(--white); }
+.copy-btn { display: flex; align-items: center; gap: 8px; background: var(--border-sub); border: 1px solid var(--border-sub); color: var(--grey-light); font-size: 12px; font-family: 'Inter', sans-serif; padding: 8px 16px; border-radius: 6px; cursor: pointer; transition: all 0.15s; margin-top: 10px; }
+.copy-btn:hover { background: var(--gold-dim); border-color: var(--gold); color: var(--gold); }
+
+/* aris panel */
+.aris-panel { background: linear-gradient(135deg, var(--navy-mid), var(--navy-light)); border: 1px solid var(--border); border-radius: 12px; padding: 18px 22px; }
+.aris-panel-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.aris-orb { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, var(--orange), #c04a10); display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; }
+.aris-panel-title { font-family: 'Bebas Neue', sans-serif; font-size: 13px; letter-spacing: 2px; color: var(--orange); }
+.aris-panel-sub { font-size: 10px; color: var(--grey); }
+.aris-dots span { animation: blink 1.4s infinite; font-size: 14px; color: var(--orange); }
+.aris-dots span:nth-child(2) { animation-delay: 0.2s; }
+.aris-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes blink { 0%,80%,100% { opacity: 0.2; } 40% { opacity: 1; } }
+
+/* ── CAPITAL STACK MODELER ── */
+.stack-modeler { display: flex; flex-direction: column; gap: 0; }
+
+/* visual bar */
+.stack-bar-wrap { margin-bottom: 20px; }
+.stack-bar-label { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--gold); margin-bottom: 10px; font-weight: 600; }
+.stack-bar { display: flex; height: 48px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border-sub); position: relative; background: var(--navy-light); }
+.stack-bar-segment { height: 100%; transition: width 0.4s ease; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.9); overflow: hidden; white-space: nowrap; min-width: 0; }
+.stack-bar-segment span { padding: 0 6px; overflow: hidden; text-overflow: ellipsis; }
+.stack-bar-gap { background: repeating-linear-gradient(45deg, rgba(255,255,255,0.03), rgba(255,255,255,0.03) 4px, transparent 4px, transparent 10px); flex: 1; display: flex; align-items: center; justify-content: center; font-size: 10px; color: var(--grey); }
+
+/* metrics row */
+.stack-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px; }
+.stack-metric { background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 8px; padding: 10px 12px; text-align: center; }
+.stack-metric.highlight { border-color: var(--orange); }
+.stack-metric-val { font-family: 'Bebas Neue', sans-serif; font-size: 17px; letter-spacing: 1px; color: var(--white); }
+.stack-metric-val.green { color: var(--green); }
+.stack-metric-val.red { color: var(--red); }
+.stack-metric-val.gold { color: var(--gold); }
+.stack-metric-label { font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: var(--grey); margin-top: 3px; }
+
+/* layer rows */
+.stack-layers-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.stack-layer-row { background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 8px; padding: 10px 12px; }
+.stack-layer-row-top { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.layer-color-dot { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+.layer-type-select { flex: 1; background: var(--black); border: 1px solid var(--border-sub); border-radius: 5px; padding: 5px 8px; font-size: 11px; font-family: 'Inter', sans-serif; color: var(--white); outline: none; cursor: pointer; }
+.layer-type-select option { background: var(--navy); }
+.layer-remove-btn { background: none; border: none; color: var(--grey); cursor: pointer; font-size: 14px; padding: 2px 4px; border-radius: 4px; transition: color 0.15s; flex-shrink: 0; }
+.layer-remove-btn:hover { color: var(--red); }
+.stack-layer-row-inputs { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 6px; }
+.layer-input-group { display: flex; flex-direction: column; gap: 3px; }
+.layer-input-label { font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: var(--grey); }
+.layer-input { background: var(--black); border: 1px solid var(--border-sub); border-radius: 5px; padding: 6px 8px; font-size: 12px; font-family: 'Inter', sans-serif; color: var(--white); outline: none; width: 100%; }
+.layer-input:focus { border-color: var(--gold); }
+
+.add-layer-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; background: none; border: 1px dashed var(--border-sub); border-radius: 8px; padding: 10px; font-size: 12px; font-family: 'Inter', sans-serif; color: var(--grey); cursor: pointer; transition: all 0.15s; margin-bottom: 14px; }
+.add-layer-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+.assess-btn { width: 100%; background: none; border: 1px solid var(--orange); border-radius: 8px; padding: 11px; font-size: 12px; font-weight: 700; font-family: 'Inter', sans-serif; color: var(--orange); cursor: pointer; transition: all 0.15s; letter-spacing: 0.5px; }
+.assess-btn:hover { background: var(--orange-dim); }
+.assess-btn:disabled { opacity: 0.4; cursor: default; }
+
+/* legend */
+.stack-legend { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--grey-light); }
+.legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+/* phase indicator */
+.phase-indicator { display: flex; align-items: center; gap: 0; margin-bottom: 16px; }
+.phase-step { flex: 1; text-align: center; padding: 8px 4px; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--grey); border-bottom: 2px solid var(--border-sub); transition: all 0.2s; }
+.phase-step.active { color: var(--orange); border-bottom-color: var(--orange); font-weight: 700; }
+.phase-step.done { color: var(--gold); border-bottom-color: var(--gold); }
+
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M4 17h16v2H4v-2zm2-6h12l-1.5 6H7.5L6 11zm3-6h6l1 4H8l1-4z" fill="white" opacity="0.9"/><path d="M10 5h4v2h-4V5z" fill="white"/></svg>
+      </div>
+      <div class="logo-words">
+        <div class="wordmark">F<span>O</span>RGE</div>
+        <div class="sub">Powered by ARIS</div>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Core Features</div>
+      <a class="nav-item" href="dashboard.html"><span class="nav-icon">🏠</span>Dashboard</a>
+      <a class="nav-item" href="aris-coach.html"><span class="nav-icon">⚡</span>ARIS AI Coach</a>
+      <a class="nav-item" href="deal-analyzer.html"><span class="nav-icon">🔍</span>Deal Analyzer</a>
+      <div class="nav-item"><span class="nav-icon">📍</span>Property Search<span class="nav-badge">Soon</span></div>
+      <a class="nav-item" href="deal-network.html"><span class="nav-icon">🤝</span>Deal Network</a>
+      <div class="nav-item active"><span class="nav-icon">🎯</span>Capital Radar</div>
+      <a class="nav-item" href="market-oracle.html"><span class="nav-icon">🔮</span>Market Oracle</a>
+      <a class="nav-item" href="document-vault.html"><span class="nav-icon">📂</span>Document Vault</a>
+      <div class="nav-item"><span class="nav-icon">🏛</span>Education<span class="nav-badge">Soon</span></div>
+    </div>
+    <div class="sidebar-footer">
+      <div class="user-chip">
+        <div class="user-avatar">JD</div>
+        <div class="user-info">
+          <div class="user-name">John Dessauer</div>
+          <div class="user-tier">Founding Member</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-icon">🎯</div>
+        <div class="topbar-title">
+          <div class="topbar-name">Capital Radar</div>
+          <div class="topbar-sub">Capital stack · Lender matching · Qualification · Private money pitches</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- LEFT PANEL -->
+      <div class="form-panel">
+        <div class="radar-tabs">
+          <button class="tab-btn active" onclick="switchTab('stack')">💰 Capital Stack</button>
+          <button class="tab-btn" onclick="switchTab('lender')">🏦 Lender Finder</button>
+          <button class="tab-btn" onclick="switchTab('qualifier')">✅ Qualifier</button>
+          <button class="tab-btn" onclick="switchTab('pitch')">📄 Pitch Generator</button>
+        </div>
+
+        <div class="form-scroll">
+
+          <!-- TAB: CAPITAL STACK -->
+          <div class="tab-panel active" id="panel-stack">
+
+            <!-- Phase 1: Deal Input -->
+            <div id="stack-phase-input">
+              <div class="tab-desc">Enter your deal numbers. ARIS will suggest a starting capital stack — then you customize it.</div>
+              <div class="form-section">
+                <div class="form-section-label">Deal Numbers</div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label class="form-label">Purchase Price</label>
+                    <input class="form-input" id="stack-purchase" type="text" placeholder="$150,000" />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Rehab Budget</label>
+                    <input class="form-input" id="stack-rehab" type="text" placeholder="$40,000" />
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label class="form-label">After Repair Value</label>
+                    <input class="form-input" id="stack-arv" type="text" placeholder="$250,000" />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Deal Type</label>
+                    <select class="form-select" id="stack-type">
+                      <option value="flip">Fix &amp; Flip</option>
+                      <option value="rental">Buy &amp; Hold Rental</option>
+                      <option value="brrrr">BRRRR</option>
+                      <option value="wholesale">Wholesale</option>
+                      <option value="commercial">Commercial</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Your Cash Available</label>
+                  <input class="form-input" id="stack-cash" type="text" placeholder="$20,000" />
+                </div>
+              </div>
+              <button class="run-btn" id="stack-suggest-btn" onclick="runStackSuggest()">Get ARIS Stack Suggestion</button>
+            </div>
+
+            <!-- Phase 2: Modeler (hidden until ARIS suggests) -->
+            <div id="stack-phase-modeler" style="display:none;">
+              <div class="phase-indicator">
+                <div class="phase-step done" id="phase1-label">① Deal Input</div>
+                <div class="phase-step active" id="phase2-label">② Build Stack</div>
+                <div class="phase-step" id="phase3-label">③ ARIS Assessment</div>
+              </div>
+              <div class="form-section-label" style="margin-bottom:10px;">Your Capital Stack</div>
+              <div class="stack-layers-list" id="stack-layers-list"></div>
+              <button class="add-layer-btn" onclick="addLayer()">＋ Add Financing Layer</button>
+              <button class="assess-btn" id="assess-btn" onclick="runStackAssess()">⚡ Get ARIS Assessment</button>
+              <div style="margin-top:10px;">
+                <button onclick="resetStack()" style="background:none;border:none;color:var(--grey);font-size:11px;font-family:Inter,sans-serif;cursor:pointer;text-decoration:underline;">← Start over</button>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- TAB: LENDER FINDER -->
+          <div class="tab-panel" id="panel-lender">
+            <div class="tab-desc">Find the right lender type for your deal. ARIS ranks your options and tells you exactly what to say to each one.</div>
+            <div class="form-section">
+              <div class="form-section-label">Deal Details</div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Deal Type</label>
+                  <select class="form-select" id="lender-type">
+                    <option value="flip">Fix &amp; Flip</option>
+                    <option value="rental">Buy &amp; Hold Rental</option>
+                    <option value="brrrr">BRRRR</option>
+                    <option value="commercial">Commercial</option>
+                    <option value="multifamily">Multifamily</option>
+                    <option value="wholesale">Wholesale / Assignment</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Loan Amount Needed</label>
+                  <input class="form-input" id="lender-amount" type="text" placeholder="$140,000" />
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Your Credit Score</label>
+                  <select class="form-select" id="lender-credit">
+                    <option value="740+">740+ (Excellent)</option>
+                    <option value="700-739">700–739 (Good)</option>
+                    <option value="660-699">660–699 (Fair)</option>
+                    <option value="620-659">620–659 (Below Avg)</option>
+                    <option value="below 620">Below 620</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">State</label>
+                  <input class="form-input" id="lender-state" type="text" placeholder="Indiana" />
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Experience Level</label>
+                <select class="form-select" id="lender-exp">
+                  <option value="beginner">Beginner (0–2 deals)</option>
+                  <option value="intermediate">Intermediate (3–10 deals)</option>
+                  <option value="experienced">Experienced (10+ deals)</option>
+                </select>
+              </div>
+            </div>
+            <button class="run-btn" id="lender-btn" onclick="runLender()">Find My Lenders</button>
+          </div>
+
+          <!-- TAB: QUALIFIER -->
+          <div class="tab-panel" id="panel-qualifier">
+            <div class="tab-desc">Enter your financial profile. ARIS tells you exactly what financing you qualify for today and the fastest path to better terms.</div>
+            <div class="form-section">
+              <div class="form-section-label">Your Financial Profile</div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Credit Score</label>
+                  <select class="form-select" id="qual-credit">
+                    <option value="760+">760+ (Exceptional)</option>
+                    <option value="740-759">740–759 (Excellent)</option>
+                    <option value="700-739">700–739 (Good)</option>
+                    <option value="660-699">660–699 (Fair)</option>
+                    <option value="620-659">620–659 (Below Avg)</option>
+                    <option value="580-619">580–619 (Poor)</option>
+                    <option value="below 580">Below 580</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Liquid Cash Available</label>
+                  <input class="form-input" id="qual-cash" type="text" placeholder="$25,000" />
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Monthly Income</label>
+                  <input class="form-input" id="qual-income" type="text" placeholder="$6,000" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Monthly Debt Payments</label>
+                  <input class="form-input" id="qual-debt" type="text" placeholder="$1,200" />
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Deals Completed</label>
+                  <input class="form-input" id="qual-deals" type="text" placeholder="0" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Own Any Property?</label>
+                  <select class="form-select" id="qual-property">
+                    <option value="yes-equity">Yes, with equity</option>
+                    <option value="yes-none">Yes, no equity</option>
+                    <option value="no">No</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <button class="run-btn" id="qual-btn" onclick="runQualifier()">Show What I Qualify For</button>
+          </div>
+
+          <!-- TAB: PITCH GENERATOR -->
+          <div class="tab-panel" id="panel-pitch">
+            <div class="tab-desc">Enter your deal details. ARIS writes a professional private lender pitch you can send immediately to friends, family, or network contacts.</div>
+            <div class="form-section">
+              <div class="form-section-label">Your Deal</div>
+              <div class="form-group">
+                <label class="form-label">Property Location</label>
+                <input class="form-input" id="pitch-location" type="text" placeholder="Cedar Lake, Indiana" />
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Purchase Price</label>
+                  <input class="form-input" id="pitch-purchase" type="text" placeholder="$120,000" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Rehab Budget</label>
+                  <input class="form-input" id="pitch-rehab" type="text" placeholder="$35,000" />
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">After Repair Value</label>
+                  <input class="form-input" id="pitch-arv" type="text" placeholder="$210,000" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Projected Profit</label>
+                  <input class="form-input" id="pitch-profit" type="text" placeholder="$35,000" />
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Capital Needed</label>
+                  <input class="form-input" id="pitch-capital" type="text" placeholder="$50,000" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Timeline</label>
+                  <input class="form-input" id="pitch-timeline" type="text" placeholder="6 months" />
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Offer to Lender (rate or profit share)</label>
+                <input class="form-input" id="pitch-offer" type="text" placeholder="10% annualized or 20% profit share" />
+              </div>
+            </div>
+            <button class="run-btn" id="pitch-btn" onclick="runPitch()">Generate My Pitch</button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- RESULTS PANEL -->
+      <div class="results-panel" id="resultsPanel">
+        <div class="empty-state" id="emptyState">
+          <div class="empty-icon">🎯</div>
+          <div class="empty-title">Capital Radar Ready</div>
+          <div class="empty-sub">Select a tool, fill in your numbers, and ARIS will build your capital strategy.</div>
+        </div>
+        <div class="loading-state" id="loadingState" style="display:none;">
+          <div class="loading-pulse"></div>
+          <div class="loading-text" id="loadingText">ARIS is building your strategy...</div>
+        </div>
+        <div class="results-scroll" id="resultsScroll" style="display:none;"></div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script>
+// ── TAB SWITCHING ──
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach((b, i) => {
+    const tabs = ['stack','lender','qualifier','pitch'];
+    b.classList.toggle('active', tabs[i] === tab);
+  });
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + (tab === 'qualifier' ? 'qualifier' : tab)).classList.add('active');
+  resetResults();
+}
+
+function resetResults() {
+  document.getElementById('emptyState').style.display = 'flex';
+  document.getElementById('loadingState').style.display = 'none';
+  document.getElementById('resultsScroll').style.display = 'none';
+}
+
+function showLoading(text) {
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('loadingState').style.display = 'flex';
+  document.getElementById('loadingText').textContent = text || 'ARIS is building your strategy...';
+  document.getElementById('resultsScroll').style.display = 'none';
+}
+
+function showResults(html) {
+  document.getElementById('loadingState').style.display = 'none';
+  document.getElementById('emptyState').style.display = 'none';
+  const rs = document.getElementById('resultsScroll');
+  rs.style.display = 'flex';
+  rs.innerHTML = html;
+}
+
+function showError(msg) {
+  document.getElementById('loadingState').style.display = 'none';
+  document.getElementById('emptyState').style.display = 'flex';
+  document.getElementById('emptyState').innerHTML = `
+    <div class="empty-icon">⚠️</div>
+    <div class="empty-title">Something Went Wrong</div>
+    <div class="empty-sub">${msg || 'Try again or check your inputs.'}</div>
+  `;
+}
+
+// ── ARIS CALL ──
+
+// ── MEMBER WHY CONTEXT ──
+function getWhyContext() {
+  try {
+    const why = JSON.parse(localStorage.getItem('forge-member-why') || 'null');
+    if (!why || !why.q1) return '';
+    return '\n\nMEMBER WHY (use this to personalize your coaching):\n' +
+      '- Why they invest: "' + why.q1 + '"\n' +
+      (why.q2 ? '- Their bigger purpose: "' + why.q2 + '"\n' : '') +
+      (why.q3 ? '- Why now is their time: "' + why.q3 + '"' : '');
+  } catch(e) { return ''; }
+}
+
+async function callARIS(prompt, maxTokens) {
+  const fullPrompt = prompt + getWhyContext();
+  const res = await fetch('/api/aris-quote', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: maxTokens || 800,
+      messages: [{ role: 'user', content: fullPrompt }]
+    })
+  });
+  if (!res.ok) throw new Error('ARIS unavailable. Try again.');
+  const data = await res.json();
+  if (data.content && data.content[0] && data.content[0].text) return data.content[0].text;
+  throw new Error('No response from ARIS.');
+}
+
+function formatARIS(text) {
+  return text
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/###\s?(.*)/g, '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:14px;letter-spacing:2px;color:var(--gold);margin:16px 0 8px;">$1</div>')
+    .replace(/##\s?(.*)/g, '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:16px;letter-spacing:2px;color:var(--orange);margin:16px 0 8px;">$1</div>')
+    .replace(/\n/g, '<br>');
+}
+
+// ── CAPITAL STACK MODELER ──
+
+const LAYER_TYPES = {
+  'Hard Money':        { color: '#FF6B2B', abbr: 'HM' },
+  'Private Money':     { color: '#C89B3C', abbr: 'PM' },
+  'Seller Financing':  { color: '#22c55e', abbr: 'SF' },
+  'Subject-To':        { color: '#8b5cf6', abbr: 'S2' },
+  'Seller Second':     { color: '#14b8a6', abbr: 'SS' },
+  'HELOC / Equity':    { color: '#3b82f6', abbr: 'HE' },
+  'Partner Equity':    { color: '#ec4899', abbr: 'PE' },
+  'Cash / Own Funds':  { color: '#6B7280', abbr: '$'  },
+  'DSCR Loan':         { color: '#f59e0b', abbr: 'DS' },
+  'Conventional':      { color: '#0ea5e9', abbr: 'CV' },
+  'Bridge Loan':       { color: '#a78bfa', abbr: 'BR' },
+  'Other':             { color: '#9ca3af', abbr: '?'  }
+};
+
+let stackLayers = [];
+let stackDealData = {};
+let layerIdCounter = 0;
+
+function parseMoney(str) {
+  if (!str) return 0;
+  return parseFloat(str.replace(/[$,]/g, '')) || 0;
+}
+
+function fmtM(n) {
+  if (n >= 1000000) return '$' + (n/1000000).toFixed(2) + 'M';
+  if (n >= 1000) return '$' + Math.round(n/1000) + 'K';
+  return '$' + Math.round(n).toLocaleString();
+}
+
+function fmtPct(n) { return n.toFixed(1) + '%'; }
+
+async function runStackSuggest() {
+  const purchase = document.getElementById('stack-purchase').value.trim();
+  const rehab    = document.getElementById('stack-rehab').value.trim();
+  const arv      = document.getElementById('stack-arv').value.trim();
+  const type     = document.getElementById('stack-type').value;
+  const cash     = document.getElementById('stack-cash').value.trim();
+
+  if (!purchase || !arv) { showError('Enter at least a purchase price and ARV.'); return; }
+
+  stackDealData = {
+    purchase: parseMoney(purchase), rehab: parseMoney(rehab),
+    arv: parseMoney(arv), cash: parseMoney(cash), type
+  };
+
+  const btn = document.getElementById('stack-suggest-btn');
+  btn.disabled = true;
+  btn.textContent = 'ARIS is thinking...';
+  showLoading('ARIS is building your suggested stack...');
+
+  const totalNeeded = stackDealData.purchase + stackDealData.rehab;
+
+  const whyCtx = getWhyContext();
+  const prompt = 'You are ARIS inside FORGE. Return ONLY a valid JSON array, no markdown.\n\nDeal:\n- Type: ' + type + '\n- Purchase: ' + purchase + '\n- Rehab: ' + (rehab || '$0') + '\n- ARV: ' + arv + '\n- Cash: ' + (cash || '$0') + '\n- Total Needed: $' + totalNeeded.toLocaleString() + '\n\nReturn a JSON array of 2-4 capital stack layers. Each object:\n{"type":"Hard Money","amount":140000,"rate":12.0,"term":12,"points":2.0,"note":"one sentence why"}\n\nValid types: Hard Money, Private Money, Seller Financing, Subject-To, Seller Second, HELOC / Equity, Partner Equity, Cash / Own Funds, DSCR Loan, Conventional, Bridge Loan\nTotal amounts should approximate $' + totalNeeded.toLocaleString() + '\nReturn ONLY the JSON array.';
+
+  try {
+    const result = await callARIS(prompt, 500);
+    let text = result.replace(/```json|```/g, '').trim();
+    const match = text.match(/\[[\s\S]*\]/);
+    if (!match) throw new Error('Could not parse ARIS suggestion.');
+    const layers = JSON.parse(match[0]);
+
+    stackLayers = layers.map(l => ({
+      id: ++layerIdCounter,
+      type: l.type || 'Hard Money',
+      amount: l.amount || 0,
+      rate: l.rate || 0,
+      term: l.term || 12,
+      points: l.points || 0,
+      note: l.note || ''
+    }));
+
+    document.getElementById('stack-phase-input').style.display = 'none';
+    document.getElementById('stack-phase-modeler').style.display = 'block';
+    renderModeler();
+    renderStackResults();
+
+  } catch(e) {
+    showError('ARIS suggestion failed. Try again. (' + e.message + ')');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Get ARIS Stack Suggestion';
+  }
+}
+
+function renderModeler() {
+  const list = document.getElementById('stack-layers-list');
+  if (!list) return;
+  list.innerHTML = stackLayers.map(layer => {
+    const info = LAYER_TYPES[layer.type] || LAYER_TYPES['Other'];
+    const typeOptions = Object.keys(LAYER_TYPES).map(t =>
+      '<option value="' + t + '"' + (t === layer.type ? ' selected' : '') + '>' + t + '</option>'
+    ).join('');
+    return '<div class="stack-layer-row" id="layer-row-' + layer.id + '">' +
+      '<div class="stack-layer-row-top">' +
+        '<div class="layer-color-dot" style="background:' + info.color + ';"></div>' +
+        '<select class="layer-type-select" onchange="updateLayerType(' + layer.id + ', this.value)">' + typeOptions + '</select>' +
+        '<button class="layer-remove-btn" onclick="removeLayer(' + layer.id + ')">✕</button>' +
+      '</div>' +
+      '<div class="stack-layer-row-inputs">' +
+        '<div class="layer-input-group"><div class="layer-input-label">Amount ($)</div>' +
+        '<input class="layer-input" type="text" value="' + layer.amount.toLocaleString() + '" onchange="updateLayer(' + layer.id + ',\'amount\',this.value)" /></div>' +
+        '<div class="layer-input-group"><div class="layer-input-label">Rate (%)</div>' +
+        '<input class="layer-input" type="text" value="' + layer.rate + '" onchange="updateLayer(' + layer.id + ',\'rate\',this.value)" /></div>' +
+        '<div class="layer-input-group"><div class="layer-input-label">Term (mo)</div>' +
+        '<input class="layer-input" type="text" value="' + layer.term + '" onchange="updateLayer(' + layer.id + ',\'term\',this.value)" /></div>' +
+        '<div class="layer-input-group"><div class="layer-input-label">Points</div>' +
+        '<input class="layer-input" type="text" value="' + layer.points + '" onchange="updateLayer(' + layer.id + ',\'points\',this.value)" /></div>' +
+      '</div>' +
+      (layer.note ? '<div style="font-size:10px;color:var(--grey);margin-top:6px;font-style:italic;">ARIS: ' + layer.note + '</div>' : '') +
+    '</div>';
+  }).join('');
+}
+
+function updateLayer(id, field, value) {
+  const layer = stackLayers.find(l => l.id === id);
+  if (!layer) return;
+  if (field === 'amount') layer.amount = parseMoney(value);
+  else if (field === 'rate') layer.rate = parseFloat(value) || 0;
+  else if (field === 'term') layer.term = parseInt(value) || 12;
+  else if (field === 'points') layer.points = parseFloat(value) || 0;
+  renderStackResults();
+}
+
+function updateLayerType(id, newType) {
+  const layer = stackLayers.find(l => l.id === id);
+  if (!layer) return;
+  layer.type = newType;
+  const dot = document.querySelector('#layer-row-' + id + ' .layer-color-dot');
+  if (dot) dot.style.background = (LAYER_TYPES[newType] || LAYER_TYPES['Other']).color;
+  renderStackResults();
+}
+
+function removeLayer(id) {
+  stackLayers = stackLayers.filter(l => l.id !== id);
+  renderModeler();
+  renderStackResults();
+}
+
+function addLayer() {
+  stackLayers.push({ id: ++layerIdCounter, type: 'Private Money', amount: 0, rate: 10, term: 12, points: 0, note: '' });
+  renderModeler();
+  renderStackResults();
+}
+
+function resetStack() {
+  stackLayers = []; stackDealData = {};
+  document.getElementById('stack-phase-input').style.display = 'block';
+  document.getElementById('stack-phase-modeler').style.display = 'none';
+  document.getElementById('stack-suggest-btn').disabled = false;
+  resetResults();
+}
+
+function calcStack() {
+  const totalNeeded = (stackDealData.purchase || 0) + (stackDealData.rehab || 0);
+  const arv = stackDealData.arv || 0;
+  const totalRaised = stackLayers.reduce((s, l) => s + l.amount, 0);
+  const gap = Math.max(0, totalNeeded - totalRaised);
+  let totalInterest = 0, totalPoints = 0, monthlyCarry = 0;
+  stackLayers.forEach(l => {
+    totalInterest += l.amount * (l.rate / 100) * (l.term / 12);
+    totalPoints   += l.amount * (l.points / 100);
+    monthlyCarry  += l.amount * (l.rate / 100) / 12;
+  });
+  const totalFinancingCost = totalInterest + totalPoints;
+  const netProfit = arv - totalNeeded - totalFinancingCost;
+  const ltv = arv > 0 ? (totalRaised / arv) * 100 : 0;
+  const coc = (stackDealData.cash || 0) > 0 ? (netProfit / stackDealData.cash) * 100 : 0;
+  return { totalNeeded, totalRaised, gap, totalInterest, totalPoints, totalFinancingCost, netProfit, ltv, monthlyCarry, coc };
+}
+
+function renderStackResults() {
+  if (!stackLayers.length) return;
+  const c = calcStack();
+  const totalNeeded = c.totalNeeded;
+
+  const barSegs = stackLayers.map(l => {
+    const pct = totalNeeded > 0 ? (l.amount / totalNeeded) * 100 : 0;
+    const info = LAYER_TYPES[l.type] || LAYER_TYPES['Other'];
+    return '<div class="stack-bar-segment" style="width:' + pct + '%;background:' + info.color + ';" title="' + l.type + ': ' + fmtM(l.amount) + '">' +
+      (pct > 8 ? '<span>' + info.abbr + '</span>' : '') + '</div>';
+  }).join('');
+
+  const gapPct = totalNeeded > 0 && c.gap > 0 ? (c.gap / totalNeeded) * 100 : 0;
+  const gapSeg = gapPct > 0 ? '<div class="stack-bar-gap" style="width:' + gapPct + '%;">GAP ' + fmtM(c.gap) + '</div>' : '';
+
+  const legend = stackLayers.map(l => {
+    const info = LAYER_TYPES[l.type] || LAYER_TYPES['Other'];
+    const pct = totalNeeded > 0 ? (l.amount / totalNeeded) * 100 : 0;
+    return '<div class="legend-item"><div class="legend-dot" style="background:' + info.color + ';"></div>' + l.type + ' (' + fmtPct(pct) + ')</div>';
+  }).join('');
+
+  const layerRows = stackLayers.map(l => {
+    const info = LAYER_TYPES[l.type] || LAYER_TYPES['Other'];
+    const cost = l.amount * (l.rate/100) * (l.term/12) + l.amount * (l.points/100);
+    const pct = totalNeeded > 0 ? (l.amount / totalNeeded) * 100 : 0;
+    return '<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border-sub);">' +
+      '<div style="width:4px;height:40px;border-radius:2px;background:' + info.color + ';flex-shrink:0;"></div>' +
+      '<div style="flex:1;"><div style="font-size:12px;font-weight:700;color:var(--white);">' + l.type + '</div>' +
+      '<div style="font-size:10px;color:var(--grey);margin-top:2px;">' + fmtM(l.amount) + ' · ' + l.rate + '% · ' + l.term + 'mo · ' + l.points + ' pts</div></div>' +
+      '<div style="text-align:right;"><div style="font-size:12px;color:var(--white);font-weight:600;">' + fmtPct(pct) + '</div>' +
+      '<div style="font-size:10px;color:var(--grey);">Cost: ' + fmtM(cost) + '</div></div></div>';
+  }).join('');
+
+  const html = '<div class="result-header"><div class="result-icon">💰</div><div>' +
+    '<div class="result-title">Capital Stack Builder</div>' +
+    '<div class="result-sub">' + (stackDealData.type || '').toUpperCase() + ' · ' + fmtM(stackDealData.purchase) + ' purchase · ' + fmtM(stackDealData.arv) + ' ARV</div>' +
+    '</div></div>' +
+
+    '<div class="result-section"><div class="result-section-label">Visual Stack</div>' +
+    '<div class="stack-bar-wrap"><div class="stack-bar">' + barSegs + gapSeg + '</div></div>' +
+    '<div class="stack-legend">' + legend + (gapPct > 0 ? '<div class="legend-item"><div class="legend-dot" style="background:rgba(255,255,255,0.1);border:1px dashed rgba(255,255,255,0.2);"></div>Funding Gap</div>' : '') + '</div></div>' +
+
+    '<div class="result-section"><div class="result-section-label">Deal Performance</div>' +
+    '<div class="stack-metrics">' +
+    '<div class="stack-metric"><div class="stack-metric-val">' + fmtM(c.totalRaised) + '</div><div class="stack-metric-label">Raised</div></div>' +
+    '<div class="stack-metric"><div class="stack-metric-val ' + (c.gap > 0 ? 'red' : 'green') + '">' + (c.gap > 0 ? '-' + fmtM(c.gap) : '✓ Covered') + '</div><div class="stack-metric-label">Gap</div></div>' +
+    '<div class="stack-metric"><div class="stack-metric-val ' + (c.ltv <= 70 ? 'green' : c.ltv <= 80 ? 'gold' : 'red') + '">' + fmtPct(c.ltv) + '</div><div class="stack-metric-label">LTV</div></div>' +
+    '<div class="stack-metric highlight"><div class="stack-metric-val ' + (c.netProfit >= 0 ? 'green' : 'red') + '">' + fmtM(c.netProfit) + '</div><div class="stack-metric-label">Net Profit</div></div>' +
+    '</div><div class="stack-metrics">' +
+    '<div class="stack-metric"><div class="stack-metric-val">' + fmtM(c.totalFinancingCost) + '</div><div class="stack-metric-label">Finance Cost</div></div>' +
+    '<div class="stack-metric"><div class="stack-metric-val">' + fmtM(c.monthlyCarry) + '</div><div class="stack-metric-label">Monthly Carry</div></div>' +
+    '<div class="stack-metric"><div class="stack-metric-val">' + fmtM(c.totalPoints) + '</div><div class="stack-metric-label">Points/Fees</div></div>' +
+    '<div class="stack-metric"><div class="stack-metric-val ' + (c.coc > 0 ? 'green' : 'red') + '">' + (c.coc !== 0 ? fmtPct(c.coc) : 'N/A') + '</div><div class="stack-metric-label">Cash-on-Cash</div></div>' +
+    '</div></div>' +
+
+    '<div class="result-section"><div class="result-section-label">Layer Breakdown</div>' + layerRows + '</div>' +
+
+    '<div class="aris-panel" id="arisAssessPanel" style="display:none;">' +
+    '<div class="aris-panel-header"><div class="aris-orb">⚡</div><div>' +
+    '<div class="aris-panel-title">ARIS Stack Assessment</div>' +
+    '<div class="aris-panel-sub">Is this stack smart?</div></div></div>' +
+    '<div id="arisAssessText" class="result-text"></div></div>' +
+
+    '<div style="height:20px;"></div>';
+
+  showResults(html);
+}
+
+async function runStackAssess() {
+  const c = calcStack();
+  const btn = document.getElementById('assess-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'ARIS is assessing...'; }
+
+  const layerSummary = stackLayers.map(l =>
+    l.type + ': ' + fmtM(l.amount) + ' @ ' + l.rate + '% for ' + l.term + ' months, ' + l.points + ' points'
+  ).join(', ');
+
+  const whyCtx2 = getWhyContext();
+  const prompt = 'You are ARIS inside FORGE. A member has built this capital stack.\n\nDeal: ' +
+    stackDealData.type + ' · Purchase ' + fmtM(stackDealData.purchase) + ' · Rehab ' + fmtM(stackDealData.rehab) + ' · ARV ' + fmtM(stackDealData.arv) + '\n\nStack: ' + layerSummary +
+    '\n\nPerformance: Raised ' + fmtM(c.totalRaised) + ' vs Needed ' + fmtM(c.totalNeeded) +
+    ', Gap: ' + (c.gap > 0 ? fmtM(c.gap) : 'None') +
+    ', LTV: ' + fmtPct(c.ltv) + ', Finance Cost: ' + fmtM(c.totalFinancingCost) +
+    ', Monthly Carry: ' + fmtM(c.monthlyCarry) + ', Net Profit: ' + fmtM(c.netProfit) +
+    '\n\nGive a direct 3-sentence ARIS verdict: (1) Is this stack smart? (2) Biggest risk? (3) One specific change you would make. Be direct, no generic advice.';
+
+  const panel = document.getElementById('arisAssessPanel');
+  const textEl = document.getElementById('arisAssessText');
+  if (panel) panel.style.display = 'block';
+  if (textEl) textEl.innerHTML = '<div style="color:var(--grey);font-size:12px;">⚡ ARIS is reading your stack...</div>';
+
+  try {
+    const result = await callARIS(prompt, 400);
+    if (textEl) textEl.innerHTML = formatARIS(result);
+    if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    document.getElementById('phase3-label')?.classList.add('active');
+  } catch(e) {
+    if (textEl) textEl.innerHTML = '<div style="color:var(--red);font-size:12px;">Assessment unavailable. Try again.</div>';
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '⚡ Get ARIS Assessment'; }
+  }
+}
+
+
+// ── LENDER FINDER ──
+async function runLender() {
+  const type   = document.getElementById('lender-type').value;
+  const amount = document.getElementById('lender-amount').value.trim();
+  const credit = document.getElementById('lender-credit').value;
+  const state  = document.getElementById('lender-state').value.trim();
+  const exp    = document.getElementById('lender-exp').value;
+
+  if (!amount) { showError('Enter a loan amount.'); return; }
+
+  const btn = document.getElementById('lender-btn');
+  btn.disabled = true;
+  showLoading('ARIS is finding your lenders...');
+
+  const prompt = `You are ARIS, the AI coach inside FORGE — a real estate investor platform.
+
+Find and rank the best lender types for this investor:
+- Deal Type: ${type}
+- Loan Amount: ${amount}
+- Credit Score: ${credit}
+- State: ${state || 'Not specified'}
+- Experience: ${exp}
+
+Return 4–5 ranked lender options. For each include:
+
+### [LENDER TYPE NAME] — [BEST FIT / GOOD OPTION / ALTERNATIVE]
+**Typical Rate:** X%–X%
+**Max LTV:** X%
+**Min Credit:** XXX
+**Speed to Close:** X–X weeks
+**Best For:** one sentence
+**What to Say:** Exact opening script — what to say when you call or email this lender type to get the best response. Make it real, not generic.
+**Watch Out For:** one specific risk or gotcha with this lender type
+
+End with:
+## ARIS RECOMMENDATION
+Which lender type to pursue first for this exact profile and why. Include one action they can take today.
+
+Be specific and direct. Max 3 lender types. No padding.`;
+
+  try {
+    const result = await callARIS(prompt, 800);
+    showResults(`
+      <div class="result-header">
+        <div class="result-icon">🏦</div>
+        <div>
+          <div class="result-title">Lender Match</div>
+          <div class="result-sub">${type.toUpperCase()} · ${amount} · ${credit} credit</div>
+        </div>
+      </div>
+      <div class="result-section">
+        <div class="result-section-label">ARIS Lender Analysis</div>
+        <div class="result-text">${formatARIS(result)}</div>
+      </div>
+      <div style="height:20px;"></div>
+    `);
+  } catch(e) {
+    showError(e.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── LENDER QUALIFIER ──
+async function runQualifier() {
+  const credit   = document.getElementById('qual-credit').value;
+  const cash     = document.getElementById('qual-cash').value.trim();
+  const income   = document.getElementById('qual-income').value.trim();
+  const debt     = document.getElementById('qual-debt').value.trim();
+  const deals    = document.getElementById('qual-deals').value.trim();
+  const property = document.getElementById('qual-property').value;
+
+  if (!cash || !income) { showError('Enter your liquid cash and monthly income.'); return; }
+
+  const btn = document.getElementById('qual-btn');
+  btn.disabled = true;
+  showLoading('ARIS is analyzing your profile...');
+
+  const prompt = `You are ARIS, the AI coach inside FORGE — a real estate investor platform.
+
+Analyze this investor's financial profile and tell them exactly what they qualify for:
+- Credit Score: ${credit}
+- Liquid Cash Available: ${cash}
+- Monthly Income: ${income}
+- Monthly Debt Payments: ${debt || 'Not provided'}
+- Deals Completed: ${deals || '0'}
+- Property Ownership: ${property}
+
+Structure your response:
+
+## WHAT YOU QUALIFY FOR TODAY
+List each financing product they can access RIGHT NOW with their current profile. Be honest — if they don't qualify for something, say so.
+For each: product name, why they qualify, typical terms they'd get, and realistic loan size.
+
+## YOUR FINANCING CEILING
+What is the maximum deal size they can realistically fund today?
+
+## WHAT'S HOLDING YOU BACK
+If anything is limiting their options, name it specifically — credit score, DTI ratio, cash reserves, lack of track record, etc.
+
+## 90-DAY UNLOCK PLAN
+Specific, actionable steps to unlock better financing within 90 days. Prioritize by impact.
+
+## ARIS VERDICT
+One direct paragraph: where do they stand and what's the single highest-leverage move?
+
+Be direct. No generic advice.`;
+
+  try {
+    const result = await callARIS(prompt, 800);
+    showResults(`
+      <div class="result-header">
+        <div class="result-icon">✅</div>
+        <div>
+          <div class="result-title">Financing Profile</div>
+          <div class="result-sub">${credit} credit · ${cash} cash · ${deals || '0'} deals</div>
+        </div>
+      </div>
+      <div class="result-section">
+        <div class="result-section-label">ARIS Qualification Analysis</div>
+        <div class="result-text">${formatARIS(result)}</div>
+      </div>
+      <div style="height:20px;"></div>
+    `);
+  } catch(e) {
+    showError(e.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── PITCH GENERATOR ──
+async function runPitch() {
+  const location = document.getElementById('pitch-location').value.trim();
+  const purchase = document.getElementById('pitch-purchase').value.trim();
+  const rehab    = document.getElementById('pitch-rehab').value.trim();
+  const arv      = document.getElementById('pitch-arv').value.trim();
+  const profit   = document.getElementById('pitch-profit').value.trim();
+  const capital  = document.getElementById('pitch-capital').value.trim();
+  const timeline = document.getElementById('pitch-timeline').value.trim();
+  const offer    = document.getElementById('pitch-offer').value.trim();
+
+  if (!purchase || !arv || !capital) { showError('Enter purchase price, ARV, and capital needed.'); return; }
+
+  const btn = document.getElementById('pitch-btn');
+  btn.disabled = true;
+  showLoading('ARIS is writing your pitch...');
+
+  const prompt = `You are ARIS, the AI coach inside FORGE — a real estate investor platform. Write a professional private money lender pitch for this deal.
+
+Deal Details:
+- Location: ${location || 'Not specified'}
+- Purchase Price: ${purchase}
+- Rehab Budget: ${rehab || 'Not specified'}
+- After Repair Value: ${arv}
+- Projected Profit: ${profit || 'Not specified'}
+- Capital Needed from Lender: ${capital}
+- Timeline: ${timeline || 'Not specified'}
+- Offer to Lender: ${offer || 'Negotiable'}
+
+Write a complete, ready-to-send private lender pitch. Format it as a professional email/letter. Include:
+
+1. A compelling subject line
+2. Opening that establishes credibility and the opportunity (not desperation)
+3. The deal summary with key numbers
+4. What the lender gets (return, security, timeline)
+5. Risk mitigation (how their capital is protected — equity cushion, insurance, etc.)
+6. Clear call to action
+7. Professional sign-off with [YOUR NAME] and [YOUR COMPANY] placeholders
+
+The tone is confident, professional, and concise. This is not a favor ask — this is a business opportunity being offered. Write it so a private lender who has never invested in real estate before would feel confident saying yes.
+
+After the pitch, add a short section:
+## DELIVERY TIPS
+3 specific tips on how to present this pitch in person or over the phone.`;
+
+  try {
+    const result = await callARIS(prompt, 800);
+
+    // Split pitch from delivery tips
+    const parts = result.split('## DELIVERY TIPS');
+    const pitchText = parts[0].trim();
+    const tipsText  = parts[1] ? parts[1].trim() : '';
+
+    showResults(`
+      <div class="result-header">
+        <div class="result-icon">📄</div>
+        <div>
+          <div class="result-title">Private Money Pitch</div>
+          <div class="result-sub">${location || 'Deal'} · ${capital} needed · ${timeline || ''}</div>
+        </div>
+      </div>
+      <div class="result-section">
+        <div class="result-section-label">Your Pitch — Ready to Send</div>
+        <div class="pitch-box">${formatARIS(pitchText)}</div>
+        <button class="copy-btn" onclick="copyPitch()">📋 Copy Pitch</button>
+      </div>
+      ${tipsText ? `
+      <div class="result-section">
+        <div class="result-section-label">Delivery Tips from ARIS</div>
+        <div class="result-text">${formatARIS(tipsText)}</div>
+      </div>` : ''}
+      <div style="height:20px;"></div>
+    `);
+
+    // Store pitch text for copy
+    window._pitchText = pitchText.replace(/<[^>]+>/g, '');
+
+  } catch(e) {
+    showError(e.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function copyPitch() {
+  if (!window._pitchText) return;
+  navigator.clipboard.writeText(window._pitchText).then(() => {
+    const btn = document.querySelector('.copy-btn');
+    if (btn) { btn.textContent = '✅ Copied!'; setTimeout(() => { btn.textContent = '📋 Copy Pitch'; }, 2000); }
+  });
+}
+</script>
+</body>
+</html>

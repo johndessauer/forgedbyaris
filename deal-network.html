@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FORGE Buy Box | Deal Network</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --black:      #0D1B2A;
+  --navy:       #0f2035;
+  --navy-light: #162840;
+  --navy-mid:   #1a3350;
+  --orange:     #FF6B2B;
+  --orange-dim: rgba(255,107,43,0.12);
+  --gold:       #C89B3C;
+  --gold-dim:   rgba(200,155,60,0.15);
+  --green:      #22c55e;
+  --green-dim:  rgba(34,197,94,0.12);
+  --red:        #ef4444;
+  --red-dim:    rgba(239,68,68,0.12);
+  --yellow:     #f59e0b;
+  --white:      #FFFFFF;
+  --grey:       #6B7280;
+  --grey-light: #9CA3AF;
+  --border:     rgba(200,155,60,0.18);
+  --border-sub: rgba(255,255,255,0.06);
+  --sidebar-w:  260px;
+}
+
+html, body { height: 100%; background: var(--black); color: var(--white); font-family: 'Inter', sans-serif; overflow: hidden; }
+.app { display: flex; height: 100vh; width: 100vw; }
+
+/* ── SIDEBAR ── */
+.sidebar { width: var(--sidebar-w); min-width: var(--sidebar-w); background: var(--navy); border-right: 1px solid var(--border-sub); display: flex; flex-direction: column; overflow: hidden; }
+.sidebar-logo { padding: 24px 20px 20px; border-bottom: 1px solid var(--border-sub); display: flex; align-items: center; gap: 12px; }
+.logo-mark { width: 36px; height: 36px; background: linear-gradient(135deg, var(--orange), #c04a10); border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.logo-mark svg { width: 20px; height: 20px; }
+.logo-words { line-height: 1; }
+.logo-words .wordmark { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 3px; color: var(--white); }
+.logo-words .wordmark span { color: var(--gold); }
+.logo-words .sub { font-size: 9px; letter-spacing: 2px; color: var(--grey); text-transform: uppercase; margin-top: 2px; }
+.sidebar-section { padding: 20px 14px 8px; }
+.sidebar-section-label { font-size: 9px; letter-spacing: 2.5px; text-transform: uppercase; color: var(--grey); padding: 0 6px; margin-bottom: 6px; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--grey-light); transition: background 0.15s, color 0.15s; text-decoration: none; user-select: none; }
+.nav-item:hover { background: var(--border-sub); color: var(--white); }
+.nav-item.active { background: var(--orange-dim); color: var(--orange); border: 1px solid rgba(255,107,43,0.2); }
+.nav-icon { font-size: 15px; width: 18px; text-align: center; flex-shrink: 0; }
+.nav-badge { margin-left: auto; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; background: var(--border-sub); color: var(--grey); padding: 2px 6px; border-radius: 3px; }
+.sidebar-footer { margin-top: auto; padding: 16px 14px; border-top: 1px solid var(--border-sub); }
+.user-chip { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; background: var(--border-sub); }
+.user-avatar { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, var(--gold), #a07820); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--black); flex-shrink: 0; }
+.user-info { line-height: 1.2; min-width: 0; }
+.user-name { font-size: 12px; font-weight: 600; color: var(--white); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-tier { font-size: 10px; color: var(--gold); letter-spacing: 1px; text-transform: uppercase; }
+
+/* ── MAIN ── */
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.topbar { display: flex; align-items: center; justify-content: space-between; padding: 16px 28px; border-bottom: 1px solid var(--border-sub); flex-shrink: 0; }
+.topbar-left { display: flex; align-items: center; gap: 14px; }
+.topbar-icon { width: 42px; height: 42px; border-radius: 50%; background: linear-gradient(135deg, var(--navy-light), var(--black)); border: 1.5px solid var(--gold); display: flex; align-items: center; justify-content: center; font-size: 18px; }
+.topbar-title { line-height: 1.2; }
+.topbar-name { font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 3px; color: var(--white); }
+.topbar-sub { font-size: 11px; color: var(--grey); letter-spacing: 1px; }
+
+/* ── CONTENT ── */
+.content { flex: 1; display: flex; overflow: hidden; }
+
+/* ── LEFT PANEL ── */
+.form-panel { width: 400px; min-width: 400px; display: flex; flex-direction: column; border-right: 1px solid var(--border-sub); overflow: hidden; }
+
+/* ── TABS ── */
+.network-tabs { display: flex; padding: 16px 16px 0; gap: 4px; border-bottom: 1px solid var(--border-sub); flex-shrink: 0; }
+.tab-btn { font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 0.5px; padding: 8px 14px; border-radius: 6px 6px 0 0; border: 1px solid transparent; border-bottom: none; cursor: pointer; white-space: nowrap; transition: all 0.15s; background: none; color: var(--grey); }
+.tab-btn:hover { color: var(--white); background: var(--border-sub); }
+.tab-btn.active { background: var(--navy-light); border-color: var(--border-sub); color: var(--orange); border-bottom: 2px solid var(--orange); }
+
+/* ── FORM SCROLL ── */
+.form-scroll { flex: 1; overflow-y: auto; padding: 20px; }
+.form-scroll::-webkit-scrollbar { width: 4px; }
+.form-scroll::-webkit-scrollbar-thumb { background: var(--border-sub); border-radius: 2px; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+.tab-desc { font-size: 12px; color: var(--grey); line-height: 1.6; margin-bottom: 20px; padding: 12px 14px; background: var(--navy-light); border-radius: 8px; border-left: 3px solid var(--gold); }
+
+.form-section { margin-bottom: 20px; }
+.form-section-label { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--gold); margin-bottom: 10px; font-weight: 600; }
+.form-group { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+.form-label { font-size: 11px; color: var(--grey-light); font-weight: 500; }
+.form-input { background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 6px; padding: 9px 12px; font-size: 13px; font-family: 'Inter', sans-serif; color: var(--white); outline: none; transition: border-color 0.15s; width: 100%; }
+.form-input:focus { border-color: var(--gold); }
+.form-input::placeholder { color: var(--grey); }
+.form-select { background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 6px; padding: 9px 12px; font-size: 13px; font-family: 'Inter', sans-serif; color: var(--white); outline: none; width: 100%; cursor: pointer; }
+.form-select option { background: var(--navy); }
+.form-textarea { background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 6px; padding: 9px 12px; font-size: 13px; font-family: 'Inter', sans-serif; color: var(--white); outline: none; width: 100%; resize: none; line-height: 1.5; }
+.form-textarea:focus { border-color: var(--gold); }
+.form-textarea::placeholder { color: var(--grey); }
+
+/* checkbox group */
+.check-group { display: flex; flex-direction: column; gap: 6px; }
+.check-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 6px; cursor: pointer; transition: all 0.15s; }
+.check-item:hover { border-color: var(--gold); }
+.check-item.selected { border-color: var(--orange); background: var(--orange-dim); }
+.check-item input { display: none; }
+.check-dot { width: 14px; height: 14px; border-radius: 3px; border: 1.5px solid var(--grey); flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+.check-item.selected .check-dot { background: var(--orange); border-color: var(--orange); }
+.check-dot-inner { width: 6px; height: 6px; background: white; border-radius: 1px; display: none; }
+.check-item.selected .check-dot-inner { display: block; }
+.check-label { font-size: 12px; color: var(--grey-light); font-weight: 500; }
+.check-item.selected .check-label { color: var(--white); }
+
+.run-btn { width: 100%; background: var(--orange); border: none; border-radius: 8px; padding: 13px; font-size: 13px; font-weight: 700; font-family: 'Inter', sans-serif; color: white; cursor: pointer; transition: background 0.15s; letter-spacing: 0.5px; margin-top: 8px; }
+.run-btn:hover { background: #e55a1c; }
+.run-btn:disabled { background: var(--grey); cursor: default; }
+
+/* ── RESULTS PANEL ── */
+.results-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.results-scroll { flex: 1; overflow-y: auto; padding: 28px; display: flex; flex-direction: column; gap: 20px; }
+.results-scroll::-webkit-scrollbar { width: 4px; }
+.results-scroll::-webkit-scrollbar-thumb { background: var(--border-sub); border-radius: 2px; }
+
+.empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--grey); padding: 40px; text-align: center; }
+.empty-icon { font-size: 48px; opacity: 0.3; }
+.empty-title { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 3px; color: var(--grey); }
+.empty-sub { font-size: 12px; line-height: 1.6; max-width: 320px; }
+
+.loading-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
+.loading-pulse { width: 56px; height: 56px; border-radius: 50%; border: 3px solid var(--border-sub); border-top-color: var(--gold); animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { font-size: 13px; color: var(--grey); letter-spacing: 1px; }
+
+/* result blocks */
+.result-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.result-header-left { display: flex; align-items: center; gap: 12px; }
+.result-icon { font-size: 24px; }
+.result-title { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 3px; color: var(--white); }
+.result-sub { font-size: 11px; color: var(--grey); letter-spacing: 1px; margin-top: 2px; }
+
+.result-section { background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 10px; padding: 18px 20px; }
+.result-section.gold { border-color: var(--gold); }
+.result-section-label { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--gold); margin-bottom: 12px; font-weight: 600; }
+.result-text { font-size: 13px; color: var(--grey-light); line-height: 1.75; }
+.result-text strong { color: var(--white); font-weight: 600; }
+.result-text .highlight { color: var(--gold); font-weight: 600; }
+.result-text .orange { color: var(--orange); font-weight: 600; }
+.result-text .green { color: var(--green); font-weight: 600; }
+
+/* buy box card */
+.buybox-card { background: linear-gradient(135deg, var(--navy-mid), var(--navy-light)); border: 1px solid var(--border); border-radius: 12px; padding: 24px 28px; }
+.buybox-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--border-sub); }
+.buybox-badge { font-family: 'Bebas Neue', sans-serif; font-size: 11px; letter-spacing: 3px; color: var(--gold); background: var(--gold-dim); border: 1px solid rgba(200,155,60,0.3); padding: 4px 12px; border-radius: 4px; }
+.buybox-member { font-size: 11px; color: var(--grey); }
+
+/* criteria grid */
+.criteria-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+.criteria-cell { background: var(--navy); border: 1px solid var(--border-sub); border-radius: 8px; padding: 12px 14px; }
+.criteria-cell-label { font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--grey); margin-bottom: 5px; }
+.criteria-cell-value { font-size: 13px; font-weight: 600; color: var(--white); line-height: 1.4; }
+.criteria-cell-value.orange { color: var(--orange); }
+.criteria-cell-value.gold { color: var(--gold); }
+.criteria-cell-value.green { color: var(--green); }
+
+/* strategy tags */
+.strategy-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+.strategy-tag { font-size: 11px; font-weight: 600; padding: 4px 12px; border-radius: 20px; }
+.tag-flip { background: var(--orange-dim); color: var(--orange); border: 1px solid rgba(255,107,43,0.3); }
+.tag-rental { background: var(--green-dim); color: var(--green); border: 1px solid rgba(34,197,94,0.2); }
+.tag-wholesale { background: var(--gold-dim); color: var(--gold); border: 1px solid rgba(200,155,60,0.2); }
+.tag-brrrr { background: rgba(139,92,246,0.12); color: #a78bfa; border: 1px solid rgba(139,92,246,0.2); }
+.tag-commercial { background: rgba(14,165,233,0.12); color: #38bdf8; border: 1px solid rgba(14,165,233,0.2); }
+
+/* copy/print buttons */
+.action-row { display: flex; gap: 8px; margin-top: 12px; }
+.action-btn { display: flex; align-items: center; gap: 6px; background: var(--border-sub); border: 1px solid var(--border-sub); color: var(--grey-light); font-size: 11px; font-family: 'Inter', sans-serif; padding: 8px 14px; border-radius: 6px; cursor: pointer; transition: all 0.15s; font-weight: 500; }
+.action-btn:hover { background: var(--gold-dim); border-color: var(--gold); color: var(--gold); }
+
+/* aris panel */
+.aris-panel { background: linear-gradient(135deg, var(--navy-mid), var(--navy-light)); border: 1px solid var(--border); border-radius: 12px; padding: 18px 22px; }
+.aris-panel-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.aris-orb { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, var(--orange), #c04a10); display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; }
+.aris-panel-title { font-family: 'Bebas Neue', sans-serif; font-size: 13px; letter-spacing: 2px; color: var(--orange); }
+.aris-panel-sub { font-size: 10px; color: var(--grey); }
+.aris-dots span { animation: blink 1.4s infinite; font-size: 14px; color: var(--orange); }
+.aris-dots span:nth-child(2) { animation-delay: 0.2s; }
+.aris-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes blink { 0%,80%,100% { opacity: 0.2; } 40% { opacity: 1; } }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M4 17h16v2H4v-2zm2-6h12l-1.5 6H7.5L6 11zm3-6h6l1 4H8l1-4z" fill="white" opacity="0.9"/><path d="M10 5h4v2h-4V5z" fill="white"/></svg>
+      </div>
+      <div class="logo-words">
+        <div class="wordmark">F<span>O</span>RGE</div>
+        <div class="sub">Powered by ARIS</div>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Core Features</div>
+      <a class="nav-item" href="dashboard.html"><span class="nav-icon">🏠</span>Dashboard</a>
+      <a class="nav-item" href="aris-coach.html"><span class="nav-icon">⚡</span>ARIS AI Coach</a>
+      <a class="nav-item" href="deal-analyzer.html"><span class="nav-icon">🔍</span>Deal Analyzer</a>
+      <div class="nav-item"><span class="nav-icon">📍</span>Property Search<span class="nav-badge">Soon</span></div>
+      <div class="nav-item active"><span class="nav-icon">🤝</span>Deal Network</div>
+      <a class="nav-item" href="capital-radar.html"><span class="nav-icon">🎯</span>Capital Radar</a>
+      <a class="nav-item" href="market-oracle.html"><span class="nav-icon">🔮</span>Market Oracle</a>
+      <a class="nav-item" href="document-vault.html"><span class="nav-icon">📂</span>Document Vault</a>
+      <div class="nav-item"><span class="nav-icon">🏛</span>Education<span class="nav-badge">Soon</span></div>
+    </div>
+    <div class="sidebar-footer">
+      <div class="user-chip">
+        <div class="user-avatar">JD</div>
+        <div class="user-info">
+          <div class="user-name">John Dessauer</div>
+          <div class="user-tier">Founding Member</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-icon">🤝</div>
+        <div class="topbar-title">
+          <div class="topbar-name">Deal Network</div>
+          <div class="topbar-sub">FORGE Buy Box · Deal criteria · ARIS coaching</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- LEFT PANEL -->
+      <div class="form-panel">
+        <div class="network-tabs">
+          <button class="tab-btn active" onclick="switchTab('buybox')">🎯 Buy Box Builder</button>
+          <button class="tab-btn" onclick="switchTab('refine')">⚡ Refine with ARIS</button>
+        </div>
+
+        <div class="form-scroll">
+
+          <!-- TAB: BUY BOX BUILDER -->
+          <div class="tab-panel active" id="panel-buybox">
+            <div class="tab-desc">Define your investment criteria. ARIS builds your personal Buy Box — the filter you run every deal through before spending a minute on it.</div>
+
+            <div class="form-section">
+              <div class="form-section-label">Your Identity</div>
+              <div class="form-group">
+                <label class="form-label">Your Name</label>
+                <input class="form-input" id="bb-name" type="text" placeholder="John Dessauer" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Target Market(s)</label>
+                <input class="form-input" id="bb-markets" type="text" placeholder="Northwest Indiana, Chicago suburbs" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Experience Level</label>
+                <select class="form-select" id="bb-experience">
+                  <option value="beginner">Beginner — 0 deals completed</option>
+                  <option value="novice">Novice — 1–3 deals completed</option>
+                  <option value="intermediate">Intermediate — 4–10 deals</option>
+                  <option value="experienced">Experienced — 10+ deals</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-section">
+              <div class="form-section-label">Investment Strategy</div>
+              <div class="check-group" id="strategy-group">
+                <div class="check-item" onclick="toggleCheck(this)">
+                  <div class="check-dot"><div class="check-dot-inner"></div></div>
+                  <span class="check-label">🔨 Fix &amp; Flip</span>
+                </div>
+                <div class="check-item" onclick="toggleCheck(this)">
+                  <div class="check-dot"><div class="check-dot-inner"></div></div>
+                  <span class="check-label">🏠 Buy &amp; Hold Rental</span>
+                </div>
+                <div class="check-item" onclick="toggleCheck(this)">
+                  <div class="check-dot"><div class="check-dot-inner"></div></div>
+                  <span class="check-label">🤝 Wholesaling</span>
+                </div>
+                <div class="check-item" onclick="toggleCheck(this)">
+                  <div class="check-dot"><div class="check-dot-inner"></div></div>
+                  <span class="check-label">♻️ BRRRR</span>
+                </div>
+                <div class="check-item" onclick="toggleCheck(this)">
+                  <div class="check-dot"><div class="check-dot-inner"></div></div>
+                  <span class="check-label">🏢 Commercial / Multifamily</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-section">
+              <div class="form-section-label">Deal Criteria</div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Min Purchase Price</label>
+                  <input class="form-input" id="bb-min-price" type="text" placeholder="$50,000" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Max Purchase Price</label>
+                  <input class="form-input" id="bb-max-price" type="text" placeholder="$300,000" />
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Min Profit / Min Cash Flow</label>
+                  <input class="form-input" id="bb-min-profit" type="text" placeholder="$25,000 or $300/mo" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Max Rehab Budget</label>
+                  <input class="form-input" id="bb-max-rehab" type="text" placeholder="$75,000" />
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Property Types</label>
+                  <select class="form-select" id="bb-prop-type">
+                    <option value="SFR only">Single Family Only</option>
+                    <option value="SFR and small multi">SFR + Small Multifamily</option>
+                    <option value="multifamily focus">Multifamily Focus (2–4 units)</option>
+                    <option value="any residential">Any Residential</option>
+                    <option value="commercial">Commercial</option>
+                    <option value="any">Any Property Type</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Min ARV</label>
+                  <input class="form-input" id="bb-min-arv" type="text" placeholder="$150,000" />
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Preferred FORGE Area Class</label>
+                <select class="form-select" id="bb-area-class">
+                  <option value="Class A only">Class A Only — High income, strong values</option>
+                  <option value="Class A or B" selected>Class A or B — Sweet spot</option>
+                  <option value="Class B only">Class B Only — Middle market cash flow</option>
+                  <option value="Class B or C">Class B or C — Higher yield, higher risk</option>
+                  <option value="any class">Any Class — Opportunity driven</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-section">
+              <div class="form-section-label">Capital &amp; Financing</div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Capital Available</label>
+                  <input class="form-input" id="bb-capital" type="text" placeholder="$30,000" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Preferred Financing</label>
+                  <select class="form-select" id="bb-financing">
+                    <option value="hard money">Hard Money</option>
+                    <option value="private money">Private Money</option>
+                    <option value="creative financing">Creative Financing</option>
+                    <option value="conventional">Conventional</option>
+                    <option value="mixed">Mix of Options</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-section">
+              <div class="form-section-label">Your Why &amp; Goals</div>
+              <div class="form-group">
+                <label class="form-label">What is your primary goal?</label>
+                <select class="form-select" id="bb-goal">
+                  <option value="replace my income">Replace my W-2 income</option>
+                  <option value="build long-term wealth">Build long-term wealth / legacy</option>
+                  <option value="generate quick cash">Generate quick cash now</option>
+                  <option value="build a portfolio">Build a rental portfolio</option>
+                  <option value="retire early">Retire early</option>
+                  <option value="financial freedom">Achieve full financial freedom</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Deals per year target</label>
+                <select class="form-select" id="bb-deal-target">
+                  <option value="1-2">1–2 deals (part time)</option>
+                  <option value="3-6">3–6 deals (serious investor)</option>
+                  <option value="6-12">6–12 deals (full time)</option>
+                  <option value="12+">12+ deals (scaling)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Anything else ARIS should know?</label>
+                <textarea class="form-textarea" id="bb-notes" rows="3" placeholder="e.g. I have a contractor partner, I want to avoid rentals with tenants, I only want vacant properties..."></textarea>
+              </div>
+            </div>
+
+            <button class="run-btn" id="buybox-btn" onclick="runBuyBox()">Build My FORGE Buy Box</button>
+          </div>
+
+          <!-- TAB: REFINE WITH ARIS -->
+          <div class="tab-panel" id="panel-refine">
+            <div class="tab-desc">Already have your Buy Box? Ask ARIS to stress-test it, help you evaluate a specific deal against it, or refine your criteria based on your market.</div>
+            <div class="form-group">
+              <label class="form-label">Ask ARIS anything about your buy box or deal criteria</label>
+              <textarea class="form-textarea" id="refine-question" rows="6" placeholder="e.g. Does this deal fit my buy box? Purchase $120k, ARV $195k, rehab $40k, Northwest Indiana...&#10;&#10;Or: Should I expand my price range given my market?&#10;&#10;Or: How do I find deals that fit a Class B area buy box?"></textarea>
+            </div>
+            <button class="run-btn" id="refine-btn" onclick="runRefine()">Ask ARIS</button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- RESULTS PANEL -->
+      <div class="results-panel" id="resultsPanel">
+        <div class="empty-state" id="emptyState">
+          <div class="empty-icon">🎯</div>
+          <div class="empty-title">Build Your Buy Box</div>
+          <div class="empty-sub">Your Buy Box is the filter you run every deal through. Members who define their criteria close faster, waste less time, and make better decisions. Let's build yours.</div>
+        </div>
+        <div class="loading-state" id="loadingState" style="display:none;">
+          <div class="loading-pulse"></div>
+          <div class="loading-text" id="loadingText">ARIS is building your Buy Box...</div>
+        </div>
+        <div class="results-scroll" id="resultsScroll" style="display:none;"></div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script>
+// ── TABS ──
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach((b, i) => {
+    b.classList.toggle('active', ['buybox','refine'][i] === tab);
+  });
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + tab).classList.add('active');
+  resetResults();
+}
+
+// ── CHECKBOXES ──
+function toggleCheck(el) {
+  el.classList.toggle('selected');
+}
+
+function getSelectedStrategies() {
+  const items = document.querySelectorAll('#strategy-group .check-item.selected .check-label');
+  return Array.from(items).map(el => el.textContent.trim().replace(/^[^\w]+/, ''));
+}
+
+// ── UI STATE ──
+function resetResults() {
+  document.getElementById('emptyState').style.display = 'flex';
+  document.getElementById('loadingState').style.display = 'none';
+  document.getElementById('resultsScroll').style.display = 'none';
+}
+
+function showLoading(text) {
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('loadingState').style.display = 'flex';
+  document.getElementById('loadingText').textContent = text || 'ARIS is working...';
+  document.getElementById('resultsScroll').style.display = 'none';
+}
+
+function showResults(html) {
+  document.getElementById('loadingState').style.display = 'none';
+  document.getElementById('emptyState').style.display = 'none';
+  const rs = document.getElementById('resultsScroll');
+  rs.style.display = 'flex';
+  rs.innerHTML = html;
+}
+
+function showError(msg) {
+  document.getElementById('loadingState').style.display = 'none';
+  document.getElementById('emptyState').style.display = 'flex';
+  document.getElementById('emptyState').innerHTML = '<div class="empty-icon">⚠️</div><div class="empty-title">Something Went Wrong</div><div class="empty-sub">' + (msg || 'Try again.') + '</div>';
+}
+
+// ── ARIS CALL ──
+
+// ── MEMBER WHY CONTEXT ──
+function getWhyContext() {
+  try {
+    const why = JSON.parse(localStorage.getItem('forge-member-why') || 'null');
+    if (!why || !why.q1) return '';
+    return '\n\nMEMBER WHY (use this to personalize your coaching):\n' +
+      '- Why they invest: "' + why.q1 + '"\n' +
+      (why.q2 ? '- Their bigger purpose: "' + why.q2 + '"\n' : '') +
+      (why.q3 ? '- Why now is their time: "' + why.q3 + '"' : '');
+  } catch(e) { return ''; }
+}
+
+async function callARIS(prompt, maxTokens) {
+  const fullPrompt = prompt + getWhyContext();
+  const res = await fetch('/api/aris-quote', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: maxTokens || 800,
+      messages: [{ role: 'user', content: fullPrompt }]
+    })
+  });
+  if (!res.ok) throw new Error('ARIS unavailable. Try again.');
+  const data = await res.json();
+  if (data.content && data.content[0] && data.content[0].text) return data.content[0].text;
+  throw new Error('No response from ARIS.');
+}
+
+function formatARIS(text) {
+  return text
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/###\s?(.*)/g, '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:13px;letter-spacing:2px;color:var(--gold);margin:14px 0 6px;">$1</div>')
+    .replace(/##\s?(.*)/g, '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:15px;letter-spacing:2px;color:var(--orange);margin:16px 0 8px;">$1</div>')
+    .replace(/\n/g, '<br>');
+}
+
+// ── BUY BOX BUILDER ──
+async function runBuyBox() {
+  const name       = document.getElementById('bb-name').value.trim() || 'FORGE Member';
+  const markets    = document.getElementById('bb-markets').value.trim();
+  const experience = document.getElementById('bb-experience').value;
+  const strategies = getSelectedStrategies();
+  const minPrice   = document.getElementById('bb-min-price').value.trim();
+  const maxPrice   = document.getElementById('bb-max-price').value.trim();
+  const minProfit  = document.getElementById('bb-min-profit').value.trim();
+  const maxRehab   = document.getElementById('bb-max-rehab').value.trim();
+  const propType   = document.getElementById('bb-prop-type').value;
+  const minArv     = document.getElementById('bb-min-arv').value.trim();
+  const areaClass  = document.getElementById('bb-area-class').value;
+  const capital    = document.getElementById('bb-capital').value.trim();
+  const financing  = document.getElementById('bb-financing').value;
+  const goal       = document.getElementById('bb-goal').value;
+  const dealTarget = document.getElementById('bb-deal-target').value;
+  const notes      = document.getElementById('bb-notes').value.trim();
+
+  if (!markets || strategies.length === 0) {
+    showError('Enter your target market and select at least one strategy.');
+    return;
+  }
+
+  const btn = document.getElementById('buybox-btn');
+  btn.disabled = true;
+  showLoading('ARIS is building your Buy Box...');
+
+  const profileSummary = 'Name: ' + name + ' | Markets: ' + (markets || 'TBD') + ' | Experience: ' + experience +
+    ' | Strategies: ' + (strategies.join(', ') || 'TBD') + ' | Price: ' + (minPrice||'Any') + '-' + (maxPrice||'Any') +
+    ' | Min Profit: ' + (minProfit||'TBD') + ' | Max Rehab: ' + (maxRehab||'TBD') + ' | Props: ' + propType +
+    ' | ARV min: ' + (minArv||'TBD') + ' | Area Class: ' + areaClass + ' | Capital: ' + (capital||'TBD') +
+    ' | Financing: ' + financing + ' | Goal: ' + goal + ' | Target: ' + dealTarget + (notes ? ' | Notes: ' + notes : '');
+
+  const prompt = 'You are ARIS inside FORGE. Build a FORGE Buy Box for this investor.\n\nPROFILE: ' + profileSummary + getWhyContext() +
+    '\n\nWrite these 6 sections (keep each tight — 3-5 bullet points or sentences max):\n' +
+    '## YOUR FORGE BUY BOX\nOne mission-statement sentence.\n\n' +
+    '## THE NON-NEGOTIABLES\n5 hard walk-away criteria with specific numbers.\n\n' +
+    '## THE SWEET SPOT DEAL\n3 sentences describing the ideal deal.\n\n' +
+    '## DEAL FLOW FOCUS\n3 specific deal sources for their market and strategy.\n\n' +
+    '## RED FLAGS — WALK AWAY IF\n5 specific deal-killers for this profile.\n\n' +
+    '## ARIS COACHING NOTE\nOne direct paragraph on their single most important focus to hit ' + dealTarget + ' deals/year.';
+
+  try {
+    const result = await callARIS(prompt, 800);
+
+    // Build strategy tags
+    const tagMap = {
+      'Fix & Flip': 'tag-flip', 'Buy & Hold Rental': 'tag-rental',
+      'Wholesaling': 'tag-wholesale', 'BRRRR': 'tag-brrrr',
+      'Commercial / Multifamily': 'tag-commercial'
+    };
+    const strategyTags = strategies.map(s => {
+      const cls = Object.entries(tagMap).find(([k]) => s.includes(k.split(' ')[0]))?.[1] || 'tag-flip';
+      return '<span class="strategy-tag ' + cls + '">' + s + '</span>';
+    }).join('');
+
+    const html =
+      '<div class="result-header">' +
+        '<div class="result-header-left">' +
+          '<div class="result-icon">🎯</div>' +
+          '<div><div class="result-title">FORGE Buy Box</div>' +
+          '<div class="result-sub">' + name + ' · ' + (markets || 'All Markets') + '</div></div>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="buybox-card">' +
+        '<div class="buybox-card-header">' +
+          '<div class="buybox-badge">FORGE BUY BOX</div>' +
+          '<div class="buybox-member">' + name + ' · ' + new Date().toLocaleDateString() + '</div>' +
+        '</div>' +
+        '<div class="strategy-tags">' + strategyTags + '</div>' +
+        '<div class="criteria-grid">' +
+          '<div class="criteria-cell"><div class="criteria-cell-label">Target Market</div><div class="criteria-cell-value orange">' + (markets || '—') + '</div></div>' +
+          '<div class="criteria-cell"><div class="criteria-cell-label">Price Range</div><div class="criteria-cell-value">' + (minPrice || 'Any') + ' – ' + (maxPrice || 'Any') + '</div></div>' +
+          '<div class="criteria-cell"><div class="criteria-cell-label">Area Class</div><div class="criteria-cell-value gold">' + areaClass + '</div></div>' +
+          '<div class="criteria-cell"><div class="criteria-cell-label">Property Type</div><div class="criteria-cell-value">' + propType + '</div></div>' +
+          '<div class="criteria-cell"><div class="criteria-cell-label">Min Profit / CF</div><div class="criteria-cell-value green">' + (minProfit || '—') + '</div></div>' +
+          '<div class="criteria-cell"><div class="criteria-cell-label">Max Rehab</div><div class="criteria-cell-value">' + (maxRehab || '—') + '</div></div>' +
+          '<div class="criteria-cell"><div class="criteria-cell-label">Capital Available</div><div class="criteria-cell-value">' + (capital || '—') + '</div></div>' +
+          '<div class="criteria-cell"><div class="criteria-cell-label">Deal Target</div><div class="criteria-cell-value orange">' + dealTarget + '/year</div></div>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="result-section">' +
+        '<div class="result-section-label">ARIS Buy Box Analysis</div>' +
+        '<div class="result-text">' + formatARIS(result) + '</div>' +
+      '</div>' +
+
+      '<div class="action-row">' +
+        '<button class="action-btn" onclick="copyBuyBox()">📋 Copy Buy Box</button>' +
+        '<button class="action-btn" onclick="printBuyBox()">🖨️ Print</button>' +
+      '</div>' +
+
+      '<div style="height:20px;"></div>';
+
+    showResults(html);
+    window._buyBoxText = name + ' — FORGE Buy Box\n' + markets + ' | ' + strategies.join(', ') + '\n\n' + result;
+
+  } catch(e) {
+    showError(e.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── REFINE WITH ARIS ──
+async function runRefine() {
+  const question = document.getElementById('refine-question').value.trim();
+  if (!question) { showError('Enter a question for ARIS.'); return; }
+
+  const btn = document.getElementById('refine-btn');
+  btn.disabled = true;
+  showLoading('ARIS is thinking...');
+
+  try {
+    const result = await callARIS(question, 800);
+    showResults(
+      '<div class="result-header">' +
+        '<div class="result-header-left">' +
+          '<div class="result-icon">⚡</div>' +
+          '<div><div class="result-title">ARIS Response</div>' +
+          '<div class="result-sub">Buy Box coaching</div></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="aris-panel">' +
+        '<div class="aris-panel-header"><div class="aris-orb">⚡</div>' +
+        '<div><div class="aris-panel-title">ARIS</div><div class="aris-panel-sub">Deal Network coaching</div></div></div>' +
+        '<div class="result-text">' + formatARIS(result) + '</div>' +
+      '</div>' +
+      '<div style="height:20px;"></div>'
+    );
+  } catch(e) {
+    showError(e.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── ACTIONS ──
+function copyBuyBox() {
+  if (!window._buyBoxText) return;
+  navigator.clipboard.writeText(window._buyBoxText).then(() => {
+    const btn = document.querySelector('.action-btn');
+    if (btn) { btn.textContent = '✅ Copied!'; setTimeout(() => { btn.textContent = '📋 Copy Buy Box'; }, 2000); }
+  });
+}
+
+function printBuyBox() {
+  window.print();
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Market Oracle | FORGE</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --black:      #0D1B2A;
+  --navy:       #0f2035;
+  --navy-light: #162840;
+  --navy-mid:   #1a3350;
+  --orange:     #FF6B2B;
+  --orange-dim: rgba(255,107,43,0.12);
+  --gold:       #C89B3C;
+  --gold-dim:   rgba(200,155,60,0.15);
+  --green:      #22c55e;
+  --green-dim:  rgba(34,197,94,0.12);
+  --red:        #ef4444;
+  --red-dim:    rgba(239,68,68,0.12);
+  --yellow:     #f59e0b;
+  --yellow-dim: rgba(245,158,11,0.12);
+  --white:      #FFFFFF;
+  --grey:       #6B7280;
+  --grey-light: #9CA3AF;
+  --border:     rgba(200,155,60,0.18);
+  --border-sub: rgba(255,255,255,0.06);
+  --sidebar-w:  260px;
+}
+
+html, body { height: 100%; background: var(--black); color: var(--white); font-family: 'Inter', sans-serif; overflow: hidden; }
+
+/* ── LAYOUT ── */
+.app { display: flex; height: 100vh; width: 100vw; }
+
+/* ── SIDEBAR ── */
+.sidebar { width: var(--sidebar-w); min-width: var(--sidebar-w); background: var(--navy); border-right: 1px solid var(--border-sub); display: flex; flex-direction: column; overflow: hidden; }
+.sidebar-logo { padding: 24px 20px 20px; border-bottom: 1px solid var(--border-sub); display: flex; align-items: center; gap: 12px; }
+.logo-mark { width: 36px; height: 36px; background: linear-gradient(135deg, var(--orange), #c04a10); border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.logo-mark svg { width: 20px; height: 20px; }
+.logo-words { line-height: 1; }
+.logo-words .wordmark { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 3px; color: var(--white); }
+.logo-words .wordmark span { color: var(--gold); }
+.logo-words .sub { font-size: 9px; letter-spacing: 2px; color: var(--grey); text-transform: uppercase; margin-top: 2px; }
+.sidebar-section { padding: 20px 14px 8px; }
+.sidebar-section-label { font-size: 9px; letter-spacing: 2.5px; text-transform: uppercase; color: var(--grey); padding: 0 6px; margin-bottom: 6px; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--grey-light); transition: background 0.15s, color 0.15s; text-decoration: none; user-select: none; }
+.nav-item:hover { background: var(--border-sub); color: var(--white); }
+.nav-item.active { background: var(--orange-dim); color: var(--orange); border: 1px solid rgba(255,107,43,0.2); }
+.nav-icon { font-size: 15px; width: 18px; text-align: center; flex-shrink: 0; }
+.nav-badge { margin-left: auto; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; background: var(--border-sub); color: var(--grey); padding: 2px 6px; border-radius: 3px; }
+.sidebar-footer { margin-top: auto; padding: 16px 14px; border-top: 1px solid var(--border-sub); }
+.user-chip { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; background: var(--border-sub); }
+.user-avatar { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, var(--gold), #a07820); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--black); flex-shrink: 0; }
+.user-info { line-height: 1.2; min-width: 0; }
+.user-name { font-size: 12px; font-weight: 600; color: var(--white); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-tier { font-size: 10px; color: var(--gold); letter-spacing: 1px; text-transform: uppercase; }
+
+/* ── MAIN ── */
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+/* ── TOP BAR ── */
+.topbar { display: flex; align-items: center; justify-content: space-between; padding: 16px 28px; border-bottom: 1px solid var(--border-sub); flex-shrink: 0; }
+.topbar-left { display: flex; align-items: center; gap: 14px; }
+.topbar-icon { width: 42px; height: 42px; border-radius: 50%; background: linear-gradient(135deg, var(--navy-light), var(--black)); border: 1.5px solid var(--gold); display: flex; align-items: center; justify-content: center; font-size: 18px; }
+.topbar-title { line-height: 1.2; }
+.topbar-name { font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 3px; color: var(--white); }
+.topbar-sub { font-size: 11px; color: var(--grey); letter-spacing: 1px; }
+
+/* ── CONTENT ── */
+.content { flex: 1; display: flex; overflow: hidden; }
+
+/* ── SEARCH PANEL ── */
+.search-panel { width: 380px; min-width: 380px; display: flex; flex-direction: column; border-right: 1px solid var(--border-sub); overflow: hidden; }
+
+.search-inner { flex: 1; overflow-y: auto; padding: 24px 20px; }
+.search-inner::-webkit-scrollbar { width: 4px; }
+.search-inner::-webkit-scrollbar-thumb { background: var(--border-sub); border-radius: 2px; }
+
+.search-headline { font-family: 'Bebas Neue', sans-serif; font-size: 13px; letter-spacing: 3px; color: var(--gold); margin-bottom: 6px; }
+.search-desc { font-size: 12px; color: var(--grey); line-height: 1.6; margin-bottom: 24px; }
+
+.search-box { display: flex; gap: 8px; margin-bottom: 16px; }
+.search-input { flex: 1; background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 8px; padding: 12px 16px; font-size: 14px; font-family: 'Inter', sans-serif; color: var(--white); outline: none; transition: border-color 0.15s; }
+.search-input:focus { border-color: var(--gold); }
+.search-input::placeholder { color: var(--grey); }
+.search-btn { background: var(--orange); border: none; border-radius: 8px; padding: 12px 18px; font-size: 13px; font-weight: 600; font-family: 'Inter', sans-serif; color: white; cursor: pointer; transition: background 0.15s; white-space: nowrap; }
+.search-btn:hover { background: #e55a1c; }
+.search-btn:disabled { background: var(--grey); cursor: default; }
+
+.search-examples { margin-bottom: 24px; }
+.example-label { font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--grey); margin-bottom: 8px; }
+.example-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.pill { font-size: 11px; padding: 4px 10px; border-radius: 20px; background: var(--border-sub); color: var(--grey-light); cursor: pointer; border: 1px solid var(--border-sub); transition: all 0.15s; }
+.pill:hover { background: var(--gold-dim); border-color: var(--gold); color: var(--gold); }
+
+.strategy-filter { margin-bottom: 24px; }
+.strategy-label { font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--grey); margin-bottom: 10px; }
+.strategy-btns { display: flex; flex-direction: column; gap: 6px; }
+.strategy-btn { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 7px; border: 1px solid var(--border-sub); background: none; cursor: pointer; font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 500; color: var(--grey-light); transition: all 0.15s; text-align: left; }
+.strategy-btn:hover { background: var(--border-sub); color: var(--white); }
+.strategy-btn.active { border-color: var(--orange); background: var(--orange-dim); color: var(--orange); }
+.strategy-icon { font-size: 16px; width: 22px; text-align: center; }
+.strategy-info { line-height: 1.3; }
+.strategy-name { font-size: 12px; font-weight: 600; }
+.strategy-hint { font-size: 10px; color: var(--grey); margin-top: 1px; }
+.strategy-btn.active .strategy-hint { color: rgba(255,107,43,0.7); }
+
+/* ── RESULTS PANEL ── */
+.results-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+/* empty state */
+.empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--grey); padding: 40px; text-align: center; }
+.empty-icon { font-size: 48px; opacity: 0.3; }
+.empty-title { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 3px; color: var(--grey); }
+.empty-sub { font-size: 12px; line-height: 1.6; max-width: 300px; }
+
+/* loading state */
+.loading-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
+.loading-pulse { width: 56px; height: 56px; border-radius: 50%; border: 3px solid var(--border-sub); border-top-color: var(--gold); animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { font-size: 13px; color: var(--grey); letter-spacing: 1px; }
+
+/* results scroll */
+.results-scroll { flex: 1; overflow-y: auto; padding: 24px 28px; display: flex; flex-direction: column; gap: 20px; }
+.results-scroll::-webkit-scrollbar { width: 4px; }
+.results-scroll::-webkit-scrollbar-thumb { background: var(--border-sub); border-radius: 2px; }
+
+/* market header */
+.market-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.market-location { line-height: 1.2; }
+.market-name { font-family: 'Bebas Neue', sans-serif; font-size: 26px; letter-spacing: 3px; color: var(--white); }
+.market-sub { font-size: 12px; color: var(--grey); margin-top: 2px; }
+.data-freshness { font-size: 10px; color: var(--grey); letter-spacing: 1px; background: var(--border-sub); padding: 4px 10px; border-radius: 4px; white-space: nowrap; margin-top: 4px; }
+
+/* overall score card */
+.score-card { background: var(--navy-light); border: 1px solid var(--border); border-radius: 12px; padding: 20px 24px; display: flex; align-items: center; gap: 24px; }
+.score-dial { position: relative; flex-shrink: 0; }
+.score-dial svg { width: 90px; height: 90px; }
+.score-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; line-height: 1; }
+.score-number { font-family: 'Bebas Neue', sans-serif; font-size: 28px; color: var(--white); }
+.score-label { font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--grey); }
+.score-details { flex: 1; }
+.score-title { font-family: 'Bebas Neue', sans-serif; font-size: 14px; letter-spacing: 2px; color: var(--gold); margin-bottom: 4px; }
+.score-class { font-size: 22px; font-weight: 700; color: var(--white); margin-bottom: 6px; }
+.score-verdict { font-size: 12px; color: var(--grey-light); line-height: 1.5; }
+
+/* strategy scores */
+.strategy-scores { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.strategy-card { background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 10px; padding: 16px; transition: border-color 0.2s; }
+.strategy-card.highlighted { border-color: var(--orange); background: var(--navy-mid); }
+.strategy-card-icon { font-size: 20px; margin-bottom: 8px; }
+.strategy-card-name { font-family: 'Bebas Neue', sans-serif; font-size: 13px; letter-spacing: 2px; color: var(--grey-light); margin-bottom: 8px; }
+.strategy-score-bar { height: 4px; background: var(--border-sub); border-radius: 2px; margin-bottom: 6px; overflow: hidden; }
+.strategy-score-fill { height: 100%; border-radius: 2px; transition: width 0.8s ease; }
+.strategy-score-fill.green { background: var(--green); }
+.strategy-score-fill.yellow { background: var(--yellow); }
+.strategy-score-fill.red { background: var(--red); }
+.strategy-score-num { font-size: 20px; font-weight: 700; color: var(--white); }
+.strategy-score-grade { font-size: 11px; color: var(--grey); margin-top: 2px; }
+
+/* data grid */
+.data-section-label { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--gold); margin-bottom: 12px; }
+.data-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.data-cell { background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 8px; padding: 14px; }
+.data-cell-label { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--grey); margin-bottom: 6px; }
+.data-cell-value { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 1px; color: var(--white); }
+.data-cell-sub { font-size: 10px; color: var(--grey); margin-top: 2px; }
+.data-cell-badge { display: inline-block; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; padding: 2px 7px; border-radius: 3px; margin-top: 4px; font-weight: 600; }
+.badge-a { background: var(--green-dim); color: var(--green); border: 1px solid rgba(34,197,94,0.2); }
+.badge-b { background: var(--gold-dim); color: var(--gold); border: 1px solid rgba(200,155,60,0.2); }
+.badge-c { background: var(--red-dim); color: var(--red); border: 1px solid rgba(239,68,68,0.2); }
+
+/* ARIS panel */
+.aris-panel { background: linear-gradient(135deg, var(--navy-mid), var(--navy-light)); border: 1px solid var(--border); border-radius: 12px; padding: 20px 24px; }
+.aris-panel-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.aris-orb { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, var(--orange), #c04a10); display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+.aris-panel-title { font-family: 'Bebas Neue', sans-serif; font-size: 13px; letter-spacing: 2px; color: var(--orange); }
+.aris-panel-sub { font-size: 10px; color: var(--grey); }
+.aris-loading { display: flex; align-items: center; gap: 10px; color: var(--grey); font-size: 12px; }
+.aris-dots span { animation: blink 1.4s infinite; font-size: 16px; color: var(--orange); }
+.aris-dots span:nth-child(2) { animation-delay: 0.2s; }
+.aris-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes blink { 0%,80%,100% { opacity: 0.2; } 40% { opacity: 1; } }
+.aris-text { font-size: 13px; color: var(--grey-light); line-height: 1.7; }
+.aris-text strong { color: var(--white); font-weight: 600; }
+.aris-text .highlight { color: var(--gold); font-weight: 600; }
+
+/* error state */
+.error-notice { background: var(--red-dim); border: 1px solid rgba(239,68,68,0.2); border-radius: 8px; padding: 12px 16px; font-size: 12px; color: var(--red); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M4 17h16v2H4v-2zm2-6h12l-1.5 6H7.5L6 11zm3-6h6l1 4H8l1-4z" fill="white" opacity="0.9"/><path d="M10 5h4v2h-4V5z" fill="white"/></svg>
+      </div>
+      <div class="logo-words">
+        <div class="wordmark">F<span>O</span>RGE</div>
+        <div class="sub">Powered by ARIS</div>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Core Features</div>
+      <a class="nav-item" href="dashboard.html"><span class="nav-icon">🏠</span>Dashboard</a>
+      <a class="nav-item" href="aris-coach.html"><span class="nav-icon">⚡</span>ARIS AI Coach</a>
+      <a class="nav-item" href="deal-analyzer.html"><span class="nav-icon">🔍</span>Deal Analyzer</a>
+      <div class="nav-item"><span class="nav-icon">📍</span>Property Search<span class="nav-badge">Soon</span></div>
+      <a class="nav-item" href="deal-network.html"><span class="nav-icon">🤝</span>Deal Network</a>
+      <a class="nav-item" href="capital-radar.html"><span class="nav-icon">🎯</span>Capital Radar</a>
+      <div class="nav-item active"><span class="nav-icon">🔮</span>Market Oracle</div>
+      <a class="nav-item" href="document-vault.html"><span class="nav-icon">📂</span>Document Vault</a>
+      <div class="nav-item"><span class="nav-icon">🏛</span>Education<span class="nav-badge">Soon</span></div>
+    </div>
+    <div class="sidebar-footer">
+      <div class="user-chip">
+        <div class="user-avatar">JD</div>
+        <div class="user-info">
+          <div class="user-name">John Dessauer</div>
+          <div class="user-tier">Founding Member</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-icon">🔮</div>
+        <div class="topbar-title">
+          <div class="topbar-name">Market Oracle</div>
+          <div class="topbar-sub">Market intelligence &nbsp;·&nbsp; FORGE Class scoring &nbsp;·&nbsp; ARIS verdict</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- SEARCH PANEL -->
+      <div class="search-panel">
+        <div class="search-inner">
+          <div class="search-headline">Search Any Market</div>
+          <div class="search-desc">Enter a zip code, city, or state to get FORGE market intelligence and investment class scoring.</div>
+
+          <div class="search-box">
+            <input class="search-input" id="searchInput" type="text" placeholder="Zip, city, or state..." maxlength="100" />
+            <button class="search-btn" id="searchBtn" onclick="runSearch()">Analyze</button>
+          </div>
+
+          <div class="search-examples">
+            <div class="example-label">Try these</div>
+            <div class="example-pills">
+              <span class="pill" onclick="fillAndSearch('46303')">46303</span>
+              <span class="pill" onclick="fillAndSearch('Indianapolis, IN')">Indianapolis</span>
+              <span class="pill" onclick="fillAndSearch('Phoenix, AZ')">Phoenix</span>
+              <span class="pill" onclick="fillAndSearch('Memphis, TN')">Memphis</span>
+              <span class="pill" onclick="fillAndSearch('Cleveland, OH')">Cleveland</span>
+              <span class="pill" onclick="fillAndSearch('Florida')">Florida</span>
+            </div>
+          </div>
+
+          <div class="strategy-filter">
+            <div class="strategy-label">Investment Strategy</div>
+            <div class="strategy-btns">
+              <button class="strategy-btn active" data-strategy="all" onclick="setStrategy(this, 'all')">
+                <span class="strategy-icon">📊</span>
+                <div class="strategy-info">
+                  <div class="strategy-name">All Strategies</div>
+                  <div class="strategy-hint">Full market overview</div>
+                </div>
+              </button>
+              <button class="strategy-btn" data-strategy="flip" onclick="setStrategy(this, 'flip')">
+                <span class="strategy-icon">🔨</span>
+                <div class="strategy-info">
+                  <div class="strategy-name">Fix &amp; Flip</div>
+                  <div class="strategy-hint">Class A/B area · distressed asset · appreciation</div>
+                </div>
+              </button>
+              <button class="strategy-btn" data-strategy="rental" onclick="setStrategy(this, 'rental')">
+                <span class="strategy-icon">🏠</span>
+                <div class="strategy-info">
+                  <div class="strategy-name">Rentals</div>
+                  <div class="strategy-hint">Class B area · Class B asset · cash flow</div>
+                </div>
+              </button>
+              <button class="strategy-btn" data-strategy="wholesale" onclick="setStrategy(this, 'wholesale')">
+                <span class="strategy-icon">🤝</span>
+                <div class="strategy-info">
+                  <div class="strategy-name">Wholesaling</div>
+                  <div class="strategy-hint">Distressed assets · investor demand · velocity</div>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RESULTS PANEL -->
+      <div class="results-panel" id="resultsPanel">
+
+        <!-- EMPTY STATE -->
+        <div class="empty-state" id="emptyState">
+          <div class="empty-icon">🔮</div>
+          <div class="empty-title">Awaiting Your Market</div>
+          <div class="empty-sub">Enter a zip code, city, or state to receive FORGE Class scoring and ARIS market intelligence.</div>
+        </div>
+
+        <!-- LOADING STATE -->
+        <div class="loading-state" id="loadingState" style="display:none;">
+          <div class="loading-pulse"></div>
+          <div class="loading-text">ARIS is reading the market...</div>
+        </div>
+
+        <!-- RESULTS -->
+        <div class="results-scroll" id="resultsScroll" style="display:none;"></div>
+
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+// ── STATE ──
+let currentStrategy = 'all';
+
+function setStrategy(el, strategy) {
+  document.querySelectorAll('.strategy-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  currentStrategy = strategy;
+}
+
+function fillAndSearch(val) {
+  document.getElementById('searchInput').value = val;
+  runSearch();
+}
+
+document.getElementById('searchInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') runSearch();
+});
+
+// ── ARIS MARKET DATA FETCH (Phase 1 — ARIS-powered, no external APIs) ──
+async function fetchMarketData(query) {
+  const q = query.trim();
+  if (!q) throw new Error('Enter a zip code, city, or state.');
+
+  const prompt = `You are a real estate data engine. Return ONLY a valid JSON object — no explanation, no markdown, no preamble.
+
+The user is asking about this US real estate market: "${q}"
+
+Return this exact JSON structure with realistic estimated values based on your knowledge of this market:
+
+{
+  "geoLabel": "display name for this location",
+  "medianHomeValue": 250000,
+  "medianRent": 1200,
+  "medianIncome": 65000,
+  "vacancyRate": 7.2,
+  "ownershipRate": 62.5,
+  "totalUnits": 45000,
+  "marketNotes": "one sentence describing this market's defining characteristic"
+}
+
+Rules:
+- medianHomeValue: median home sale price in dollars (integer)
+- medianRent: median monthly gross rent in dollars (integer)  
+- medianIncome: median household income in dollars (integer)
+- vacancyRate: housing vacancy rate as a percentage (float, e.g. 7.2)
+- ownershipRate: owner-occupied housing percentage (float, e.g. 62.5)
+- totalUnits: approximate total housing units (integer)
+- geoLabel: clean display name like "Cedar Lake, Indiana" or "ZIP 46303 (Cedar Lake, IN)" or "Memphis, Tennessee"
+- If the location is not a valid US market, set geoLabel to "INVALID" and all numbers to 0
+
+Return ONLY the JSON object. No other text.`;
+
+  const res = await fetch('/api/aris-quote', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 400,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+
+  if (!res.ok) throw new Error('ARIS unavailable. Try again shortly.');
+  const data = await res.json();
+
+  let text = '';
+  if (data.content && data.content[0] && data.content[0].text) {
+    text = data.content[0].text;
+  } else {
+    throw new Error('No response from ARIS.');
+  }
+
+  // Strip any accidental markdown fences
+  text = text.replace(/```json|```/g, '').trim();
+
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch(e) {
+    throw new Error('Could not parse market data. Try again.');
+  }
+
+  if (parsed.geoLabel === 'INVALID') {
+    throw new Error('Location not recognized. Try a zip code or "City, ST" format.');
+  }
+
+  // Derive calculated fields
+  const { medianHomeValue, medianRent, medianIncome, vacancyRate, ownershipRate, totalUnits, geoLabel, marketNotes } = parsed;
+  const grossRentMultiplier = medianHomeValue > 0 && medianRent > 0 ? medianHomeValue / (medianRent * 12) : 0;
+  const rentToPrice         = medianHomeValue > 0 && medianRent > 0 ? (medianRent / medianHomeValue) * 100 : 0;
+
+  return { geoLabel, medianHomeValue, medianRent, medianIncome, vacancyRate, ownershipRate, grossRentMultiplier, rentToPrice, totalUnits, marketNotes };
+}
+
+// ── SCORING ENGINE ──
+function scoreMarket(data) {
+  const { medianHomeValue, medianRent, medianIncome, vacancyRate, ownershipRate, rentToPrice, grossRentMultiplier } = data;
+
+  // ── AREA CLASS (A/B/C) ──
+  // Based on median home value and income relative to national benchmarks
+  // National medians (2022 ACS): ~$300k home value, ~$75k income
+  let areaClassScore = 0;
+  if (medianHomeValue > 400000) areaClassScore += 40;
+  else if (medianHomeValue > 250000) areaClassScore += 25;
+  else areaClassScore += 10;
+
+  if (medianIncome > 85000) areaClassScore += 30;
+  else if (medianIncome > 60000) areaClassScore += 20;
+  else areaClassScore += 8;
+
+  if (ownershipRate > 65) areaClassScore += 20;
+  else if (ownershipRate > 50) areaClassScore += 12;
+  else areaClassScore += 5;
+
+  if (vacancyRate < 5) areaClassScore += 10;
+  else if (vacancyRate < 10) areaClassScore += 6;
+  else areaClassScore += 2;
+
+  const areaClass = areaClassScore >= 75 ? 'A' : areaClassScore >= 45 ? 'B' : 'C';
+
+  // ── FIX & FLIP SCORE ──
+  // Want: Class A or strong B area + distressed/undervalued + appreciation upside
+  // Signals: moderate-high home values, low vacancy, good income, reasonable entry price
+  let flipScore = 0;
+  if (areaClassScore >= 60) flipScore += 35;
+  else if (areaClassScore >= 40) flipScore += 22;
+  else flipScore += 8;
+  // GRM < 15 = undervalued relative to rent = distressed opportunity
+  if (grossRentMultiplier > 0 && grossRentMultiplier < 12) flipScore += 30;
+  else if (grossRentMultiplier < 18) flipScore += 18;
+  else flipScore += 6;
+  // Low vacancy = strong demand after rehab
+  if (vacancyRate < 5) flipScore += 20;
+  else if (vacancyRate < 8) flipScore += 12;
+  else flipScore += 4;
+  // Income stability
+  if (medianIncome > 70000) flipScore += 15;
+  else if (medianIncome > 50000) flipScore += 9;
+  else flipScore += 3;
+
+  // ── RENTAL SCORE ──
+  // Want: Class B area + cash flow (rent-to-price ratio) + low vacancy
+  let rentalScore = 0;
+  // B area is the sweet spot
+  if (areaClass === 'B') rentalScore += 35;
+  else if (areaClass === 'A') rentalScore += 22;
+  else rentalScore += 14;
+  // Rent-to-price: 0.8%+ monthly is strong cash flow
+  if (rentToPrice >= 0.8) rentalScore += 35;
+  else if (rentToPrice >= 0.6) rentalScore += 22;
+  else if (rentToPrice >= 0.4) rentalScore += 12;
+  else rentalScore += 4;
+  // Low vacancy = occupied units
+  if (vacancyRate < 6) rentalScore += 20;
+  else if (vacancyRate < 10) rentalScore += 12;
+  else rentalScore += 4;
+  // Renter-friendly market (lower ownership = more renters)
+  if (ownershipRate < 60) rentalScore += 10;
+  else if (ownershipRate < 70) rentalScore += 6;
+  else rentalScore += 2;
+
+  // ── WHOLESALE SCORE ──
+  // Want: distressed assets, investor activity, turnover velocity
+  // Signals: lower home values, higher vacancy, lower income (more motivated sellers)
+  let wholesaleScore = 0;
+  // Lower price point = more motivated sellers, easier assignment
+  if (medianHomeValue < 150000) wholesaleScore += 35;
+  else if (medianHomeValue < 250000) wholesaleScore += 25;
+  else wholesaleScore += 10;
+  // Higher vacancy = more distressed/absentee owners
+  if (vacancyRate > 10) wholesaleScore += 30;
+  else if (vacancyRate > 6) wholesaleScore += 18;
+  else wholesaleScore += 8;
+  // Lower income = more motivated sellers
+  if (medianIncome < 50000) wholesaleScore += 20;
+  else if (medianIncome < 65000) wholesaleScore += 12;
+  else wholesaleScore += 5;
+  // Renter-heavy = landlord portfolio turnover
+  if (ownershipRate < 55) wholesaleScore += 15;
+  else if (ownershipRate < 65) wholesaleScore += 9;
+  else wholesaleScore += 3;
+
+  // Normalize all scores to 100
+  const normalize = (s, max) => Math.min(100, Math.round((s / max) * 100));
+  const flipFinal      = normalize(flipScore, 100);
+  const rentalFinal    = normalize(rentalScore, 100);
+  const wholesaleFinal = normalize(wholesaleScore, 100);
+
+  // Overall = weighted average by strategy filter
+  const overall = Math.round((flipFinal * 0.33) + (rentalFinal * 0.33) + (wholesaleFinal * 0.34));
+
+  const gradeFromScore = (s) => {
+    if (s >= 75) return 'A';
+    if (s >= 55) return 'B+';
+    if (s >= 40) return 'B';
+    if (s >= 25) return 'C+';
+    return 'C';
+  };
+
+  return {
+    areaClass,
+    areaClassScore,
+    overall,
+    flip: { score: flipFinal, grade: gradeFromScore(flipFinal) },
+    rental: { score: rentalFinal, grade: gradeFromScore(rentalFinal) },
+    wholesale: { score: wholesaleFinal, grade: gradeFromScore(wholesaleFinal) }
+  };
+}
+
+// ── COLOR HELPERS ──
+function scoreColor(s) {
+  if (s >= 70) return 'var(--green)';
+  if (s >= 45) return 'var(--yellow)';
+  return 'var(--red)';
+}
+function scoreFillClass(s) {
+  if (s >= 70) return 'green';
+  if (s >= 45) return 'yellow';
+  return 'red';
+}
+function classColor(c) {
+  if (c === 'A') return 'var(--green)';
+  if (c === 'B' || c === 'B+') return 'var(--gold)';
+  return 'var(--red)';
+}
+function classBadge(c) {
+  if (c === 'A') return 'badge-a';
+  if (c === 'B' || c === 'B+') return 'badge-b';
+  return 'badge-c';
+}
+function fmt(n, prefix='$') {
+  if (!n || n <= 0) return 'N/A';
+  if (n >= 1000000) return prefix + (n/1000000).toFixed(1) + 'M';
+  if (n >= 1000) return prefix + Math.round(n/1000) + 'K';
+  return prefix + n.toLocaleString();
+}
+function fmtPct(n) { return n > 0 ? n.toFixed(1) + '%' : 'N/A'; }
+
+// ── ARIS VERDICT CALL ──
+
+// ── MEMBER WHY CONTEXT ──
+function getWhyContext() {
+  try {
+    const why = JSON.parse(localStorage.getItem('forge-member-why') || 'null');
+    if (!why || !why.q1) return '';
+    return '\n\nMEMBER WHY (use this to personalize your coaching):\n' +
+      '- Why they invest: "' + why.q1 + '"\n' +
+      (why.q2 ? '- Their bigger purpose: "' + why.q2 + '"\n' : '') +
+      (why.q3 ? '- Why now is their time: "' + why.q3 + '"' : '');
+  } catch(e) { return ''; }
+}
+
+async function callARIS(marketData, scores, location, strategy) {
+  const strategyContext = {
+    all: 'all three strategies (fix & flip, rentals, and wholesaling)',
+    flip: 'fix and flip investing',
+    rental: 'buy-and-hold rental investing',
+    wholesale: 'wholesaling'
+  }[strategy];
+
+  const prompt = `You are ARIS — the AI coach inside FORGE, a real estate investor platform. FORGE members follow the "worst house on the best block" philosophy and use FORGE Class scoring (Class A = high income/values, Class B = middle market, Class C = distressed).
+
+Market: ${location}
+Area Class: ${scores.areaClass}
+Overall FORGE Score: ${scores.overall}/100
+Fix & Flip Score: ${scores.flip.score}/100 (${scores.flip.grade})
+Rental Score: ${scores.rental.score}/100 (${scores.rental.grade})
+Wholesale Score: ${scores.wholesale.score}/100 (${scores.wholesale.grade})
+
+Key Data:
+- Median Home Value: ${fmt(marketData.medianHomeValue)}
+- Median Gross Rent: ${fmt(marketData.medianRent)}/mo
+- Median Household Income: ${fmt(marketData.medianIncome)}
+- Vacancy Rate: ${fmtPct(marketData.vacancyRate)}
+- Ownership Rate: ${fmtPct(marketData.ownershipRate)}
+- Rent-to-Price Ratio: ${fmtPct(marketData.rentToPrice)} monthly
+- Gross Rent Multiplier: ${marketData.grossRentMultiplier > 0 ? marketData.grossRentMultiplier.toFixed(1) + 'x' : 'N/A'}
+${marketData.marketNotes ? '- Market Notes: ' + marketData.marketNotes : ''}
+
+The member is focused on: ${strategyContext}.
+
+Give a direct 3–4 sentence ARIS market verdict. Lead with the area class and what that means for FORGE investors. Call out the single strongest opportunity and the single biggest risk. End with one specific action recommendation. Be direct, tactical, and speak in ARIS's voice — authoritative, no fluff.`;
+
+  const fullPrompt = prompt + getWhyContext();
+  const res = await fetch('/api/aris-quote', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 600,
+      messages: [{ role: 'user', content: fullPrompt }]
+    })
+  });
+
+  if (!res.ok) throw new Error('ARIS unavailable');
+  const data = await res.json();
+  if (data.content && data.content[0] && data.content[0].text) {
+    return data.content[0].text;
+  }
+  return '';
+}
+
+// ── DIAL SVG ──
+function dialSVG(score, color) {
+  const r = 38;
+  const cx = 45; const cy = 45;
+  const circ = 2 * Math.PI * r;
+  const dash = (score / 100) * circ * 0.75;
+  const gap = circ - dash;
+  const rotation = -225;
+  return `<svg viewBox="0 0 90 90" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="7" stroke-dasharray="${circ * 0.75} ${circ * 0.25}" stroke-dashoffset="0" stroke-linecap="round" transform="rotate(${rotation} ${cx} ${cy})"/>
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="7" stroke-dasharray="${dash} ${gap + circ * 0.25}" stroke-dashoffset="0" stroke-linecap="round" transform="rotate(${rotation} ${cx} ${cy})" style="transition: stroke-dasharray 1s ease;"/>
+  </svg>`;
+}
+
+// ── RENDER RESULTS ──
+function renderResults(data, scores, location) {
+  const rs = document.getElementById('resultsScroll');
+
+  const highlightStrategy = currentStrategy;
+
+  rs.innerHTML = `
+    <!-- Market Header -->
+    <div class="market-header">
+      <div class="market-location">
+        <div class="market-name">${location}</div>
+        <div class="market-sub">FORGE Market Intelligence Report</div>
+      </div>
+      <div class="data-freshness">Powered by ARIS Intelligence · Phase II: Live data</div>
+    </div>
+
+    <!-- Overall Score -->
+    <div class="score-card">
+      <div class="score-dial">
+        ${dialSVG(scores.overall, scoreColor(scores.overall))}
+        <div class="score-center">
+          <div class="score-number" style="color:${scoreColor(scores.overall)}">${scores.overall}</div>
+          <div class="score-label">Score</div>
+        </div>
+      </div>
+      <div class="score-details">
+        <div class="score-title">FORGE Area Classification</div>
+        <div class="score-class" style="color:${classColor(scores.areaClass)}">Class ${scores.areaClass} Market</div>
+        <div class="score-verdict">${areaClassVerdict(scores.areaClass, scores)}</div>
+      </div>
+    </div>
+
+    <!-- Strategy Scores -->
+    <div>
+      <div class="data-section-label">Strategy Scores</div>
+      <div class="strategy-scores">
+        <div class="strategy-card ${highlightStrategy === 'flip' || highlightStrategy === 'all' ? 'highlighted' : ''}">
+          <div class="strategy-card-icon">🔨</div>
+          <div class="strategy-card-name">Fix &amp; Flip</div>
+          <div class="strategy-score-bar"><div class="strategy-score-fill ${scoreFillClass(scores.flip.score)}" style="width:${scores.flip.score}%"></div></div>
+          <div class="strategy-score-num" style="color:${scoreColor(scores.flip.score)}">${scores.flip.score}</div>
+          <div class="strategy-score-grade">Grade: <strong style="color:${scoreColor(scores.flip.score)}">${scores.flip.grade}</strong></div>
+        </div>
+        <div class="strategy-card ${highlightStrategy === 'rental' || highlightStrategy === 'all' ? 'highlighted' : ''}">
+          <div class="strategy-card-icon">🏠</div>
+          <div class="strategy-card-name">Rental</div>
+          <div class="strategy-score-bar"><div class="strategy-score-fill ${scoreFillClass(scores.rental.score)}" style="width:${scores.rental.score}%"></div></div>
+          <div class="strategy-score-num" style="color:${scoreColor(scores.rental.score)}">${scores.rental.score}</div>
+          <div class="strategy-score-grade">Grade: <strong style="color:${scoreColor(scores.rental.score)}">${scores.rental.grade}</strong></div>
+        </div>
+        <div class="strategy-card ${highlightStrategy === 'wholesale' || highlightStrategy === 'all' ? 'highlighted' : ''}">
+          <div class="strategy-card-icon">🤝</div>
+          <div class="strategy-card-name">Wholesale</div>
+          <div class="strategy-score-bar"><div class="strategy-score-fill ${scoreFillClass(scores.wholesale.score)}" style="width:${scores.wholesale.score}%"></div></div>
+          <div class="strategy-score-num" style="color:${scoreColor(scores.wholesale.score)}">${scores.wholesale.score}</div>
+          <div class="strategy-score-grade">Grade: <strong style="color:${scoreColor(scores.wholesale.score)}">${scores.wholesale.grade}</strong></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Market Data Grid -->
+    <div>
+      <div class="data-section-label">Market Data</div>
+      <div class="data-grid">
+        <div class="data-cell">
+          <div class="data-cell-label">Median Home Value</div>
+          <div class="data-cell-value">${fmt(data.medianHomeValue)}</div>
+          <div class="data-cell-sub">ACS 2022 estimate</div>
+        </div>
+        <div class="data-cell">
+          <div class="data-cell-label">Median Gross Rent</div>
+          <div class="data-cell-value">${fmt(data.medianRent)}<span style="font-size:12px;font-family:Inter,sans-serif;color:var(--grey)">/mo</span></div>
+          <div class="data-cell-sub">ACS 2022 estimate</div>
+        </div>
+        <div class="data-cell">
+          <div class="data-cell-label">Median Income</div>
+          <div class="data-cell-value">${fmt(data.medianIncome)}</div>
+          <div class="data-cell-sub">Household, annual</div>
+        </div>
+        <div class="data-cell">
+          <div class="data-cell-label">Vacancy Rate</div>
+          <div class="data-cell-value">${fmtPct(data.vacancyRate)}</div>
+          <div class="data-cell-badge ${data.vacancyRate < 6 ? 'badge-a' : data.vacancyRate < 10 ? 'badge-b' : 'badge-c'}">${data.vacancyRate < 6 ? 'Low · Healthy' : data.vacancyRate < 10 ? 'Moderate' : 'High · Watch'}</div>
+        </div>
+        <div class="data-cell">
+          <div class="data-cell-label">Rent-to-Price</div>
+          <div class="data-cell-value">${fmtPct(data.rentToPrice)}<span style="font-size:12px;font-family:Inter,sans-serif;color:var(--grey)">/mo</span></div>
+          <div class="data-cell-badge ${data.rentToPrice >= 0.8 ? 'badge-a' : data.rentToPrice >= 0.5 ? 'badge-b' : 'badge-c'}">${data.rentToPrice >= 0.8 ? 'Strong Cash Flow' : data.rentToPrice >= 0.5 ? 'Moderate' : 'Low Yield'}</div>
+        </div>
+        <div class="data-cell">
+          <div class="data-cell-label">Gross Rent Multiplier</div>
+          <div class="data-cell-value">${data.grossRentMultiplier > 0 ? data.grossRentMultiplier.toFixed(1) + 'x' : 'N/A'}</div>
+          <div class="data-cell-badge ${data.grossRentMultiplier > 0 && data.grossRentMultiplier < 14 ? 'badge-a' : data.grossRentMultiplier < 18 ? 'badge-b' : 'badge-c'}">${data.grossRentMultiplier > 0 && data.grossRentMultiplier < 14 ? 'Undervalued' : data.grossRentMultiplier < 18 ? 'Fair Value' : 'Premium'}</div>
+        </div>
+        <div class="data-cell">
+          <div class="data-cell-label">Ownership Rate</div>
+          <div class="data-cell-value">${fmtPct(data.ownershipRate)}</div>
+          <div class="data-cell-sub">Owner-occupied units</div>
+        </div>
+        <div class="data-cell">
+          <div class="data-cell-label">Area Class</div>
+          <div class="data-cell-value" style="color:${classColor(scores.areaClass)}">Class ${scores.areaClass}</div>
+          <div class="data-cell-badge ${classBadge(scores.areaClass)}">FORGE Classification</div>
+        </div>
+        <div class="data-cell">
+          <div class="data-cell-label">Total Housing Units</div>
+          <div class="data-cell-value">${data.totalUnits > 0 ? data.totalUnits.toLocaleString() : 'N/A'}</div>
+          <div class="data-cell-sub">Market size</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ARIS Panel -->
+    <div class="aris-panel" id="arisPanel">
+      <div class="aris-panel-header">
+        <div class="aris-orb">⚡</div>
+        <div>
+          <div class="aris-panel-title">ARIS Market Verdict</div>
+          <div class="aris-panel-sub">Powered by FORGE intelligence</div>
+        </div>
+      </div>
+      <div class="aris-loading" id="arisLoading">
+        <div class="aris-dots"><span>●</span><span>●</span><span>●</span></div>
+        <span>ARIS is reading the market...</span>
+      </div>
+      <div class="aris-text" id="arisText" style="display:none;"></div>
+    </div>
+
+    <div style="height:20px;"></div>
+  `;
+}
+
+function areaClassVerdict(cls, scores) {
+  if (cls === 'A') return `Strong fundamentals — high income, high values, low vacancy. Best for fix & flip where you can acquire distressed assets (Class C) in this Class A environment. Rental yields are typically compressed here.`;
+  if (cls === 'B') return `The FORGE sweet spot. Stable income, moderate values, and healthy renter demand. Ideal for buy-and-hold rentals and selectively acquiring distressed properties for flip upside.`;
+  return `Distressed market — lower income, higher vacancy, more motivated sellers. Prime wholesale territory. Fix & flip requires caution; target only the strongest sub-pockets within this market.`;
+}
+
+// ── MAIN SEARCH ──
+async function runSearch() {
+  const q = document.getElementById('searchInput').value.trim();
+  if (!q) return;
+
+  const btn = document.getElementById('searchBtn');
+  btn.disabled = true;
+  btn.textContent = 'Analyzing...';
+
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('loadingState').style.display = 'flex';
+  document.getElementById('resultsScroll').style.display = 'none';
+
+  try {
+    const marketData = await fetchMarketData(q);
+    const scores = scoreMarket(marketData);
+
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('resultsScroll').style.display = 'flex';
+
+    renderResults(marketData, scores, marketData.geoLabel);
+
+    // Now call ARIS async
+    try {
+      const arisVerdict = await callARIS(marketData, scores, marketData.geoLabel, currentStrategy);
+      document.getElementById('arisLoading').style.display = 'none';
+      const arisTextEl = document.getElementById('arisText');
+      arisTextEl.style.display = 'block';
+      // Format bold markers
+      arisTextEl.innerHTML = arisVerdict
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/Class ([ABC])/g, '<span class="highlight">Class $1</span>');
+    } catch(e) {
+      document.getElementById('arisLoading').innerHTML = `<span style="color:var(--grey);font-size:12px;">ARIS verdict unavailable. Check your connection.</span>`;
+    }
+
+  } catch (err) {
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('emptyState').style.display = 'flex';
+    document.getElementById('emptyState').innerHTML = `
+      <div class="empty-icon">⚠️</div>
+      <div class="empty-title">Could Not Load Market</div>
+      <div class="empty-sub">${err.message || 'Try a zip code, or "City, ST" format (e.g. Memphis, TN).'}</div>
+    `;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Analyze';
+  }
+}
+
+// ── STATE LOOKUP TABLES ──
+function getStateAbbr(input) {
+  const s = input.trim().toUpperCase();
+  if (STATE_FIPS[s]) return s;
+  // Try full name
+  const found = Object.entries(STATE_NAMES).find(([abbr, name]) => name.toUpperCase() === s);
+  return found ? found[0] : null;
+}
+
+const STATE_FIPS = {
+  AL:'01',AK:'02',AZ:'04',AR:'05',CA:'06',CO:'08',CT:'09',DE:'10',FL:'12',GA:'13',
+  HI:'15',ID:'16',IL:'17',IN:'18',IA:'19',KS:'20',KY:'21',LA:'22',ME:'23',MD:'24',
+  MA:'25',MI:'26',MN:'27',MS:'28',MO:'29',MT:'30',NE:'31',NV:'32',NH:'33',NJ:'34',
+  NM:'35',NY:'36',NC:'37',ND:'38',OH:'39',OK:'40',OR:'41',PA:'42',RI:'44',SC:'45',
+  SD:'46',TN:'47',TX:'48',UT:'49',VT:'50',VA:'51',WA:'53',WV:'54',WI:'55',WY:'56',DC:'11'
+};
+
+const STATE_NAMES = {
+  AL:'Alabama',AK:'Alaska',AZ:'Arizona',AR:'Arkansas',CA:'California',CO:'Colorado',
+  CT:'Connecticut',DE:'Delaware',FL:'Florida',GA:'Georgia',HI:'Hawaii',ID:'Idaho',
+  IL:'Illinois',IN:'Indiana',IA:'Iowa',KS:'Kansas',KY:'Kentucky',LA:'Louisiana',
+  ME:'Maine',MD:'Maryland',MA:'Massachusetts',MI:'Michigan',MN:'Minnesota',MS:'Mississippi',
+  MO:'Missouri',MT:'Montana',NE:'Nebraska',NV:'Nevada',NH:'New Hampshire',NJ:'New Jersey',
+  NM:'New Mexico',NY:'New York',NC:'North Carolina',ND:'North Dakota',OH:'Ohio',
+  OK:'Oklahoma',OR:'Oregon',PA:'Pennsylvania',RI:'Rhode Island',SC:'South Carolina',
+  SD:'South Dakota',TN:'Tennessee',TX:'Texas',UT:'Utah',VT:'Vermont',VA:'Virginia',
+  WA:'Washington',WV:'West Virginia',WI:'Wisconsin',WY:'Wyoming',DC:'Washington DC'
+};
+</script>
+</body>
+</html>

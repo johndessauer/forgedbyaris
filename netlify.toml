@@ -1,6 +1,9 @@
 [functions]
   directory = "netlify/functions"
 
+[functions.aris-quote]
+  timeout = 26
+
 [[redirects]]
   from = "/api/aris-quote"
   to = "/.netlify/functions/aris-quote"
