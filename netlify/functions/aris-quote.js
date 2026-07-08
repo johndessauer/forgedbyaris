@@ -37,21 +37,27 @@ FORGE MEMBER CONTEXT:
 - The community values private money lending — many members have self-directed IRAs and Solo 401ks and want to lend to other members`;
 
 exports.handler = async function(event, context) {
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: 'Method Not Allowed' };
-  }
-
   const CORS_HEADERS = {
     'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': 'https://forgedbyaris.com'
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS'
   };
+
+  if (event.httpMethod === 'OPTIONS') {
+    return { statusCode: 200, headers: CORS_HEADERS, body: '' };
+  }
+
+  if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, headers: CORS_HEADERS, body: 'Method Not Allowed' };
+  }
 
   try {
     const body = JSON.parse(event.body);
 
     const API_KEY = process.env.ANTHROPIC_API_KEY;
     if (!API_KEY) {
-      return { statusCode: 500, body: JSON.stringify({ error: 'API key not configured' }) };
+      return { statusCode: 500, headers: CORS_HEADERS, body: JSON.stringify({ error: 'API key not configured' }) };
     }
 
     const requestBody = {
@@ -88,6 +94,7 @@ exports.handler = async function(event, context) {
     const isTimeout = err.name === 'AbortError';
     return {
       statusCode: isTimeout ? 504 : 500,
+      headers: CORS_HEADERS,
       body: JSON.stringify({
         error: isTimeout ? 'Request timed out' : 'Function error',
         detail: err.message
