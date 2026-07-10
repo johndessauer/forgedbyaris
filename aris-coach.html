@@ -769,6 +769,25 @@
 <script>
   // ── STATE ──
   const conversationHistory = [];
+
+  function saveHistory() {
+    try {
+      sessionStorage.setItem('aris-chat-history', JSON.stringify(conversationHistory));
+    } catch (e) {
+      // Quota exceeded (e.g. large uploaded files) — chat still works,
+      // it just won't survive a page navigation this session.
+      console.warn('Could not save chat history:', e);
+    }
+  }
+
+  function displayTextFor(content) {
+    if (typeof content === 'string') return content;
+    if (Array.isArray(content)) {
+      const textBlock = content.find(b => b.type === 'text');
+      return textBlock ? textBlock.text : '';
+    }
+    return '';
+  }
   let isLoading = false;
   let pendingDocument = null;
   let ARIS_SYSTEM_ACTIVE = ''; // set on load after injecting member why
@@ -923,8 +942,19 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
       ARIS_SYSTEM_ACTIVE = ARIS_SYSTEM;
     }
 
-    appendMessage('aris', ARIS_INTRO, true);
-    conversationHistory.push({ role: 'assistant', content: ARIS_INTRO.replace(/\*\*/g, '') });
+    const savedHistory = JSON.parse(sessionStorage.getItem('aris-chat-history') || 'null');
+    if (savedHistory && savedHistory.length) {
+      savedHistory.forEach((msg, i) => {
+        conversationHistory.push(msg);
+        appendMessage(msg.role === 'assistant' ? 'aris' : 'user', displayTextFor(msg.content), i === 0);
+      });
+      const suggestionsEl = document.getElementById('suggestions');
+      if (suggestionsEl) suggestionsEl.style.display = 'none';
+    } else {
+      appendMessage('aris', ARIS_INTRO, true);
+      conversationHistory.push({ role: 'assistant', content: ARIS_INTRO.replace(/\*\*/g, '') });
+      saveHistory();
+    }
 
     // ── READ QUICK CHAT FROM DASHBOARD ──
     const quickChat = localStorage.getItem('forge-quick-chat');
@@ -942,8 +972,15 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
   };
 
   // ── RENDER HELPERS ──
-  function formatMarkdown(text) {
+  function escapeHtml(text) {
     return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  function formatMarkdown(text) {
+    return escapeHtml(text)
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
       .replace(/\n\n/g, '</p><p>')
@@ -1125,6 +1162,7 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
     }
 
     conversationHistory.push({ role: 'user', content: userMessageContent });
+    saveHistory();
 
     isLoading = true;
     document.getElementById('send-btn').disabled = true;
@@ -1136,7 +1174,7 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'claude-sonnet-4-6',
-          max_tokens: 1000,
+          max_tokens: 2200,
           system: ARIS_SYSTEM_ACTIVE,
           messages: conversationHistory
         })
@@ -1159,6 +1197,7 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
       }
 
       conversationHistory.push({ role: 'assistant', content: reply });
+      saveHistory();
       appendMessage('aris', reply);
 
       // ── RENDER TRANSFER CARD ──
@@ -1193,10 +1232,13 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
           <strong>${tabLabels[dealData.tab] || dealData.tab}</strong> — ${fieldCount} field${fieldCount !== 1 ? 's' : ''} pre-filled from this conversation
         </div>
       </div>
-      <button class="transfer-btn" onclick="transferToDealAnalyzer(${JSON.stringify(JSON.stringify(dealData))})">
+      <button class="transfer-btn">
         OPEN DEAL ANALYZER →
       </button>
     `;
+    card.querySelector('.transfer-btn').addEventListener('click', () => {
+      window.location.href = 'deal-analyzer.html';
+    });
     messages.appendChild(card);
     messages.scrollTop = messages.scrollHeight;
 
@@ -1207,14 +1249,6 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
     }));
   }
 
-  function transferToDealAnalyzer(dealDataStr) {
-    const dealData = JSON.parse(dealDataStr);
-    localStorage.setItem('forge-transfer', JSON.stringify({
-      ...dealData,
-      timestamp: Date.now()
-    }));
-    window.location.href = 'deal-analyzer.html';
-  }
 
   function sendSuggestion(chip) {
     document.getElementById('user-input').value = chip.textContent;
@@ -1224,11 +1258,13 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
   // ── CLEAR ──
   function clearChat() {
     conversationHistory.length = 0;
+    sessionStorage.removeItem('aris-chat-history');
     document.getElementById('messages').innerHTML = '';
     const s = document.getElementById('suggestions');
     if (s) s.style.display = 'flex';
     appendMessage('aris', ARIS_INTRO, true);
     conversationHistory.push({ role: 'assistant', content: ARIS_INTRO.replace(/\*\*/g, '') });
+    saveHistory();
   }
 
   // ── INPUT HELPERS ──
