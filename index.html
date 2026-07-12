@@ -516,6 +516,7 @@
     <div class="eyebrow">Coming Soon — Founding Members Only</div>
     <h1 class="hero-headline">Where <span class="accent">Empires</span><br>Are Forged</h1>
     <p class="hero-subline">The AI platform that delivers everything a $30,000 real estate coaching program sells — available 24/7, in your pocket, for a fraction of the cost.</p>
+    <p class="hero-subline" style="font-size: 15px; color: var(--grey, #6B7280); margin-top: 8px;">Built by John Dessauer, who spent 30+ years both investing in real estate at a high level and building, operating and selling the industry's top coaching programs — and created FORGE because this space needed more than hope in a hotel ballroom.</p>
     <div class="disruption-line">
       "Every competitor sells hope in a hotel ballroom.<br>We sell execution in a pocket."
     </div>
@@ -553,6 +554,7 @@
       <p style="display:none"><input name="bot-field" /></p>
       <div class="capture-form">
         <input class="capture-input" type="email" name="email" id="email-input" placeholder="Enter your email address" required />
+        <input class="capture-input" type="tel" name="phone" id="phone-input" placeholder="Phone (optional)" />
         <button class="capture-btn" type="submit">RESERVE MY SPOT</button>
       </div>
     </form>
@@ -636,8 +638,7 @@
 </div>
 
 <script>
-  const launchDate = new Date();
-  launchDate.setDate(launchDate.getDate() + 60);
+  const launchDate = new Date('2026-09-09T19:00:00-04:00'); // Sept 9, 2026, 7:00 PM ET
 
   function updateCountdown() {
     const now = new Date().getTime();
@@ -688,6 +689,11 @@
     </p>
     <p style="color: #444; font-size: 11px; font-family: 'Inter', sans-serif; margin: 8px 0 0 0;">
       FORGE and ARIS are trademarks of The Dessauer Group. Unauthorized reproduction or distribution is prohibited.
+    </p>
+    <p style="font-size: 12px; font-family: 'Inter', sans-serif; margin: 12px 0 0 0;">
+      <a href="terms.html" style="color: #C89B3C; text-decoration: none;">Terms of Service</a> &nbsp;|&nbsp;
+      <a href="privacy-policy.html" style="color: #C89B3C; text-decoration: none;">Privacy Policy</a> &nbsp;|&nbsp;
+      <a href="earnings-disclaimer.html" style="color: #C89B3C; text-decoration: none;">Earnings Disclaimer</a>
     </p>
   </footer>
 </body>
