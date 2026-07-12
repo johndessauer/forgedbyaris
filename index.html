@@ -624,7 +624,7 @@
       <div class="vs">VS</div>
       <div class="price-box us">
         <div class="price-box-label">FORGE</div>
-        <div class="price-box-amount">$997 + $97/mo</div>
+        <div class="price-box-amount" id="fm-price-display">$497 + $97/mo</div>
       </div>
     </div>
   </div>
@@ -638,6 +638,26 @@
 </div>
 
 <script>
+  // ── FOUNDING MEMBER PHASE PRICING ──────────────────────────────
+  // Phase 1: now → Sept 8, 2026        → $497
+  // Phase 2: Sept 9 → Sept 16, 2026    → $247 (webinar week)
+  // Phase 3: Sept 17, 2026 onward      → $997 (regular price)
+  (function() {
+    const now = new Date();
+    const phase2Start = new Date('2026-09-09T00:00:00-04:00');
+    const phase3Start = new Date('2026-09-17T00:00:00-04:00');
+    let displayText;
+    if (now < phase2Start) {
+      displayText = '$497 + $97/mo';
+    } else if (now < phase3Start) {
+      displayText = '$247 + $97/mo';
+    } else {
+      displayText = '$997 + $97/mo';
+    }
+    const el = document.getElementById('fm-price-display');
+    if (el) el.textContent = displayText;
+  })();
+
   const launchDate = new Date('2026-09-09T19:00:00-04:00'); // Sept 9, 2026, 7:00 PM ET
 
   function updateCountdown() {

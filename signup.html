@@ -126,7 +126,7 @@ html, body { min-height: 100vh; background: var(--black); color: var(--white); f
   <div class="auth-card">
     <div class="founding-badge">⭐ Founding Member Access</div>
     <div class="auth-title">Create Your Account</div>
-    <div class="auth-sub">Locked-in pricing. Lifetime access. First 100 members only.</div>
+    <div class="auth-sub">Locked-in pricing. Lifetime access.</div>
 
     <div class="price-note" id="price-note">
       <div class="price-note-icon">🔒</div>
@@ -186,38 +186,32 @@ html, body { min-height: 100vh; background: var(--black); color: var(--white); f
 </div>
 
 <script>
-  // ── PLAN DETECTION ──────────────────────────────────────────────
-  // ?plan=vip       → $497 setup + $97/mo  (Founding Member VIP)
-  // ?plan=vip-free  → $0 upfront + $97/mo  (VIP Founding Member)
-  // (no param)      → $997 setup + $97/mo  (Standard Founding Member)
-  const urlParams = new URLSearchParams(window.location.search);
-  const urlPlanParam = urlParams.get('plan');
-
-  // Persist plan selection across the checkout/cancel round-trip.
-  // If the URL has a plan, save it. If not, fall back to the last saved one.
-  // This prevents someone from silently reverting to Standard pricing if
-  // Stripe/Memberstack strips the query string on cancel/back.
-  if (urlPlanParam) {
-    sessionStorage.setItem('forge_signup_plan', urlPlanParam);
+  // ── FOUNDING MEMBER PHASE PRICING ──────────────────────────────
+  // Each price below is a single recurring $97/mo subscription with a
+  // setup fee (charged day 0) and a 30-day trial (defers the first $97
+  // charge by one month) — so one checkout produces "first payment X,
+  // then $97/mo starting next cycle."
+  // Phase 1: now → Sept 8, 2026        → $497 first payment
+  // Phase 2: Sept 9 → Sept 16, 2026    → $247 first payment (webinar week)
+  // Phase 3: Sept 17, 2026 onward      → $997 first payment (regular price)
+  function getCurrentPhase() {
+    const now = new Date();
+    const phase2Start = new Date('2026-09-09T00:00:00-04:00');
+    const phase3Start = new Date('2026-09-17T00:00:00-04:00');
+    if (now < phase2Start) {
+      return { priceId: 'prc_497-97-3m13d01j8', label: '$497' };
+    } else if (now < phase3Start) {
+      return { priceId: 'prc_247-97-ne13e01d6', label: '$247' };
+    } else {
+      return { priceId: 'prc_997-97-5fmt0nr5', label: '$997' };
+    }
   }
-  const planParam = urlPlanParam || sessionStorage.getItem('forge_signup_plan');
+  const currentPhase = getCurrentPhase();
 
-  // Price IDs
-  const PLAN_STANDARD_SETUP   = 'prc_founding-member--7dqi0xsx';
-  const PLAN_STANDARD_MONTHLY = 'prc_founding-member-monthly-09qm0xfp';
-  const PLAN_VIP_SETUP        = 'prc_founding-member-vip-497--5gsb07gr';
-  const PLAN_VIP_MONTHLY      = 'prc_founding-member-vip-monthly-gsqq0x4i';
-
-  // Update price note based on plan
-  if (planParam === 'vip') {
-    document.getElementById('price-note-text').innerHTML =
-      '<strong>Founding Member VIP — $497 + $97/mo locked for life</strong><br>' +
-      'Your monthly rate is guaranteed as long as your subscription stays active.';
-  } else if (planParam === 'vip-free') {
-    document.getElementById('price-note-text').innerHTML =
-      '<strong>VIP Founding Member — $0 upfront + $97/mo locked for life</strong><br>' +
-      'No setup fee. First $97 charged today, then $97/mo thereafter.';
-  }
+  // Update price note to reflect current phase pricing
+  document.getElementById('price-note-text').innerHTML =
+    '<strong>Founding Member — ' + currentPhase.label + ' + $97/mo locked for life</strong><br>' +
+    'Your monthly rate is guaranteed as long as your subscription stays active.';
 
   async function handleSignup() {
     const firstName = document.getElementById('first-name').value.trim();
@@ -239,12 +233,6 @@ html, body { min-height: 100vh; background: var(--black); color: var(--white); f
     try {
       const memberstack = window.$memberstackDom;
 
-      // Determine plan type label
-      let planType;
-      if (planParam === 'vip') { planType = 'Founding Member VIP'; }
-      else if (planParam === 'vip-free') { planType = 'VIP Founding Member'; }
-      else { planType = 'Founding Member'; }
-
       // Step 1: Create the member account (no plans yet)
       const { data: signupData, error: signupError } = await memberstack.signupMemberEmailPassword({
         email: email,
@@ -253,7 +241,7 @@ html, body { min-height: 100vh; background: var(--black); color: var(--white); f
           'first-name': firstName,
           'last-name': lastName,
           'full-name': firstName + ' ' + lastName,
-          'plan-type': planType
+          'plan-type': 'Founding Member'
         }
       });
 
@@ -264,22 +252,12 @@ html, body { min-height: 100vh; background: var(--black); color: var(--white); f
         return;
       }
 
-      // Step 2: Determine price ID for Stripe Checkout
-      // For plans with setup fee, checkout handles setup first then monthly
-      let priceId;
-      if (planParam === 'vip') {
-        priceId = PLAN_VIP_SETUP;
-      } else if (planParam === 'vip-free') {
-        priceId = PLAN_VIP_MONTHLY;
-      } else {
-        priceId = PLAN_STANDARD_SETUP;
-      }
-
       btn.innerHTML = '<span class="spinner"></span>Redirecting to payment...';
 
-      // Step 3: Open Stripe Checkout for payment
+      // Step 2: Open Stripe Checkout for the single recurring price (setup fee
+      // charged today, $97/mo begins automatically after the 30-day trial).
       const { data: checkoutData, error: checkoutError } = await memberstack.purchasePlansWithCheckout({
-        priceId: priceId,
+        priceId: currentPhase.priceId,
         successURL: window.location.origin + '/dashboard.html',
         cancelURL: window.location.href
       });

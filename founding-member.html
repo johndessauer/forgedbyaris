@@ -210,13 +210,13 @@ html, body { background: var(--black); color: var(--white); font-family: 'Inter'
   <!-- PRICING -->
   <div class="section-label">Founding Member Pricing</div>
   <div class="section-title">Get In Before The Price Goes Up</div>
-  <div class="pricing-grid">
+  <div class="pricing-grid" style="max-width: 460px; margin: 0 auto;">
 
     <div class="price-card featured">
-      <div class="price-label">Standard</div>
+      <div class="price-label" id="fm-price-label">Founding Member Pricing</div>
       <div class="price-name">Founding Member</div>
       <div class="price-amount">
-        <div class="price-dollar">$997</div>
+        <div class="price-dollar" id="fm-price-dollar">$497</div>
       </div>
       <div class="price-period">one-time + <strong>$97/mo locked for life</strong></div>
       <div class="price-divider"></div>
@@ -231,26 +231,27 @@ html, body { background: var(--black); color: var(--white); font-family: 'Inter'
       <a class="price-btn" href="signup.html">Become a Founding Member →</a>
     </div>
 
-    <div class="price-card">
-      <div class="price-label">VIP Invite Only</div>
-      <div class="price-name">Founding Member VIP</div>
-      <div class="price-amount">
-        <div class="price-dollar">$497</div>
-      </div>
-      <div class="price-period">one-time + <strong>$97/mo locked for life</strong></div>
-      <div class="price-divider"></div>
-      <div class="price-features">
-        <div class="price-feature">Everything in Founding Member</div>
-        <div class="price-feature">Reduced one-time access fee</div>
-        <div class="price-feature">$97/mo rate locked permanently</div>
-        <div class="price-feature">Founding Member badge + status</div>
-        <div class="price-feature">All future platform updates included</div>
-        <div class="price-feature">Priority access to Phase II features</div>
-      </div>
-      <a class="price-btn secondary" href="signup.html?plan=vip">Join as VIP Member →</a>
-    </div>
-
   </div>
+
+  <script>
+    (function() {
+      const now = new Date();
+      const phase2Start = new Date('2026-09-09T00:00:00-04:00');
+      const phase3Start = new Date('2026-09-17T00:00:00-04:00');
+      let price, label;
+      if (now < phase2Start) {
+        price = '$497'; label = 'Founding Member Pricing — Ends Sept 8';
+      } else if (now < phase3Start) {
+        price = '$247'; label = 'Webinar Week Special — Ends Sept 16';
+      } else {
+        price = '$997'; label = 'Founding Member Pricing';
+      }
+      const dollarEl = document.getElementById('fm-price-dollar');
+      const labelEl = document.getElementById('fm-price-label');
+      if (dollarEl) dollarEl.textContent = price;
+      if (labelEl) labelEl.textContent = label;
+    })();
+  </script>
 
   <!-- GUARANTEE -->
   <div class="guarantee">
@@ -277,8 +278,8 @@ html, body { background: var(--black); color: var(--white); font-family: 'Inter'
       <div class="faq-a">You lose access to the platform and your Founding Member pricing. If you rejoin later, you'll pay the current standard rate — which will be higher. Your locked rate only stays locked while your subscription is active.</div>
     </div>
     <div class="faq-item">
-      <div class="faq-q">How many Founding Member spots are available?</div>
-      <div class="faq-a">100 total. Once those spots are filled, Founding Member pricing closes permanently. The standard price is $997 front-end + $97/month — same monthly rate, but no price lock guarantee.</div>
+      <div class="faq-q">How long is Founding Member pricing available?</div>
+      <div class="faq-a">$497 through Sept 8, 2026. It drops to $247 for webinar week (Sept 9–16). After Sept 16, the price returns to $997 — the standard rate, same $97/month either way.</div>
     </div>
     <div class="faq-item">
       <div class="faq-q">What's coming next to the platform?</div>
