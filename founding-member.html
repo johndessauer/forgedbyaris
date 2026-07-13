@@ -240,11 +240,11 @@ html, body { background: var(--black); color: var(--white); font-family: 'Inter'
       const phase3Start = new Date('2026-09-17T00:00:00-04:00');
       let price, label;
       if (now < phase2Start) {
-        price = '$497'; label = 'Founding Member Pricing — Ends Sept 8';
+        price = '$497'; label = 'Ends Sept 8';
       } else if (now < phase3Start) {
-        price = '$247'; label = 'Webinar Week Special — Ends Sept 16';
+        price = '$247'; label = 'Webinar Week Only';
       } else {
-        price = '$997'; label = 'Founding Member Pricing';
+        price = '$997'; label = 'Founding Member';
       }
       const dollarEl = document.getElementById('fm-price-dollar');
       const labelEl = document.getElementById('fm-price-label');
