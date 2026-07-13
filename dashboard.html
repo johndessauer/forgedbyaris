@@ -622,9 +622,25 @@ Respond ONLY in this exact JSON format — no preamble, no explanation:
 }`;
 
 // ── INIT ──
+function waitForMemberstack(maxWaitMs = 6000, intervalMs = 100) {
+  return new Promise((resolve) => {
+    const start = Date.now();
+    (function poll() {
+      if (window.$memberstackReady || (window.$memberstackDom && window.$memberstackDom.getCurrentMember)) {
+        resolve(true);
+      } else if (Date.now() - start >= maxWaitMs) {
+        resolve(false); // give up rather than hang the page forever
+      } else {
+        setTimeout(poll, intervalMs);
+      }
+    })();
+  });
+}
+
 window.onload = async () => {
   // Memberstack auth gate
   try {
+    await waitForMemberstack();
     const memberstack = window.$memberstackDom;
     const { data: member } = await memberstack.getCurrentMember();
     if (!member) {
