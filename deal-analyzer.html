@@ -1446,17 +1446,33 @@ async function sendToARIS(userText, showUserBubble = true) {
   showTyping();
 
   try {
-    const res = await fetch('/api/aris-quote', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1700,
-        system: ARIS_SYSTEM,
-        messages: conversationHistory
-      })
-    });
-    const data = await res.json();
+    async function callARISOnce() {
+      const res = await fetch('/api/aris-quote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 1700,
+          system: ARIS_SYSTEM,
+          messages: conversationHistory
+        })
+      });
+      return res.json();
+    }
+
+    let data = await callARISOnce();
+    let isTimeout = !!(data.error && data.error.toLowerCase().includes('timed out'));
+    let retried = false;
+
+    if (isTimeout) {
+      // Most timeouts succeed on a second attempt — retry automatically once rather
+      // than making the person notice the failure and resend manually.
+      retried = true;
+      updateTypingLabel('This one is taking longer than usual — retrying...');
+      data = await callARISOnce();
+      isTimeout = !!(data.error && data.error.toLowerCase().includes('timed out'));
+    }
+
     removeTyping();
     let reply;
     if (data.content?.[0]?.text) {
@@ -1464,7 +1480,9 @@ async function sendToARIS(userText, showUserBubble = true) {
     } else if (data.error) {
       // Surface the real reason instead of a generic message — timeout vs API error look different
       const detail = data.detail ? ` (${data.detail})` : '';
-      reply = `ARIS hit a snag: ${data.error}${detail}. ${data.error.toLowerCase().includes('timed out') ? 'The analysis may be too long to generate in time — try again, it usually goes through on a retry.' : 'Try again in a moment.'}`;
+      reply = isTimeout
+        ? `ARIS is taking longer than usual on this one — even a retry timed out (${data.error}${detail}). Try running it again in a moment, or ask a more specific follow-up instead of a full re-analysis.`
+        : `ARIS hit a snag: ${data.error}${detail}. Try again in a moment.`;
     } else {
       reply = 'Something went wrong — unexpected response format. Try again.';
     }
@@ -1526,9 +1544,14 @@ function showTyping() {
   const row = document.createElement('div');
   row.id = 'typing';
   row.className = 'typing-row';
-  row.innerHTML = `<div class="msg-av" style="background:linear-gradient(135deg,#162840,#0D1B2A);border:1.5px solid #C89B3C;font-family:'Bebas Neue',sans-serif;letter-spacing:1px;color:#C89B3C;font-size:10px;">ARIS</div><div class="typing-bubble"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>`;
+  row.innerHTML = `<div class="msg-av" style="background:linear-gradient(135deg,#162840,#0D1B2A);border:1.5px solid #C89B3C;font-family:'Bebas Neue',sans-serif;letter-spacing:1px;color:#C89B3C;font-size:10px;">ARIS</div><div class="typing-bubble"><div class="dot"></div><div class="dot"></div><div class="dot"></div><span class="typing-label" style="margin-left:8px;font-size:11px;color:var(--grey-light);"></span></div>`;
   messages.appendChild(row);
   messages.scrollTop = messages.scrollHeight;
+}
+
+function updateTypingLabel(label) {
+  const labelEl = document.querySelector('#typing .typing-label');
+  if (labelEl) labelEl.textContent = label;
 }
 
 function removeTyping() { const el = document.getElementById('typing'); if(el) el.remove(); }
