@@ -1461,12 +1461,17 @@ async function sendToARIS(userText, showUserBubble = true) {
     });
 
     if (!res.ok) {
-      // Non-streaming error response (auth, rate limit, bad request) — Anthropic's error shape
+      // Non-streaming error response (auth, rate limit, bad request, or routing/config issue) —
+      // capture status + raw body so a failure is diagnosable from the message itself
       removeTyping();
+      let rawText = '';
       let errData = {};
-      try { errData = await res.json(); } catch (e) { /* leave errData empty */ }
-      const msg = errData.error?.message || errData.error || 'Unexpected error from ARIS.';
-      appendMsg('aris', `ARIS hit a snag: ${msg}. Try again in a moment.`);
+      try {
+        rawText = await res.text();
+        errData = JSON.parse(rawText);
+      } catch (e) { /* not JSON — rawText still holds whatever came back */ }
+      const detail = errData.error?.message || errData.error || (rawText ? rawText.slice(0, 300) : 'no response body');
+      appendMsg('aris', `ARIS hit a snag (HTTP ${res.status}): ${detail}`);
       isLoading = false;
       document.getElementById('analyze-btn').disabled = false;
       document.getElementById('chat-send-btn').disabled = false;

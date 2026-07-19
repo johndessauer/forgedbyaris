@@ -40,7 +40,7 @@ export default async (request, context) => {
     });
   }
 
-  const API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
+  const API_KEY = Netlify.env.get('ANTHROPIC_API_KEY');
   if (!API_KEY) {
     return new Response(JSON.stringify({ error: 'API key not configured' }), {
       status: 500,
