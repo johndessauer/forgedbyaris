@@ -394,6 +394,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 
   .sidebar, .topbar, .form-panel, .aris-topbar, .chat-input-bar, .topbar-right, .prop-photo-hero { display: none !important; }
   .app, .main, .content, .aris-panel, .messages { display: block !important; overflow: visible !important; height: auto !important; width: 100% !important; }
+  html, body { height: auto !important; overflow: visible !important; }
   body { background: white !important; color: #1a1a1a !important; font-family: Arial, sans-serif !important; }
 
   .print-header {
@@ -699,6 +700,12 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
               <div>
                 <div style="font-size:11px;font-weight:600;color:var(--gold);letter-spacing:0.5px;">Commercial — 5+ Units</div>
                 <div style="font-size:10px;color:var(--grey-light);margin-top:1px;">Valued by <strong style="color:var(--white);">income capitalization</strong> (NOI ÷ cap rate), not comps. Value is a direct function of the income the property produces.</div>
+              </div>
+            </div>
+
+            <div class="form-section">
+              <div class="form-row single">
+                <div class="field"><label>Property Name / Address</label><input type="text" id="c-address" placeholder="e.g. The Maple Court Apartments, 123 Main St"><div class="hint">Optional — shown on saved deals and PDF exports. Auto-fills from an uploaded document if found.</div></div>
               </div>
             </div>
 
@@ -1294,6 +1301,7 @@ function calcMulti() {
 }
 
 function calcCommercial() {
+  const address    = document.getElementById('c-address').value.trim();
   const purchase   = +document.getElementById('c-purchase').value || 0;
   const units      = +document.getElementById('c-units').value || 0;
   const downPct    = +document.getElementById('c-down').value || 25;
@@ -1326,7 +1334,7 @@ function calcCommercial() {
   const exitValue      = exitCapPct > 0 ? stabilizedNOI / (exitCapPct/100) : 0;
   const equityCreated  = exitValue - purchase - renovation;
 
-  return { purchase, units, noi, capRate, dcr, annualCashFlow, coc, pricePerUnit, exitValue, equityCreated, mortgage, totalInvested,
+  return { address, purchase, units, noi, capRate, dcr, annualCashFlow, coc, pricePerUnit, exitValue, equityCreated, mortgage, totalInvested,
     metrics: [
       { label: 'NOI (Annual)', value: fmt(noi), cls: noi > 0 ? 'good' : 'bad' },
       { label: 'Cap Rate', value: fmtPct(capRate), cls: capRate > 6 ? 'good' : capRate > 4.5 ? 'warn' : 'bad' },
@@ -1368,7 +1376,8 @@ async function handleCommercialPDF(event) {
     });
 
     const extractPrompt = 'Extract commercial real estate financial data from this document (T-12, rent roll, or offering memorandum). Return ONLY a raw JSON object, no markdown formatting, no code fences, no explanation. Use these exact keys, and use null for any field not found in the document:\n' +
-      '{ "purchase_price": number or null, "units": number or null, "gross_potential_income": number or null, "vacancy_pct": number or null, "other_income": number or null, "operating_expenses": number or null }\n' +
+      '{ "property_address": string or null, "purchase_price": number or null, "units": number or null, "gross_potential_income": number or null, "vacancy_pct": number or null, "other_income": number or null, "operating_expenses": number or null }\n' +
+      '"property_address" should be the property name and/or street address if shown anywhere in the document (e.g. a title, header, or letterhead) — combine name and address if both are present, e.g. "The Maple Court Apartments, 123 Main St, Springfield, IL". ' +
       '"gross_potential_income", "other_income", and "operating_expenses" must be ANNUAL totals — if the document shows monthly figures, multiply by 12. "vacancy_pct" must be a percentage number (e.g. 5 for 5%), not a decimal.';
 
     const res = await fetch('/api/aris-quote', {
@@ -1394,6 +1403,7 @@ async function handleCommercialPDF(event) {
     const extracted = JSON.parse(raw);
 
     const fieldMap = {
+      property_address: 'c-address',
       purchase_price: 'c-purchase',
       units: 'c-units',
       gross_potential_income: 'c-gpi',
