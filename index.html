@@ -687,14 +687,24 @@
     e.preventDefault();
     const form = e.target;
     const data = new FormData(form);
-    fetch('/', {
+    const email = data.get('email');
+
+    // Netlify's own form storage (dashboard record)
+    const netlifySubmit = fetch('/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams(data).toString()
-    }).then(() => {
-      document.querySelector('.capture-form').closest('form').style.display = 'none';
-      document.getElementById('success-msg').style.display = 'block';
-    }).catch(() => {
+    });
+
+    // Actual EmailOctopus list signup — separate from the Netlify Forms record above.
+    // Caught independently so an EmailOctopus hiccup never blocks the user-facing success state.
+    const emailOctopusSubmit = fetch('/api/waitlist-subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ email }).toString()
+    }).catch((err) => { console.error('EmailOctopus signup failed:', err); });
+
+    Promise.allSettled([netlifySubmit, emailOctopusSubmit]).then(() => {
       document.querySelector('.capture-form').closest('form').style.display = 'none';
       document.getElementById('success-msg').style.display = 'block';
     });

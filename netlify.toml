@@ -8,3 +8,8 @@
   from = "/api/aris-quote"
   to = "/.netlify/functions/aris-quote"
   status = 200
+
+[[redirects]]
+  from = "/api/waitlist-subscribe"
+  to = "/.netlify/functions/waitlist-subscribe"
+  status = 200
