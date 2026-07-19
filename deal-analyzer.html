@@ -195,6 +195,14 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 .msg-bubble strong { color: var(--gold); font-weight: 600; }
 .msg-row.user .msg-bubble strong { color: rgba(255,255,255,0.9); }
 .msg-bubble em { color: var(--grey-light); font-style: italic; }
+.msg-bubble p { margin: 0 0 10px 0; }
+.msg-bubble p:last-child { margin-bottom: 0; }
+.msg-bubble h1 { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 1px; color: var(--gold); margin: 4px 0 10px; }
+.msg-bubble h2 { font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 1px; color: var(--gold); margin: 14px 0 8px; }
+.msg-bubble h3 { font-size: 13px; font-weight: 700; color: var(--white); margin: 12px 0 6px; }
+.msg-bubble hr { border: none; border-top: 1px solid var(--border-sub); margin: 12px 0; }
+.msg-bubble ul { margin: 0 0 10px 0; padding-left: 18px; }
+.msg-bubble li { margin-bottom: 4px; }
 
 /* verdict card */
 .verdict-card { background: var(--navy-mid); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-top: 6px; }
@@ -378,13 +386,51 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 .prop-photo-hero-counter { position: absolute; bottom: 14px; left: 14px; font-size: 10px; color: rgba(255,255,255,0.7); letter-spacing: 1px; }
 
 /* ── PRINT STYLES ── */
+/* print-only branded header — hidden on screen */
+.print-header { display: none; }
+
 @media print {
-  .sidebar, .topbar, .form-panel, .aris-topbar, .chat-input-bar, .topbar-right { display: none !important; }
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+
+  .sidebar, .topbar, .form-panel, .aris-topbar, .chat-input-bar, .topbar-right, .prop-photo-hero { display: none !important; }
   .app, .main, .content, .aris-panel, .messages { display: block !important; overflow: visible !important; height: auto !important; width: 100% !important; }
-  body { background: white !important; color: black !important; }
-  .verdict-card { border: 1px solid #ddd !important; background: #f9f9f9 !important; }
-  .metric-value, .msg-bubble { color: black !important; }
-  .msg-bubble { background: #f0f0f0 !important; }
+  body { background: white !important; color: #1a1a1a !important; font-family: Arial, sans-serif !important; }
+
+  .print-header {
+    display: block !important;
+    background: var(--navy) !important;
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin-bottom: 18px;
+  }
+  .print-header-brand { font-family: 'Bebas Neue', sans-serif; font-size: 26px; letter-spacing: 2px; color: var(--white) !important; }
+  .print-header-brand span { color: var(--gold) !important; }
+  .print-header-sub { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--gold) !important; margin-top: 4px; }
+  .print-header-meta { font-size: 11px; color: rgba(255,255,255,0.65) !important; margin-top: 8px; }
+
+  .msg-row { break-inside: avoid; margin-bottom: 14px; }
+  .verdict-card { break-inside: avoid; background: var(--navy-mid) !important; border: 1px solid var(--border) !important; }
+  .verdict-title { color: var(--gold) !important; }
+  .verdict-badge.go { background: var(--green-dim) !important; color: var(--green) !important; }
+  .verdict-badge.caution { background: var(--yellow-dim) !important; color: var(--yellow) !important; }
+  .verdict-badge.no-go { background: var(--red-dim) !important; color: var(--red) !important; }
+  .metric-item { background: var(--navy-light) !important; break-inside: avoid; }
+  .metric-label { color: var(--grey) !important; }
+  .metric-value { color: var(--white) !important; }
+  .metric-value.good { color: var(--green) !important; }
+  .metric-value.warn { color: var(--yellow) !important; }
+  .metric-value.bad { color: var(--red) !important; }
+  .proj-table { break-inside: avoid; }
+  .proj-table th { color: var(--grey) !important; }
+  .proj-table td.good { color: var(--green) !important; }
+
+  .msg-row.aris .msg-bubble { background: var(--navy-light) !important; border: 1px solid var(--border-sub) !important; color: var(--white) !important; }
+  .msg-row.user .msg-bubble { background: var(--orange) !important; color: white !important; }
+  .msg-bubble strong { color: var(--gold) !important; }
+  .msg-bubble h1, .msg-bubble h2 { color: var(--gold) !important; }
+  .msg-av { -webkit-print-color-adjust: exact !important; }
+
+  .print-footer { display: block !important; text-align: center; font-size: 10px; color: var(--grey) !important; margin-top: 24px; padding-top: 12px; border-top: 1px solid var(--border-sub); }
 }
 
 @media (max-width: 900px) { .sidebar { display: none; } .form-panel { width: 340px; min-width: 340px; } }
@@ -438,7 +484,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
       </div>
       <div class="topbar-right">
         <button class="topbar-btn" onclick="openDrawer()">📁 Saved Deals</button>
-        <button class="topbar-btn primary" onclick="window.print()">⬇ Export PDF</button>
+        <button class="topbar-btn primary" onclick="exportPDF()">⬇ Export PDF</button>
       </div>
     </div>
 
@@ -789,7 +835,15 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
           </div>
         </div>
 
+        <!-- PRINT-ONLY BRANDED HEADER — hidden on screen, populated just before printing -->
+        <div class="print-header" id="print-header">
+          <div class="print-header-brand">FORGE<span>™</span></div>
+          <div class="print-header-sub">Deal Analyzer &nbsp;·&nbsp; Commercial Analysis (Income Capitalization)</div>
+          <div class="print-header-meta" id="print-header-meta"></div>
+        </div>
+
         <div class="messages" id="messages"></div>
+        <div class="print-footer" style="display:none;">FORGE — Powered by ARIS &nbsp;·&nbsp; ForgedByAris.com &nbsp;·&nbsp; support@forgedbyaris.com</div>
 
         <div class="chat-input-bar">
           <div class="chat-input-wrap">
@@ -1550,18 +1604,55 @@ async function sendChat() {
 
 // ── RENDER HELPERS ──
 function formatMarkdown(text) {
-  return text
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.*?)\*/g, '<em>$1</em>')
-    .replace(/\n\n/g, '</p><p>')
-    .replace(/\n/g, '<br>')
-    .replace(/^/, '<p>').replace(/$/, '</p>')
-    .replace(/<p><\/p>/g, '')
-    .replace(/<br>- (.*?)(?=<br>|<\/p>)/g, '<br>• $1')
-    .replace(/<p>- (.*?)<\/p>/g, '<p>• $1</p>');
+  const lines = text.split('\n');
+  let html = '';
+  let inParagraph = false;
+  let inList = false;
+
+  function closeParagraph() { if (inParagraph) { html += '</p>'; inParagraph = false; } }
+  function closeList() { if (inList) { html += '</ul>'; inList = false; } }
+  function inlineFormat(s) {
+    return s.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>');
+  }
+
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (line === '') { closeParagraph(); closeList(); continue; }
+    if (/^-{3,}$/.test(line)) { closeParagraph(); closeList(); html += '<hr>'; continue; }
+
+    let m;
+    if ((m = line.match(/^###\s+(.*)/))) { closeParagraph(); closeList(); html += `<h3>${inlineFormat(m[1])}</h3>`; continue; }
+    if ((m = line.match(/^##\s+(.*)/)))  { closeParagraph(); closeList(); html += `<h2>${inlineFormat(m[1])}</h2>`; continue; }
+    if ((m = line.match(/^#\s+(.*)/)))   { closeParagraph(); closeList(); html += `<h1>${inlineFormat(m[1])}</h1>`; continue; }
+    if ((m = line.match(/^-\s+(.*)/))) {
+      closeParagraph();
+      if (!inList) { html += '<ul>'; inList = true; }
+      html += `<li>${inlineFormat(m[1])}</li>`;
+      continue;
+    }
+
+    closeList();
+    if (!inParagraph) { html += '<p>'; inParagraph = true; } else { html += '<br>'; }
+    html += inlineFormat(line);
+  }
+  closeParagraph();
+  closeList();
+  return html;
 }
 
 function getTime() { return new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); }
+
+function exportPDF() {
+  const tabLabels = { wholesale: 'Wholesale', flip: 'Fix & Flip', rental: 'Long-Term Rental', str: 'STR / MTR', multi: '2-4 Unit Residential', commercial: 'Commercial — 5+ Units' };
+  const dealLabel = lastDealData ? tabLabels[lastDealData.tab] || 'Deal Analysis' : 'Deal Analyzer';
+  const address = (lastDealData && lastDealData.data && lastDealData.data.address) ? lastDealData.data.address : '';
+  const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+  document.getElementById('print-header-meta').textContent =
+    [dealLabel, address, dateStr].filter(Boolean).join('  ·  ');
+
+  window.print();
+}
 
 function escapeHtml(str) {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
