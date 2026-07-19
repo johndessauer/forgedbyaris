@@ -86,8 +86,14 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 /* ── LEFT PANEL — FORM ── */
 .form-panel { width: 480px; min-width: 480px; display: flex; flex-direction: column; border-right: 1px solid var(--border-sub); overflow: hidden; }
 
+/* category toggle */
+.category-toggle { display: flex; gap: 6px; padding: 14px 20px 0; flex-shrink: 0; }
+.category-btn { flex: 1; font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; padding: 9px 14px; border-radius: 6px; border: 1px solid var(--border-sub); cursor: pointer; transition: all 0.15s; background: none; color: var(--grey-light); }
+.category-btn:hover { color: var(--white); background: var(--border-sub); }
+.category-btn.active { background: var(--gold-dim); border-color: var(--gold); color: var(--gold); }
+
 /* analyzer tabs */
-.analyzer-tabs { display: flex; padding: 16px 20px 0; gap: 4px; border-bottom: 1px solid var(--border-sub); flex-shrink: 0; overflow-x: auto; }
+.analyzer-tabs { display: flex; padding: 14px 20px 0; gap: 4px; border-bottom: 1px solid var(--border-sub); flex-shrink: 0; overflow-x: auto; }
 .analyzer-tabs::-webkit-scrollbar { display: none; }
 .tab-btn { font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.5px; padding: 8px 14px; border-radius: 6px 6px 0 0; border: 1px solid transparent; border-bottom: none; cursor: pointer; white-space: nowrap; transition: all 0.15s; background: none; color: var(--grey); }
 .tab-btn:hover { color: var(--white); background: var(--border-sub); }
@@ -438,12 +444,22 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 
       <!-- LEFT: FORM PANEL -->
       <div class="form-panel">
-        <div class="analyzer-tabs">
+        <div class="category-toggle">
+          <button class="category-btn active" data-category="residential" onclick="switchCategory('residential',this)">Residential</button>
+          <button class="category-btn" data-category="commercial" onclick="switchCategory('commercial',this)">Commercial</button>
+        </div>
+
+        <div class="analyzer-tabs" id="tabs-residential">
           <button class="tab-btn active" onclick="switchTab('wholesale',this)">Wholesale</button>
           <button class="tab-btn" onclick="switchTab('flip',this)">Fix &amp; Flip</button>
           <button class="tab-btn" onclick="switchTab('rental',this)">LT Rental</button>
           <button class="tab-btn" onclick="switchTab('str',this)">STR / MTR</button>
-          <button class="tab-btn" onclick="switchTab('multi',this)">2–4 Units <span style="font-size:9px;opacity:0.6;font-weight:400;letter-spacing:0;text-transform:none;">Residential</span></button>
+          <button class="tab-btn" onclick="switchTab('multi',this)">2–4 Units</button>
+        </div>
+
+        <div class="analyzer-tabs" id="tabs-commercial" style="display:none">
+          <button class="tab-btn" onclick="switchTab('commercial',this)">Apartments <span style="font-size:9px;opacity:0.6;font-weight:400;letter-spacing:0;text-transform:none;">5+ Units</span></button>
+          <!-- Future commercial asset types (Self-Storage, MHP, Office/Industrial, Mixed-Use, Hotels) get added here as additional tab-btn elements -->
         </div>
 
         <div class="form-scroll" id="form-scroll">
@@ -587,7 +603,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
               <span style="font-size:14px;">🏘</span>
               <div>
                 <div style="font-size:11px;font-weight:600;color:var(--gold);letter-spacing:0.5px;">Residential — 2 to 4 Units</div>
-                <div style="font-size:10px;color:var(--grey-light);margin-top:1px;">Valued by <strong style="color:var(--white);">sales comparison approach</strong> (comps), not income capitalization. For 5+ units, see Commercial Suite in Phase 2.</div>
+                <div style="font-size:10px;color:var(--grey-light);margin-top:1px;">Valued by <strong style="color:var(--white);">sales comparison approach</strong> (comps), not income capitalization. For 5+ units, use the Commercial tab.</div>
               </div>
             </div>
             <div class="form-section">
@@ -620,6 +636,69 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
               <div class="form-row">
                 <div class="field"><label>Monthly Operating Expenses</label><input type="number" id="m-opex" placeholder="$0"><div class="hint">Taxes, insurance, maintenance, mgmt</div></div>
                 <div class="field"><label>Value-Add Potential / Unit</label><input type="number" id="m-valueadd" placeholder="$100"><div class="hint">Monthly rent increase after improvements</div></div>
+              </div>
+            </div>
+          </div>
+
+          <div id="form-commercial" class="form-body" style="display:none">
+            <div style="background:var(--gold-dim);border:1px solid var(--border);border-radius:6px;padding:9px 13px;margin-bottom:14px;display:flex;align-items:center;gap:8px;">
+              <span style="font-size:14px;">🏢</span>
+              <div>
+                <div style="font-size:11px;font-weight:600;color:var(--gold);letter-spacing:0.5px;">Commercial — 5+ Units</div>
+                <div style="font-size:10px;color:var(--grey-light);margin-top:1px;">Valued by <strong style="color:var(--white);">income capitalization</strong> (NOI ÷ cap rate), not comps. Value is a direct function of the income the property produces.</div>
+              </div>
+            </div>
+
+            <div class="form-section" style="border:1px dashed var(--gold); border-radius:6px; padding:12px 14px; margin-bottom:14px; background:rgba(200,155,60,0.04);">
+              <div class="form-section-label" style="margin-bottom:6px;">Auto-Fill from Document</div>
+              <div style="font-size:10px;color:var(--grey-light);margin-bottom:10px;">Upload a T-12, rent roll, or offering memorandum and ARIS will read it and pre-fill the fields below. Always review the numbers before running your analysis.</div>
+              <div class="upload-drop-row">
+                <label class="upload-drop-btn" for="c-pdf-input">
+                  📄 Upload PDF
+                  <input type="file" id="c-pdf-input" accept=".pdf" style="display:none" onchange="handleCommercialPDF(event)" />
+                </label>
+                <span class="upload-hint">Max 4MB · One file</span>
+              </div>
+              <div id="c-pdf-status" style="font-size:11px;margin-top:8px;"></div>
+            </div>
+            <div class="form-section">
+              <div class="form-section-label">Acquisition</div>
+              <div class="form-row">
+                <div class="field"><label>Purchase Price</label><input type="number" id="c-purchase" placeholder="$0"></div>
+                <div class="field"><label>Number of Units</label><input type="number" id="c-units" placeholder="24"><div class="hint">No cap — apartment complexes, mixed-use, etc.</div></div>
+              </div>
+              <div class="form-row">
+                <div class="field"><label>Down Payment %</label><input type="number" id="c-down" placeholder="25"></div>
+                <div class="field"><label>Interest Rate %</label><input type="number" id="c-rate" placeholder="7"></div>
+              </div>
+              <div class="form-row single">
+                <div class="field"><label>Loan Term (years)</label><input type="number" id="c-term" placeholder="30"><div class="hint">Commercial loans often amortize 25-30yr with a shorter balloon term</div></div>
+              </div>
+            </div>
+            <div class="form-section">
+              <div class="form-section-label">Income</div>
+              <div class="form-row">
+                <div class="field"><label>Gross Potential Income (annual)</label><input type="number" id="c-gpi" placeholder="$0"><div class="hint">Total rent roll if 100% occupied</div></div>
+                <div class="field"><label>Vacancy &amp; Credit Loss %</label><input type="number" id="c-vacancy" placeholder="5"></div>
+              </div>
+              <div class="form-row single">
+                <div class="field"><label>Other Income (annual)</label><input type="number" id="c-otherincome" placeholder="$0"><div class="hint">Laundry, parking, storage, application fees</div></div>
+              </div>
+            </div>
+            <div class="form-section">
+              <div class="form-section-label">Operating Expenses</div>
+              <div class="form-row single">
+                <div class="field"><label>Total Operating Expenses (annual)</label><input type="number" id="c-opex" placeholder="$0"><div class="hint">Taxes, insurance, payroll, repairs, mgmt, reserves — exclude debt service</div></div>
+              </div>
+            </div>
+            <div class="form-section">
+              <div class="form-section-label">Value-Add &amp; Exit</div>
+              <div class="form-row">
+                <div class="field"><label>Renovation / Value-Add Budget</label><input type="number" id="c-renovation" placeholder="$0"><div class="hint">Capex to force appreciation</div></div>
+                <div class="field"><label>Post-Reno NOI Increase (annual)</label><input type="number" id="c-noiuplift" placeholder="$0"><div class="hint">Additional NOI once stabilized</div></div>
+              </div>
+              <div class="form-row single">
+                <div class="field"><label>Exit Cap Rate %</label><input type="number" id="c-exitcap" placeholder="6"><div class="hint">Assumption for stabilized resale value</div></div>
               </div>
             </div>
           </div>
@@ -663,7 +742,6 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
               <div class="phase2-badge">Phase 2 — In Development</div>
             </div>
             <div class="phase2-grid">
-              <div class="phase2-card"><div class="phase2-icon">🏢</div><div class="phase2-info"><div class="phase2-name">Apartments 5+</div><div class="phase2-coming">Coming soon</div></div></div>
               <div class="phase2-card"><div class="phase2-icon">🏕</div><div class="phase2-info"><div class="phase2-name">Mobile Home Parks</div><div class="phase2-coming">Coming soon</div></div></div>
               <div class="phase2-card"><div class="phase2-icon">📦</div><div class="phase2-info"><div class="phase2-name">Self-Storage</div><div class="phase2-coming">Coming soon</div></div></div>
               <div class="phase2-card"><div class="phase2-icon">🏬</div><div class="phase2-info"><div class="phase2-name">Office &amp; Industrial</div><div class="phase2-coming">Coming soon</div></div></div>
@@ -905,6 +983,7 @@ DEAL ANALYSIS FRAMEWORK:
 - Flag any red flags or risks immediately
 - Identify the single biggest lever to improve the deal
 - Reference other FORGE modules when relevant (Document Vault for contracts/checklists, Market Oracle for market validation, Capital Radar for funding)
+- Multi-unit routing: 2-4 unit residential deals are valued by sales comparison (comps) — use the "2-4 Units" tab. 5+ unit deals are commercial and valued by income capitalization (NOI ÷ cap rate) — use the "5+ Units" tab. If a user describes a deal with 5 or more units while on the wrong tab, tell them directly which tab to switch to and why the valuation method differs.
 
 CLOSING: Use Your Move when analysis is complete. Use a sharp question when you need more information.
 
@@ -924,6 +1003,18 @@ function switchTab(tab, btn) {
   document.getElementById('form-' + tab).style.display = 'block';
   btn.classList.add('active');
   currentTab = tab;
+}
+
+function switchCategory(cat, btn) {
+  document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const resGroup  = document.getElementById('tabs-residential');
+  const comGroup  = document.getElementById('tabs-commercial');
+  resGroup.style.display = cat === 'residential' ? 'flex' : 'none';
+  comGroup.style.display = cat === 'commercial' ? 'flex' : 'none';
+  const firstBtn = (cat === 'residential' ? resGroup : comGroup).querySelector('.tab-btn');
+  const firstTab = cat === 'residential' ? 'wholesale' : 'commercial';
+  switchTab(firstTab, firstBtn);
 }
 
 function setHold(years, btn) {
@@ -1128,6 +1219,133 @@ function calcMulti() {
   };
 }
 
+function calcCommercial() {
+  const purchase   = +document.getElementById('c-purchase').value || 0;
+  const units      = +document.getElementById('c-units').value || 0;
+  const downPct    = +document.getElementById('c-down').value || 25;
+  const rate       = +document.getElementById('c-rate').value || 7;
+  const term       = +document.getElementById('c-term').value || 30;
+  const gpi        = +document.getElementById('c-gpi').value || 0;
+  const vacPct     = +document.getElementById('c-vacancy').value || 5;
+  const otherInc   = +document.getElementById('c-otherincome').value || 0;
+  const opex       = +document.getElementById('c-opex').value || 0;
+  const renovation = +document.getElementById('c-renovation').value || 0;
+  const noiUplift  = +document.getElementById('c-noiuplift').value || 0;
+  const exitCapPct = +document.getElementById('c-exitcap').value || 6;
+
+  const downAmt       = purchase * (downPct/100);
+  const loanAmt        = purchase - downAmt;
+  const mortgage       = calcMortgage(loanAmt, rate, term); // monthly
+  const annualDebtSvc  = mortgage * 12;
+
+  const egi            = gpi * (1 - vacPct/100) + otherInc;
+  const noi            = egi - opex; // annual, income-capitalization NOI
+  const capRate        = purchase > 0 ? (noi / purchase) * 100 : 0;
+  const dcr            = annualDebtSvc > 0 ? (noi / annualDebtSvc) : 0;
+  const annualCashFlow = noi - annualDebtSvc;
+  const totalInvested  = downAmt + renovation;
+  const coc            = totalInvested > 0 ? (annualCashFlow / totalInvested) * 100 : 0;
+  const pricePerUnit    = units > 0 ? purchase / units : 0;
+
+  // Forced appreciation via exit cap rate on stabilized NOI
+  const stabilizedNOI  = noi + noiUplift;
+  const exitValue      = exitCapPct > 0 ? stabilizedNOI / (exitCapPct/100) : 0;
+  const equityCreated  = exitValue - purchase - renovation;
+
+  return { purchase, units, noi, capRate, dcr, annualCashFlow, coc, pricePerUnit, exitValue, equityCreated, mortgage, totalInvested,
+    metrics: [
+      { label: 'NOI (Annual)', value: fmt(noi), cls: noi > 0 ? 'good' : 'bad' },
+      { label: 'Cap Rate', value: fmtPct(capRate), cls: capRate > 6 ? 'good' : capRate > 4.5 ? 'warn' : 'bad' },
+      { label: 'DCR', value: dcr.toFixed(2) + 'x', cls: dcr >= 1.25 ? 'good' : dcr >= 1.0 ? 'warn' : 'bad' },
+      { label: 'Cash-on-Cash', value: fmtPct(coc), cls: coc > 8 ? 'good' : coc > 4 ? 'warn' : 'bad' },
+      { label: 'Annual Cash Flow', value: fmt(annualCashFlow), cls: annualCashFlow > 0 ? 'good' : 'bad' },
+      { label: 'Price / Unit', value: fmt(pricePerUnit), cls: '' },
+      { label: 'Forced Appreciation Exit Value', value: fmt(exitValue), cls: equityCreated > 0 ? 'good' : 'warn' },
+      { label: 'Equity Created (Reno + Exit)', value: fmt(equityCreated), cls: equityCreated > 0 ? 'good' : 'bad' },
+    ],
+    verdict: dcr >= 1.25 && annualCashFlow > 0 && capRate > 4.5 ? 'go' : dcr >= 1.0 && annualCashFlow > 0 ? 'caution' : 'no-go',
+    verdictText: dcr >= 1.25 && annualCashFlow > 0 && capRate > 4.5 ? 'GO' : dcr >= 1.0 && annualCashFlow > 0 ? 'PROCEED WITH CAUTION' : 'NO-GO'
+  };
+}
+
+async function handleCommercialPDF(event) {
+  const file = event.target.files[0];
+  event.target.value = '';
+  const statusEl = document.getElementById('c-pdf-status');
+  if (!file) return;
+
+  if (file.type !== 'application/pdf') {
+    statusEl.innerHTML = '<span style="color:var(--red);">Please upload a PDF file.</span>';
+    return;
+  }
+  if (file.size > 4 * 1024 * 1024) {
+    statusEl.innerHTML = '<span style="color:var(--red);">File too large — max 4MB.</span>';
+    return;
+  }
+
+  statusEl.innerHTML = '<span style="color:var(--gold);">📄 ARIS is reading ' + file.name + '...</span>';
+
+  try {
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    const extractPrompt = 'Extract commercial real estate financial data from this document (T-12, rent roll, or offering memorandum). Return ONLY a raw JSON object, no markdown formatting, no code fences, no explanation. Use these exact keys, and use null for any field not found in the document:\n' +
+      '{ "purchase_price": number or null, "units": number or null, "gross_potential_income": number or null, "vacancy_pct": number or null, "other_income": number or null, "operating_expenses": number or null }\n' +
+      '"gross_potential_income", "other_income", and "operating_expenses" must be ANNUAL totals — if the document shows monthly figures, multiply by 12. "vacancy_pct" must be a percentage number (e.g. 5 for 5%), not a decimal.';
+
+    const res = await fetch('/api/aris-quote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1024,
+        system: 'You are a precise financial data extraction assistant. You only output raw JSON exactly as instructed, with no other text.',
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
+            { type: 'text', text: extractPrompt }
+          ]
+        }]
+      })
+    });
+
+    const data = await res.json();
+    let raw = (data.content && data.content[0] && data.content[0].text) || '';
+    raw = raw.trim().replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '');
+    const extracted = JSON.parse(raw);
+
+    const fieldMap = {
+      purchase_price: 'c-purchase',
+      units: 'c-units',
+      gross_potential_income: 'c-gpi',
+      vacancy_pct: 'c-vacancy',
+      other_income: 'c-otherincome',
+      operating_expenses: 'c-opex'
+    };
+
+    let filledCount = 0;
+    const totalCount = Object.keys(fieldMap).length;
+    Object.entries(fieldMap).forEach(([key, id]) => {
+      const val = extracted[key];
+      if (val !== null && val !== undefined && val !== '') {
+        document.getElementById(id).value = val;
+        filledCount++;
+      }
+    });
+
+    const color = filledCount > 0 ? 'var(--green)' : 'var(--grey-light)';
+    statusEl.innerHTML = `<span style="color:${color};">✅ Extracted ${filledCount} of ${totalCount} fields from ${file.name}. Review the numbers below before running your analysis.</span>`;
+
+  } catch (err) {
+    statusEl.innerHTML = '<span style="color:var(--red);">⚠️ Could not read that document. Try a clearer PDF or enter the numbers manually.</span>';
+  }
+}
+
 // ── PROJECTION TABLE ──
 function buildProjectionTable(baseData) {
   const rentGrowth   = (+document.getElementById('proj-rent-growth').value || 3) / 100;
@@ -1169,7 +1387,7 @@ function buildProjectionTable(baseData) {
 
 // ── MAIN ANALYZE FUNCTION ──
 function analyzeDeal() {
-  const calcMap = { wholesale: calcWholesale, flip: calcFlip, rental: calcRental, str: calcSTR, multi: calcMulti };
+  const calcMap = { wholesale: calcWholesale, flip: calcFlip, rental: calcRental, str: calcSTR, multi: calcMulti, commercial: calcCommercial };
   const calc = calcMap[currentTab];
   if (!calc) return;
 
@@ -1207,7 +1425,7 @@ function analyzeDeal() {
   messages.appendChild(cardRow);
 
   // Build ARIS prompt from deal data
-  const tabLabels = { wholesale: 'Wholesale', flip: 'Fix & Flip', rental: 'Long-Term Rental', str: 'STR/MTR', multi: '2-4 Unit Residential (Sales Comparison Approach)' };
+  const tabLabels = { wholesale: 'Wholesale', flip: 'Fix & Flip', rental: 'Long-Term Rental', str: 'STR/MTR', multi: '2-4 Unit Residential (Sales Comparison Approach)', commercial: '5+ Unit Commercial (Income Capitalization Approach)' };
   const metricsText = data.metrics.map(m => `${m.label}: ${m.value}`).join(', ');
   const prompt = `I just ran a ${tabLabels[currentTab]} analysis in the FORGE Deal Analyzer. Here are the results: ${metricsText}. Hold period: ${holdYears} years. Rent growth assumption: ${document.getElementById('proj-rent-growth').value}%/yr, Appreciation: ${document.getElementById('proj-appreciation').value}%/yr, Expense growth: ${document.getElementById('proj-expense-growth').value}%/yr. The calculator gives a ${data.verdictText} verdict. Give me your full analysis — deal quality, key risks, biggest lever to improve it, and your recommendation.`;
 
@@ -1568,9 +1786,21 @@ function preFillFromTransfer(transfer) {
   const { tab, fields } = transfer;
   if (!tab || !fields) return;
 
-  // Switch to correct tab
-  const tabBtns = document.querySelectorAll('.tab-btn');
-  const tabMap = { wholesale:0, flip:1, rental:2, str:3, multi:4 };
+  // Determine which category this tab lives in and switch to it first,
+  // so the toggle/tab group visibility matches the tab we're about to activate
+  const commercialTabs = ['commercial'];
+  const targetCategory = commercialTabs.includes(tab) ? 'commercial' : 'residential';
+  const categoryBtn = document.querySelector('.category-btn[data-category="' + targetCategory + '"]');
+  if (categoryBtn && !categoryBtn.classList.contains('active')) {
+    switchCategory(targetCategory, categoryBtn);
+  }
+
+  // Switch to the correct tab within that category's button group
+  const groupId = targetCategory === 'commercial' ? 'tabs-commercial' : 'tabs-residential';
+  const tabMap = targetCategory === 'commercial'
+    ? { commercial: 0 }
+    : { wholesale: 0, flip: 1, rental: 2, str: 3, multi: 4 };
+  const tabBtns = document.querySelectorAll('#' + groupId + ' .tab-btn');
   const tabIdx = tabMap[tab];
   if (tabIdx !== undefined && tabBtns[tabIdx]) {
     switchTab(tab, tabBtns[tabIdx]);
