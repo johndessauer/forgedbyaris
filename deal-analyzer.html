@@ -1451,14 +1451,23 @@ async function sendToARIS(userText, showUserBubble = true) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
-        max_tokens: 2200,
+        max_tokens: 1700,
         system: ARIS_SYSTEM,
         messages: conversationHistory
       })
     });
     const data = await res.json();
     removeTyping();
-    const reply = data.content?.[0]?.text || 'Something went wrong. Try again.';
+    let reply;
+    if (data.content?.[0]?.text) {
+      reply = data.content[0].text;
+    } else if (data.error) {
+      // Surface the real reason instead of a generic message — timeout vs API error look different
+      const detail = data.detail ? ` (${data.detail})` : '';
+      reply = `ARIS hit a snag: ${data.error}${detail}. ${data.error.toLowerCase().includes('timed out') ? 'The analysis may be too long to generate in time — try again, it usually goes through on a retry.' : 'Try again in a moment.'}`;
+    } else {
+      reply = 'Something went wrong — unexpected response format. Try again.';
+    }
     conversationHistory.push({ role: 'assistant', content: reply });
     appendMsg('aris', reply);
   } catch(e) {
