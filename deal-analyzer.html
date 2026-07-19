@@ -451,6 +451,11 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
           <button class="category-btn" data-category="commercial" onclick="switchCategory('commercial',this)">Commercial</button>
         </div>
 
+        <div style="margin: 10px 20px 0; padding: 8px 12px; border-radius: 6px; background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25); font-size: 11px; color: var(--grey-light); display: flex; align-items: center; gap: 6px;">
+          <span style="font-size:13px;">⚠️</span>
+          <span>Don't leave this page or wander off to check Zillow — your numbers vanish unless you hit <strong style="color:var(--white);">Save Deal</strong> first.</span>
+        </div>
+
         <div class="analyzer-tabs" id="tabs-residential">
           <button class="tab-btn active" onclick="switchTab('wholesale',this)">Wholesale</button>
           <button class="tab-btn" onclick="switchTab('flip',this)">Fix &amp; Flip</button>
@@ -971,6 +976,19 @@ let holdYears = 3;
 let conversationHistory = [];
 let isLoading = false;
 let lastDealData = null;
+let formIsDirty = false;
+
+// Real protection to back up the banner above — warns before leaving if any
+// field has been touched and the deal hasn't been saved yet.
+document.addEventListener('input', (e) => {
+  if (e.target.closest('.form-panel')) formIsDirty = true;
+});
+window.addEventListener('beforeunload', (e) => {
+  if (formIsDirty) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
 
 // ── ARIS SYSTEM PROMPT ──
 const ARIS_SYSTEM = `You are ARIS — the Adaptive Real Estate Intelligence System, the AI advisor at the core of FORGE. You are male. Named after Aristotle, who tutored Alexander the Great. Your purpose: help real estate investors build empires through execution, not theory.
@@ -1724,11 +1742,13 @@ function confirmSave() {
     // localStorage full — save without media
     const lite = saved.map(d => ({ ...d, photos: [], docs: [] }));
     localStorage.setItem('forge-deals', JSON.stringify(lite));
+    formIsDirty = false;
     showToast('Deal saved (photos omitted — storage full)');
     closeSaveModal();
     return;
   }
 
+  formIsDirty = false;
   closeSaveModal();
   showToast('Deal saved — ' + displayName);
 }
