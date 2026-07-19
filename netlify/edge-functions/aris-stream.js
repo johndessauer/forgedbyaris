@@ -56,6 +56,20 @@ export default async (request, context) => {
     stream: true
   };
 
+  // Pass through tool definitions if the caller included them. This proxy
+  // does not execute tools itself or parse the stream for tool_use blocks —
+  // the calling page is responsible for the full tool-use loop (detecting
+  // tool_use in the raw SSE it receives, executing the tool, and sending a
+  // follow-up request with the tool_result to continue the conversation).
+  // This keeps the proxy's core behavior — and its CPU-time/streaming
+  // guarantees — unchanged regardless of whether tools are in play.
+  if (Array.isArray(body.tools) && body.tools.length) {
+    requestBody.tools = body.tools;
+  }
+  if (body.tool_choice) {
+    requestBody.tool_choice = body.tool_choice;
+  }
+
   let upstream;
   try {
     upstream = await fetch('https://api.anthropic.com/v1/messages', {

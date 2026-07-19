@@ -13,3 +13,18 @@
   from = "/api/waitlist-subscribe"
   to = "/.netlify/functions/waitlist-subscribe"
   status = 200
+
+[[redirects]]
+  from = "/api/crm-contacts"
+  to = "/.netlify/functions/crm-contacts"
+  status = 200
+
+[[redirects]]
+  from = "/api/crm-deals"
+  to = "/.netlify/functions/crm-deals"
+  status = 200
+
+[[redirects]]
+  from = "/api/crm-notes"
+  to = "/.netlify/functions/crm-notes"
+  status = 200

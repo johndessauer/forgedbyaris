@@ -672,6 +672,7 @@
         <span class="nav-icon">📍</span>
         Property Search<span class="nav-badge">Coming Soon</span>
       </div>
+      <a class="nav-item" href="crm.html"><span class="nav-icon">📋</span>Deal CRM</a>
       <a class="nav-item" href="deal-network.html">
         <span class="nav-icon">🤝</span>
         Deal Network
@@ -777,6 +778,15 @@
 <script>
   // ── STATE ──
   const conversationHistory = [];
+  var currentMemberToken = null; // Memberstack JWT, set once auth resolves below; required for all CRM tool calls
+  // NOTE: deliberately `var`, not `let` -- this file has a second, separate
+  // <script> block further down (the existing Memberstack auth gate) that
+  // assigns to this variable. `let`/`const` do not share scope across
+  // separate top-level <script> tags on the same page; `var` does, since it
+  // attaches to the shared global object. Using `let` here silently breaks
+  // the assignment in the other script block (it's not a ReferenceError --
+  // it just never reaches this variable), which is what caused every CRM
+  // tool call to send no Authorization header and fail with 401.
 
   function saveHistory() {
     try {
@@ -915,7 +925,16 @@ End with one pointed question when the user is still exploring, hasn't given you
 
 Never close with both. Use judgment — an advisor knows the difference between a client who's ready to move and one who still needs to think.
 
-You are the advisor Alexander the Great never had the chance to keep. He built the largest empire in history. Your job is to make sure the person reading this builds theirs.`;
+You are the advisor Alexander the Great never had the chance to keep. He built the largest empire in history. Your job is to make sure the person reading this builds theirs.
+
+CRM ACCESS — YOU HAVE THIS CAPABILITY:
+Members track their deals and contacts in FORGE's built-in CRM. You have tools to read that data and to propose changes to it. Rules for using these tools:
+- Use the read tools (get_pipeline_summary, list_deals, list_contacts, get_notes) whenever a member asks about their own pipeline, deals, contacts, or notes — "what's my hottest lead," "how many deals are under contract," "who are my lenders," etc. Never guess or make up pipeline data — call the tool.
+- Use the write tools (propose_stage_update, propose_note, propose_flag_lead) when it's clearly useful to update the CRM based on what the member just told you — e.g. they mention they spoke with a seller, made an offer, or a deal fell through. Reference the deal by its property address as the member gave it to you, or as close to it as you have.
+- Write tools never execute immediately — the platform always shows the member a yes/no confirmation before anything is saved. You do not need to ask "should I do this?" in your own text; the confirmation card handles that. Just call the tool naturally as part of your response.
+- If a write tool comes back as "not found" or "multiple matches," tell the member plainly and ask them to clarify the address — don't guess which deal they meant.
+- "Flagging" a lead or deal means logging a note marking it as flagged with the reason — there's no separate flag field, so treat propose_flag_lead as writing that specific kind of note.
+- After a read tool returns data, weave it into your answer naturally, in your own voice — don't just dump raw fields.`;
 
   // ── INTRO MESSAGE ──
   const ARIS_INTRO = `I am **ARIS** — the Adaptive Real Estate Intelligence System.
@@ -1145,6 +1164,448 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
     sendMessage();
   }
 
+  // ── CRM TOOL DEFINITIONS (Anthropic tools schema) ──
+  const CRM_TOOLS = [
+    {
+      name: 'get_pipeline_summary',
+      description: "Get a count of the member's deals in each pipeline stage (New Lead, Contacted, Qualified, Making Offer, Under Contract, Closed, Dead) and the total number of deals.",
+      input_schema: { type: 'object', properties: {} }
+    },
+    {
+      name: 'list_deals',
+      description: "List the member's deals, optionally filtered to a single pipeline stage. Use this to find a specific deal by address, identify the hottest/most active lead, or answer questions about how many deals are in a given stage.",
+      input_schema: {
+        type: 'object',
+        properties: {
+          stage: { type: 'string', enum: ['New Lead', 'Contacted', 'Qualified', 'Making Offer', 'Under Contract', 'Closed', 'Dead'], description: 'Optional. Filter to only deals in this stage.' }
+        }
+      }
+    },
+    {
+      name: 'list_contacts',
+      description: "List the member's CRM contacts, optionally filtered by type.",
+      input_schema: {
+        type: 'object',
+        properties: {
+          type: { type: 'string', enum: ['seller', 'buyer', 'lender', 'contractor'], description: 'Optional. Filter to only contacts of this type.' }
+        }
+      }
+    },
+    {
+      name: 'get_notes',
+      description: "Get notes logged for a specific deal (by property address) or contact (by name).",
+      input_schema: {
+        type: 'object',
+        properties: {
+          property_address: { type: 'string', description: 'Address of the deal to get notes for, as close to what the member said as possible.' },
+          contact_name: { type: 'string', description: 'Name of the contact to get notes for.' }
+        }
+      }
+    },
+    {
+      name: 'propose_stage_update',
+      description: "Propose moving a deal to a new pipeline stage. This does NOT execute immediately — it shows the member a yes/no confirmation card. Use when the member's message implies a deal's status has changed.",
+      input_schema: {
+        type: 'object',
+        properties: {
+          property_address: { type: 'string', description: 'Address of the deal to update, as the member referred to it.' },
+          new_stage: { type: 'string', enum: ['New Lead', 'Contacted', 'Qualified', 'Making Offer', 'Under Contract', 'Closed', 'Dead'] }
+        },
+        required: ['property_address', 'new_stage']
+      }
+    },
+    {
+      name: 'propose_note',
+      description: "Propose logging a note on a deal or contact. This does NOT execute immediately — it shows the member a yes/no confirmation card.",
+      input_schema: {
+        type: 'object',
+        properties: {
+          property_address: { type: 'string', description: 'Address of the deal to attach the note to, if applicable.' },
+          contact_name: { type: 'string', description: 'Name of the contact to attach the note to, if applicable.' },
+          body: { type: 'string', description: 'The note content, in your own words summarizing what was discussed.' }
+        },
+        required: ['body']
+      }
+    },
+    {
+      name: 'propose_flag_lead',
+      description: "Propose flagging a deal or contact as noteworthy (e.g. going cold, high priority, needs follow-up). Implemented as a specially-marked note. Does NOT execute immediately — shows a yes/no confirmation card.",
+      input_schema: {
+        type: 'object',
+        properties: {
+          property_address: { type: 'string', description: 'Address of the deal to flag, if applicable.' },
+          contact_name: { type: 'string', description: 'Name of the contact to flag, if applicable.' },
+          reason: { type: 'string', description: 'Why this is being flagged.' }
+        },
+        required: ['reason']
+      }
+    }
+  ];
+
+  const WRITE_TOOL_NAMES = new Set(['propose_stage_update', 'propose_note', 'propose_flag_lead']);
+
+  // ── CRM API HELPERS ──
+  async function apiCallCRM(fn, opts = {}) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (currentMemberToken) headers['Authorization'] = 'Bearer ' + currentMemberToken;
+    const res = await fetch('/api/' + fn, { ...opts, headers: { ...headers, ...(opts.headers || {}) } });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || ('Request failed: ' + res.status));
+    return data;
+  }
+
+  // Fuzzy-match a spoken/typed address against the member's actual deals.
+  // Returns { match, candidates } — match is set only on an unambiguous single hit.
+  async function resolveDealByAddress(addressQuery) {
+    const data = await apiCallCRM('crm-deals?action=list');
+    const deals = data.deals || [];
+    if (!addressQuery) return { match: null, candidates: deals };
+    const q = addressQuery.toLowerCase().trim();
+    const candidates = deals.filter(d => (d.property_address || '').toLowerCase().includes(q));
+    if (candidates.length === 1) return { match: candidates[0], candidates };
+    return { match: null, candidates };
+  }
+
+  async function resolveContactByName(nameQuery) {
+    const data = await apiCallCRM('crm-contacts?action=list');
+    const contacts = data.contacts || [];
+    if (!nameQuery) return { match: null, candidates: contacts };
+    const q = nameQuery.toLowerCase().trim();
+    const candidates = contacts.filter(c => (c.name || '').toLowerCase().includes(q));
+    if (candidates.length === 1) return { match: candidates[0], candidates };
+    return { match: null, candidates };
+  }
+
+  // Executes a READ tool immediately and returns its result as a plain object
+  // (to be JSON.stringify'd into a tool_result block).
+  async function executeReadTool(name, input) {
+    switch (name) {
+      case 'get_pipeline_summary': {
+        const data = await apiCallCRM('crm-deals?action=summary');
+        return data;
+      }
+      case 'list_deals': {
+        const qs = input.stage ? ('&stage=' + encodeURIComponent(input.stage)) : '';
+        const data = await apiCallCRM('crm-deals?action=list' + qs);
+        return { deals: data.deals || [] };
+      }
+      case 'list_contacts': {
+        const qs = input.type ? ('&type=' + encodeURIComponent(input.type)) : '';
+        const data = await apiCallCRM('crm-contacts?action=list' + qs);
+        return { contacts: data.contacts || [] };
+      }
+      case 'get_notes': {
+        if (input.property_address) {
+          const { match, candidates } = await resolveDealByAddress(input.property_address);
+          if (!match) return { error: candidates.length ? 'Multiple deals match that address — ask the member to be more specific.' : 'No deal found matching that address.' };
+          const data = await apiCallCRM('crm-notes?deal_id=' + match.id);
+          return { deal: match.property_address, notes: data.notes || [] };
+        }
+        if (input.contact_name) {
+          const { match, candidates } = await resolveContactByName(input.contact_name);
+          if (!match) return { error: candidates.length ? 'Multiple contacts match that name — ask the member to be more specific.' : 'No contact found matching that name.' };
+          const data = await apiCallCRM('crm-notes?contact_id=' + match.id);
+          return { contact: match.name, notes: data.notes || [] };
+        }
+        return { error: 'No property_address or contact_name provided.' };
+      }
+      default:
+        throw new Error('Unknown or non-read tool: ' + name);
+    }
+  }
+
+  // ── WRITE TOOL PROPOSAL RESOLUTION ──
+  // Resolves the target (deal/contact) for a proposed write and builds a
+  // human-readable description for the confirm card. Does NOT execute anything.
+  async function buildProposal(name, input) {
+    if (name === 'propose_stage_update') {
+      const { match, candidates } = await resolveDealByAddress(input.property_address);
+      if (!match) {
+        return { error: candidates.length ? `Multiple deals match "${input.property_address}" — which one did you mean?` : `No deal found matching "${input.property_address}".` };
+      }
+      return {
+        tool: name,
+        description: `Mark <strong>${escapeHtmlCoach(match.property_address || 'this deal')}</strong> as <strong>${escapeHtmlCoach(input.new_stage)}</strong>?`,
+        execute: async () => {
+          await apiCallCRM('crm-deals', { method: 'POST', body: JSON.stringify({ action: 'update', id: match.id, stage: input.new_stage }) });
+          return `Updated. ${match.property_address} is now marked ${input.new_stage}.`;
+        }
+      };
+    }
+    if (name === 'propose_note') {
+      let target = null, kind = null;
+      if (input.property_address) {
+        const { match, candidates } = await resolveDealByAddress(input.property_address);
+        if (!match) return { error: candidates.length ? `Multiple deals match "${input.property_address}" — which one did you mean?` : `No deal found matching "${input.property_address}".` };
+        target = match; kind = 'deal';
+      } else if (input.contact_name) {
+        const { match, candidates } = await resolveContactByName(input.contact_name);
+        if (!match) return { error: candidates.length ? `Multiple contacts match "${input.contact_name}" — which one did you mean?` : `No contact found matching "${input.contact_name}".` };
+        target = match; kind = 'contact';
+      } else {
+        return { error: 'No deal or contact specified for this note.' };
+      }
+      return {
+        tool: name,
+        description: `Log this note on <strong>${escapeHtmlCoach(kind === 'deal' ? target.property_address : target.name)}</strong>?<br><em>"${escapeHtmlCoach(input.body)}"</em>`,
+        execute: async () => {
+          const payload = { body: input.body, created_by: 'aris' };
+          if (kind === 'deal') payload.deal_id = target.id; else payload.contact_id = target.id;
+          await apiCallCRM('crm-notes', { method: 'POST', body: JSON.stringify(payload) });
+          return 'Note logged.';
+        }
+      };
+    }
+    if (name === 'propose_flag_lead') {
+      let target = null, kind = null;
+      if (input.property_address) {
+        const { match, candidates } = await resolveDealByAddress(input.property_address);
+        if (!match) return { error: candidates.length ? `Multiple deals match "${input.property_address}" — which one did you mean?` : `No deal found matching "${input.property_address}".` };
+        target = match; kind = 'deal';
+      } else if (input.contact_name) {
+        const { match, candidates } = await resolveContactByName(input.contact_name);
+        if (!match) return { error: candidates.length ? `Multiple contacts match "${input.contact_name}" — which one did you mean?` : `No contact found matching "${input.contact_name}".` };
+        target = match; kind = 'contact';
+      } else {
+        return { error: 'No deal or contact specified to flag.' };
+      }
+      const noteBody = `🚩 Flagged: ${input.reason}`;
+      return {
+        tool: name,
+        description: `Flag <strong>${escapeHtmlCoach(kind === 'deal' ? target.property_address : target.name)}</strong>?<br><em>Reason: ${escapeHtmlCoach(input.reason)}</em>`,
+        execute: async () => {
+          const payload = { body: noteBody, created_by: 'aris' };
+          if (kind === 'deal') payload.deal_id = target.id; else payload.contact_id = target.id;
+          await apiCallCRM('crm-notes', { method: 'POST', body: JSON.stringify(payload) });
+          return 'Flagged.';
+        }
+      };
+    }
+    return { error: 'Unknown write tool: ' + name };
+  }
+
+  function escapeHtmlCoach(s) {
+    const div = document.createElement('div');
+    div.textContent = String(s == null ? '' : s);
+    return div.innerHTML;
+  }
+
+  // ── CONFIRM CARD (for write tool proposals) ──
+  function renderCRMConfirmCard(proposal, onDecision) {
+    const messages = document.getElementById('messages');
+    const card = document.createElement('div');
+    card.className = 'transfer-card';
+    card.innerHTML = `
+      <div class="transfer-card-left">
+        <div class="transfer-card-label">ARIS wants to update your CRM</div>
+        <div class="transfer-card-desc">${proposal.description}</div>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button class="transfer-btn confirm-yes">YES</button>
+        <button class="transfer-btn confirm-no" style="background:transparent;border:1px solid rgba(255,255,255,0.15);color:#9CA3AF;">NO</button>
+      </div>
+    `;
+    const yesBtn = card.querySelector('.confirm-yes');
+    const noBtn = card.querySelector('.confirm-no');
+    yesBtn.addEventListener('click', async () => {
+      yesBtn.disabled = true; noBtn.disabled = true;
+      yesBtn.textContent = 'SAVING...';
+      try {
+        const resultText = await proposal.execute();
+        yesBtn.textContent = 'DONE';
+        card.style.opacity = '0.6';
+        onDecision(true, resultText);
+      } catch (e) {
+        yesBtn.textContent = 'FAILED';
+        onDecision(false, 'Could not save: ' + e.message);
+      }
+    });
+    noBtn.addEventListener('click', () => {
+      yesBtn.disabled = true; noBtn.disabled = true;
+      card.style.opacity = '0.6';
+      noBtn.textContent = 'DECLINED';
+      onDecision(false, 'Member declined this change.');
+    });
+    messages.appendChild(card);
+    messages.scrollTop = messages.scrollHeight;
+  }
+
+  // ── STREAMING HELPER (mirrors deal-analyzer.html's appendStreamingMsg, adapted to this page's markup) ──
+  function appendStreamingMsg() {
+    const messages = document.getElementById('messages');
+    const row = document.createElement('div');
+    row.className = 'msg-row aris';
+    row.innerHTML = `
+      <div class="msg-avatar" style="background:linear-gradient(135deg,#162840,#0D1B2A);border:1.5px solid #C89B3C;font-family:'Bebas Neue',sans-serif;letter-spacing:1px;color:#C89B3C;font-size:10px;">ARIS</div>
+      <div class="msg-content">
+        <div class="msg-meta">ARIS &nbsp;·&nbsp; ${getTime()}</div>
+        <div class="msg-bubble"><span class="stream-cursor">▍</span></div>
+      </div>
+    `;
+    messages.appendChild(row);
+    messages.scrollTop = messages.scrollHeight;
+    const bubble = row.querySelector('.msg-bubble');
+    return {
+      update(rawText) {
+        bubble.innerHTML = escapeHtmlCoach(rawText).replace(/\n/g, '<br>') + '<span class="stream-cursor">▍</span>';
+        messages.scrollTop = messages.scrollHeight;
+      },
+      finalize(rawText) {
+        bubble.innerHTML = formatMarkdown(rawText);
+        messages.scrollTop = messages.scrollHeight;
+      },
+      remove() { row.remove(); }
+    };
+  }
+
+  // ── CORE STREAMING + TOOL-USE LOOP ──
+  // Streams a Claude response for the current conversationHistory. Detects
+  // tool_use blocks in the raw SSE; read tools execute immediately and the
+  // conversation continues automatically; write tools pause and render a
+  // yes/no confirm card, resuming only after the member decides.
+  // depth guards against runaway tool-call chains.
+  async function streamARIS(depth = 0) {
+    if (depth > 4) {
+      appendMessage('aris', "I've made several tool calls on this and want to check in before going further — could you rephrase or narrow what you need?");
+      return;
+    }
+
+    const res = await fetch('/api/aris-stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 2200,
+        system: ARIS_SYSTEM_ACTIVE,
+        messages: conversationHistory,
+        tools: CRM_TOOLS
+      })
+    });
+
+    if (!res.ok) {
+      let rawText = '', errData = {};
+      try { rawText = await res.text(); errData = JSON.parse(rawText); } catch (e) {}
+      const detail = errData.error?.message || errData.error || (rawText ? rawText.slice(0, 300) : 'no response body');
+      appendMessage('aris', `ARIS hit a snag (HTTP ${res.status}): ${detail}`);
+      return;
+    }
+
+    const streamHandle = appendStreamingMsg();
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let accumulatedText = '';
+    let stopReason = null;
+
+    // tool_use blocks are built up per content-block index as JSON deltas arrive
+    const toolBlocks = {}; // index -> { id, name, jsonBuf }
+    const blockTypes = {}; // index -> 'text' | 'tool_use'
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const events = buffer.split('\n\n');
+      buffer = events.pop();
+
+      for (const evt of events) {
+        const dataLine = evt.split('\n').find(l => l.startsWith('data:'));
+        if (!dataLine) continue;
+        const jsonStr = dataLine.slice(5).trim();
+        if (!jsonStr) continue;
+        let parsed;
+        try { parsed = JSON.parse(jsonStr); } catch (e) { continue; }
+
+        if (parsed.type === 'content_block_start') {
+          blockTypes[parsed.index] = parsed.content_block?.type;
+          if (parsed.content_block?.type === 'tool_use') {
+            toolBlocks[parsed.index] = { id: parsed.content_block.id, name: parsed.content_block.name, jsonBuf: '' };
+          }
+        } else if (parsed.type === 'content_block_delta') {
+          if (parsed.delta?.type === 'text_delta') {
+            accumulatedText += parsed.delta.text;
+            streamHandle.update(accumulatedText);
+          } else if (parsed.delta?.type === 'input_json_delta' && toolBlocks[parsed.index]) {
+            toolBlocks[parsed.index].jsonBuf += parsed.delta.partial_json || '';
+          }
+        } else if (parsed.type === 'message_delta') {
+          if (parsed.delta?.stop_reason) stopReason = parsed.delta.stop_reason;
+        }
+      }
+    }
+
+    if (stopReason !== 'tool_use') {
+      // Plain final answer — finalize as usual, including existing DEAL_DATA handling.
+      let reply = accumulatedText || "ARIS didn't return a response. Try again.";
+      const dealMatch = reply.match(/<<<DEAL_DATA\s*([\s\S]*?)\s*DEAL_DATA>>>/);
+      let dealData = null;
+      if (dealMatch) {
+        try { dealData = JSON.parse(dealMatch[1]); } catch (e) { dealData = null; }
+        reply = reply.replace(/<<<DEAL_DATA[\s\S]*?DEAL_DATA>>>/g, '').trim();
+      }
+      streamHandle.finalize(reply);
+      conversationHistory.push({ role: 'assistant', content: reply });
+      saveHistory();
+      if (dealData && dealData.tab && dealData.fields) renderTransferCard(dealData);
+      return;
+    }
+
+    // Tool use requested. Build the assistant content array (text + tool_use blocks)
+    // exactly as Claude produced it, so the follow-up request stays valid.
+    const assistantContent = [];
+    if (accumulatedText) assistantContent.push({ type: 'text', text: accumulatedText });
+    const toolIndices = Object.keys(toolBlocks).map(Number).sort((a, b) => a - b);
+    for (const idx of toolIndices) {
+      const tb = toolBlocks[idx];
+      let input = {};
+      try { input = tb.jsonBuf ? JSON.parse(tb.jsonBuf) : {}; } catch (e) { input = {}; }
+      assistantContent.push({ type: 'tool_use', id: tb.id, name: tb.name, input });
+    }
+    streamHandle.remove(); // tool-call turns aren't shown as a bare bubble; the confirm card or continued answer covers it
+    conversationHistory.push({ role: 'assistant', content: assistantContent });
+    saveHistory();
+
+    // Execute each tool. Read tools run immediately; write tools pause for confirmation.
+    for (const idx of toolIndices) {
+      const tb = toolBlocks[idx];
+      let input = {};
+      try { input = tb.jsonBuf ? JSON.parse(tb.jsonBuf) : {}; } catch (e) { input = {}; }
+
+      if (WRITE_TOOL_NAMES.has(tb.name)) {
+        let proposal;
+        try {
+          proposal = await buildProposal(tb.name, input);
+        } catch (e) {
+          proposal = { error: 'Could not prepare that update: ' + e.message };
+        }
+        if (proposal.error) {
+          conversationHistory.push({ role: 'user', content: [{ type: 'tool_result', tool_use_id: tb.id, content: proposal.error }] });
+          saveHistory();
+          await streamARIS(depth + 1);
+          return;
+        }
+        // Pause here — resume only once the member clicks yes/no.
+        renderCRMConfirmCard(proposal, async (confirmed, resultText) => {
+          conversationHistory.push({ role: 'user', content: [{ type: 'tool_result', tool_use_id: tb.id, content: resultText }] });
+          saveHistory();
+          await streamARIS(depth + 1);
+        });
+        return; // wait for the async confirm-card callback rather than continuing the loop now
+      } else {
+        let resultPayload;
+        try {
+          resultPayload = await executeReadTool(tb.name, input);
+        } catch (e) {
+          resultPayload = { error: 'Tool execution failed: ' + e.message };
+        }
+        conversationHistory.push({ role: 'user', content: [{ type: 'tool_result', tool_use_id: tb.id, content: JSON.stringify(resultPayload) }] });
+        saveHistory();
+      }
+    }
+
+    await streamARIS(depth + 1);
+  }
+
   // ── SEND ──
   async function sendMessage() {
     if (isLoading) return;
@@ -1177,42 +1638,8 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
     showTyping();
 
     try {
-      const response = await fetch('/api/aris-quote', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 2200,
-          system: ARIS_SYSTEM_ACTIVE,
-          messages: conversationHistory
-        })
-      });
-
-      const data = await response.json();
       removeTyping();
-
-      let reply = data.content?.[0]?.text || 'Something went wrong. Try again.';
-
-      // ── EXTRACT DEAL DATA BLOCK ──
-      const dealMatch = reply.match(/<<<DEAL_DATA\s*([\s\S]*?)\s*DEAL_DATA>>>/);
-      let dealData = null;
-      if (dealMatch) {
-        try {
-          dealData = JSON.parse(dealMatch[1]);
-        } catch(e) { dealData = null; }
-        // Strip the block from the visible reply
-        reply = reply.replace(/<<<DEAL_DATA[\s\S]*?DEAL_DATA>>>/g, '').trim();
-      }
-
-      conversationHistory.push({ role: 'assistant', content: reply });
-      saveHistory();
-      appendMessage('aris', reply);
-
-      // ── RENDER TRANSFER CARD ──
-      if (dealData && dealData.tab && dealData.fields) {
-        renderTransferCard(dealData);
-      }
-
+      await streamARIS(0);
     } catch (err) {
       removeTyping();
       appendMessage('aris', 'Connection interrupted. Check your network and try again.');
@@ -1292,7 +1719,30 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
 
 <script>
 (async function() {
+  // Poll until Memberstack's script has actually initialized before touching it.
+  // Without this, a defer-loaded script's readiness isn't guaranteed relative
+  // to this inline script's execution -- calling $memberstackDom too early
+  // throws, and that failure was previously being silently swallowed by the
+  // catch block below, leaving currentMemberToken permanently null even
+  // though a manual call to getMemberCookie() later (once Memberstack was
+  // actually ready) worked fine. Same pattern already used in crm.html/dashboard.html.
+  function waitForMemberstack(maxWaitMs = 6000, intervalMs = 100) {
+    return new Promise((resolve) => {
+      const start = Date.now();
+      (function poll() {
+        if (window.$memberstackReady || (window.$memberstackDom && window.$memberstackDom.getCurrentMember)) {
+          resolve(true);
+        } else if (Date.now() - start >= maxWaitMs) {
+          resolve(false);
+        } else {
+          setTimeout(poll, intervalMs);
+        }
+      })();
+    });
+  }
+
   try {
+    await waitForMemberstack();
     const memberstack = window.$memberstackDom;
     const { data: member } = await memberstack.getCurrentMember();
     if (!member) { window.location.href = 'login.html'; return; }
@@ -1301,6 +1751,15 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
       pc => FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
     );
     if (!hasActiveMembership) { window.location.href = 'signup.html'; return; }
+    // Retrieve the member's Memberstack token so CRM tool calls (crm-deals.js,
+    // crm-contacts.js, crm-notes.js) can be authenticated. Wrapped separately
+    // so a failure here degrades to "ARIS can't access your CRM data this
+    // session" rather than breaking the page's existing auth gate above.
+    try {
+      currentMemberToken = await memberstack.getMemberCookie();
+    } catch (e) {
+      console.error('Could not retrieve Memberstack token for CRM tool access:', e);
+    }
     const customFields = member.customFields || {};
     const fullName = customFields['full-name'] || member.auth?.email || 'Member';
     const initials = fullName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
@@ -1308,7 +1767,7 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
     const av = document.getElementById('sidebar-avatar-coach');
     if (el) el.textContent = fullName;
     if (av) av.textContent = initials;
-  } catch(e) {}
+  } catch(e) { console.error('Auth gate error:', e); }
 })();
 
 async function handleLogout() {

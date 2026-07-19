@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deal CRM | FORGE</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="shortcut icon" href="/favicon.ico" />
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --black:      #0D1B2A;
+  --navy:       #0f2035;
+  --navy-light: #162840;
+  --navy-mid:   #1a3350;
+  --orange:     #FF6B2B;
+  --orange-dim: rgba(255,107,43,0.12);
+  --gold:       #C89B3C;
+  --gold-dim:   rgba(200,155,60,0.15);
+  --green:      #22c55e;
+  --green-dim:  rgba(34,197,94,0.12);
+  --red:        #ef4444;
+  --red-dim:    rgba(239,68,68,0.12);
+  --yellow:     #f59e0b;
+  --white:      #FFFFFF;
+  --grey:       #6B7280;
+  --grey-light: #9CA3AF;
+  --border:     rgba(200,155,60,0.18);
+  --border-sub: rgba(255,255,255,0.06);
+  --sidebar-w:  260px;
+}
+
+html, body { height: 100%; background: var(--black); color: var(--white); font-family: 'Inter', sans-serif; overflow: visible; }
+
+.app { display: flex; height: 100vh; width: 100vw; }
+
+/* ── SIDEBAR (matches dashboard.html) ── */
+.sidebar { width: var(--sidebar-w); min-width: var(--sidebar-w); background: var(--navy); border-right: 1px solid var(--border-sub); display: flex; flex-direction: column; overflow: visible; }
+.sidebar-logo { padding: 24px 20px 20px; border-bottom: 1px solid var(--border-sub); display: flex; align-items: center; gap: 12px; }
+.logo-words { line-height: 1; }
+.logo-words .wordmark { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 3px; color: var(--white); }
+.logo-words .wordmark span { color: var(--gold); }
+.logo-words .sub { font-size: 9px; letter-spacing: 2px; color: var(--grey); text-transform: uppercase; margin-top: 2px; }
+.sidebar-section { padding: 20px 14px 8px; }
+.sidebar-section-label { font-size: 9px; letter-spacing: 2.5px; text-transform: uppercase; color: var(--grey); padding: 0 6px; margin-bottom: 6px; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--grey-light); transition: background 0.15s, color 0.15s; text-decoration: none; user-select: none; }
+.nav-item:hover { background: var(--border-sub); color: var(--white); }
+.nav-item.active { background: var(--orange-dim); color: var(--orange); border: 1px solid rgba(255,107,43,0.2); }
+.nav-icon { font-size: 15px; width: 18px; text-align: center; flex-shrink: 0; }
+.nav-badge { margin-left: auto; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; background: var(--border-sub); color: var(--grey); padding: 2px 6px; border-radius: 3px; white-space: nowrap; flex-shrink: 0; }
+.sidebar-footer { margin-top: auto; padding: 16px 14px; border-top: 1px solid var(--border-sub); }
+.profile-chip { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; background: var(--border-sub); }
+.user-avatar { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, var(--gold), #a07820); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--black); border: 2px solid var(--gold); flex-shrink: 0; }
+.user-name { font-size: 12px; font-weight: 600; color: var(--white); }
+.user-tier { font-size: 10px; color: var(--gold); letter-spacing: 0.5px; }
+
+/* ── MAIN ── */
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.topbar { display: flex; align-items: center; justify-content: space-between; padding: 16px 28px; border-bottom: 1px solid var(--border-sub); flex-shrink: 0; }
+.topbar-left { display: flex; align-items: center; gap: 14px; }
+.topbar-avatar { width: 42px; height: 42px; border-radius: 50%; background: linear-gradient(135deg, var(--gold), #a07820); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: var(--black); border: 2px solid var(--gold); flex-shrink: 0; }
+.topbar-greeting { line-height: 1.2; }
+.topbar-welcome { font-size: 11px; color: var(--grey); letter-spacing: 1px; }
+.topbar-name { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 3px; color: var(--white); }
+.topbar-right { display: flex; align-items: center; gap: 8px; }
+.topbar-date { font-size: 11px; color: var(--grey); letter-spacing: 0.5px; }
+
+.page-head { padding: 20px 28px 0; flex-shrink: 0; }
+.page-title { font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 2px; color: var(--white); }
+.page-sub { font-size: 12px; color: var(--grey); margin-top: 2px; }
+
+.tabs-row { display: flex; gap: 4px; padding: 16px 28px 0; border-bottom: 1px solid var(--border-sub); flex-shrink: 0; }
+.tab-btn { font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 0.5px; padding: 8px 14px; border-radius: 6px 6px 0 0; border: 1px solid transparent; border-bottom: none; cursor: pointer; white-space: nowrap; transition: all 0.15s; background: none; color: var(--grey); }
+.tab-btn:hover { color: var(--white); background: var(--border-sub); }
+.tab-btn.active { background: var(--navy-light); border-color: var(--border-sub); color: var(--orange); border-bottom: 2px solid var(--orange); }
+
+.content-scroll { flex: 1; overflow-y: auto; padding: 20px 28px; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ── PIPELINE (kanban) ── */
+.pipeline-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.btn-primary { background: var(--orange); color: var(--white); border: none; border-radius: 6px; padding: 9px 16px; font-size: 12px; font-weight: 600; letter-spacing: 0.4px; cursor: pointer; transition: background 0.15s; font-family: 'Inter', sans-serif; }
+.btn-primary:hover { background: #e85a1c; }
+.btn-secondary { background: transparent; color: var(--grey-light); border: 1px solid var(--border-sub); border-radius: 6px; padding: 9px 16px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.15s; }
+.btn-secondary:hover { color: var(--white); border-color: var(--gold); }
+
+.kanban { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(190px, 1fr); gap: 12px; overflow-x: auto; padding-bottom: 4px; }
+.kanban-col { background: var(--navy); border: 1px solid var(--border-sub); border-radius: 8px; display: flex; flex-direction: column; min-height: 200px; }
+.kanban-col-head { padding: 10px 12px; border-bottom: 1px solid var(--border-sub); font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: var(--grey-light); display: flex; justify-content: space-between; align-items: center; }
+.kanban-col-count { background: var(--border-sub); color: var(--grey); border-radius: 10px; padding: 1px 7px; font-size: 10px; }
+.kanban-col-body { padding: 8px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.deal-card { background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 6px; padding: 10px; cursor: pointer; transition: border-color 0.15s; }
+.deal-card:hover { border-color: var(--gold); }
+.deal-card-addr { font-size: 12px; font-weight: 600; color: var(--white); margin-bottom: 4px; }
+.deal-card-meta { font-size: 10px; color: var(--grey); text-transform: capitalize; }
+.kanban-empty { font-size: 11px; color: var(--grey); text-align: center; padding: 20px 6px; }
+
+/* ── CONTACTS ── */
+.contacts-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; gap: 12px; }
+.filter-chips { display: flex; gap: 6px; }
+.filter-chip { font-size: 11px; font-weight: 600; padding: 6px 12px; border-radius: 14px; border: 1px solid var(--border-sub); color: var(--grey-light); cursor: pointer; background: none; transition: all 0.15s; }
+.filter-chip:hover { color: var(--white); }
+.filter-chip.active { background: var(--orange-dim); border-color: rgba(255,107,43,0.3); color: var(--orange); }
+.contacts-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.contact-card { background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 8px; padding: 14px; cursor: pointer; transition: border-color 0.15s; }
+.contact-card:hover { border-color: var(--gold); }
+.contact-card-name { font-size: 13px; font-weight: 700; color: var(--white); }
+.contact-card-type { display: inline-block; margin-top: 4px; font-size: 9px; text-transform: uppercase; letter-spacing: 0.6px; padding: 2px 8px; border-radius: 10px; background: var(--gold-dim); color: var(--gold); }
+.contact-card-info { margin-top: 8px; font-size: 11px; color: var(--grey); }
+
+.empty-state { text-align: center; padding: 60px 20px; color: var(--grey); }
+.empty-state-icon { font-size: 36px; margin-bottom: 10px; }
+.empty-state-title { font-size: 14px; font-weight: 600; color: var(--grey-light); }
+.empty-state-sub { font-size: 12px; margin-top: 4px; }
+
+/* ── MODAL / DRAWER ── */
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 100; }
+.overlay.open { display: flex; }
+.modal { background: var(--navy); border: 1px solid var(--border); border-radius: 10px; width: 100%; max-width: 480px; max-height: 86vh; overflow-y: auto; }
+.modal-head { padding: 16px 20px; border-bottom: 1px solid var(--border-sub); display: flex; justify-content: space-between; align-items: center; }
+.modal-title { font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 1px; color: var(--white); }
+.modal-close { background: none; border: none; color: var(--grey); font-size: 18px; cursor: pointer; }
+.modal-body { padding: 18px 20px; }
+.form-group { margin-bottom: 14px; }
+.form-label { display: block; font-size: 11px; font-weight: 600; letter-spacing: 0.4px; color: var(--grey-light); margin-bottom: 6px; text-transform: uppercase; }
+.form-input, .form-select, .form-textarea { width: 100%; background: var(--navy-mid); border: 1px solid var(--border-sub); border-radius: 6px; padding: 9px 11px; font-size: 13px; color: var(--white); font-family: 'Inter', sans-serif; }
+.form-input:focus, .form-select:focus, .form-textarea:focus { outline: none; border-color: var(--gold); }
+.form-textarea { min-height: 70px; resize: vertical; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }
+
+.stage-select { font-size: 11px; background: var(--navy-mid); border: 1px solid var(--border-sub); color: var(--grey-light); border-radius: 5px; padding: 5px 8px; font-family: 'Inter', sans-serif; }
+
+.notes-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.note-item { background: var(--navy-mid); border-radius: 6px; padding: 10px; font-size: 12px; }
+.note-item-meta { font-size: 10px; color: var(--grey); margin-bottom: 4px; }
+.note-item.aris { border-left: 2px solid var(--orange); }
+.note-item.student { border-left: 2px solid var(--gold); }
+
+.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--green); color: white; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; z-index: 999; }
+.toast.error { background: var(--red); }
+
+@media (max-width: 768px) { .sidebar { display: none; } .content-scroll { padding: 16px; } }
+</style>
+<script src="https://static.memberstack.com/scripts/v1/memberstack.js" data-memberstack-app="app_cmr41qq5500q80tsx94pj61rc" defer></script>
+</head>
+<body>
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-words">
+        <div class="wordmark">FOR<span>GE</span></div>
+        <div class="sub">Deal CRM</div>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Navigation</div>
+      <a class="nav-item" href="dashboard.html"><span class="nav-icon">🏠</span>Dashboard</a>
+      <a class="nav-item" href="aris-coach.html"><span class="nav-icon">⚡</span>ARIS AI Coach</a>
+      <a class="nav-item" href="deal-analyzer.html"><span class="nav-icon">🔍</span>Deal Analyzer</a>
+      <div class="nav-item"><span class="nav-icon">📍</span>Property Search<span class="nav-badge">Coming Soon</span></div>
+      <a class="nav-item active" href="crm.html"><span class="nav-icon">📋</span>Deal CRM</a>
+      <a class="nav-item" href="deal-network.html"><span class="nav-icon">🤝</span>Deal Network</a>
+      <a class="nav-item" href="capital-radar.html"><span class="nav-icon">🎯</span>Capital Radar</a>
+      <a class="nav-item" href="market-oracle.html"><span class="nav-icon">🔮</span>Market Oracle</a>
+      <a class="nav-item" href="document-vault.html"><span class="nav-icon">📂</span>Document Vault</a>
+      <div class="nav-item"><span class="nav-icon">🏛</span>Education<span class="nav-badge">Coming Soon</span></div>
+    </div>
+    <div class="sidebar-footer">
+      <div class="profile-chip">
+        <div class="user-avatar"><span id="sidebar-initials">JD</span></div>
+        <div>
+          <div class="user-name" id="sidebar-name">Member</div>
+          <div class="user-tier">Founding Member</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-avatar"><span id="topbar-initials">JD</span></div>
+        <div class="topbar-greeting">
+          <div class="topbar-welcome">Deal CRM</div>
+          <div class="topbar-name" id="topbar-name">Member</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="topbar-date" id="topbar-date"></div>
+      </div>
+    </div>
+
+    <div class="tabs-row">
+      <button class="tab-btn active" onclick="switchTab('pipeline')">📋 Pipeline</button>
+      <button class="tab-btn" onclick="switchTab('contacts')">👥 Contacts</button>
+    </div>
+
+    <div class="content-scroll">
+
+      <!-- PIPELINE TAB -->
+      <div class="tab-panel active" id="panel-pipeline">
+        <div class="pipeline-toolbar">
+          <div class="page-sub" id="pipeline-summary">Loading pipeline&hellip;</div>
+          <button class="btn-primary" onclick="openDealModal()">+ Add Deal</button>
+        </div>
+        <div class="kanban" id="kanban-root"></div>
+      </div>
+
+      <!-- CONTACTS TAB -->
+      <div class="tab-panel" id="panel-contacts">
+        <div class="contacts-toolbar">
+          <div class="filter-chips" id="contact-filters">
+            <button class="filter-chip active" data-type="" onclick="setContactFilter('')">All</button>
+            <button class="filter-chip" data-type="seller" onclick="setContactFilter('seller')">Sellers</button>
+            <button class="filter-chip" data-type="buyer" onclick="setContactFilter('buyer')">Buyers</button>
+            <button class="filter-chip" data-type="lender" onclick="setContactFilter('lender')">Lenders</button>
+            <button class="filter-chip" data-type="contractor" onclick="setContactFilter('contractor')">Contractors</button>
+          </div>
+          <button class="btn-primary" onclick="openContactModal()">+ Add Contact</button>
+        </div>
+        <div class="contacts-list" id="contacts-root"></div>
+      </div>
+
+    </div>
+
+    <div style="text-align:center; padding: 16px 28px 12px; border-top: 1px solid rgba(200,155,60,0.15); flex-shrink:0;">
+      <p style="color: #6B7280; font-size: 12px; font-family: 'Inter', sans-serif; margin: 0;">
+        &copy; 2026 The Dessauer Group &nbsp;|&nbsp;
+        <span style="color:#6B7280;">ForgedByAris.com</span> &nbsp;|&nbsp;
+        <a href="mailto:support@forgedbyaris.com" style="color:#C89B3C; text-decoration:none;">support@forgedbyaris.com</a>
+      </p>
+      <p style="font-size: 12px; font-family: 'Inter', sans-serif; margin: 6px 0 0 0;">
+        <a href="/privacy-policy.html" style="color:#C89B3C; text-decoration:none;">Privacy Policy</a>
+        &nbsp;|&nbsp;
+        <a href="/terms.html" style="color:#C89B3C; text-decoration:none;">Terms &amp; Conditions</a>
+        &nbsp;|&nbsp;
+        <a href="/earnings-disclaimer.html" style="color:#C89B3C; text-decoration:none;">Earnings Disclaimer</a>
+      </p>
+    </div>
+  </main>
+</div>
+
+<!-- ADD/EDIT DEAL MODAL -->
+<div class="overlay" id="deal-overlay">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title" id="deal-modal-title">Add Deal</div>
+      <button class="modal-close" onclick="closeModal('deal-overlay')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Property Address</label>
+        <input class="form-input" id="deal-address" placeholder="123 Main St, City, ST">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Deal Type</label>
+        <select class="form-select" id="deal-type">
+          <optgroup label="Residential">
+            <option value="wholesale">Wholesale</option>
+            <option value="fix_flip">Fix &amp; Flip</option>
+            <option value="lt_rental">LT Rental</option>
+            <option value="str_mtr">STR / MTR</option>
+            <option value="units_2_4">2-4 Units</option>
+          </optgroup>
+          <optgroup label="Commercial">
+            <option value="commercial_5plus">Commercial — 5+ Units</option>
+          </optgroup>
+        </select>
+      </div>
+      <div class="form-group" id="deal-stage-group" style="display:none;">
+        <label class="form-label">Stage</label>
+        <select class="form-select" id="deal-stage">
+          <option>New Lead</option>
+          <option>Contacted</option>
+          <option>Qualified</option>
+          <option>Making Offer</option>
+          <option>Under Contract</option>
+          <option>Closed</option>
+          <option>Dead</option>
+        </select>
+      </div>
+
+      <div id="deal-detail-extra" style="display:none;">
+        <div class="form-group">
+          <label class="form-label">Notes</label>
+          <div class="notes-list" id="deal-notes-list"></div>
+          <div style="margin-top:10px; display:flex; gap:6px;">
+            <input class="form-input" id="deal-note-input" placeholder="Add a note...">
+            <button class="btn-secondary" onclick="addDealNote()">Add</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="closeModal('deal-overlay')">Cancel</button>
+        <button class="btn-primary" id="deal-save-btn" onclick="saveDeal()">Save Deal</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ADD/EDIT CONTACT MODAL -->
+<div class="overlay" id="contact-overlay">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title" id="contact-modal-title">Add Contact</div>
+      <button class="modal-close" onclick="closeModal('contact-overlay')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Name</label>
+        <input class="form-input" id="contact-name" placeholder="Jane Smith">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Type</label>
+        <select class="form-select" id="contact-type">
+          <option value="seller">Seller</option>
+          <option value="buyer">Buyer</option>
+          <option value="lender">Lender</option>
+          <option value="contractor">Contractor</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Phone</label>
+        <input class="form-input" id="contact-phone" placeholder="(555) 555-5555">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input class="form-input" id="contact-email" placeholder="jane@example.com">
+      </div>
+
+      <div id="contact-detail-extra" style="display:none;">
+        <div class="form-group">
+          <label class="form-label">Notes</label>
+          <div class="notes-list" id="contact-notes-list"></div>
+          <div style="margin-top:10px; display:flex; gap:6px;">
+            <input class="form-input" id="contact-note-input" placeholder="Add a note...">
+            <button class="btn-secondary" onclick="addContactNote()">Add</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="closeModal('contact-overlay')">Cancel</button>
+        <button class="btn-primary" onclick="saveContact()">Save Contact</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────
+// CONFIG
+// ─────────────────────────────────────────────────────────
+const STAGES = ['New Lead', 'Contacted', 'Qualified', 'Making Offer', 'Under Contract', 'Closed', 'Dead'];
+const DEAL_TYPE_LABELS = {
+  wholesale: 'Wholesale',
+  fix_flip: 'Fix & Flip',
+  lt_rental: 'LT Rental',
+  str_mtr: 'STR / MTR',
+  units_2_4: '2-4 Units',
+  commercial_5plus: 'Commercial — 5+ Units'
+};
+const STAGE_DEFINITIONS = {
+  'New Lead': 'Fresh lead just entered the system, no contact made yet.',
+  'Contacted': 'Initial outreach completed, waiting for response.',
+  'Qualified': 'Spoke with the lead and confirmed they meet basic criteria.',
+  'Making Offer': 'Actively negotiating or submitting offers on the property.',
+  'Under Contract': 'Offer accepted and contract is signed.',
+  'Closed': 'Deal successfully completed and closed.',
+  'Dead': 'Lead or deal is no longer viable.'
+};
+let currentMemberToken = null;
+let allDeals = [];
+let allContacts = [];
+let contactFilter = '';
+let activeDealId = null;
+let activeContactId = null;
+
+// ─────────────────────────────────────────────────────────
+// AUTH / INIT
+// ─────────────────────────────────────────────────────────
+function waitForMemberstack(maxWaitMs = 6000, intervalMs = 100) {
+  return new Promise((resolve) => {
+    const start = Date.now();
+    (function poll() {
+      if (window.$memberstackReady || (window.$memberstackDom && window.$memberstackDom.getCurrentMember)) {
+        resolve(true);
+      } else if (Date.now() - start >= maxWaitMs) {
+        resolve(false);
+      } else {
+        setTimeout(poll, intervalMs);
+      }
+    })();
+  });
+}
+
+window.onload = async () => {
+  try {
+    await waitForMemberstack();
+    const memberstack = window.$memberstackDom;
+    const { data: member } = await memberstack.getCurrentMember();
+    if (!member) {
+      window.location.href = 'login.html';
+      return;
+    }
+    const FOUNDING_MEMBER_PRICE_IDS = ['prc_497-97-3m13d01j8', 'prc_247-97-ne13e01d6', 'prc_997-97-5fmt0nr5'];
+    const hasActiveMembership = (member.planConnections || []).some(
+      pc => FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
+    );
+    if (!hasActiveMembership) {
+      window.location.href = 'signup.html';
+      return;
+    }
+
+    // Retrieve the member's Memberstack token to send to our backend.
+    // getMemberCookie() returns the JWT Memberstack stores for the session.
+    // NOTE: verify this call against the installed @memberstack DOM package
+    // version if auth calls start failing -- this is the one piece of the
+    // integration that hasn't been tested against a live Memberstack app yet.
+    try {
+      currentMemberToken = await memberstack.getMemberCookie();
+    } catch (e) {
+      console.error('Could not retrieve Memberstack token:', e);
+    }
+
+    const customFields = member.customFields || {};
+    const fullName = customFields['full-name'] || (customFields['first-name'] ? customFields['first-name'] + ' ' + (customFields['last-name'] || '') : null) || member.auth?.email || 'Member';
+    const initials = fullName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+    document.getElementById('sidebar-name').textContent = fullName;
+    document.getElementById('sidebar-initials').textContent = initials;
+    document.getElementById('topbar-name').textContent = fullName;
+    document.getElementById('topbar-initials').textContent = initials;
+  } catch (e) {
+    console.error(e);
+  }
+
+  setDate();
+  loadAll();
+};
+
+function setDate() {
+  const d = new Date();
+  const opts = { weekday: 'long', month: 'long', day: 'numeric' };
+  document.getElementById('topbar-date').textContent = d.toLocaleDateString('en-US', opts);
+}
+
+// ─────────────────────────────────────────────────────────
+// API HELPER
+// ─────────────────────────────────────────────────────────
+async function apiCall(fn, opts = {}) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (currentMemberToken) headers['Authorization'] = 'Bearer ' + currentMemberToken;
+  const res = await fetch('/api/' + fn, { ...opts, headers: { ...headers, ...(opts.headers || {}) } });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || ('Request failed: ' + res.status));
+  return data;
+}
+
+function showToast(msg, isError = false) {
+  const t = document.createElement('div');
+  t.className = 'toast' + (isError ? ' error' : '');
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2500);
+}
+
+// ─────────────────────────────────────────────────────────
+// TABS
+// ─────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach((b, i) => {
+    const tabs = ['pipeline', 'contacts'];
+    b.classList.toggle('active', tabs[i] === tab);
+  });
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + tab).classList.add('active');
+}
+
+// ─────────────────────────────────────────────────────────
+// LOAD DATA
+// ─────────────────────────────────────────────────────────
+async function loadAll() {
+  await Promise.all([loadDeals(), loadContacts()]);
+}
+
+async function loadDeals() {
+  try {
+    const data = await apiCall('crm-deals?action=list');
+    allDeals = data.deals || [];
+    renderKanban();
+    renderSummary();
+  } catch (e) {
+    showToast('Could not load deals: ' + e.message, true);
+    renderKanban();
+  }
+}
+
+async function loadContacts() {
+  try {
+    const data = await apiCall('crm-contacts?action=list' + (contactFilter ? '&type=' + contactFilter : ''));
+    allContacts = data.contacts || [];
+    renderContacts();
+  } catch (e) {
+    showToast('Could not load contacts: ' + e.message, true);
+    renderContacts();
+  }
+}
+
+function renderSummary() {
+  const el = document.getElementById('pipeline-summary');
+  if (!allDeals.length) { el.textContent = 'No deals yet — add your first deal to start the pipeline.'; return; }
+  el.textContent = allDeals.length + ' deal' + (allDeals.length === 1 ? '' : 's') + ' in your pipeline';
+}
+
+// ─────────────────────────────────────────────────────────
+// KANBAN (PIPELINE)
+// ─────────────────────────────────────────────────────────
+function renderKanban() {
+  const root = document.getElementById('kanban-root');
+  root.innerHTML = '';
+  STAGES.forEach(stage => {
+    const dealsInStage = allDeals.filter(d => d.stage === stage);
+    const col = document.createElement('div');
+    col.className = 'kanban-col';
+    col.innerHTML = `
+      <div class="kanban-col-head" title="${escapeHtml(STAGE_DEFINITIONS[stage] || '')}">${stage}<span class="kanban-col-count">${dealsInStage.length}</span></div>
+      <div class="kanban-col-body"></div>
+    `;
+    const body = col.querySelector('.kanban-col-body');
+    if (!dealsInStage.length) {
+      body.innerHTML = '<div class="kanban-empty">No deals</div>';
+    } else {
+      dealsInStage.forEach(deal => {
+        const card = document.createElement('div');
+        card.className = 'deal-card';
+        card.onclick = () => openDealModal(deal.id);
+        card.innerHTML = `
+          <div class="deal-card-addr">${escapeHtml(deal.property_address || 'Untitled property')}</div>
+          <div class="deal-card-meta">${DEAL_TYPE_LABELS[deal.deal_type] || deal.deal_type}</div>
+        `;
+        body.appendChild(card);
+      });
+    }
+    root.appendChild(col);
+  });
+}
+
+function escapeHtml(s) {
+  const div = document.createElement('div');
+  div.textContent = s;
+  return div.innerHTML;
+}
+
+// ─────────────────────────────────────────────────────────
+// DEAL MODAL
+// ─────────────────────────────────────────────────────────
+function openDealModal(dealId = null) {
+  activeDealId = dealId;
+  const deal = dealId ? allDeals.find(d => d.id === dealId) : null;
+  document.getElementById('deal-modal-title').textContent = deal ? 'Edit Deal' : 'Add Deal';
+  document.getElementById('deal-address').value = deal ? (deal.property_address || '') : '';
+  document.getElementById('deal-type').value = deal ? deal.deal_type : 'wholesale';
+  document.getElementById('deal-stage-group').style.display = deal ? 'block' : 'none';
+  document.getElementById('deal-stage').value = deal ? deal.stage : 'New Lead';
+  document.getElementById('deal-detail-extra').style.display = deal ? 'block' : 'none';
+  document.getElementById('deal-save-btn').textContent = deal ? 'Save Changes' : 'Save Deal';
+  if (deal) loadDealNotes(dealId);
+  document.getElementById('deal-overlay').classList.add('open');
+}
+
+async function saveDeal() {
+  const address = document.getElementById('deal-address').value.trim();
+  const dealType = document.getElementById('deal-type').value;
+  try {
+    if (activeDealId) {
+      const stage = document.getElementById('deal-stage').value;
+      await apiCall('crm-deals', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'update', id: activeDealId, property_address: address, deal_type: dealType, stage })
+      });
+      showToast('Deal updated');
+    } else {
+      await apiCall('crm-deals', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'create', property_address: address, deal_type: dealType })
+      });
+      showToast('Deal added');
+    }
+    closeModal('deal-overlay');
+    loadDeals();
+  } catch (e) {
+    showToast('Could not save deal: ' + e.message, true);
+  }
+}
+
+async function loadDealNotes(dealId) {
+  const list = document.getElementById('deal-notes-list');
+  list.innerHTML = '<div class="kanban-empty">Loading notes...</div>';
+  try {
+    const data = await apiCall('crm-notes?deal_id=' + dealId);
+    renderNotesList(list, data.notes || []);
+  } catch (e) {
+    list.innerHTML = '<div class="kanban-empty">Could not load notes</div>';
+  }
+}
+
+function renderNotesList(container, notes) {
+  if (!notes.length) { container.innerHTML = '<div class="kanban-empty">No notes yet</div>'; return; }
+  container.innerHTML = '';
+  notes.forEach(n => {
+    const item = document.createElement('div');
+    item.className = 'note-item ' + n.created_by;
+    const when = new Date(n.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    item.innerHTML = `<div class="note-item-meta">${n.created_by === 'aris' ? 'ARIS' : 'You'} · ${when}</div>${escapeHtml(n.body)}`;
+    container.appendChild(item);
+  });
+}
+
+async function addDealNote() {
+  const input = document.getElementById('deal-note-input');
+  const body = input.value.trim();
+  if (!body || !activeDealId) return;
+  try {
+    await apiCall('crm-notes', { method: 'POST', body: JSON.stringify({ deal_id: activeDealId, body, created_by: 'student' }) });
+    input.value = '';
+    loadDealNotes(activeDealId);
+  } catch (e) {
+    showToast('Could not add note: ' + e.message, true);
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+// CONTACTS
+// ─────────────────────────────────────────────────────────
+function setContactFilter(type) {
+  contactFilter = type;
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.toggle('active', c.dataset.type === type));
+  loadContacts();
+}
+
+function renderContacts() {
+  const root = document.getElementById('contacts-root');
+  if (!allContacts.length) {
+    root.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">
+      <div class="empty-state-icon">👥</div>
+      <div class="empty-state-title">No contacts yet</div>
+      <div class="empty-state-sub">Add sellers, buyers, lenders, or contractors to build your network.</div>
+    </div>`;
+    return;
+  }
+  root.innerHTML = '';
+  allContacts.forEach(c => {
+    const card = document.createElement('div');
+    card.className = 'contact-card';
+    card.onclick = () => openContactModal(c.id);
+    card.innerHTML = `
+      <div class="contact-card-name">${escapeHtml(c.name)}</div>
+      <div class="contact-card-type">${c.type}</div>
+      <div class="contact-card-info">${escapeHtml(c.phone || '')}${c.phone && c.email ? ' · ' : ''}${escapeHtml(c.email || '')}</div>
+    `;
+    root.appendChild(card);
+  });
+}
+
+function openContactModal(contactId = null) {
+  activeContactId = contactId;
+  const contact = contactId ? allContacts.find(c => c.id === contactId) : null;
+  document.getElementById('contact-modal-title').textContent = contact ? 'Edit Contact' : 'Add Contact';
+  document.getElementById('contact-name').value = contact ? contact.name : '';
+  document.getElementById('contact-type').value = contact ? contact.type : 'seller';
+  document.getElementById('contact-phone').value = contact ? (contact.phone || '') : '';
+  document.getElementById('contact-email').value = contact ? (contact.email || '') : '';
+  document.getElementById('contact-detail-extra').style.display = contact ? 'block' : 'none';
+  if (contact) loadContactNotes(contactId);
+  document.getElementById('contact-overlay').classList.add('open');
+}
+
+async function saveContact() {
+  const name = document.getElementById('contact-name').value.trim();
+  const type = document.getElementById('contact-type').value;
+  const phone = document.getElementById('contact-phone').value.trim();
+  const email = document.getElementById('contact-email').value.trim();
+  if (!name) { showToast('Name is required', true); return; }
+  try {
+    if (activeContactId) {
+      await apiCall('crm-contacts', { method: 'POST', body: JSON.stringify({ action: 'update', id: activeContactId, name, type, phone, email }) });
+      showToast('Contact updated');
+    } else {
+      await apiCall('crm-contacts', { method: 'POST', body: JSON.stringify({ action: 'create', name, type, phone, email }) });
+      showToast('Contact added');
+    }
+    closeModal('contact-overlay');
+    loadContacts();
+  } catch (e) {
+    showToast('Could not save contact: ' + e.message, true);
+  }
+}
+
+async function loadContactNotes(contactId) {
+  const list = document.getElementById('contact-notes-list');
+  list.innerHTML = '<div class="kanban-empty">Loading notes...</div>';
+  try {
+    const data = await apiCall('crm-notes?contact_id=' + contactId);
+    renderNotesList(list, data.notes || []);
+  } catch (e) {
+    list.innerHTML = '<div class="kanban-empty">Could not load notes</div>';
+  }
+}
+
+async function addContactNote() {
+  const input = document.getElementById('contact-note-input');
+  const body = input.value.trim();
+  if (!body || !activeContactId) return;
+  try {
+    await apiCall('crm-notes', { method: 'POST', body: JSON.stringify({ contact_id: activeContactId, body, created_by: 'student' }) });
+    input.value = '';
+    loadContactNotes(activeContactId);
+  } catch (e) {
+    showToast('Could not add note: ' + e.message, true);
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+// MODAL HELPERS
+// ─────────────────────────────────────────────────────────
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+document.querySelectorAll('.overlay').forEach(o => {
+  o.addEventListener('click', (e) => { if (e.target === o) closeModal(o.id); });
+});
+</script>
+</body>
+</html>
