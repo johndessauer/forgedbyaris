@@ -1451,7 +1451,7 @@ async function sendToARIS(userText, showUserBubble = true) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
-        max_tokens: 1000,
+        max_tokens: 2200,
         system: ARIS_SYSTEM,
         messages: conversationHistory
       })
