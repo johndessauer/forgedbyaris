@@ -113,6 +113,15 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 .contact-card-name { font-size: 13px; font-weight: 700; color: var(--white); }
 .contact-card-type { display: inline-block; margin-top: 4px; font-size: 9px; text-transform: uppercase; letter-spacing: 0.6px; padding: 2px 8px; border-radius: 10px; background: var(--gold-dim); color: var(--gold); }
 .contact-card-info { margin-top: 8px; font-size: 11px; color: var(--grey); }
+.import-row { display: flex; align-items: center; gap: 10px; background: var(--navy-mid); border-radius: 6px; padding: 8px 10px; font-size: 12px; }
+.import-row.dup { border-left: 2px solid var(--yellow); }
+.import-row.new { border-left: 2px solid var(--green); }
+.import-row-info { flex: 1; }
+.import-row-name { font-weight: 600; color: var(--white); }
+.import-row-meta { font-size: 10px; color: var(--grey); margin-top: 2px; }
+.import-row-badge { font-size: 9px; text-transform: uppercase; letter-spacing: 0.4px; padding: 2px 6px; border-radius: 4px; }
+.import-row-badge.dup { background: rgba(245,158,11,0.15); color: var(--yellow); }
+.import-row-badge.new { background: rgba(34,197,94,0.15); color: var(--green); }
 
 .empty-state { text-align: center; padding: 60px 20px; color: var(--grey); }
 .empty-state-icon { font-size: 36px; margin-bottom: 10px; }
@@ -226,7 +235,12 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
             <button class="filter-chip" data-type="lender" onclick="setContactFilter('lender')">Lenders</button>
             <button class="filter-chip" data-type="contractor" onclick="setContactFilter('contractor')">Contractors</button>
           </div>
-          <button class="btn-primary" onclick="openContactModal()">+ Add Contact</button>
+          <div style="display:flex; gap:8px;">
+            <input type="file" id="csv-import-input" accept=".csv" style="display:none;" onchange="handleCSVFileSelect(event)">
+            <button class="btn-secondary" onclick="exportContactsCSV()">Export CSV</button>
+            <button class="btn-secondary" onclick="document.getElementById('csv-import-input').click()">Import CSV</button>
+            <button class="btn-primary" onclick="openContactModal()">+ Add Contact</button>
+          </div>
         </div>
         <div class="contacts-list" id="contacts-root"></div>
       </div>
@@ -353,6 +367,24 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
       <div class="modal-actions">
         <button class="btn-secondary" onclick="closeModal('contact-overlay')">Cancel</button>
         <button class="btn-primary" onclick="saveContact()">Save Contact</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CSV IMPORT REVIEW MODAL -->
+<div class="overlay" id="csv-import-overlay">
+  <div class="modal" style="max-width:640px;">
+    <div class="modal-head">
+      <div class="modal-title">Review Import</div>
+      <button class="modal-close" onclick="closeModal('csv-import-overlay')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="csv-import-summary" style="font-size:12px; color:var(--grey); margin-bottom:12px;"></div>
+      <div id="csv-import-rows" style="max-height:340px; overflow-y:auto; display:flex; flex-direction:column; gap:6px;"></div>
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="closeModal('csv-import-overlay')">Cancel</button>
+        <button class="btn-primary" id="csv-import-confirm-btn" onclick="confirmCSVImport()">Import Selected</button>
       </div>
     </div>
   </div>
@@ -738,6 +770,177 @@ async function addContactNote() {
 // ─────────────────────────────────────────────────────────
 // MODAL HELPERS
 // ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────
+// CSV EXPORT
+// ─────────────────────────────────────────────────────────
+function csvEscape(val) {
+  const s = String(val == null ? '' : val);
+  if (/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+
+function exportContactsCSV() {
+  if (!allContacts.length) { showToast('No contacts to export', true); return; }
+  const header = ['name', 'type', 'phone', 'email'];
+  const rows = allContacts.map(c => [c.name, c.type, c.phone || '', c.email || ''].map(csvEscape).join(','));
+  const csv = [header.join(','), ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const today = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `forge-crm-contacts-${today}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  showToast(`Exported ${allContacts.length} contact${allContacts.length === 1 ? '' : 's'}`);
+}
+
+// ─────────────────────────────────────────────────────────
+// CSV IMPORT
+// ─────────────────────────────────────────────────────────
+const VALID_CONTACT_TYPES = ['seller', 'buyer', 'lender', 'contractor'];
+let pendingImportRows = []; // rows the user has approved to actually import, set after review
+
+// Minimal CSV line parser handling quoted fields with embedded commas/quotes.
+function parseCSVText(text) {
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; } else { inQuotes = false; }
+      } else {
+        field += c;
+      }
+    } else {
+      if (c === '"') inQuotes = true;
+      else if (c === ',') { row.push(field); field = ''; }
+      else if (c === '\n' || c === '\r') {
+        if (c === '\r' && text[i + 1] === '\n') i++;
+        row.push(field); field = '';
+        if (row.length > 1 || row[0] !== '') rows.push(row);
+        row = [];
+      } else field += c;
+    }
+  }
+  if (field !== '' || row.length) { row.push(field); rows.push(row); }
+  return rows;
+}
+
+function handleCSVFileSelect(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      processImportCSV(e.target.result);
+    } catch (err) {
+      showToast('Could not read that CSV: ' + err.message, true);
+    }
+    event.target.value = ''; // allow re-selecting the same file later
+  };
+  reader.readAsText(file);
+}
+
+function processImportCSV(text) {
+  const rows = parseCSVText(text);
+  if (!rows.length) { showToast('CSV file is empty', true); return; }
+
+  const headerRow = rows[0].map(h => h.trim().toLowerCase());
+  const nameIdx = headerRow.indexOf('name');
+  const typeIdx = headerRow.indexOf('type');
+  const phoneIdx = headerRow.indexOf('phone');
+  const emailIdx = headerRow.indexOf('email');
+
+  if (nameIdx === -1) {
+    showToast('CSV must have a "name" column (also supports type, phone, email)', true);
+    return;
+  }
+
+  const existingByEmail = {};
+  allContacts.forEach(c => { if (c.email) existingByEmail[c.email.trim().toLowerCase()] = c; });
+
+  const parsed = [];
+  let skippedCount = 0;
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
+    const name = (r[nameIdx] || '').trim();
+    if (!name) { skippedCount++; continue; }
+    let type = (typeIdx > -1 ? (r[typeIdx] || '').trim().toLowerCase() : '') || 'buyer';
+    if (!VALID_CONTACT_TYPES.includes(type)) type = 'buyer';
+    const phone = phoneIdx > -1 ? (r[phoneIdx] || '').trim() : '';
+    const email = emailIdx > -1 ? (r[emailIdx] || '').trim() : '';
+    const isDup = email && existingByEmail[email.toLowerCase()];
+    parsed.push({ name, type, phone, email, isDup: !!isDup, include: !isDup });
+  }
+
+  if (!parsed.length) {
+    showToast('No valid rows found in that CSV' + (skippedCount ? ` (${skippedCount} skipped, missing name)` : ''), true);
+    return;
+  }
+
+  renderImportReview(parsed, skippedCount);
+}
+
+function renderImportReview(parsed, skippedCount) {
+  pendingImportRows = parsed;
+  const dupCount = parsed.filter(r => r.isDup).length;
+  const newCount = parsed.length - dupCount;
+
+  const summary = document.getElementById('csv-import-summary');
+  summary.textContent = `${parsed.length} row${parsed.length === 1 ? '' : 's'} found — ${newCount} new, ${dupCount} possible duplicate${dupCount === 1 ? '' : 's'} (matched by email)` + (skippedCount ? `. ${skippedCount} row${skippedCount === 1 ? '' : 's'} skipped (missing name).` : '.');
+
+  const container = document.getElementById('csv-import-rows');
+  container.innerHTML = '';
+  parsed.forEach((row, idx) => {
+    const div = document.createElement('div');
+    div.className = 'import-row ' + (row.isDup ? 'dup' : 'new');
+    div.innerHTML = `
+      <input type="checkbox" ${row.include ? 'checked' : ''} onchange="pendingImportRows[${idx}].include = this.checked">
+      <div class="import-row-info">
+        <div class="import-row-name">${escapeHtml(row.name)}</div>
+        <div class="import-row-meta">${row.type}${row.email ? ' · ' + escapeHtml(row.email) : ''}${row.phone ? ' · ' + escapeHtml(row.phone) : ''}</div>
+      </div>
+      <span class="import-row-badge ${row.isDup ? 'dup' : 'new'}">${row.isDup ? 'Possible duplicate' : 'New'}</span>
+    `;
+    container.appendChild(div);
+  });
+
+  document.getElementById('csv-import-overlay').classList.add('open');
+}
+
+async function confirmCSVImport() {
+  const toImport = pendingImportRows.filter(r => r.include);
+  if (!toImport.length) { showToast('No rows selected to import', true); return; }
+
+  const btn = document.getElementById('csv-import-confirm-btn');
+  btn.disabled = true;
+  let successCount = 0, failCount = 0;
+
+  for (const row of toImport) {
+    try {
+      await apiCall('crm-contacts', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'create', name: row.name, type: row.type, phone: row.phone, email: row.email })
+      });
+      successCount++;
+    } catch (e) {
+      failCount++;
+    }
+    btn.textContent = `Importing... (${successCount + failCount}/${toImport.length})`;
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Import Selected';
+  closeModal('csv-import-overlay');
+  showToast(`Imported ${successCount} contact${successCount === 1 ? '' : 's'}` + (failCount ? ` — ${failCount} failed` : ''), failCount > 0 && successCount === 0);
+  loadContacts();
+}
+
+
 function closeModal(id) {
   document.getElementById(id).classList.remove('open');
 }
