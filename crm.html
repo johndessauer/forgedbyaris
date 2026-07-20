@@ -307,6 +307,15 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 
       <div id="deal-detail-extra" style="display:none;">
         <div class="form-group">
+          <label class="form-label">Contacts on this Deal</label>
+          <div id="deal-contacts-list" style="display:flex; flex-direction:column; gap:6px;"></div>
+          <div style="margin-top:10px; display:flex; gap:6px;">
+            <select class="form-select" id="deal-contact-picker" style="flex:1;"></select>
+            <input class="form-input" id="deal-contact-role" placeholder="Role (optional)" style="width:120px;">
+            <button class="btn-secondary" onclick="linkContactToDeal()">Link</button>
+          </div>
+        </div>
+        <div class="form-group">
           <label class="form-label">Notes</label>
           <div class="notes-list" id="deal-notes-list"></div>
           <div style="margin-top:10px; display:flex; gap:6px;">
@@ -612,7 +621,10 @@ function openDealModal(dealId = null) {
   document.getElementById('deal-stage').value = deal ? deal.stage : 'New Lead';
   document.getElementById('deal-detail-extra').style.display = deal ? 'block' : 'none';
   document.getElementById('deal-save-btn').textContent = deal ? 'Save Changes' : 'Save Deal';
-  if (deal) loadDealNotes(dealId);
+  if (deal) {
+    loadDealNotes(dealId);
+    loadDealContacts(dealId);
+  }
   document.getElementById('deal-overlay').classList.add('open');
 }
 
@@ -674,6 +686,90 @@ async function addDealNote() {
     loadDealNotes(activeDealId);
   } catch (e) {
     showToast('Could not add note: ' + e.message, true);
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+// DEAL <-> CONTACT LINKING
+// ─────────────────────────────────────────────────────────
+let currentDealContacts = [];
+
+async function loadDealContacts(dealId) {
+  const list = document.getElementById('deal-contacts-list');
+  list.innerHTML = '<div class="kanban-empty">Loading contacts...</div>';
+  try {
+    const data = await apiCall('crm-deals?action=deal_contacts&deal_id=' + dealId);
+    currentDealContacts = data.contacts || [];
+    renderDealContacts();
+    await populateContactPicker();
+  } catch (e) {
+    list.innerHTML = '<div class="kanban-empty">Could not load contacts</div>';
+  }
+}
+
+function renderDealContacts() {
+  const list = document.getElementById('deal-contacts-list');
+  if (!currentDealContacts.length) {
+    list.innerHTML = '<div class="kanban-empty">No contacts linked yet</div>';
+    return;
+  }
+  list.innerHTML = '';
+  currentDealContacts.forEach(c => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex; align-items:center; gap:8px; background:var(--navy-mid); border-radius:6px; padding:8px 10px; font-size:12px;';
+    row.innerHTML = `
+      <div style="flex:1;">
+        <span style="font-weight:600; color:var(--white);">${escapeHtml(c.name)}</span>
+        <span style="color:var(--gold); text-transform:capitalize; font-size:10px; margin-left:6px;">${escapeHtml(c.type)}</span>
+        ${c.role ? `<span style="color:var(--grey); font-size:10px; margin-left:6px;">· ${escapeHtml(c.role)}</span>` : ''}
+      </div>
+      <button class="btn-secondary" style="padding:4px 8px; font-size:11px;" onclick="unlinkContactFromDeal('${c.id}')">Remove</button>
+    `;
+    list.appendChild(row);
+  });
+}
+
+async function populateContactPicker() {
+  const picker = document.getElementById('deal-contact-picker');
+  try {
+    if (!allContacts.length) {
+      const data = await apiCall('crm-contacts?action=list');
+      allContacts = data.contacts || [];
+    }
+    const linkedIds = new Set(currentDealContacts.map(c => c.id));
+    const available = allContacts.filter(c => !linkedIds.has(c.id));
+    if (!available.length) {
+      picker.innerHTML = '<option value="">No more contacts to add</option>';
+      return;
+    }
+    picker.innerHTML = '<option value="">Select a contact...</option>' +
+      available.map(c => `<option value="${c.id}">${escapeHtml(c.name)} (${c.type})</option>`).join('');
+  } catch (e) {
+    picker.innerHTML = '<option value="">Could not load contacts</option>';
+  }
+}
+
+async function linkContactToDeal() {
+  const picker = document.getElementById('deal-contact-picker');
+  const contactId = picker.value;
+  if (!contactId || !activeDealId) { showToast('Pick a contact first', true); return; }
+  const role = document.getElementById('deal-contact-role').value.trim();
+  try {
+    await apiCall('crm-deals', { method: 'POST', body: JSON.stringify({ action: 'link_contact', deal_id: activeDealId, contact_id: contactId, role: role || null }) });
+    document.getElementById('deal-contact-role').value = '';
+    loadDealContacts(activeDealId);
+  } catch (e) {
+    showToast('Could not link contact: ' + e.message, true);
+  }
+}
+
+async function unlinkContactFromDeal(contactId) {
+  if (!activeDealId) return;
+  try {
+    await apiCall('crm-deals', { method: 'POST', body: JSON.stringify({ action: 'unlink_contact', deal_id: activeDealId, contact_id: contactId }) });
+    loadDealContacts(activeDealId);
+  } catch (e) {
+    showToast('Could not remove contact: ' + e.message, true);
   }
 }
 

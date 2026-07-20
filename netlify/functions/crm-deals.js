@@ -34,6 +34,29 @@ exports.handler = async function (event, context) {
     if (event.httpMethod === 'GET') {
       const params = event.queryStringParameters || {};
 
+      if (params.action === 'deal_contacts') {
+        if (!params.deal_id) return json(400, { error: 'deal_id is required' });
+        // Verify the deal belongs to this member before returning anything linked to it.
+        const { data: deal } = await supabase
+          .from('deals')
+          .select('id')
+          .eq('id', params.deal_id)
+          .eq('memberstack_id', memberId)
+          .single();
+        if (!deal) return json(404, { error: 'Deal not found' });
+
+        const { data: links, error: linksError } = await supabase
+          .from('deal_contacts')
+          .select('role, contacts(*)')
+          .eq('deal_id', params.deal_id);
+        if (linksError) throw linksError;
+
+        const contacts = (links || [])
+          .filter((l) => l.contacts)
+          .map((l) => ({ ...l.contacts, role: l.role }));
+        return json(200, { contacts });
+      }
+
       if (params.action === 'summary') {
         const { data, error } = await supabase
           .from('deals')
@@ -173,14 +196,43 @@ exports.handler = async function (event, context) {
         if (!deal) return json(404, { error: 'Deal not found' });
         if (!contact) return json(404, { error: 'Contact not found' });
 
+        // Upsert on the (deal_id, contact_id) pair -- a deal can have several
+        // contacts, and re-linking one (e.g. to change their role) shouldn't
+        // error just because the link already exists.
         const { data, error } = await supabase
           .from('deal_contacts')
-          .insert({ deal_id, contact_id, role: role || null })
+          .upsert({ deal_id, contact_id, role: role || null }, { onConflict: 'deal_id,contact_id' })
           .select()
           .single();
 
         if (error) throw error;
         return json(201, { deal_contact: data });
+      }
+
+      if (action === 'unlink_contact') {
+        const { deal_id, contact_id } = payload;
+        if (!deal_id || !contact_id) {
+          return json(400, { error: 'deal_id and contact_id are required' });
+        }
+
+        // Same ownership check as linking -- only the member who owns the
+        // deal can remove a contact from it.
+        const { data: deal } = await supabase
+          .from('deals')
+          .select('id')
+          .eq('id', deal_id)
+          .eq('memberstack_id', memberId)
+          .single();
+        if (!deal) return json(404, { error: 'Deal not found' });
+
+        const { error } = await supabase
+          .from('deal_contacts')
+          .delete()
+          .eq('deal_id', deal_id)
+          .eq('contact_id', contact_id);
+
+        if (error) throw error;
+        return json(200, { success: true });
       }
 
       return json(400, { error: 'Unknown action' });

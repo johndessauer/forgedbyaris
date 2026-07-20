@@ -931,7 +931,7 @@ CRM ACCESS — YOU HAVE THIS CAPABILITY:
 Members track their deals and contacts in FORGE's built-in CRM. You have tools to read that data and to propose changes to it. Rules for using these tools:
 - Use the read tools (get_pipeline_summary, list_deals, list_contacts, get_notes) whenever a member asks about their own pipeline, deals, contacts, or notes — "what's my hottest lead," "how many deals are under contract," "who are my lenders," etc. Never guess or make up pipeline data — call the tool.
 - Use find_stale_deals whenever a member asks what needs follow-up, what's going cold, what they should focus on today, or anything similar. It returns exact days-since-activity per deal (30+ days, excluding Closed/Dead) — always use this tool for that question rather than eyeballing dates yourself, since the count is computed precisely server-side.
-- When a member asks how to move a deal forward, or what to say to a seller/buyer/lender, pull that deal's notes via get_notes first so your recommendation is grounded in the actual history (what's already been said, how long it's been quiet, what stage it's in) rather than generic advice. Recommend both a channel (call, text, or email — whichever fits the situation and how long it's been quiet) and draft the actual message or talking points. You are drafting only — FORGE doesn't send messages on the member's behalf yet, so give them something to copy, adjust, and send themselves.
+- When a member asks how to move a deal forward, or what to say to a seller/buyer/lender, pull that deal's notes via get_notes AND its linked contacts via get_deal_contacts first, so your recommendation addresses the actual person by name (and their role) and is grounded in the real history (what's already been said, how long it's been quiet, what stage it's in) rather than generic advice. Recommend both a channel (call, text, or email — whichever fits the situation and how long it's been quiet) and draft the actual message or talking points. You are drafting only — FORGE doesn't send messages on the member's behalf yet, so give them something to copy, adjust, and send themselves. If a deal has no linked contacts, say so and suggest the member add one so future recommendations can be addressed to a specific person.
 - Use the write tools (propose_stage_update, propose_note, propose_flag_lead) when it's clearly useful to update the CRM based on what the member just told you — e.g. they mention they spoke with a seller, made an offer, or a deal fell through. Reference the deal by its property address as the member gave it to you, or as close to it as you have.
 - Write tools never execute immediately — the platform always shows the member a yes/no confirmation before anything is saved. You do not need to ask "should I do this?" in your own text; the confirmation card handles that. Just call the tool naturally as part of your response.
 - If a write tool comes back as "not found" or "multiple matches," tell the member plainly and ask them to clarify the address — don't guess which deal they meant.
@@ -1210,6 +1210,17 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
       }
     },
     {
+      name: 'get_deal_contacts',
+      description: "Get the contacts linked to a specific deal (e.g. the seller, the lender, the buyer's agent), including their role on the deal if one was set. Use this before recommending who to reach out to or drafting a message, so you address the right person by name rather than being generic.",
+      input_schema: {
+        type: 'object',
+        properties: {
+          property_address: { type: 'string', description: 'Address of the deal, as close to what the member said as possible.' }
+        },
+        required: ['property_address']
+      }
+    },
+    {
       name: 'propose_stage_update',
       description: "Propose moving a deal to a new pipeline stage. This does NOT execute immediately — it shows the member a yes/no confirmation card. Use when the member's message implies a deal's status has changed.",
       input_schema: {
@@ -1327,6 +1338,12 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
           return { contact: match.name, notes: data.notes || [] };
         }
         return { error: 'No property_address or contact_name provided.' };
+      }
+      case 'get_deal_contacts': {
+        const { match, candidates } = await resolveDealByAddress(input.property_address);
+        if (!match) return { error: candidates.length ? 'Multiple deals match that address — ask the member to be more specific.' : 'No deal found matching that address.' };
+        const data = await apiCallCRM('crm-deals?action=deal_contacts&deal_id=' + match.id);
+        return { deal: match.property_address, contacts: data.contacts || [] };
       }
       default:
         throw new Error('Unknown or non-read tool: ' + name);
