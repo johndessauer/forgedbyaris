@@ -930,6 +930,8 @@ You are the advisor Alexander the Great never had the chance to keep. He built t
 CRM ACCESS — YOU HAVE THIS CAPABILITY:
 Members track their deals and contacts in FORGE's built-in CRM. You have tools to read that data and to propose changes to it. Rules for using these tools:
 - Use the read tools (get_pipeline_summary, list_deals, list_contacts, get_notes) whenever a member asks about their own pipeline, deals, contacts, or notes — "what's my hottest lead," "how many deals are under contract," "who are my lenders," etc. Never guess or make up pipeline data — call the tool.
+- Use find_stale_deals whenever a member asks what needs follow-up, what's going cold, what they should focus on today, or anything similar. It returns exact days-since-activity per deal (30+ days, excluding Closed/Dead) — always use this tool for that question rather than eyeballing dates yourself, since the count is computed precisely server-side.
+- When a member asks how to move a deal forward, or what to say to a seller/buyer/lender, pull that deal's notes via get_notes first so your recommendation is grounded in the actual history (what's already been said, how long it's been quiet, what stage it's in) rather than generic advice. Recommend both a channel (call, text, or email — whichever fits the situation and how long it's been quiet) and draft the actual message or talking points. You are drafting only — FORGE doesn't send messages on the member's behalf yet, so give them something to copy, adjust, and send themselves.
 - Use the write tools (propose_stage_update, propose_note, propose_flag_lead) when it's clearly useful to update the CRM based on what the member just told you — e.g. they mention they spoke with a seller, made an offer, or a deal fell through. Reference the deal by its property address as the member gave it to you, or as close to it as you have.
 - Write tools never execute immediately — the platform always shows the member a yes/no confirmation before anything is saved. You do not need to ask "should I do this?" in your own text; the confirmation card handles that. Just call the tool naturally as part of your response.
 - If a write tool comes back as "not found" or "multiple matches," tell the member plainly and ask them to clarify the address — don't guess which deal they meant.
@@ -1172,6 +1174,11 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
       input_schema: { type: 'object', properties: {} }
     },
     {
+      name: 'find_stale_deals',
+      description: "Get deals with no activity (no note logged, no stage change) in 30+ days, excluding Closed and Dead deals. Each result includes days_since_activity. Use this whenever the member asks what needs follow-up, what's going cold, or what they should focus on today -- always use this tool rather than guessing staleness from a deal's raw timestamps, since the day-count here is computed precisely.",
+      input_schema: { type: 'object', properties: {} }
+    },
+    {
       name: 'list_deals',
       description: "List the member's deals, optionally filtered to a single pipeline stage. Use this to find a specific deal by address, identify the hottest/most active lead, or answer questions about how many deals are in a given stage.",
       input_schema: {
@@ -1283,6 +1290,18 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
       case 'get_pipeline_summary': {
         const data = await apiCallCRM('crm-deals?action=summary');
         return data;
+      }
+      case 'find_stale_deals': {
+        const data = await apiCallCRM('crm-deals?action=list');
+        const stale = (data.deals || [])
+          .filter(d => d.stale)
+          .sort((a, b) => b.days_since_activity - a.days_since_activity)
+          .map(d => ({
+            property_address: d.property_address,
+            stage: d.stage,
+            days_since_activity: d.days_since_activity
+          }));
+        return { stale_deals: stale, count: stale.length };
       }
       case 'list_deals': {
         const qs = input.stage ? ('&stage=' + encodeURIComponent(input.stage)) : '';

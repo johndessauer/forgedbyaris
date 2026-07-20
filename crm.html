@@ -93,7 +93,9 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 .kanban-col-head { padding: 10px 12px; border-bottom: 1px solid var(--border-sub); font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: var(--grey-light); display: flex; justify-content: space-between; align-items: center; }
 .kanban-col-count { background: var(--border-sub); color: var(--grey); border-radius: 10px; padding: 1px 7px; font-size: 10px; }
 .kanban-col-body { padding: 8px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
-.deal-card { background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 6px; padding: 10px; cursor: pointer; transition: border-color 0.15s; }
+.deal-card { background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 6px; padding: 10px; cursor: pointer; transition: border-color 0.15s; position: relative; }
+.deal-card.stale { border-color: rgba(245,158,11,0.4); }
+.stale-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 9px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; color: var(--yellow); background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.3); border-radius: 4px; padding: 2px 6px; margin-top: 6px; }
 .deal-card:hover { border-color: var(--gold); }
 .deal-card-addr { font-size: 12px; font-weight: 600; color: var(--white); margin-bottom: 4px; }
 .deal-card-meta { font-size: 10px; color: var(--grey); text-transform: capitalize; }
@@ -518,7 +520,10 @@ async function loadContacts() {
 function renderSummary() {
   const el = document.getElementById('pipeline-summary');
   if (!allDeals.length) { el.textContent = 'No deals yet — add your first deal to start the pipeline.'; return; }
-  el.textContent = allDeals.length + ' deal' + (allDeals.length === 1 ? '' : 's') + ' in your pipeline';
+  const staleCount = allDeals.filter(d => d.stale).length;
+  let text = allDeals.length + ' deal' + (allDeals.length === 1 ? '' : 's') + ' in your pipeline';
+  if (staleCount > 0) text += ` · ${staleCount} need${staleCount === 1 ? 's' : ''} follow-up`;
+  el.textContent = text;
 }
 
 // ─────────────────────────────────────────────────────────
@@ -541,11 +546,12 @@ function renderKanban() {
     } else {
       dealsInStage.forEach(deal => {
         const card = document.createElement('div');
-        card.className = 'deal-card';
+        card.className = 'deal-card' + (deal.stale ? ' stale' : '');
         card.onclick = () => openDealModal(deal.id);
         card.innerHTML = `
           <div class="deal-card-addr">${escapeHtml(deal.property_address || 'Untitled property')}</div>
           <div class="deal-card-meta">${DEAL_TYPE_LABELS[deal.deal_type] || deal.deal_type}</div>
+          ${deal.stale ? `<div class="stale-badge" title="No activity in ${deal.days_since_activity} days">⚠ Needs Follow-up</div>` : ''}
         `;
         body.appendChild(card);
       });

@@ -63,7 +63,39 @@ exports.handler = async function (event, context) {
 
       const { data, error } = await query;
       if (error) throw error;
-      return json(200, { deals: data });
+
+      // Enrich each deal with a last_activity_at (latest note, or the deal's
+      // own updated_at if it has no notes) and a stale flag -- 30+ days
+      // since that activity, meaning no note or stage change has happened.
+      // This powers both the "Needs Follow-up" badge in the CRM UI and
+      // ARIS's find_stale_deals tool, computed once here so neither has to
+      // guess from raw timestamps.
+      const dealIds = data.map((d) => d.id);
+      let latestNoteByDeal = {};
+      if (dealIds.length) {
+        const { data: notesData, error: notesError } = await supabase
+          .from('notes')
+          .select('deal_id, created_at')
+          .in('deal_id', dealIds)
+          .order('created_at', { ascending: false });
+        if (!notesError && notesData) {
+          for (const n of notesData) {
+            if (!latestNoteByDeal[n.deal_id]) latestNoteByDeal[n.deal_id] = n.created_at;
+          }
+        }
+      }
+
+      const STALE_DAYS = 30;
+      const now = Date.now();
+      const enriched = data.map((deal) => {
+        const lastNote = latestNoteByDeal[deal.id];
+        const lastActivityAt = lastNote && new Date(lastNote) > new Date(deal.updated_at) ? lastNote : deal.updated_at;
+        const daysSinceActivity = Math.floor((now - new Date(lastActivityAt).getTime()) / (1000 * 60 * 60 * 24));
+        const stale = deal.stage !== 'Closed' && deal.stage !== 'Dead' && daysSinceActivity >= STALE_DAYS;
+        return { ...deal, last_activity_at: lastActivityAt, days_since_activity: daysSinceActivity, stale };
+      });
+
+      return json(200, { deals: enriched });
     }
 
     if (event.httpMethod === 'POST') {

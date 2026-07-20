@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "@memberstack/admin": "^1.6.0",
+    "@supabase/supabase-js": "^2.110.7"
+  }
+}
