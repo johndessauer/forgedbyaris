@@ -1,2 +1,9 @@
 # Local Netlify folder
 .netlify
+
+# Dependencies (reinstall with npm install)
+node_modules/
+
+# OS junk files
+.DS_Store
+**/.DS_Store
