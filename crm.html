@@ -1046,7 +1046,7 @@ document.querySelectorAll('.overlay').forEach(o => {
 });
 </script>
 <script>
-window.onload = function() {
+window.addEventListener('load', function() {
   setTimeout(function() {
     if (localStorage.getItem('_ms-mid')) {
       if (!localStorage.getItem('_ms-mem')) {
@@ -1056,7 +1056,7 @@ window.onload = function() {
       }
     }
   }, 500);
-};
+});
 </script>
 </body>
 </html>
