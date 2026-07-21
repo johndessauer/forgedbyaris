@@ -772,5 +772,18 @@ async function handleLogout() {
         <a href="/earnings-disclaimer.html" style="color:#C89B3C; text-decoration:none;">Earnings Disclaimer</a>
       </p>
     </div>
+<script>
+window.onload = function() {
+  setTimeout(function() {
+    if (localStorage.getItem('_ms-mid')) {
+      if (!localStorage.getItem('_ms-mem')) {
+        if (window.location.pathname !== '/logged-in-elsewhere.html') {
+          window.location.href = '/logged-in-elsewhere.html';
+        }
+      }
+    }
+  }, 500);
+};
+</script>
 </body>
 </html>
