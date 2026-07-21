@@ -739,13 +739,46 @@ function trackSession() {
 }
 
 // ── DAILY QUOTE ──
-async function loadDailyQuote() {
-  // Always fetch a fresh quote on every session load — no caching
+// Cached per browser session (sessionStorage) so the same transmission
+// persists across page refreshes/navigation within one login, but a fresh
+// one generates next time the member logs in (new session). A rolling
+// history of recent quotes (localStorage, survives across sessions) is fed
+// back into the prompt so ARIS avoids repeating the same theme or wording.
+const QUOTE_HISTORY_KEY = 'forge-quote-history';
+const QUOTE_HISTORY_MAX = 20;
+
+function getQuoteHistory() {
+  try { return JSON.parse(localStorage.getItem(QUOTE_HISTORY_KEY) || '[]'); } catch(e) { return []; }
+}
+
+function pushQuoteHistory(quoteText) {
+  const history = getQuoteHistory();
+  history.push(quoteText);
+  while (history.length > QUOTE_HISTORY_MAX) history.shift();
+  localStorage.setItem(QUOTE_HISTORY_KEY, JSON.stringify(history));
+}
+
+async function loadDailyQuote(force = false) {
+  if (!force) {
+    const cached = sessionStorage.getItem('forge-quote-session');
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        renderQuote(parsed.quote, parsed.type);
+        return;
+      } catch(e) { /* fall through and regenerate if the cache is corrupt */ }
+    }
+  }
+
   try {
     const day = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
     const why = JSON.parse(localStorage.getItem('forge-member-why') || 'null');
     const whyContext = why
       ? `\n\nMEMBER CONTEXT — use this to personalize the transmission when relevant:\n- Why they want to invest: "${why.q1}"\n- How they'll make the world better: "${why.q2}"\n- Why now is their time: "${why.q3}"`
+      : '';
+    const history = getQuoteHistory();
+    const historyContext = history.length
+      ? `\n\nRECENT TRANSMISSIONS ALREADY GIVEN — do not repeat these themes or phrasing, generate something genuinely different:\n${history.map((q, i) => `${i + 1}. ${q}`).join('\n')}`
       : '';
     const res = await fetch('/api/aris-quote', {
       method: 'POST',
@@ -753,7 +786,7 @@ async function loadDailyQuote() {
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 1000,
-        system: ARIS_QUOTE_SYSTEM + whyContext,
+        system: ARIS_QUOTE_SYSTEM + whyContext + historyContext,
         messages: [{ role: 'user', content: `Today is ${day}. Generate my daily transmission.` }]
       })
     });
@@ -762,6 +795,9 @@ async function loadDailyQuote() {
     const text = data.content?.[0]?.text || '';
     const clean = text.replace(/```json|```/g, '').trim();
     const parsed = JSON.parse(clean);
+
+    sessionStorage.setItem('forge-quote-session', JSON.stringify(parsed));
+    pushQuoteHistory(parsed.quote);
 
     renderQuote(parsed.quote, parsed.type);
   } catch(e) {
@@ -900,7 +936,7 @@ function saveOnboarding() {
 
   document.getElementById('ob-overlay').style.display = 'none';
   loadWhyCard();
-  loadDailyQuote();
+  loadDailyQuote(true);
   showToast('Your why is saved — ARIS will keep it in mind.');
 }
 
@@ -934,7 +970,7 @@ function showToast(msg) {
 }
 </script>
 <script>
-window.addEventListener('load', function() {
+window.onload = function() {
   setTimeout(function() {
     if (localStorage.getItem('_ms-mid')) {
       if (!localStorage.getItem('_ms-mem')) {
@@ -944,7 +980,7 @@ window.addEventListener('load', function() {
       }
     }
   }, 500);
-});
+};
 </script>
 </body>
 </html>
