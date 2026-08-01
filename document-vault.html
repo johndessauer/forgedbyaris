@@ -739,7 +739,7 @@ window.addEventListener('load', async () => {
       window.location.href = 'login.html';
       return;
     }
-    const FOUNDING_MEMBER_PRICE_IDS = ['prc_497-97-3m13d01j8', 'prc_247-97-ne13e01d6', 'prc_997-97-5fmt0nr5'];
+    const FOUNDING_MEMBER_PRICE_IDS = ['prc_497-97-3m13d01j8', 'prc_247-97-ne13e01d6', 'prc_997-97-5fmt0nr5', 'prc_-97-direct-ka9b0lq3'];
     const hasActiveMembership = (member.planConnections || []).some(
       pc => FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
     );
