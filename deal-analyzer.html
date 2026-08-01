@@ -515,7 +515,8 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
           <button class="tab-btn" onclick="switchTab('storage',this)">Self-Storage</button>
           <button class="tab-btn" onclick="switchTab('mhp',this)">Mobile Home Parks</button>
           <button class="tab-btn" onclick="switchTab('office',this)">Office &amp; Industrial</button>
-          <!-- Future commercial asset types (Mixed-Use, Hotels) get added here as additional tab-btn elements -->
+          <button class="tab-btn" onclick="switchTab('mixeduse',this)">Mixed-Use</button>
+          <!-- Future commercial asset types (Hotels) get added here as additional tab-btn elements -->
         </div>
 
         <div class="form-scroll" id="form-scroll">
@@ -980,6 +981,83 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
             </div>
           </div>
 
+          <div id="form-mixeduse" class="form-body" style="display:none">
+            <div style="background:var(--gold-dim);border:1px solid var(--border);border-radius:6px;padding:9px 13px;margin-bottom:14px;display:flex;align-items:center;gap:8px;">
+              <span style="font-size:14px;">🏙</span>
+              <div>
+                <div style="font-size:11px;font-weight:600;color:var(--gold);letter-spacing:0.5px;">Mixed-Use</div>
+                <div style="font-size:10px;color:var(--grey-light);margin-top:1px;">Valued by <strong style="color:var(--white);">income capitalization</strong> on the blended NOI (residential + commercial ÷ cap rate). The two income streams are tracked separately below since they carry different vacancy risk and lease terms, then combined into one NOI for the verdict.</div>
+              </div>
+            </div>
+
+            <div class="form-section">
+              <div class="form-row single">
+                <div class="field"><label>Property Name / Address</label><input type="text" id="mu-address" placeholder="e.g. The Corner at 5th, 500 Main St"><div class="hint">Optional — shown on saved deals and PDF exports. Auto-fills from an uploaded document if found.</div></div>
+              </div>
+            </div>
+
+            <div class="form-section" style="border:1px dashed var(--gold); border-radius:6px; padding:12px 14px; margin-bottom:14px; background:rgba(200,155,60,0.04);">
+              <div class="form-section-label" style="margin-bottom:6px;">Auto-Fill from Document</div>
+              <div style="font-size:10px;color:var(--grey-light);margin-bottom:10px;">Upload a rent roll, T-12, or offering memorandum and ARIS will read it and pre-fill the fields below. Just the pages with the numbers — you don't need the whole package. Skip the marketing pages, photos, and cover sheet; the financial pages (T-12, rent roll, or the numbers section of the OM) are all ARIS needs. Always review the numbers before running your analysis.</div>
+              <div class="upload-drop-row">
+                <label class="upload-drop-btn" for="mu-pdf-input">
+                  📄 Upload PDF
+                  <input type="file" id="mu-pdf-input" accept=".pdf" style="display:none" onchange="handleMixedUsePDF(event)" />
+                </label>
+                <span class="upload-hint">Max 4MB · One file</span>
+              </div>
+              <div id="mu-pdf-status" style="font-size:11px;margin-top:8px;"></div>
+            </div>
+            <div class="form-section">
+              <div class="form-section-label">Acquisition</div>
+              <div class="form-row">
+                <div class="field"><label>Purchase Price</label><input type="number" id="mu-purchase" placeholder="$0"></div>
+                <div class="field"><label>Residential Units</label><input type="number" id="mu-units" placeholder="8"></div>
+              </div>
+              <div class="form-row">
+                <div class="field"><label>Commercial Rentable Sq Ft</label><input type="number" id="mu-sqft" placeholder="4500"><div class="hint">Ground-floor retail/office/other commercial space</div></div>
+                <div class="field"><label>Down Payment %</label><input type="number" id="mu-down" placeholder="25"></div>
+              </div>
+              <div class="form-row">
+                <div class="field"><label>Interest Rate %</label><input type="number" id="mu-rate" placeholder="7"></div>
+                <div class="field"><label>Loan Term (years)</label><input type="number" id="mu-term" placeholder="25"></div>
+              </div>
+            </div>
+            <div class="form-section">
+              <div class="form-section-label">Residential Income</div>
+              <div class="form-row">
+                <div class="field"><label>Residential Gross Potential Rent (annual)</label><input type="number" id="mu-res-gpr" placeholder="$0"><div class="hint">Total residential rent at 100% occupancy</div></div>
+                <div class="field"><label>Residential Vacancy %</label><input type="number" id="mu-res-vacancy" placeholder="6"></div>
+              </div>
+            </div>
+            <div class="form-section">
+              <div class="form-section-label">Commercial Income</div>
+              <div class="form-row">
+                <div class="field"><label>Commercial Gross Potential Rent (annual)</label><input type="number" id="mu-com-gpr" placeholder="$0"><div class="hint">Total commercial base rent at 100% occupancy</div></div>
+                <div class="field"><label>Commercial Occupancy %</label><input type="number" id="mu-com-occupancy" placeholder="85"></div>
+              </div>
+              <div class="form-row single">
+                <div class="field"><label>Other Income (annual)</label><input type="number" id="mu-otherincome" placeholder="$0"><div class="hint">Parking, laundry, signage, CAM reimbursements from commercial tenants</div></div>
+              </div>
+            </div>
+            <div class="form-section">
+              <div class="form-section-label">Operating Expenses</div>
+              <div class="form-row single">
+                <div class="field"><label>Total Operating Expenses (annual)</label><input type="number" id="mu-opex" placeholder="$0"><div class="hint">Taxes, insurance, management, utilities, R&amp;M across both the residential and commercial components — exclude debt service</div></div>
+              </div>
+            </div>
+            <div class="form-section">
+              <div class="form-section-label">Value-Add &amp; Exit</div>
+              <div class="form-row">
+                <div class="field"><label>Renovation / TI &amp; Leasing Commissions Budget</label><input type="number" id="mu-renovation" placeholder="$0"><div class="hint">Unit upgrades, commercial tenant improvement allowances, leasing commissions</div></div>
+                <div class="field"><label>Post-Stabilization NOI Increase (annual)</label><input type="number" id="mu-noiuplift" placeholder="$0"><div class="hint">Additional NOI once units/commercial space are leased up and stabilize</div></div>
+              </div>
+              <div class="form-row single">
+                <div class="field"><label>Exit Cap Rate %</label><input type="number" id="mu-exitcap" placeholder="6.5"><div class="hint">Assumption for stabilized resale value</div></div>
+              </div>
+            </div>
+          </div>
+
           <!-- PROPERTY PHOTOS -->
           <div class="prop-photo-section">
             <div class="prop-photo-label">Property Photos</div>
@@ -1019,7 +1097,6 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
               <div class="phase2-badge">Phase 2 — In Development</div>
             </div>
             <div class="phase2-grid">
-              <div class="phase2-card"><div class="phase2-icon">🏙</div><div class="phase2-info"><div class="phase2-name">Mixed-Use</div><div class="phase2-coming">Coming soon</div></div></div>
               <div class="phase2-card"><div class="phase2-icon">🏨</div><div class="phase2-info"><div class="phase2-name">Hotels &amp; Hospitality</div><div class="phase2-coming">Coming soon</div></div></div>
             </div>
           </div>
@@ -1642,6 +1719,63 @@ function calcOffice() {
   };
 }
 
+function calcMixedUse() {
+  const address        = document.getElementById('mu-address').value.trim();
+  const purchase       = +document.getElementById('mu-purchase').value || 0;
+  const units          = +document.getElementById('mu-units').value || 0;
+  const sqft           = +document.getElementById('mu-sqft').value || 0;
+  const downPct        = +document.getElementById('mu-down').value || 25;
+  const rate           = +document.getElementById('mu-rate').value || 7;
+  const term           = +document.getElementById('mu-term').value || 25;
+  const resGpr         = +document.getElementById('mu-res-gpr').value || 0;
+  const resVacancyPct  = +document.getElementById('mu-res-vacancy').value || 6;
+  const comGpr         = +document.getElementById('mu-com-gpr').value || 0;
+  const comOccPct      = +document.getElementById('mu-com-occupancy').value || 85;
+  const otherIncome    = +document.getElementById('mu-otherincome').value || 0;
+  const opex           = +document.getElementById('mu-opex').value || 0;
+  const renovation     = +document.getElementById('mu-renovation').value || 0;
+  const noiUplift      = +document.getElementById('mu-noiuplift').value || 0;
+  const exitCapPct     = +document.getElementById('mu-exitcap').value || 6.5;
+
+  const downAmt       = purchase * (downPct/100);
+  const loanAmt        = purchase - downAmt;
+  const mortgage       = calcMortgage(loanAmt, rate, term); // monthly
+  const annualDebtSvc  = mortgage * 12;
+
+  const resEgi          = resGpr * (1 - resVacancyPct/100);
+  const comEgi          = comGpr * (comOccPct/100);
+  const egi             = resEgi + comEgi + otherIncome;
+  const noi             = egi - opex; // annual, income-capitalization NOI
+  const capRate          = purchase > 0 ? (noi / purchase) * 100 : 0;
+  const dcr              = annualDebtSvc > 0 ? (noi / annualDebtSvc) : 0;
+  const annualCashFlow   = noi - annualDebtSvc;
+  const totalInvested    = downAmt + renovation;
+  const coc              = totalInvested > 0 ? (annualCashFlow / totalInvested) * 100 : 0;
+  const revPerUnit       = units > 0 ? resEgi / units : 0;
+  const revPerSqFt       = sqft > 0 ? comEgi / sqft : 0;
+
+  // Forced appreciation via exit cap rate on stabilized NOI
+  const stabilizedNOI  = noi + noiUplift;
+  const exitValue      = exitCapPct > 0 ? stabilizedNOI / (exitCapPct/100) : 0;
+  const equityCreated  = exitValue - purchase - renovation;
+
+  return { address, purchase, units, sqft, noi, capRate, dcr, annualCashFlow, coc, revPerUnit, revPerSqFt, exitValue, equityCreated, mortgage, totalInvested,
+    metrics: [
+      { label: 'NOI (Annual)', value: fmt(noi), cls: noi > 0 ? 'good' : 'bad' },
+      { label: 'Cap Rate', value: fmtPct(capRate), cls: capRate > 6 ? 'good' : capRate > 4.5 ? 'warn' : 'bad' },
+      { label: 'DCR', value: dcr.toFixed(2) + 'x', cls: dcr >= 1.25 ? 'good' : dcr >= 1.0 ? 'warn' : 'bad' },
+      { label: 'Cash-on-Cash', value: fmtPct(coc), cls: coc > 8 ? 'good' : coc > 4 ? 'warn' : 'bad' },
+      { label: 'Annual Cash Flow', value: fmt(annualCashFlow), cls: annualCashFlow > 0 ? 'good' : 'bad' },
+      { label: 'Residential Rev / Unit', value: fmt(revPerUnit), cls: '' },
+      { label: 'Commercial Rev / Sq Ft', value: fmt(revPerSqFt), cls: '' },
+      { label: 'Forced Appreciation Exit Value', value: fmt(exitValue), cls: equityCreated > 0 ? 'good' : 'warn' },
+      { label: 'Equity Created (Reno + Exit)', value: fmt(equityCreated), cls: equityCreated > 0 ? 'good' : 'bad' },
+    ],
+    verdict: dcr >= 1.25 && annualCashFlow > 0 && capRate > 4.5 ? 'go' : dcr >= 1.0 && annualCashFlow > 0 ? 'caution' : 'no-go',
+    verdictText: dcr >= 1.25 && annualCashFlow > 0 && capRate > 4.5 ? 'GO' : dcr >= 1.0 && annualCashFlow > 0 ? 'PROCEED WITH CAUTION' : 'NO-GO'
+  };
+}
+
 async function handleCommercialPDF(event) {
   const file = event.target.files[0];
   event.target.value = '';
@@ -2019,6 +2153,91 @@ async function handleOfficePDF(event) {
   }
 }
 
+async function handleMixedUsePDF(event) {
+  const file = event.target.files[0];
+  event.target.value = '';
+  const statusEl = document.getElementById('mu-pdf-status');
+  if (!file) return;
+
+  if (file.type !== 'application/pdf') {
+    statusEl.innerHTML = '<span style="color:var(--red);">Please upload a PDF file.</span>';
+    return;
+  }
+  if (file.size > 4 * 1024 * 1024) {
+    statusEl.innerHTML = '<span style="color:var(--red);">File too large — max 4MB.</span>';
+    return;
+  }
+
+  statusEl.innerHTML = '<span style="color:var(--gold);">📄 ARIS is reading ' + file.name + '...</span>';
+
+  try {
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    const extractPrompt = 'Extract mixed-use property financial data from this document (rent roll, T-12, or offering memorandum). Return ONLY a raw JSON object, no markdown formatting, no code fences, no explanation. Use these exact keys, and use null for any field not found in the document:\\n' +
+      '{ "property_address": string or null, "purchase_price": number or null, "residential_units": number or null, "commercial_sqft": number or null, "residential_gross_rent": number or null, "residential_vacancy_pct": number or null, "commercial_gross_rent": number or null, "commercial_occupancy_pct": number or null, "other_income": number or null, "operating_expenses": number or null }\\n' +
+      '"property_address" should be the property name and/or street address if shown anywhere in the document (e.g. a title, header, or letterhead) — combine name and address if both are present, e.g. "The Corner at 5th, 500 Main St, Springfield, IL". ' +
+      '"residential_units" is the count of residential units. "commercial_sqft" is the total rentable square footage of ground-floor or non-residential commercial space. ' +
+      '"residential_gross_rent" and "commercial_gross_rent" must each be ANNUAL totals at 100% occupancy for their respective component — if the document shows monthly figures, multiply by 12. Do not combine them into one number; keep residential and commercial rent separate. ' +
+      '"other_income" and "operating_expenses" must also be ANNUAL totals. "residential_vacancy_pct" and "commercial_occupancy_pct" must be percentage numbers (e.g. 6 for 6%, 85 for 85%), not decimals.';
+
+    const res = await fetch('/api/aris-quote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1024,
+        system: 'You are a precise financial data extraction assistant. You only output raw JSON exactly as instructed, with no other text.',
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
+            { type: 'text', text: extractPrompt }
+          ]
+        }]
+      })
+    });
+
+    const data = await res.json();
+    let raw = (data.content && data.content[0] && data.content[0].text) || '';
+    raw = raw.trim().replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '');
+    const extracted = JSON.parse(raw);
+
+    const fieldMap = {
+      property_address: 'mu-address',
+      purchase_price: 'mu-purchase',
+      residential_units: 'mu-units',
+      commercial_sqft: 'mu-sqft',
+      residential_gross_rent: 'mu-res-gpr',
+      residential_vacancy_pct: 'mu-res-vacancy',
+      commercial_gross_rent: 'mu-com-gpr',
+      commercial_occupancy_pct: 'mu-com-occupancy',
+      other_income: 'mu-otherincome',
+      operating_expenses: 'mu-opex'
+    };
+
+    let filledCount = 0;
+    const totalCount = Object.keys(fieldMap).length;
+    Object.entries(fieldMap).forEach(([key, id]) => {
+      const val = extracted[key];
+      if (val !== null && val !== undefined && val !== '') {
+        document.getElementById(id).value = val;
+        filledCount++;
+      }
+    });
+
+    const color = filledCount > 0 ? 'var(--green)' : 'var(--grey-light)';
+    statusEl.innerHTML = `<span style="color:${color};">✅ Extracted ${filledCount} of ${totalCount} fields from ${file.name}. Review the numbers below before running your analysis.</span>`;
+
+  } catch (err) {
+    statusEl.innerHTML = '<span style="color:var(--red);">⚠️ Could not read that document. Try a clearer PDF or enter the numbers manually.</span>';
+  }
+}
+
 // ── PROJECTION TABLE ──
 function buildProjectionTable(baseData) {
   const rentGrowth   = (+document.getElementById('proj-rent-growth').value || 3) / 100;
@@ -2045,6 +2264,7 @@ function buildProjectionTable(baseData) {
     else if (currentTab === 'storage') annualCF = (baseData.annualCashFlow || 0) * rentMult / expMult;
     else if (currentTab === 'mhp') annualCF = (baseData.annualCashFlow || 0) * rentMult / expMult;
     else if (currentTab === 'office') annualCF = (baseData.annualCashFlow || 0) * rentMult / expMult;
+    else if (currentTab === 'mixeduse') annualCF = (baseData.annualCashFlow || 0) * rentMult / expMult;
 
     cumCashFlow += annualCF;
 
@@ -2064,7 +2284,7 @@ function buildProjectionTable(baseData) {
 
 // ── MAIN ANALYZE FUNCTION ──
 function analyzeDeal() {
-  const calcMap = { wholesale: calcWholesale, flip: calcFlip, rental: calcRental, str: calcSTR, multi: calcMulti, commercial: calcCommercial, storage: calcStorage, mhp: calcMHP, office: calcOffice };
+  const calcMap = { wholesale: calcWholesale, flip: calcFlip, rental: calcRental, str: calcSTR, multi: calcMulti, commercial: calcCommercial, storage: calcStorage, mhp: calcMHP, office: calcOffice, mixeduse: calcMixedUse };
   const calc = calcMap[currentTab];
   if (!calc) return;
 
@@ -2102,7 +2322,7 @@ function analyzeDeal() {
   messages.appendChild(cardRow);
 
   // Build ARIS prompt from deal data
-  const tabLabels = { wholesale: 'Wholesale', flip: 'Fix & Flip', rental: 'Long-Term Rental', str: 'STR/MTR', multi: '2-4 Unit Residential (Sales Comparison Approach)', commercial: '5+ Unit Commercial (Income Capitalization Approach)', storage: 'Self-Storage Facility (Income Capitalization Approach)', mhp: 'Mobile Home Park (Income Capitalization Approach)', office: 'Office & Industrial (Income Capitalization Approach)' };
+  const tabLabels = { wholesale: 'Wholesale', flip: 'Fix & Flip', rental: 'Long-Term Rental', str: 'STR/MTR', multi: '2-4 Unit Residential (Sales Comparison Approach)', commercial: '5+ Unit Commercial (Income Capitalization Approach)', storage: 'Self-Storage Facility (Income Capitalization Approach)', mhp: 'Mobile Home Park (Income Capitalization Approach)', office: 'Office & Industrial (Income Capitalization Approach)', mixeduse: 'Mixed-Use (Income Capitalization Approach)' };
   const metricsText = data.metrics.map(m => `${m.label}: ${m.value}`).join(', ');
   const prompt = `I just ran a ${tabLabels[currentTab]} analysis in the FORGE Deal Analyzer. Here are the results: ${metricsText}. Hold period: ${holdYears} years. Rent growth assumption: ${document.getElementById('proj-rent-growth').value}%/yr, Appreciation: ${document.getElementById('proj-appreciation').value}%/yr, Expense growth: ${document.getElementById('proj-expense-growth').value}%/yr. The calculator gives a ${data.verdictText} verdict. Give me your full analysis — deal quality, key risks, biggest lever to improve it, and your recommendation.`;
 
@@ -2245,7 +2465,7 @@ function formatMarkdown(text) {
 function getTime() { return new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); }
 
 function exportPDF() {
-  const tabLabels = { wholesale: 'Wholesale', flip: 'Fix & Flip', rental: 'Long-Term Rental', str: 'STR / MTR', multi: '2-4 Unit Residential', commercial: 'Commercial — 5+ Units', storage: 'Self-Storage Facility', mhp: 'Mobile Home Park', office: 'Office & Industrial' };
+  const tabLabels = { wholesale: 'Wholesale', flip: 'Fix & Flip', rental: 'Long-Term Rental', str: 'STR / MTR', multi: '2-4 Unit Residential', commercial: 'Commercial — 5+ Units', storage: 'Self-Storage Facility', mhp: 'Mobile Home Park', office: 'Office & Industrial', mixeduse: 'Mixed-Use' };
   const dealLabel = lastDealData ? tabLabels[lastDealData.tab] || 'Deal Analysis' : 'Deal Analyzer';
   const address = (lastDealData && lastDealData.data && lastDealData.data.address) ? lastDealData.data.address : '';
   const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -2464,7 +2684,7 @@ function renderDrawer() {
     body.innerHTML = `<div class="drawer-empty">No saved deals yet.<br>Run an analysis and hit <strong>Save Deal</strong> to store it here.<br><br><em>Saved locally — cloud sync coming soon.</em></div>`;
     return;
   }
-  const tabLabels = { wholesale:'Wholesale', flip:'Fix & Flip', rental:'LT Rental', str:'STR/MTR', multi:'2-4 Units (Residential)', commercial:'Commercial — 5+ Units', storage:'Self-Storage Facility', mhp:'Mobile Home Park', office:'Office & Industrial' };
+  const tabLabels = { wholesale:'Wholesale', flip:'Fix & Flip', rental:'LT Rental', str:'STR/MTR', multi:'2-4 Units (Residential)', commercial:'Commercial — 5+ Units', storage:'Self-Storage Facility', mhp:'Mobile Home Park', office:'Office & Industrial', mixeduse:'Mixed-Use' };
 
   body.innerHTML = saved.map((d,i) => {
     const thumbs = (d.photos||[]).slice(0,3).map(p =>
@@ -2498,7 +2718,7 @@ function openDetail(idx) {
   const saved = JSON.parse(localStorage.getItem('forge-deals') || '[]');
   const d = saved[idx];
   if (!d) return;
-  const tabLabels = { wholesale:'Wholesale', flip:'Fix & Flip', rental:'LT Rental', str:'STR/MTR', multi:'2-4 Units (Residential)', commercial:'Commercial — 5+ Units', storage:'Self-Storage Facility', mhp:'Mobile Home Park', office:'Office & Industrial' };
+  const tabLabels = { wholesale:'Wholesale', flip:'Fix & Flip', rental:'LT Rental', str:'STR/MTR', multi:'2-4 Units (Residential)', commercial:'Commercial — 5+ Units', storage:'Self-Storage Facility', mhp:'Mobile Home Park', office:'Office & Industrial', mixeduse:'Mixed-Use' };
 
   document.getElementById('detail-title').textContent = d.displayName || d.name || 'Deal Detail';
 
@@ -2588,7 +2808,7 @@ function preFillFromTransfer(transfer) {
 
   // Determine which category this tab lives in and switch to it first,
   // so the toggle/tab group visibility matches the tab we're about to activate
-  const commercialTabs = ['commercial', 'storage', 'mhp', 'office'];
+  const commercialTabs = ['commercial', 'storage', 'mhp', 'office', 'mixeduse'];
   const targetCategory = commercialTabs.includes(tab) ? 'commercial' : 'residential';
   const categoryBtn = document.querySelector('.category-btn[data-category="' + targetCategory + '"]');
   if (categoryBtn && !categoryBtn.classList.contains('active')) {
@@ -2616,7 +2836,7 @@ function preFillFromTransfer(transfer) {
   showToast('Deal numbers transferred from ARIS');
   setTimeout(() => {
     const fieldCount = Object.keys(fields).length;
-    const tabLabels = { wholesale:'Wholesale', flip:'Fix & Flip', rental:'Long-Term Rental', str:'STR/MTR', multi:'2-4 Units (Residential)', commercial:'Commercial — 5+ Units', storage:'Self-Storage Facility', mhp:'Mobile Home Park', office:'Office & Industrial' };
+    const tabLabels = { wholesale:'Wholesale', flip:'Fix & Flip', rental:'Long-Term Rental', str:'STR/MTR', multi:'2-4 Units (Residential)', commercial:'Commercial — 5+ Units', storage:'Self-Storage Facility', mhp:'Mobile Home Park', office:'Office & Industrial', mixeduse:'Mixed-Use' };
     appendMsg('aris', `I transferred ${fieldCount} field${fieldCount !== 1 ? 's' : ''} from our conversation into the **${tabLabels[tab] || tab}** analyzer. Review the numbers on the left — fill in anything that's missing — then hit **Analyze Deal** and I'll give you the full verdict.`);
   }, 400);
 }
