@@ -364,8 +364,8 @@ document.getElementById('searchInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') runSearch();
 });
 
-// ── ARIS MARKET DATA FETCH (Phase 1 — ARIS-powered, no external APIs) ──
-async function fetchMarketData(query) {
+// ── ARIS MARKET DATA FETCH (fallback — used only when live data is unavailable) ──
+async function fetchMarketDataEstimate(query) {
   const q = query.trim();
   if (!q) throw new Error('Enter a zip code, city, or state.');
 
@@ -437,7 +437,35 @@ Return ONLY the JSON object. No other text.`;
   const grossRentMultiplier = medianHomeValue > 0 && medianRent > 0 ? medianHomeValue / (medianRent * 12) : 0;
   const rentToPrice         = medianHomeValue > 0 && medianRent > 0 ? (medianRent / medianHomeValue) * 100 : 0;
 
-  return { geoLabel, medianHomeValue, medianRent, medianIncome, vacancyRate, ownershipRate, grossRentMultiplier, rentToPrice, totalUnits, marketNotes };
+  return { geoLabel, medianHomeValue, medianRent, medianIncome, vacancyRate, ownershipRate, grossRentMultiplier, rentToPrice, totalUnits, marketNotes, dataSource: 'estimate' };
+}
+
+// ── LIVE MARKET DATA FETCH (Phase II — Census ACS + FRED, free tier) ──
+// Tries real government data first; falls back to the ARIS estimate above
+// if the location can't be resolved or the live-data function errors.
+async function fetchMarketData(query) {
+  const q = query.trim();
+  if (!q) throw new Error('Enter a zip code, city, or state.');
+
+  try {
+    const res = await fetch('/api/market-data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: q })
+    });
+
+    if (res.ok) {
+      const live = await res.json();
+      if (live && !live.error) {
+        return live;
+      }
+    }
+    // Live data unavailable or errored — fall through to ARIS estimate
+  } catch (e) {
+    // Network/parse error on the live endpoint — fall through to ARIS estimate
+  }
+
+  return await fetchMarketDataEstimate(q);
 }
 
 // ── SCORING ENGINE ──
@@ -624,6 +652,8 @@ Key Data:
 - Rent-to-Price Ratio: ${fmtPct(marketData.rentToPrice)} monthly
 - Gross Rent Multiplier: ${marketData.grossRentMultiplier > 0 ? marketData.grossRentMultiplier.toFixed(1) + 'x' : 'N/A'}
 ${marketData.marketNotes ? '- Market Notes: ' + marketData.marketNotes : ''}
+- Data Source: ${marketData.dataSource === 'census' ? `Live U.S. Census ACS ${marketData.acsVintage} 5-Year data (real government data, 1-3 year rolling average, not live listing prices)` : 'ARIS estimate — live government data was unavailable for this location'}
+${marketData.mortgageRate ? `- Current 30-Year Mortgage Rate: ${marketData.mortgageRate.toFixed(2)}% (live via FRED, as of ${marketData.mortgageRateAsOf})` : ''}
 
 The member is focused on: ${strategyContext}.
 
@@ -675,8 +705,10 @@ function renderResults(data, scores, location) {
         <div class="market-name">${location}</div>
         <div class="market-sub">FORGE Market Intelligence Report</div>
       </div>
-      <div class="data-freshness">Powered by ARIS Intelligence · Phase II: Live data</div>
+      <div class="data-freshness">${data.dataSource === 'census' ? `Live Census ACS ${data.acsVintage} Data · Verdict by ARIS` : 'ARIS Estimate · Live Data Unavailable for This Location'}</div>
     </div>
+
+    ${data.dataSource === 'census' ? `<div style="font-size:11px;color:var(--grey-light);margin:-8px 0 16px;">Census 5-Year estimates are a rolling average, typically 1-3 years behind current market conditions — not live listing prices.</div>` : `<div style="font-size:11px;color:var(--grey-light);margin:-8px 0 16px;">Could not resolve live government data for this location — figures below are ARIS's best estimate based on its training data, not a live source.</div>`}
 
     <!-- Overall Score -->
     <div class="score-card">
@@ -729,12 +761,12 @@ function renderResults(data, scores, location) {
         <div class="data-cell">
           <div class="data-cell-label">Median Home Value</div>
           <div class="data-cell-value">${fmt(data.medianHomeValue)}</div>
-          <div class="data-cell-sub">ACS 2022 estimate</div>
+          <div class="data-cell-sub">${data.dataSource === 'census' ? `Census ACS ${data.acsVintage}` : 'ARIS estimate'}</div>
         </div>
         <div class="data-cell">
           <div class="data-cell-label">Median Gross Rent</div>
           <div class="data-cell-value">${fmt(data.medianRent)}<span style="font-size:12px;font-family:Inter,sans-serif;color:var(--grey)">/mo</span></div>
-          <div class="data-cell-sub">ACS 2022 estimate</div>
+          <div class="data-cell-sub">${data.dataSource === 'census' ? `Census ACS ${data.acsVintage}` : 'ARIS estimate'}</div>
         </div>
         <div class="data-cell">
           <div class="data-cell-label">Median Income</div>
@@ -771,6 +803,12 @@ function renderResults(data, scores, location) {
           <div class="data-cell-value">${data.totalUnits > 0 ? data.totalUnits.toLocaleString() : 'N/A'}</div>
           <div class="data-cell-sub">Market size</div>
         </div>
+        ${data.mortgageRate ? `
+        <div class="data-cell">
+          <div class="data-cell-label">30-Yr Mortgage Rate</div>
+          <div class="data-cell-value">${data.mortgageRate.toFixed(2)}%</div>
+          <div class="data-cell-sub">Live via FRED · ${data.mortgageRateAsOf}</div>
+        </div>` : ''}
       </div>
     </div>
 
