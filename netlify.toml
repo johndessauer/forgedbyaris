@@ -28,3 +28,8 @@
   from = "/api/crm-notes"
   to = "/.netlify/functions/crm-notes"
   status = 200
+
+[[redirects]]
+  from = "/api/market-data"
+  to = "/.netlify/functions/market-data"
+  status = 200
