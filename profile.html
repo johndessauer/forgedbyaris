@@ -571,26 +571,29 @@ async function initProfilePage() {
     const { data: member } = await memberstack.getCurrentMember();
 
     if (!member) {
-      window.location.href = '/login.html';
+      window.location.href = 'login.html';
       return;
     }
 
+    const FOUNDING_MEMBER_PRICE_IDS = ['prc_497-97-3m13d01j8', 'prc_247-97-ne13e01d6', 'prc_997-97-5fmt0nr5', 'prc_-97-direct-ka9b0lq3'];
     const hasActiveMembership = (member.planConnections || []).some(
-      (p) => p.status === 'ACTIVE' || p.active === true
+      pc => FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
     );
     if (!hasActiveMembership) {
-      window.location.href = '/pricing.html';
+      window.location.href = 'signup.html';
       return;
     }
 
     memberId = member.id;
-    const tokenResult = await memberstack.getMemberCookie();
-    memberToken = tokenResult;
+    memberToken = await memberstack.getMemberCookie();
 
     const customFields = member.customFields || {};
     const fullName = customFields['full-name'] || (customFields['first-name'] ? customFields['first-name'] + ' ' + (customFields['last-name'] || '') : null) || member.auth?.email || 'Member';
     const initials = fullName.split(' ').filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase() || 'M';
-    const planName = (member.planConnections || []).find(p => p.status === 'ACTIVE' || p.active === true)?.planName || 'Founding Member';
+    const activeConn = (member.planConnections || []).find(
+      pc => FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
+    );
+    const planName = activeConn?.planName || 'Founding Member';
 
     document.getElementById('profile-name').textContent = fullName;
     document.getElementById('profile-tier').textContent = planName;
@@ -602,8 +605,9 @@ async function initProfilePage() {
 
     await loadProfileData();
   } catch (err) {
+    // Matches dashboard.html's pattern: if Memberstack fails to load in
+    // time, don't hard-block the page — fall back to local data instead.
     console.error('Profile init failed:', err);
-    // Fall back to whatever's in localStorage so the page isn't blank offline.
     loadWhyFromLocalFallback();
   }
 }
