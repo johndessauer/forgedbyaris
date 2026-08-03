@@ -126,7 +126,7 @@ exports.handler = async function (event, context) {
       const { action } = payload;
 
       if (action === 'create') {
-        const { property_address, deal_type, stage } = payload;
+        const { property_address, deal_type, stage, closing_date } = payload;
         if (!deal_type || !VALID_DEAL_TYPES.includes(deal_type)) {
           return json(400, { error: `deal_type is required and must be one of: ${VALID_DEAL_TYPES.join(', ')}` });
         }
@@ -141,6 +141,7 @@ exports.handler = async function (event, context) {
             property_address: property_address || null,
             deal_type,
             stage: stage || 'New Lead',
+            closing_date: closing_date || null,
           })
           .select()
           .single();
@@ -153,7 +154,7 @@ exports.handler = async function (event, context) {
         const { id, ...fields } = payload;
         if (!id) return json(400, { error: 'id is required' });
 
-        const allowed = ['property_address', 'deal_type', 'stage'];
+        const allowed = ['property_address', 'deal_type', 'stage', 'closing_date'];
         const updates = {};
         for (const key of allowed) {
           if (key in fields) updates[key] = fields[key];

@@ -305,6 +305,11 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
         </select>
       </div>
 
+      <div class="form-group">
+        <label class="form-label">Closing Date <span style="text-transform:none;font-weight:400;color:var(--grey);">(optional)</span></label>
+        <input class="form-input" type="date" id="deal-closing-date">
+      </div>
+
       <div id="deal-detail-extra" style="display:none;">
         <div class="form-group">
           <label class="form-label">Contacts on this Deal</label>
@@ -619,6 +624,7 @@ function openDealModal(dealId = null) {
   document.getElementById('deal-type').value = deal ? deal.deal_type : 'wholesale';
   document.getElementById('deal-stage-group').style.display = deal ? 'block' : 'none';
   document.getElementById('deal-stage').value = deal ? deal.stage : 'New Lead';
+  document.getElementById('deal-closing-date').value = deal && deal.closing_date ? deal.closing_date : '';
   document.getElementById('deal-detail-extra').style.display = deal ? 'block' : 'none';
   document.getElementById('deal-save-btn').textContent = deal ? 'Save Changes' : 'Save Deal';
   if (deal) {
@@ -631,18 +637,19 @@ function openDealModal(dealId = null) {
 async function saveDeal() {
   const address = document.getElementById('deal-address').value.trim();
   const dealType = document.getElementById('deal-type').value;
+  const closingDate = document.getElementById('deal-closing-date').value || null;
   try {
     if (activeDealId) {
       const stage = document.getElementById('deal-stage').value;
       await apiCall('crm-deals', {
         method: 'POST',
-        body: JSON.stringify({ action: 'update', id: activeDealId, property_address: address, deal_type: dealType, stage })
+        body: JSON.stringify({ action: 'update', id: activeDealId, property_address: address, deal_type: dealType, stage, closing_date: closingDate })
       });
       showToast('Deal updated');
     } else {
       await apiCall('crm-deals', {
         method: 'POST',
-        body: JSON.stringify({ action: 'create', property_address: address, deal_type: dealType })
+        body: JSON.stringify({ action: 'create', property_address: address, deal_type: dealType, closing_date: closingDate })
       });
       showToast('Deal added');
     }

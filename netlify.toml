@@ -38,3 +38,8 @@
   from = "/api/profile-data"
   to = "/.netlify/functions/profile-data"
   status = 200
+
+[[redirects]]
+  from = "/api/calendar-feed"
+  to = "/.netlify/functions/calendar-feed"
+  status = 200

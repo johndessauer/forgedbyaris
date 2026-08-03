@@ -1,17 +1,20 @@
 // netlify/functions/profile-data.js
 //
-// Get/save the Member Profile page data (avatar, Why answers, preferences).
+// Get/save the Member Profile page data (avatar, Why answers, phone, preferences,
+// calendar feed token).
 // Every request must carry a valid Memberstack Bearer token.
 // All reads/writes are scoped to the verified member ID — a client can
 // never read or write another member's profile by supplying a different ID.
 //
 // Routes:
-//   GET  ?action=get                                  -> fetch this member's profile row (creates an empty one if none exists)
-//   POST { action: 'save', ...fields }                -> upsert fields (avatarUrl, whyQ1, whyQ2, whyQ3, preferences)
+//   GET  ?action=get                                  -> fetch this member's profile row (creates an empty one if none exists,
+//         and auto-generates a calendar_feed_token if the row exists but doesn't have one yet)
+//   POST { action: 'save', ...fields }                -> upsert fields (avatarUrl, phone, whyQ1, whyQ2, whyQ3, preferences)
 //   POST { action: 'upload_avatar', imageData, contentType } -> uploads a base64 image to the
 //         'avatars' Storage bucket and saves the resulting public URL onto the profile row.
 //         imageData must be a bare base64 string (no data: prefix — strip that client-side).
 
+const crypto = require('crypto');
 const { verifyMember, AuthError } = require('./_Lib/verify-member');
 const { supabase } = require('./_Lib/supabase-client');
 const { json, preflight } = require('./_Lib/http');
@@ -29,7 +32,7 @@ exports.handler = async function (event, context) {
 
   try {
     if (event.httpMethod === 'GET') {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('member_profiles')
         .select('*')
         .eq('memberstack_id', memberId)
@@ -44,13 +47,30 @@ exports.handler = async function (event, context) {
           profile: {
             memberstack_id: memberId,
             avatar_url: null,
+            phone: null,
             why_q1: null,
             why_q2: null,
             why_q3: null,
             why_saved_at: null,
             preferences: {},
+            calendar_feed_token: null,
           },
         });
+      }
+
+      // Auto-generate a calendar feed token the first time this member's
+      // profile is read after the calendar-sync feature shipped, so the
+      // profile page always has a token to build the subscribe link from
+      // without needing a separate "generate" round trip.
+      if (!data.calendar_feed_token) {
+        const token = crypto.randomBytes(24).toString('hex');
+        const { data: updated, error: tokenError } = await supabase
+          .from('member_profiles')
+          .update({ calendar_feed_token: token })
+          .eq('memberstack_id', memberId)
+          .select()
+          .single();
+        if (!tokenError && updated) data = updated;
       }
 
       return json(200, { profile: data });
@@ -101,6 +121,7 @@ exports.handler = async function (event, context) {
         const updates = { memberstack_id: memberId };
 
         if (payload.avatarUrl !== undefined) updates.avatar_url = payload.avatarUrl;
+        if (payload.phone !== undefined) updates.phone = payload.phone;
 
         // Why answers are saved together, matching the existing dashboard
         // modal which submits q1/q2/q3 as one unit.

@@ -507,6 +507,27 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
         </div>
       </div>
 
+      <!-- SYNC TO CALENDAR -->
+      <div class="profile-card">
+        <div class="profile-card-label">Sync to Calendar</div>
+        <div style="font-size:13px;color:var(--grey-light);line-height:1.6;margin-bottom:14px;">
+          Get deal closing dates, stale-deal alerts, and FORGE webinar dates pushed straight to your personal calendar.
+        </div>
+        <div id="calendar-sync-loading" style="font-size:12px;color:var(--grey);">Loading your calendar link...</div>
+        <div id="calendar-sync-ready" style="display:none;">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <input class="ob-textarea" id="calendar-sync-url" readonly style="flex:1;min-width:220px;min-height:auto;padding:8px 10px;font-size:12px;color:var(--grey-light);" onclick="this.select()">
+            <button class="profile-edit-btn" style="margin-top:0;" onclick="copyCalendarLink()">Copy Link</button>
+          </div>
+          <div style="font-size:11px;color:var(--grey);margin-top:12px;line-height:1.7;">
+            <strong style="color:var(--grey-light);">Google Calendar:</strong> Settings → Add calendar → From URL → paste the link.<br>
+            <strong style="color:var(--grey-light);">Outlook:</strong> Add calendar → Subscribe from web → paste the link.<br>
+            <strong style="color:var(--grey-light);">Apple Calendar:</strong> File → New Calendar Subscription → paste the link.
+          </div>
+          <div style="font-size:10px;color:var(--grey);margin-top:10px;">This link is unique to you — don't share it, since anyone with it can see your deal titles and dates.</div>
+        </div>
+      </div>
+
       <!-- PREFERENCES (placeholder) -->
       <div class="profile-card">
         <div class="profile-card-label coming-soon">Preferences — Coming Soon</div>
@@ -646,6 +667,7 @@ async function loadProfileData() {
     if (profile.avatar_url) applyAvatar(profile.avatar_url);
     renderWhyDisplay(profile.why_q1, profile.why_q2, profile.why_q3);
     renderPhoneDisplay(profile.phone);
+    renderCalendarSync(profile.calendar_feed_token);
   } catch (err) {
     console.error('loadProfileData failed:', err);
     loadWhyFromLocalFallback();
@@ -661,6 +683,8 @@ function loadWhyFromLocalFallback() {
 
   const avatar = localStorage.getItem('forge-avatar');
   if (avatar) applyAvatar(avatar);
+
+  document.getElementById('calendar-sync-loading').textContent = 'Calendar sync needs a live connection — refresh once you\'re back online.';
 }
 
 function renderWhyDisplay(q1, q2, q3) {
@@ -728,6 +752,31 @@ async function saveWhyEdit() {
 function renderPhoneDisplay(phone) {
   const el = document.getElementById('mem-phone-display');
   el.textContent = phone || 'Add phone number';
+}
+
+function renderCalendarSync(token) {
+  const loading = document.getElementById('calendar-sync-loading');
+  const ready = document.getElementById('calendar-sync-ready');
+  if (!token) {
+    // Token is generated server-side on the next profile read if it's
+    // ever missing — shouldn't normally happen, but fail visibly rather
+    // than showing a broken link.
+    loading.textContent = 'Could not load your calendar link — refresh the page to try again.';
+    return;
+  }
+  const url = `${window.location.origin}/api/calendar-feed?token=${token}`;
+  document.getElementById('calendar-sync-url').value = url;
+  loading.style.display = 'none';
+  ready.style.display = 'block';
+}
+
+function copyCalendarLink() {
+  const input = document.getElementById('calendar-sync-url');
+  input.select();
+  navigator.clipboard.writeText(input.value).then(
+    () => showToast('Calendar link copied'),
+    () => showToast('Could not copy — select and copy the link manually')
+  );
 }
 
 function openPhoneEdit() {
