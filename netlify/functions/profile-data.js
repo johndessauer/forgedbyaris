@@ -41,21 +41,37 @@ exports.handler = async function (event, context) {
       if (error) throw error;
 
       if (!data) {
-        // No row yet for this member — return empty shape rather than 404,
-        // so the profile page can render its default state on first visit.
-        return json(200, {
-          profile: {
-            memberstack_id: memberId,
-            avatar_url: null,
-            phone: null,
-            why_q1: null,
-            why_q2: null,
-            why_q3: null,
-            why_saved_at: null,
-            preferences: {},
-            calendar_feed_token: null,
-          },
-        });
+        // No row yet for this member — create one now (rather than just
+        // returning an ephemeral shape) so a calendar feed token exists
+        // from the very first profile read, not only on the second one.
+        const token = crypto.randomBytes(24).toString('hex');
+        const { data: created, error: createError } = await supabase
+          .from('member_profiles')
+          .insert({ memberstack_id: memberId, calendar_feed_token: token })
+          .select()
+          .single();
+
+        if (createError) {
+          console.error('profile-data: failed to create initial profile row:', createError);
+          // Still return a usable shape for the rest of the page even if
+          // the token couldn't be generated — avatar/Why/phone will just
+          // save via upsert on first edit, same as before this fix.
+          return json(200, {
+            profile: {
+              memberstack_id: memberId,
+              avatar_url: null,
+              phone: null,
+              why_q1: null,
+              why_q2: null,
+              why_q3: null,
+              why_saved_at: null,
+              preferences: {},
+              calendar_feed_token: null,
+            },
+          });
+        }
+
+        return json(200, { profile: created });
       }
 
       // Auto-generate a calendar feed token the first time this member's
@@ -70,7 +86,11 @@ exports.handler = async function (event, context) {
           .eq('memberstack_id', memberId)
           .select()
           .single();
-        if (!tokenError && updated) data = updated;
+        if (tokenError) {
+          console.error('profile-data: failed to backfill calendar_feed_token:', tokenError);
+        } else if (updated) {
+          data = updated;
+        }
       }
 
       return json(200, { profile: data });
