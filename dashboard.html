@@ -361,10 +361,10 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
     </div>
     <div class="sidebar-footer">
       <input type="file" id="avatar-input" accept="image/*" onchange="handleAvatarUpload(event)" />
-      <div class="profile-chip" onclick="document.getElementById('avatar-input').click())">
+      <div class="profile-chip" onclick="window.location.href='profile.html'">
         <div class="avatar-wrap">
           <div class="user-avatar" id="sidebar-avatar"><span id="sidebar-initials">JD</span></div>
-          <div class="avatar-upload-btn">📷</div>
+          <div class="avatar-upload-btn" onclick="event.stopPropagation(); document.getElementById('avatar-input').click()">📷</div>
         </div>
         <div class="user-info">
           <div class="user-name" id="sidebar-name">John Dessauer</div>
