@@ -385,13 +385,14 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 .profile-edit-btn:hover { color: var(--white); border-color: var(--border); }
 
 /* Membership grid */
-.membership-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+.membership-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
 .membership-item-label { font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--grey); margin-bottom: 5px; }
 .membership-item-value { font-size: 14px; font-weight: 600; color: var(--white); }
 
 .coming-soon-body { font-size: 12px; color: var(--grey); }
 
-@media (max-width: 700px) { .membership-grid { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .membership-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 500px) { .membership-grid { grid-template-columns: 1fr; } }
 </style>
 <script src="https://static.memberstack.com/scripts/v1/memberstack.js" data-memberstack-app="app_cmr41qq5500q80tsx94pj61rc" defer></script>
 </head>
@@ -496,6 +497,12 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
           <div>
             <div class="membership-item-label">Plan</div>
             <div class="membership-item-value" id="mem-plan">—</div>
+          </div>
+          <div>
+            <div class="membership-item-label">Phone <span style="text-transform:none;font-weight:400;color:var(--grey);">(optional)</span></div>
+            <div class="membership-item-value" id="mem-phone-display" style="cursor:pointer;" onclick="openPhoneEdit()">Add phone number</div>
+            <input type="tel" id="mem-phone-input" class="ob-textarea" style="display:none;min-height:auto;padding:6px 10px;font-size:13px;margin-top:4px;" placeholder="(555) 555-5555" onblur="savePhoneEdit()" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" />
+            <div style="font-size:10px;color:var(--grey);margin-top:4px;">Used only if we need to reach you for support — never for marketing.</div>
           </div>
         </div>
       </div>
@@ -624,6 +631,7 @@ async function loadProfileData() {
 
     if (profile.avatar_url) applyAvatar(profile.avatar_url);
     renderWhyDisplay(profile.why_q1, profile.why_q2, profile.why_q3);
+    renderPhoneDisplay(profile.phone);
   } catch (err) {
     console.error('loadProfileData failed:', err);
     loadWhyFromLocalFallback();
@@ -700,6 +708,47 @@ async function saveWhyEdit() {
   } catch (err) {
     console.error('saveWhyEdit failed:', err);
     showToast('Could not save — check your connection and try again.');
+  }
+}
+
+function renderPhoneDisplay(phone) {
+  const el = document.getElementById('mem-phone-display');
+  el.textContent = phone || 'Add phone number';
+}
+
+function openPhoneEdit() {
+  const display = document.getElementById('mem-phone-display');
+  const input = document.getElementById('mem-phone-input');
+  input.value = currentProfile?.phone || '';
+  display.style.display = 'none';
+  input.style.display = 'block';
+  input.focus();
+}
+
+async function savePhoneEdit() {
+  const input = document.getElementById('mem-phone-input');
+  const display = document.getElementById('mem-phone-display');
+  const phone = input.value.trim();
+  input.style.display = 'none';
+  display.style.display = 'block';
+
+  if (phone === (currentProfile?.phone || '')) return; // no change, skip the call
+
+  try {
+    const res = await fetch('/api/profile-data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${memberToken}` },
+      body: JSON.stringify({ action: 'save', phone }),
+    });
+    if (!res.ok) throw new Error('Save failed');
+    const { profile } = await res.json();
+    currentProfile = profile;
+    renderPhoneDisplay(profile.phone);
+    showToast('Phone number updated');
+  } catch (err) {
+    console.error('savePhoneEdit failed:', err);
+    showToast('Could not save phone number — check your connection and try again.');
+    renderPhoneDisplay(currentProfile?.phone);
   }
 }
 
