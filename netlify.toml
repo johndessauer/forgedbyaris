@@ -33,3 +33,8 @@
   from = "/api/market-data"
   to = "/.netlify/functions/market-data"
   status = 200
+
+[[redirects]]
+  from = "/api/profile-data"
+  to = "/.netlify/functions/profile-data"
+  status = 200
