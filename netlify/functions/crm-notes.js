@@ -13,9 +13,9 @@
 //   GET  ?contact_id=...                    -> notes for a contact
 //   POST { deal_id?, contact_id?, body, created_by }
 
-const { verifyMember, AuthError } = require('./_lib/verify-member');
-const { supabase } = require('./_lib/supabase-client');
-const { json, preflight } = require('./_lib/http');
+const { verifyMember, AuthError } = require('./_Lib/verify-member');
+const { supabase } = require('./_Lib/supabase-client');
+const { json, preflight } = require('./_Lib/http');
 
 const VALID_CREATED_BY = ['student', 'aris'];
 

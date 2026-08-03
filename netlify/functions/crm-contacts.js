@@ -11,9 +11,9 @@
 //   POST { action: 'create', name, type, phone, email }
 //   POST { action: 'update', id, ...fields to change }
 
-const { verifyMember, AuthError } = require('./_lib/verify-member');
-const { supabase } = require('./_lib/supabase-client');
-const { json, preflight } = require('./_lib/http');
+const { verifyMember, AuthError } = require('./_Lib/verify-member');
+const { supabase } = require('./_Lib/supabase-client');
+const { json, preflight } = require('./_Lib/http');
 
 const VALID_TYPES = ['seller', 'buyer', 'lender', 'contractor'];
 

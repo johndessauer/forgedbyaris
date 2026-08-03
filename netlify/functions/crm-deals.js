@@ -12,9 +12,9 @@
 //   POST { action: 'update', id, ...fields to change (incl. stage) }
 //   POST { action: 'link_contact', deal_id, contact_id, role }
 
-const { verifyMember, AuthError } = require('./_lib/verify-member');
-const { supabase } = require('./_lib/supabase-client');
-const { json, preflight } = require('./_lib/http');
+const { verifyMember, AuthError } = require('./_Lib/verify-member');
+const { supabase } = require('./_Lib/supabase-client');
+const { json, preflight } = require('./_Lib/http');
 
 const VALID_STAGES = ['New Lead', 'Contacted', 'Qualified', 'Making Offer', 'Under Contract', 'Closed', 'Dead'];
 const VALID_DEAL_TYPES = ['wholesale', 'fix_flip', 'lt_rental', 'str_mtr', 'units_2_4', 'commercial_5plus'];
