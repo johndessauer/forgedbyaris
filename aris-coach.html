@@ -366,6 +366,27 @@
   }
   .msg-row.user .msg-meta { text-align: right; }
 
+  .voice-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    margin-left: 6px;
+    border-radius: 50%;
+    background: transparent;
+    border: none;
+    color: var(--grey);
+    cursor: pointer;
+    font-size: 11px;
+    vertical-align: -3px;
+    transition: color 0.15s, background 0.15s;
+  }
+  .voice-btn:hover { color: var(--gold); background: rgba(200,155,60,0.12); }
+  .voice-btn.loading { color: var(--gold); animation: voice-pulse 1s ease-in-out infinite; }
+  .voice-btn.playing { color: var(--orange); }
+  @keyframes voice-pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+
   .msg-bubble {
     padding: 13px 17px;
     border-radius: 12px;
@@ -899,6 +920,90 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
     return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
 
+  // ── ARIS VOICE (click-to-play TTS on finished ARIS responses) ──
+  // Only one clip plays at a time — starting a new one stops whatever's
+  // currently playing and resets that button back to idle.
+  let currentVoiceAudio = null;
+  let currentVoiceBtn = null;
+
+  function resetVoiceBtn(btn) {
+    btn.classList.remove('loading', 'playing');
+    btn.textContent = '🔊';
+    btn.title = 'Play ARIS\u2019s response';
+  }
+
+  function stopCurrentVoice() {
+    if (currentVoiceAudio) {
+      currentVoiceAudio.pause();
+      currentVoiceAudio.src = '';
+    }
+    if (currentVoiceBtn) resetVoiceBtn(currentVoiceBtn);
+    currentVoiceAudio = null;
+    currentVoiceBtn = null;
+  }
+
+  async function playARISVoice(text, btn) {
+    // Clicking the currently-playing button stops it rather than restarting.
+    if (currentVoiceBtn === btn && currentVoiceAudio) {
+      stopCurrentVoice();
+      return;
+    }
+    stopCurrentVoice();
+
+    btn.classList.add('loading');
+    btn.textContent = '\u2022\u2022\u2022';
+    btn.title = 'Loading...';
+
+    try {
+      const res = await fetch('/api/aris-voice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      if (!res.ok) throw new Error(`Voice request failed (${res.status})`);
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      currentVoiceAudio = audio;
+      currentVoiceBtn = btn;
+
+      btn.classList.remove('loading');
+      btn.classList.add('playing');
+      btn.textContent = '\u23f8';
+      btn.title = 'Stop';
+
+      audio.addEventListener('ended', () => {
+        URL.revokeObjectURL(url);
+        if (currentVoiceBtn === btn) { resetVoiceBtn(btn); currentVoiceAudio = null; currentVoiceBtn = null; }
+      });
+      audio.addEventListener('error', () => {
+        URL.revokeObjectURL(url);
+        if (currentVoiceBtn === btn) { resetVoiceBtn(btn); currentVoiceAudio = null; currentVoiceBtn = null; }
+      });
+
+      await audio.play();
+    } catch (err) {
+      console.error('ARIS voice playback failed:', err);
+      resetVoiceBtn(btn);
+      if (currentVoiceBtn === btn) { currentVoiceAudio = null; currentVoiceBtn = null; }
+    }
+  }
+
+  // Builds a real button node (not an HTML string) so the response text is
+  // captured in a closure rather than serialized into an onclick attribute —
+  // avoids any risk of quotes/special characters in ARIS's text breaking
+  // inline event-handler syntax.
+  function attachVoiceButton(metaEl, text) {
+    const btn = document.createElement('button');
+    btn.className = 'voice-btn';
+    btn.type = 'button';
+    btn.textContent = '🔊';
+    btn.title = 'Play ARIS\u2019s response';
+    btn.addEventListener('click', () => playARISVoice(text, btn));
+    metaEl.appendChild(btn);
+  }
+
   function appendMessage(role, text, isIntro = false) {
     const messages = document.getElementById('messages');
     const row = document.createElement('div');
@@ -915,6 +1020,7 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
       </div>
     `;
     messages.appendChild(row);
+    if (role === 'aris') attachVoiceButton(row.querySelector('.msg-meta'), text);
     messages.scrollTop = messages.scrollHeight;
   }
 
@@ -1354,6 +1460,7 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
     messages.appendChild(row);
     messages.scrollTop = messages.scrollHeight;
     const bubble = row.querySelector('.msg-bubble');
+    const metaEl = row.querySelector('.msg-meta');
     return {
       update(rawText) {
         bubble.innerHTML = escapeHtmlCoach(rawText).replace(/\n/g, '<br>') + '<span class="stream-cursor">▍</span>';
@@ -1361,6 +1468,7 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
       },
       finalize(rawText) {
         bubble.innerHTML = formatMarkdown(rawText);
+        attachVoiceButton(metaEl, rawText);
         messages.scrollTop = messages.scrollHeight;
       },
       remove() { row.remove(); }
