@@ -591,6 +591,22 @@
   .mic-btn:disabled { opacity: 0.5; cursor: not-allowed; }
   @keyframes mic-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,107,43,0.5); } 50% { box-shadow: 0 0 0 6px rgba(255,107,43,0); } }
 
+  .input-hint.recording-active {
+    color: var(--orange);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .rec-dot {
+    display: inline-block;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--orange);
+    animation: rec-dot-blink 1s ease-in-out infinite;
+  }
+  @keyframes rec-dot-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+
   /* ── DOCUMENT CARD (in chat) ── */
   .doc-card {
     display: flex;
@@ -788,7 +804,9 @@
           <svg viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66L9.41 17.41a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
         </button>
         <button class="mic-btn" id="mic-btn" onclick="toggleVoiceInput()" title="Speak to ARIS">
-          <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/></svg>
+          <span id="mic-icon">
+            <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/></svg>
+          </span>
         </button>
         <textarea
           id="user-input"
@@ -801,7 +819,7 @@
           <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
         </button>
       </div>
-      <div class="input-hint">Press Enter to send &nbsp;·&nbsp; Shift+Enter for new line &nbsp;·&nbsp; 📎 Upload PDF or image &nbsp;·&nbsp; 🎤 Click to speak to ARIS</div>
+      <div class="input-hint" id="input-hint">Press Enter to send &nbsp;·&nbsp; Shift+Enter for new line &nbsp;·&nbsp; 📎 Upload PDF or image &nbsp;·&nbsp; 🎤 Click to speak to ARIS</div>
     </div>
 
     <div style="text-align:center; padding: 16px 28px 12px; border-top: 1px solid rgba(200,155,60,0.15);">
@@ -1038,19 +1056,35 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
   let recordedChunks = [];
   let micStream = null;
 
+  const MIC_ICON = `<svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/></svg>`;
+  const STOP_ICON = `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>`;
+  const DEFAULT_HINT = 'Press Enter to send &nbsp;·&nbsp; Shift+Enter for new line &nbsp;·&nbsp; 📎 Upload PDF or image &nbsp;·&nbsp; 🎤 Click to speak to ARIS';
+
   function setMicState(state) {
     const btn = document.getElementById('mic-btn');
+    const icon = document.getElementById('mic-icon');
+    const hint = document.getElementById('input-hint');
     btn.classList.remove('recording', 'transcribing');
+    hint.classList.remove('recording-active');
     btn.disabled = false;
+
     if (state === 'recording') {
       btn.classList.add('recording');
       btn.title = 'Click to stop and send';
+      icon.innerHTML = STOP_ICON;
+      hint.classList.add('recording-active');
+      hint.innerHTML = '<span class="rec-dot"></span> Recording — click the mic again to stop and send';
     } else if (state === 'transcribing') {
       btn.classList.add('transcribing');
       btn.disabled = true;
       btn.title = 'Transcribing...';
+      icon.innerHTML = MIC_ICON;
+      hint.classList.add('recording-active');
+      hint.innerHTML = '<span class="rec-dot"></span> Transcribing your message...';
     } else {
       btn.title = 'Speak to ARIS';
+      icon.innerHTML = MIC_ICON;
+      hint.innerHTML = DEFAULT_HINT;
     }
   }
 
