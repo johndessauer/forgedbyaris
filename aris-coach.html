@@ -569,6 +569,28 @@
   .upload-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
   #file-input { display: none; }
 
+  /* ── MIC BUTTON (push-to-talk voice input) ── */
+  .mic-btn {
+    width: 36px; height: 36px;
+    border-radius: 7px;
+    background: var(--navy-light);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.15s, border-color 0.15s;
+    color: var(--gold);
+    position: relative;
+  }
+  .mic-btn:hover { background: var(--gold-dim); border-color: var(--gold); }
+  .mic-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .mic-btn.recording { background: var(--orange); border-color: var(--orange); color: white; animation: mic-pulse 1.2s ease-in-out infinite; }
+  .mic-btn.transcribing { background: var(--gold-dim); border-color: var(--gold); cursor: wait; }
+  .mic-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  @keyframes mic-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,107,43,0.5); } 50% { box-shadow: 0 0 0 6px rgba(255,107,43,0); } }
+
   /* ── DOCUMENT CARD (in chat) ── */
   .doc-card {
     display: flex;
@@ -765,6 +787,9 @@
         <button class="upload-btn" onclick="document.getElementById('file-input').click()" title="Upload document or image">
           <svg viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66L9.41 17.41a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
         </button>
+        <button class="mic-btn" id="mic-btn" onclick="toggleVoiceInput()" title="Speak to ARIS">
+          <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/></svg>
+        </button>
         <textarea
           id="user-input"
           placeholder="Ask ARIS anything about real estate investing..."
@@ -776,7 +801,7 @@
           <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
         </button>
       </div>
-      <div class="input-hint">Press Enter to send &nbsp;·&nbsp; Shift+Enter for new line &nbsp;·&nbsp; 📎 Upload PDF or image for analysis</div>
+      <div class="input-hint">Press Enter to send &nbsp;·&nbsp; Shift+Enter for new line &nbsp;·&nbsp; 📎 Upload PDF or image &nbsp;·&nbsp; 🎤 Click to speak to ARIS</div>
     </div>
 
     <div style="text-align:center; padding: 16px 28px 12px; border-top: 1px solid rgba(200,155,60,0.15);">
@@ -1002,6 +1027,103 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
     btn.title = 'Play ARIS\u2019s response';
     btn.addEventListener('click', () => playARISVoice(text, btn));
     metaEl.appendChild(btn);
+  }
+
+  // ── VOICE INPUT (push-to-talk mic \u2192 ElevenLabs Scribe \u2192 existing chat pipeline) ──
+  // Click once to start recording, click again to stop. On stop, the clip
+  // is sent for transcription and the resulting text is fed into the exact
+  // same sendMessage() flow as if it had been typed, so nothing about the
+  // conversation/tool-use logic needs to change for voice input to work.
+  let mediaRecorder = null;
+  let recordedChunks = [];
+  let micStream = null;
+
+  function setMicState(state) {
+    const btn = document.getElementById('mic-btn');
+    btn.classList.remove('recording', 'transcribing');
+    btn.disabled = false;
+    if (state === 'recording') {
+      btn.classList.add('recording');
+      btn.title = 'Click to stop and send';
+    } else if (state === 'transcribing') {
+      btn.classList.add('transcribing');
+      btn.disabled = true;
+      btn.title = 'Transcribing...';
+    } else {
+      btn.title = 'Speak to ARIS';
+    }
+  }
+
+  async function toggleVoiceInput() {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+      mediaRecorder.stop(); // onstop handler below does the rest
+      return;
+    }
+
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (err) {
+      console.error('Microphone access denied or unavailable:', err);
+      appendMessage('aris', "I couldn't access your microphone — check your browser's permission settings and try again.");
+      return;
+    }
+
+    micStream = stream;
+    recordedChunks = [];
+    // Let the browser pick its natively-supported format (webm on
+    // Chrome/Firefox, mp4 on Safari) rather than forcing one — the
+    // transcribe function reads whatever Content-Type comes through.
+    mediaRecorder = new MediaRecorder(stream);
+
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+    };
+
+    mediaRecorder.onstop = async () => {
+      micStream.getTracks().forEach((t) => t.stop());
+      micStream = null;
+
+      if (!recordedChunks.length) { setMicState('idle'); return; }
+
+      const mimeType = mediaRecorder.mimeType || 'audio/webm';
+      const blob = new Blob(recordedChunks, { type: mimeType });
+      recordedChunks = [];
+
+      if (blob.size < 1000) {
+        // Effectively silent/too-short clip — nothing worth transcribing.
+        setMicState('idle');
+        return;
+      }
+
+      setMicState('transcribing');
+      try {
+        const res = await fetch('/api/aris-transcribe', {
+          method: 'POST',
+          headers: { 'Content-Type': mimeType },
+          body: blob,
+        });
+        if (!res.ok) throw new Error(`Transcription failed (${res.status})`);
+        const { text } = await res.json();
+
+        setMicState('idle');
+
+        if (!text || !text.trim()) {
+          appendMessage('aris', "I didn't catch that — try speaking again, a little closer to the mic.");
+          return;
+        }
+
+        document.getElementById('user-input').value = text.trim();
+        await sendMessage();
+      } catch (err) {
+        console.error('Voice input failed:', err);
+        setMicState('idle');
+        appendMessage('aris', "I had trouble hearing that — check your connection and try again.");
+      }
+    };
+
+    mediaRecorder.start();
+    setMicState('recording');
   }
 
   function appendMessage(role, text, isIntro = false) {
