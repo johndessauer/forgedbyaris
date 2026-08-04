@@ -89,14 +89,17 @@ export default async (request, context) => {
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     });
   }
+  console.log(`aris-voice: request received, ${speechText.length} chars to speak`);
 
   const API_KEY = Netlify.env.get('ELEVENLABS_API_KEY');
   if (!API_KEY) {
+    console.error('aris-voice: ELEVENLABS_API_KEY is not set');
     return new Response(JSON.stringify({ error: 'ElevenLabs API key not configured' }), {
       status: 500,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     });
   }
+  console.log(`aris-voice: key present, length=${API_KEY.length}, first4=${API_KEY.slice(0, 4)}`);
 
   let upstream;
   try {
@@ -120,6 +123,7 @@ export default async (request, context) => {
       }),
     });
   } catch (err) {
+    console.error('aris-voice: failed to reach ElevenLabs:', err.message);
     return new Response(JSON.stringify({ error: 'Failed to reach ElevenLabs', detail: err.message }), {
       status: 502,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
@@ -128,6 +132,7 @@ export default async (request, context) => {
 
   if (!upstream.ok || !upstream.body) {
     const errText = await upstream.text();
+    console.error(`aris-voice: ElevenLabs returned ${upstream.status}: ${errText}`);
     return new Response(errText, {
       status: upstream.status,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
