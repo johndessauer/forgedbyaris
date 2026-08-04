@@ -109,8 +109,15 @@ export default async (request, context) => {
     });
   }
 
-  const text = (parsed.text || '').trim();
-  console.log(`aris-transcribe: transcribed ${audioBuffer.byteLength} bytes -> ${text.length} chars`);
+  const rawText = (parsed.text || '').trim();
+  // Scribe tags non-speech audio events in brackets — e.g. "[background
+  // noise]", "[silence]", "[laughter]". Strip these out: a clip that's
+  // ONLY tags has no real words and should read as "nothing was said,"
+  // and a clip with real speech plus a stray tag should send the clean
+  // words, not a message with a bracketed tag embedded in it.
+  const text = rawText.replace(/\[[^\]]*\]/g, '').replace(/\s{2,}/g, ' ').trim();
+
+  console.log(`aris-transcribe: transcribed ${audioBuffer.byteLength} bytes -> raw="${rawText.slice(0, 80)}" cleaned="${text.slice(0, 80)}"`);
 
   return new Response(JSON.stringify({ text }), {
     status: 200,
