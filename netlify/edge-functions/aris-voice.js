@@ -25,7 +25,7 @@ const VOICE_SETTINGS = {
   similarity_boost: 0.75,
   style: 0.18,
   use_speaker_boost: true,
-  speed: 1.05,
+  speed: 0.99,
 };
 
 const MAX_CHARS = 5000; // sane upper bound so a runaway request can't rack up huge TTS cost
