@@ -246,6 +246,50 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
   .dashboard-scroll { padding: 16px; }
   .module-grid { grid-template-columns: 1fr; }
 }
+
+/* ── PRIMARY CTA (Take the Quiz, Submit, Start Lesson) ── */
+.quiz-cta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, var(--gold), #a97e2e);
+  color: var(--black);
+  font-family: 'Inter', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.4px;
+  padding: 12px 26px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(200,155,60,0.35), inset 0 1px 0 rgba(255,255,255,0.25);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+.quiz-cta-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(200,155,60,0.5), inset 0 1px 0 rgba(255,255,255,0.3);
+  filter: brightness(1.06);
+}
+.quiz-cta-btn:active { transform: translateY(0); }
+
+/* ── SECONDARY (Back to Education, etc.) ── */
+.quiz-secondary-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  color: var(--grey-light);
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.3px;
+  padding: 10px 20px;
+  border: 1px solid var(--border-sub);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.quiz-secondary-btn:hover { border-color: var(--gold); color: var(--gold); }
 </style>
 <script src="https://static.memberstack.com/scripts/v1/memberstack.js" data-memberstack-app="app_cmr41qq5500q80tsx94pj61rc" defer></script>
 </head>
@@ -315,7 +359,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
         <div class="reader-title" id="reader-title"></div>
         <div id="reader-tier-tabs" style="display:flex;gap:6px;margin-bottom:20px;"></div>
         <div class="reader-body" id="reader-body"></div>
-        <button class="profile-edit-btn" id="reader-quiz-btn" onclick="startQuiz()" style="margin-top:0;">Take the Quiz</button>
+        <button class="quiz-cta-btn" id="reader-quiz-btn" onclick="startQuiz()" style="margin-top:0;">🎯 Take the Quiz</button>
       </div>
 
       <!-- QUIZ VIEW -->
@@ -323,14 +367,14 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
         <button class="reader-back" onclick="backToReader()">&larr; Back to Lesson</button>
         <div class="reader-title" id="quiz-title" style="margin-bottom:20px;"></div>
         <div id="quiz-questions"></div>
-        <button class="profile-edit-btn" id="quiz-submit-btn" onclick="submitQuiz()" style="margin-top:4px;">Submit Answers</button>
+        <button class="quiz-cta-btn" id="quiz-submit-btn" onclick="submitQuiz()" style="margin-top:4px;">✅ Submit Answers</button>
       </div>
 
       <!-- RESULTS VIEW -->
       <div id="view-results" style="display:none;">
         <div id="results-banner"></div>
         <div id="results-questions"></div>
-        <button class="profile-edit-btn" onclick="backToList()" style="margin-top:4px;">Back to Education</button>
+        <button class="quiz-secondary-btn" onclick="backToList()" style="margin-top:4px;">&larr; Back to Education</button>
       </div>
 
     </div>
@@ -557,7 +601,7 @@ async function showReaderTier(tier) {
     }
     document.getElementById('reader-body').innerHTML = formatLesson(tierContent[tier]);
     document.getElementById('reader-quiz-btn').style.display = currentQuestions.length ? 'inline-block' : 'none';
-    document.getElementById('reader-quiz-btn').textContent = `Take the ${TIER_META[tier].label} Quiz`;
+    document.getElementById('reader-quiz-btn').textContent = `🎯 Take the ${TIER_META[tier].label} Quiz`;
   }
 
   ['rookie', 'investor', 'mogul'].forEach(t => {
@@ -633,7 +677,7 @@ async function submitQuiz() {
     bannerHtml += `
       <div style="text-align:center;padding:16px;margin-top:12px;border:1px solid ${meta.color}55;border-radius:10px;background:${meta.color}11;">
         <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1px;color:${meta.color};">${meta.icon} ${meta.label.toUpperCase()} TIER UNLOCKED</div>
-        <button class="profile-edit-btn" style="margin-top:12px;" onclick="goToUnlockedTier('${unlockedNextTier}')">Start ${meta.label} Lesson</button>
+        <button class="quiz-cta-btn" style="margin-top:12px;" onclick="goToUnlockedTier('${unlockedNextTier}')">🚀 Start ${meta.label} Lesson</button>
       </div>
     `;
   } else if (passed && !unlockedNextTier) {
