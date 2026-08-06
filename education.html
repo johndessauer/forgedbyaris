@@ -229,6 +229,13 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 .quiz-score-banner { text-align: center; padding: 20px; border-radius: 10px; margin-bottom: 20px; font-family: 'Bebas Neue', sans-serif; font-size: 24px; letter-spacing: 1px; }
 .quiz-score-banner.pass { background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3); color: #22c55e; }
 .quiz-score-banner.fail { background: var(--red-dim); border: 1px solid rgba(239,68,68,0.3); color: var(--red); }
+
+/* This class was used throughout the page but never actually defined —
+   .main has overflow:hidden, so without this rule any content taller
+   than the viewport was being silently clipped instead of scrolling. */
+.dashboard-scroll { flex: 1; overflow-y: auto; padding: 24px 28px 32px; display: flex; flex-direction: column; gap: 24px; }
+.dashboard-scroll::-webkit-scrollbar { width: 4px; }
+.dashboard-scroll::-webkit-scrollbar-thumb { background: var(--border-sub); border-radius: 2px; }
 </style>
 <script src="https://static.memberstack.com/scripts/v1/memberstack.js" data-memberstack-app="app_cmr41qq5500q80tsx94pj61rc" defer></script>
 </head>
