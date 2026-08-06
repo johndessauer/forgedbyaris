@@ -487,6 +487,10 @@ const TIER_META = {
   mogul: { label: 'Mogul', color: '#FF6B2B', icon: '👑' },
 };
 
+// Mirrors the server's actual per-tier pass threshold (education-data.js)
+// — only used here for display text, the server is the real enforcement.
+const PASS_THRESHOLD_LABEL = { rookie: '80%', investor: '100%', mogul: '100%' };
+
 async function openModule(id) {
   currentTier = 'rookie';
   const res = await fetch(`/api/education-data?action=get&id=${id}&tier=rookie`, {
@@ -576,13 +580,14 @@ async function showReaderTier(tier) {
   const tierContent = { rookie: mod.content, investor: mod.content_investor, mogul: mod.content_mogul };
 
   if (!unlocked) {
-    const prior = tier === 'mogul' ? 'Investor' : 'Rookie';
+    const prior = tier === 'mogul' ? 'investor' : 'rookie';
+    const priorLabel = TIER_META[prior].label;
     const meta = TIER_META[tier];
     document.getElementById('reader-body').innerHTML = `
       <div style="text-align:center;padding:48px 20px;color:var(--grey);">
         <div style="font-size:32px;margin-bottom:12px;">🔒</div>
         <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;color:${meta.color};margin-bottom:8px;">${meta.label.toUpperCase()} IS LOCKED</div>
-        <div style="font-size:13px;">Score 100% on the ${prior} quiz to unlock this tier.</div>
+        <div style="font-size:13px;">Score ${PASS_THRESHOLD_LABEL[prior]} on the ${priorLabel} quiz to unlock this tier.</div>
       </div>
     `;
     document.getElementById('reader-quiz-btn').style.display = 'none';
@@ -628,7 +633,7 @@ function startQuiz() {
 
   document.getElementById('quiz-questions').innerHTML = `
     <div style="text-align:center;margin-bottom:16px;">${tierBadge(currentTier)}</div>
-    <div style="text-align:center;font-size:12px;color:var(--grey);margin-bottom:20px;">Score 100% to unlock the next tier. You can retake this as many times as you need.</div>
+    <div style="text-align:center;font-size:12px;color:var(--grey);margin-bottom:20px;">Score ${PASS_THRESHOLD_LABEL[currentTier]} to unlock the next tier. You can retake this as many times as you need.</div>
   ` + currentQuestions.map((q, qi) => `
     <div class="quiz-card">
       <div class="quiz-q">${qi + 1}. ${escapeHtml(q.question)}</div>

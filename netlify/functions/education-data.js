@@ -22,6 +22,13 @@ const { supabase } = require('./_Lib/supabase-client');
 const { json, preflight } = require('./_Lib/http');
 
 const TIER_ORDER = ['rookie', 'investor', 'mogul'];
+
+// Pass threshold per tier — not uniform on purpose. Rookie moved to 80%
+// once it grew to 12 questions per topic (Aug 2026); Investor and Mogul
+// stay at 100% until they're expanded the same way, since a percentage
+// threshold doesn't work cleanly on a small question count (e.g. there's
+// no way to score exactly 80% on 4 questions).
+const PASS_THRESHOLD = { rookie: 0.8, investor: 1.0, mogul: 1.0 };
 const VALID_TIERS = new Set(TIER_ORDER);
 
 function priorTier(tier) {
@@ -162,7 +169,7 @@ exports.handler = async function (event, context) {
         }));
         const score = results.filter((r) => r.correct).length;
         const total = questions.length;
-        const passed = score === total;
+        const passed = total > 0 && (score / total) >= (PASS_THRESHOLD[effectiveTier] ?? 1.0);
 
         const { error: upsertError } = await supabase
           .from('education_progress')
