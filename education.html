@@ -356,6 +356,7 @@ let memberToken = null;
 let currentModule = null;
 let currentQuestions = null;
 let selectedAnswers = [];
+let currentTier = 'rookie';
 
 function waitForMemberstack(maxWaitMs = 6000, intervalMs = 100) {
   return new Promise((resolve, reject) => {
@@ -418,9 +419,10 @@ async function loadModules() {
       <div class="category-title">${escapeHtml(category)}</div>
       <div class="module-grid">
         ${mods.map(m => {
-          const done = m.progress && m.progress.completed;
-          const statusHtml = done
-            ? `<div class="module-card-status done">✓ Completed — ${m.progress.quiz_score}/${m.progress.quiz_total}</div>`
+          const p = m.progress || {};
+          const highestPassed = ['mogul', 'investor', 'rookie'].find(t => p[t] && p[t].passed);
+          const statusHtml = highestPassed
+            ? `<div class="module-card-status done">${TIER_META[highestPassed].icon} ${TIER_META[highestPassed].label} passed</div>`
             : `<div class="module-card-status todo">Not started</div>`;
           return `
             <div class="module-card" onclick="openModule('${m.id}')">
@@ -442,19 +444,20 @@ const TIER_META = {
 };
 
 async function openModule(id) {
-  const res = await fetch(`/api/education-data?action=get&id=${id}`, {
+  currentTier = 'rookie';
+  const res = await fetch(`/api/education-data?action=get&id=${id}&tier=rookie`, {
     headers: { Authorization: `Bearer ${memberToken}` },
   });
   if (!res.ok) { alert('Could not load this lesson.'); return; }
-  const { module: mod, questions } = await res.json();
+  const { module: mod, questions, progressByTier } = await res.json();
   currentModule = mod;
+  currentModule._progressByTier = progressByTier || {};
   currentQuestions = questions;
 
   document.getElementById('reader-category').textContent = mod.category;
   document.getElementById('reader-title').textContent = mod.title;
-  document.getElementById('reader-quiz-btn').style.display = questions.length ? 'inline-block' : 'none';
 
-  renderTierTabs(mod);
+  renderTierTabs();
   showView('reader');
 }
 
@@ -476,44 +479,96 @@ function formatLesson(text) {
     .join('');
 }
 
-function renderTierTabs(mod) {
+// A tier is unlocked if it's rookie (always available), or if the tier
+// immediately before it has a passed:true progress row. This mirrors the
+// server's own check in submit_quiz — this client-side version is purely
+// for UI state (showing locks, disabling buttons); the server enforces
+// the real boundary regardless of what the client shows.
+function isTierUnlocked(tier, progressByTier) {
+  const order = ['rookie', 'investor', 'mogul'];
+  const idx = order.indexOf(tier);
+  if (idx <= 0) return true;
+  const prior = order[idx - 1];
+  return !!(progressByTier && progressByTier[prior] && progressByTier[prior].passed);
+}
+
+function renderTierTabs() {
+  const mod = currentModule;
   const tierContent = { rookie: mod.content, investor: mod.content_investor, mogul: mod.content_mogul };
   const available = Object.keys(tierContent).filter(t => tierContent[t] && tierContent[t].trim());
 
   const tabsEl = document.getElementById('reader-tier-tabs');
   if (available.length <= 1) {
-    // Only one tier written (or none) — no point showing tabs for a
-    // single option, just render whatever content exists directly.
+    // Only one tier written — no point showing tabs for a single option.
     tabsEl.innerHTML = '';
     document.getElementById('reader-body').innerHTML = formatLesson(tierContent.rookie || tierContent[available[0]] || '');
+    document.getElementById('reader-quiz-btn').style.display = currentQuestions.length ? 'inline-block' : 'none';
     return;
   }
 
+  const progressByTier = mod._progressByTier || {};
   tabsEl.innerHTML = available.map(t => {
     const meta = TIER_META[t];
+    const unlocked = isTierUnlocked(t, progressByTier);
+    const passed = progressByTier[t] && progressByTier[t].passed;
+    const lockIcon = unlocked ? '' : '🔒 ';
+    const checkIcon = passed ? ' ✓' : '';
     return `<button type="button" id="reader-tab-${t}" onclick="showReaderTier('${t}')"
       style="padding:7px 16px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;cursor:pointer;
-        border:1px solid var(--border-sub);background:transparent;color:var(--grey);">
-      ${meta.icon} ${meta.label}
+        border:1px solid var(--border-sub);background:transparent;color:${unlocked ? 'var(--grey)' : '#4B5563'};">
+      ${lockIcon}${meta.icon} ${meta.label}${checkIcon}
     </button>`;
   }).join('');
 
-  currentModule._tierContent = tierContent;
-  showReaderTier(available[0]);
+  showReaderTier(available.includes(currentTier) ? currentTier : available[0]);
 }
 
-function showReaderTier(tier) {
-  const content = currentModule._tierContent ? currentModule._tierContent[tier] : currentModule.content;
-  document.getElementById('reader-body').innerHTML = formatLesson(content);
+async function showReaderTier(tier) {
+  const mod = currentModule;
+  const progressByTier = mod._progressByTier || {};
+  const unlocked = isTierUnlocked(tier, progressByTier);
+  currentTier = tier;
+
+  const tierContent = { rookie: mod.content, investor: mod.content_investor, mogul: mod.content_mogul };
+
+  if (!unlocked) {
+    const prior = tier === 'mogul' ? 'Investor' : 'Rookie';
+    const meta = TIER_META[tier];
+    document.getElementById('reader-body').innerHTML = `
+      <div style="text-align:center;padding:48px 20px;color:var(--grey);">
+        <div style="font-size:32px;margin-bottom:12px;">🔒</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;color:${meta.color};margin-bottom:8px;">${meta.label.toUpperCase()} IS LOCKED</div>
+        <div style="font-size:13px;">Score 100% on the ${prior} quiz to unlock this tier.</div>
+      </div>
+    `;
+    document.getElementById('reader-quiz-btn').style.display = 'none';
+    currentQuestions = [];
+  } else {
+    // Fetch this tier's questions fresh — only rookie's were preloaded
+    // when the module first opened.
+    const res = await fetch(`/api/education-data?action=get&id=${mod.id}&tier=${tier}`, {
+      headers: { Authorization: `Bearer ${memberToken}` },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      currentQuestions = data.questions || [];
+    } else {
+      currentQuestions = [];
+    }
+    document.getElementById('reader-body').innerHTML = formatLesson(tierContent[tier]);
+    document.getElementById('reader-quiz-btn').style.display = currentQuestions.length ? 'inline-block' : 'none';
+    document.getElementById('reader-quiz-btn').textContent = `Take the ${TIER_META[tier].label} Quiz`;
+  }
 
   ['rookie', 'investor', 'mogul'].forEach(t => {
     const btn = document.getElementById('reader-tab-' + t);
     if (!btn) return;
     const meta = TIER_META[t];
     const active = t === tier;
+    const tUnlocked = isTierUnlocked(t, progressByTier);
     btn.style.borderColor = active ? meta.color : 'var(--border-sub)';
     btn.style.background = active ? meta.color + '22' : 'transparent';
-    btn.style.color = active ? meta.color : 'var(--grey)';
+    btn.style.color = active ? meta.color : (tUnlocked ? 'var(--grey)' : '#4B5563');
   });
 }
 
@@ -522,33 +577,22 @@ function tierBadge(difficulty) {
   return `<span style="display:inline-block;font-size:10px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;padding:3px 9px;border-radius:20px;background:${t.color}22;color:${t.color};margin-bottom:10px;">${t.icon} ${t.label}</span>`;
 }
 
-function tierTransitionBanner(difficulty) {
-  const t = TIER_META[difficulty] || TIER_META.rookie;
-  return `<div style="text-align:center;padding:14px;margin:20px 0 16px;border-top:1px solid ${t.color}44;border-bottom:1px solid ${t.color}44;">
-    <span style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;color:${t.color};">${t.icon} ENTERING ${t.label.toUpperCase()} TIER</span>
-  </div>`;
-}
-
 function startQuiz() {
+  if (!currentQuestions.length) return;
   selectedAnswers = new Array(currentQuestions.length).fill(null);
-  document.getElementById('quiz-title').textContent = currentModule.title + ' — Quiz';
+  document.getElementById('quiz-title').textContent = `${currentModule.title} — ${TIER_META[currentTier].label} Quiz`;
 
-  let lastTier = null;
-  document.getElementById('quiz-questions').innerHTML = currentQuestions.map((q, qi) => {
-    const difficulty = q.difficulty || 'rookie';
-    const showTransition = difficulty !== lastTier;
-    lastTier = difficulty;
-    return `
-      ${showTransition ? tierTransitionBanner(difficulty) : ''}
-      <div class="quiz-card">
-        ${tierBadge(difficulty)}
-        <div class="quiz-q">${qi + 1}. ${escapeHtml(q.question)}</div>
-        ${q.options.map((opt, oi) => `
-          <div class="quiz-option" id="q${qi}-o${oi}" onclick="selectAnswer(${qi}, ${oi})">${escapeHtml(opt)}</div>
-        `).join('')}
-      </div>
-    `;
-  }).join('');
+  document.getElementById('quiz-questions').innerHTML = `
+    <div style="text-align:center;margin-bottom:16px;">${tierBadge(currentTier)}</div>
+    <div style="text-align:center;font-size:12px;color:var(--grey);margin-bottom:20px;">Score 100% to unlock the next tier. You can retake this as many times as you need.</div>
+  ` + currentQuestions.map((q, qi) => `
+    <div class="quiz-card">
+      <div class="quiz-q">${qi + 1}. ${escapeHtml(q.question)}</div>
+      ${q.options.map((opt, oi) => `
+        <div class="quiz-option" id="q${qi}-o${oi}" onclick="selectAnswer(${qi}, ${oi})">${escapeHtml(opt)}</div>
+      `).join('')}
+    </div>
+  `).join('');
   showView('quiz');
 }
 
@@ -567,20 +611,40 @@ async function submitQuiz() {
   const res = await fetch('/api/education-data', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${memberToken}` },
-    body: JSON.stringify({ action: 'submit_quiz', moduleId: currentModule.id, answers: selectedAnswers }),
+    body: JSON.stringify({ action: 'submit_quiz', moduleId: currentModule.id, tier: currentTier, answers: selectedAnswers }),
   });
+  if (res.status === 403) {
+    const { error } = await res.json();
+    alert(error || 'This tier is still locked.');
+    backToReader();
+    return;
+  }
   if (!res.ok) { alert('Could not submit quiz — check your connection and try again.'); return; }
-  const { score, total, results } = await res.json();
+  const { score, total, passed, results, unlockedNextTier } = await res.json();
 
-  const passed = score === total;
-  document.getElementById('results-banner').innerHTML = `
-    <div class="quiz-score-banner ${passed ? 'pass' : 'fail'}">You scored ${score} / ${total}</div>
-  `;
+  // Update local progress state immediately so tabs reflect the new
+  // unlock without needing a full module reload.
+  currentModule._progressByTier = currentModule._progressByTier || {};
+  currentModule._progressByTier[currentTier] = { passed, quiz_score: score, quiz_total: total };
+
+  let bannerHtml = `<div class="quiz-score-banner ${passed ? 'pass' : 'fail'}">You scored ${score} / ${total}</div>`;
+  if (passed && unlockedNextTier) {
+    const meta = TIER_META[unlockedNextTier];
+    bannerHtml += `
+      <div style="text-align:center;padding:16px;margin-top:12px;border:1px solid ${meta.color}55;border-radius:10px;background:${meta.color}11;">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1px;color:${meta.color};">${meta.icon} ${meta.label.toUpperCase()} TIER UNLOCKED</div>
+        <button class="profile-edit-btn" style="margin-top:12px;" onclick="goToUnlockedTier('${unlockedNextTier}')">Start ${meta.label} Lesson</button>
+      </div>
+    `;
+  } else if (passed && !unlockedNextTier) {
+    bannerHtml += `<div style="text-align:center;padding:12px;margin-top:12px;color:var(--gold);font-size:13px;">👑 You've completed every tier in this module.</div>`;
+  }
+  document.getElementById('results-banner').innerHTML = bannerHtml;
+
   document.getElementById('results-questions').innerHTML = currentQuestions.map((q, qi) => {
     const r = results[qi];
     return `
       <div class="quiz-card">
-        ${tierBadge(q.difficulty || 'rookie')}
         <div class="quiz-q">${qi + 1}. ${escapeHtml(q.question)}</div>
         ${q.options.map((opt, oi) => {
           let cls = 'quiz-option';
@@ -594,6 +658,12 @@ async function submitQuiz() {
   }).join('');
 
   showView('results');
+}
+
+function goToUnlockedTier(tier) {
+  showView('reader');
+  showReaderTier(tier);
+  renderTierTabs();
 }
 
 function backToList() { loadModules(); showView('list'); }
