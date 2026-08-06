@@ -5,6 +5,9 @@
 //     income, vacancy rate, ownership rate, total housing units
 //   - Census Geocoder (free, no key): resolves a "City, ST" query to a
 //     county FIPS code when the input isn't a ZIP code
+//   - Zippopotam.us (free, no key): resolves a ZIP code to its city/state
+//     for display, since Census ACS's own NAME field returns a raw
+//     ZCTA label (e.g. "ZCTA5 90740"), not a human place name
 //   - FRED: current 30-year fixed mortgage rate
 //
 // IMPORTANT — this is real ACS data, not live MLS pricing. ACS 5-Year
@@ -35,6 +38,24 @@ const ACS_VARS = [
   'B25003_001E', // total occupied housing units
   'B25003_002E'  // owner-occupied units
 ].join(',');
+
+// Resolves a ZIP code to "City, ST" via Zippopotam.us. Non-fatal — returns
+// null on any failure so the caller can fall back to a ZIP-only label.
+async function resolveZipCityState(zip) {
+  try {
+    const res = await fetch(`https://api.zippopotam.us/us/${zip}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const place = data?.places?.[0];
+    if (!place) return null;
+    const city = place['place name'];
+    const state = place['state abbreviation'];
+    if (!city || !state) return null;
+    return `${city}, ${state}`;
+  } catch (e) {
+    return null;
+  }
+}
 
 exports.handler = async function (event, context) {
   if (event.httpMethod !== 'POST') {
@@ -80,7 +101,12 @@ exports.handler = async function (event, context) {
       if (!res.ok) throw new Error('Census ACS lookup failed for that ZIP code.');
       acsRows = await res.json();
       if (!acsRows || acsRows.length < 2) throw new Error('No ACS data for that ZIP code.');
-      geoLabel = `ZIP ${query}`;
+
+      // Census ACS's own NAME field for a ZCTA is a raw label like
+      // "ZCTA5 90740" — not a human place name. Resolve the real city/state
+      // separately; fall back to the ZIP-only label if that lookup fails.
+      const cityState = await resolveZipCityState(query);
+      geoLabel = cityState ? `${cityState} (${query})` : `ZIP ${query}`;
     } else {
       // Resolve city/state text to a county FIPS via the free Census Geocoder
       const geoUrl = `https://geocoding.geo.census.gov/geocoder/geographies/onelineaddress?address=${encodeURIComponent(query)}&benchmark=Public_AR_Current&vintage=Current_Current&layers=Counties&format=json`;
@@ -154,7 +180,7 @@ exports.handler = async function (event, context) {
       statusCode: 200,
       headers: CORS_HEADERS,
       body: JSON.stringify({
-        geoLabel: rec.NAME || geoLabel,
+        geoLabel,
         medianHomeValue,
         medianRent,
         medianIncome,
