@@ -43,3 +43,13 @@
   from = "/api/calendar-feed"
   to = "/.netlify/functions/calendar-feed"
   status = 200
+
+[[redirects]]
+  from = "/api/education-data"
+  to = "/.netlify/functions/education-data"
+  status = 200
+
+[[redirects]]
+  from = "/api/education-admin"
+  to = "/.netlify/functions/education-admin"
+  status = 200

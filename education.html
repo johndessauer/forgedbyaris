@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Education | FORGE</title>
+<link rel="icon" type="image/png" href="data:image/png;base64,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" sizes="96x96" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="shortcut icon" href="/favicon.ico" />
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --black:      #0D1B2A;
+  --navy:       #0f2035;
+  --navy-light: #162840;
+  --navy-mid:   #1a3350;
+  --orange:     #FF6B2B;
+  --orange-dim: rgba(255,107,43,0.12);
+  --gold:       #C89B3C;
+  --gold-dim:   rgba(200,155,60,0.15);
+  --green:      #22c55e;
+  --green-dim:  rgba(34,197,94,0.12);
+  --red:        #ef4444;
+  --red-dim:    rgba(239,68,68,0.12);
+  --yellow:     #f59e0b;
+  --yellow-dim: rgba(245,158,11,0.12);
+  --white:      #FFFFFF;
+  --grey:       #6B7280;
+  --grey-light: #9CA3AF;
+  --border:     rgba(200,155,60,0.18);
+  --border-sub: rgba(255,255,255,0.06);
+  --sidebar-w:  260px;
+}
+
+html, body { height: 100%; background: var(--black); color: var(--white); font-family: 'Inter', sans-serif; overflow: hidden; }
+
+/* ── LAYOUT ── */
+.app { display: flex; height: 100vh; width: 100vw; }
+
+/* ── SIDEBAR ── */
+.sidebar { width: var(--sidebar-w); min-width: var(--sidebar-w); background: var(--navy); border-right: 1px solid var(--border-sub); display: flex; flex-direction: column; overflow: hidden; }
+.sidebar-logo { padding: 24px 20px 20px; border-bottom: 1px solid var(--border-sub); display: flex; align-items: center; gap: 12px; }
+.logo-mark { width: 144px; height: 144px; background: transparent; border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.logo-mark img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.logo-words { line-height: 1; }
+.logo-words .wordmark { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 3px; color: var(--white); }
+.logo-words .wordmark span { color: var(--gold); }
+.logo-words .sub { font-size: 9px; letter-spacing: 2px; color: var(--grey); text-transform: uppercase; margin-top: 2px; }
+.sidebar-section { padding: 20px 14px 8px; }
+.sidebar-section-label { font-size: 9px; letter-spacing: 2.5px; text-transform: uppercase; color: var(--grey); padding: 0 6px; margin-bottom: 6px; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--grey-light); transition: background 0.15s, color 0.15s; text-decoration: none; user-select: none; }
+.nav-item:hover { background: var(--border-sub); color: var(--white); }
+.nav-item.active { background: var(--orange-dim); color: var(--orange); border: 1px solid rgba(255,107,43,0.2); }
+.nav-icon { font-size: 15px; width: 18px; text-align: center; flex-shrink: 0; }
+.nav-badge { margin-left: auto; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; background: var(--border-sub); color: var(--grey); padding: 2px 6px; border-radius: 3px; white-space: nowrap; flex-shrink: 0; }
+.sidebar-footer { margin-top: auto; padding: 16px 14px; border-top: 1px solid var(--border-sub); }
+.user-chip { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; background: var(--border-sub); }
+.user-avatar { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, var(--gold), #a07820); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--black); flex-shrink: 0; }
+.user-info { line-height: 1.2; min-width: 0; }
+.user-name { font-size: 12px; font-weight: 600; color: var(--white); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-tier { font-size: 10px; color: var(--gold); letter-spacing: 1px; text-transform: uppercase; }
+
+/* ── MAIN ── */
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+/* ── TOP BAR ── */
+.topbar { display: flex; align-items: center; justify-content: space-between; padding: 16px 28px; border-bottom: 1px solid var(--border-sub); flex-shrink: 0; }
+.topbar-left { display: flex; align-items: center; gap: 14px; }
+.topbar-icon { width: 42px; height: 42px; border-radius: 50%; background: linear-gradient(135deg, var(--navy-light), var(--black)); border: 1.5px solid var(--gold); display: flex; align-items: center; justify-content: center; font-size: 18px; }
+.topbar-title { line-height: 1.2; }
+.topbar-name { font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 3px; color: var(--white); }
+.topbar-sub { font-size: 11px; color: var(--grey); letter-spacing: 1px; }
+
+/* ── CONTENT ── */
+.content { flex: 1; display: flex; overflow: hidden; }
+
+/* ── SEARCH PANEL ── */
+.search-panel { width: 380px; min-width: 380px; display: flex; flex-direction: column; border-right: 1px solid var(--border-sub); overflow: hidden; }
+
+.search-inner { flex: 1; overflow-y: auto; padding: 24px 20px; }
+.search-inner::-webkit-scrollbar { width: 4px; }
+.search-inner::-webkit-scrollbar-thumb { background: var(--border-sub); border-radius: 2px; }
+
+.search-headline { font-family: 'Bebas Neue', sans-serif; font-size: 13px; letter-spacing: 3px; color: var(--gold); margin-bottom: 6px; }
+.search-desc { font-size: 12px; color: var(--grey); line-height: 1.6; margin-bottom: 24px; }
+
+.search-box { display: flex; gap: 8px; margin-bottom: 16px; }
+.search-input { flex: 1; background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 8px; padding: 12px 16px; font-size: 14px; font-family: 'Inter', sans-serif; color: var(--white); outline: none; transition: border-color 0.15s; }
+.search-input:focus { border-color: var(--gold); }
+.search-input::placeholder { color: var(--grey); }
+.search-btn { background: var(--orange); border: none; border-radius: 8px; padding: 12px 18px; font-size: 13px; font-weight: 600; font-family: 'Inter', sans-serif; color: white; cursor: pointer; transition: background 0.15s; white-space: nowrap; }
+.search-btn:hover { background: #e55a1c; }
+.search-btn:disabled { background: var(--grey); cursor: default; }
+
+.search-examples { margin-bottom: 24px; }
+.example-label { font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--grey); margin-bottom: 8px; }
+.example-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.pill { font-size: 11px; padding: 4px 10px; border-radius: 20px; background: var(--border-sub); color: var(--grey-light); cursor: pointer; border: 1px solid var(--border-sub); transition: all 0.15s; }
+.pill:hover { background: var(--gold-dim); border-color: var(--gold); color: var(--gold); }
+
+.strategy-filter { margin-bottom: 24px; }
+.strategy-label { font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--grey); margin-bottom: 10px; }
+.strategy-btns { display: flex; flex-direction: column; gap: 6px; }
+.strategy-btn { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 7px; border: 1px solid var(--border-sub); background: none; cursor: pointer; font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 500; color: var(--grey-light); transition: all 0.15s; text-align: left; }
+.strategy-btn:hover { background: var(--border-sub); color: var(--white); }
+.strategy-btn.active { border-color: var(--orange); background: var(--orange-dim); color: var(--orange); }
+.strategy-icon { font-size: 16px; width: 22px; text-align: center; }
+.strategy-info { line-height: 1.3; }
+.strategy-name { font-size: 12px; font-weight: 600; }
+.strategy-hint { font-size: 10px; color: var(--grey); margin-top: 1px; }
+.strategy-btn.active .strategy-hint { color: rgba(255,107,43,0.7); }
+
+/* ── RESULTS PANEL ── */
+.results-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+/* empty state */
+.empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--grey); padding: 40px; text-align: center; }
+.empty-icon { font-size: 48px; opacity: 0.3; }
+.empty-title { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 3px; color: var(--grey); }
+.empty-sub { font-size: 12px; line-height: 1.6; max-width: 300px; }
+
+/* loading state */
+.loading-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
+.loading-pulse { width: 56px; height: 56px; border-radius: 50%; border: 3px solid var(--border-sub); border-top-color: var(--gold); animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { font-size: 13px; color: var(--grey); letter-spacing: 1px; }
+
+/* results scroll */
+.results-scroll { flex: 1; overflow-y: auto; padding: 24px 28px; display: flex; flex-direction: column; gap: 20px; }
+.results-scroll::-webkit-scrollbar { width: 4px; }
+.results-scroll::-webkit-scrollbar-thumb { background: var(--border-sub); border-radius: 2px; }
+
+/* market header */
+.market-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.market-location { line-height: 1.2; }
+.market-name { font-family: 'Bebas Neue', sans-serif; font-size: 26px; letter-spacing: 3px; color: var(--white); }
+.market-sub { font-size: 12px; color: var(--grey); margin-top: 2px; }
+.data-freshness { font-size: 10px; color: var(--grey); letter-spacing: 1px; background: var(--border-sub); padding: 4px 10px; border-radius: 4px; white-space: nowrap; margin-top: 4px; }
+
+/* overall score card */
+.score-card { background: var(--navy-light); border: 1px solid var(--border); border-radius: 12px; padding: 20px 24px; display: flex; align-items: center; gap: 24px; }
+.score-dial { position: relative; flex-shrink: 0; }
+.score-dial svg { width: 90px; height: 90px; }
+.score-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; line-height: 1; }
+.score-number { font-family: 'Bebas Neue', sans-serif; font-size: 28px; color: var(--white); }
+.score-label { font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--grey); }
+.score-details { flex: 1; }
+.score-title { font-family: 'Bebas Neue', sans-serif; font-size: 14px; letter-spacing: 2px; color: var(--gold); margin-bottom: 4px; }
+.score-class { font-size: 22px; font-weight: 700; color: var(--white); margin-bottom: 6px; }
+.score-verdict { font-size: 12px; color: var(--grey-light); line-height: 1.5; }
+
+/* strategy scores */
+.strategy-scores { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.strategy-card { background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 10px; padding: 16px; transition: border-color 0.2s; }
+.strategy-card.highlighted { border-color: var(--orange); background: var(--navy-mid); }
+.strategy-card-icon { font-size: 20px; margin-bottom: 8px; }
+.strategy-card-name { font-family: 'Bebas Neue', sans-serif; font-size: 13px; letter-spacing: 2px; color: var(--grey-light); margin-bottom: 8px; }
+.strategy-score-bar { height: 4px; background: var(--border-sub); border-radius: 2px; margin-bottom: 6px; overflow: hidden; }
+.strategy-score-fill { height: 100%; border-radius: 2px; transition: width 0.8s ease; }
+.strategy-score-fill.green { background: var(--green); }
+.strategy-score-fill.yellow { background: var(--yellow); }
+.strategy-score-fill.red { background: var(--red); }
+.strategy-score-num { font-size: 20px; font-weight: 700; color: var(--white); }
+.strategy-score-grade { font-size: 11px; color: var(--grey); margin-top: 2px; }
+
+/* data grid */
+.data-section-label { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--gold); margin-bottom: 12px; }
+.data-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.data-cell { background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 8px; padding: 14px; }
+.data-cell-label { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--grey); margin-bottom: 6px; }
+.data-cell-value { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 1px; color: var(--white); }
+.data-cell-sub { font-size: 10px; color: var(--grey); margin-top: 2px; }
+.data-cell-badge { display: inline-block; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; padding: 2px 7px; border-radius: 3px; margin-top: 4px; font-weight: 600; }
+.badge-a { background: var(--green-dim); color: var(--green); border: 1px solid rgba(34,197,94,0.2); }
+.badge-b { background: var(--gold-dim); color: var(--gold); border: 1px solid rgba(200,155,60,0.2); }
+.badge-c { background: var(--red-dim); color: var(--red); border: 1px solid rgba(239,68,68,0.2); }
+
+/* ARIS panel */
+.aris-panel { background: linear-gradient(135deg, var(--navy-mid), var(--navy-light)); border: 1px solid var(--border); border-radius: 12px; padding: 20px 24px; }
+.aris-panel-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.aris-orb { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, var(--orange), #c04a10); display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+.aris-panel-title { font-family: 'Bebas Neue', sans-serif; font-size: 13px; letter-spacing: 2px; color: var(--orange); }
+.aris-panel-sub { font-size: 10px; color: var(--grey); }
+.aris-loading { display: flex; align-items: center; gap: 10px; color: var(--grey); font-size: 12px; }
+.aris-dots span { animation: blink 1.4s infinite; font-size: 16px; color: var(--orange); }
+.aris-dots span:nth-child(2) { animation-delay: 0.2s; }
+.aris-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes blink { 0%,80%,100% { opacity: 0.2; } 40% { opacity: 1; } }
+.aris-text { font-size: 13px; color: var(--grey-light); line-height: 1.7; }
+.aris-text strong { color: var(--white); font-weight: 600; }
+.aris-text .highlight { color: var(--gold); font-weight: 600; }
+
+/* error state */
+.error-notice { background: var(--red-dim); border: 1px solid rgba(239,68,68,0.2); border-radius: 8px; padding: 12px 16px; font-size: 12px; color: var(--red); }
+
+/* ── EDUCATION ── */
+.category-block { margin-bottom: 28px; }
+.category-title { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 2px; color: var(--gold); margin-bottom: 12px; }
+.module-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.module-card {
+  background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 10px;
+  padding: 16px; cursor: pointer; transition: border-color 0.15s, transform 0.15s;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.module-card:hover { border-color: var(--gold); transform: translateY(-1px); }
+.module-card-title { font-size: 14px; font-weight: 700; color: var(--white); }
+.module-card-desc { font-size: 12px; color: var(--grey-light); line-height: 1.5; flex: 1; }
+.module-card-status { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; display: flex; align-items: center; gap: 6px; }
+.module-card-status.done { color: #22c55e; }
+.module-card-status.todo { color: var(--grey); }
+
+.reader-back { background: none; border: none; color: var(--gold); font-size: 12px; cursor: pointer; margin-bottom: 16px; padding: 0; }
+.reader-title { font-family: 'Bebas Neue', sans-serif; font-size: 30px; letter-spacing: 1px; color: var(--white); margin-bottom: 4px; }
+.reader-category { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--gold); margin-bottom: 20px; }
+.reader-body { font-size: 14px; line-height: 1.8; color: var(--grey-light); white-space: pre-wrap; margin-bottom: 28px; }
+.reader-body strong, .reader-body b { color: var(--white); }
+
+.quiz-card { background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 10px; padding: 20px; margin-bottom: 16px; }
+.quiz-q { font-size: 14px; font-weight: 600; color: var(--white); margin-bottom: 12px; }
+.quiz-option { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border-sub); margin-bottom: 8px; cursor: pointer; font-size: 13px; color: var(--grey-light); transition: border-color 0.15s, background 0.15s; }
+.quiz-option:hover { border-color: var(--gold); }
+.quiz-option.selected { border-color: var(--gold); background: rgba(200,155,60,0.08); color: var(--white); }
+.quiz-option.correct { border-color: #22c55e; background: rgba(34,197,94,0.1); color: #22c55e; }
+.quiz-option.incorrect { border-color: var(--red); background: var(--red-dim); color: var(--red); }
+.quiz-explanation { font-size: 12px; color: var(--grey-light); margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-sub); }
+.quiz-score-banner { text-align: center; padding: 20px; border-radius: 10px; margin-bottom: 20px; font-family: 'Bebas Neue', sans-serif; font-size: 24px; letter-spacing: 1px; }
+.quiz-score-banner.pass { background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3); color: #22c55e; }
+.quiz-score-banner.fail { background: var(--red-dim); border: 1px solid rgba(239,68,68,0.3); color: var(--red); }
+</style>
+<script src="https://static.memberstack.com/scripts/v1/memberstack.js" data-memberstack-app="app_cmr41qq5500q80tsx94pj61rc" defer></script>
+</head>
+<body>
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">
+        <img src="data:image/png;base64,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" alt="FORGE" style="width:100%;height:100%;object-fit:contain;" />
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Core Features</div>
+      <a class="nav-item" href="dashboard.html"><span class="nav-icon">🏠</span>Dashboard</a>
+      <a class="nav-item" href="aris-coach.html"><span class="nav-icon">⚡</span>ARIS AI Coach</a>
+      <a class="nav-item" href="deal-analyzer.html"><span class="nav-icon">🔍</span>Deal Analyzer</a>
+      <div class="nav-item"><span class="nav-icon">📍</span>Property Search<span class="nav-badge">Coming Soon</span></div>
+      <a class="nav-item" href="crm.html"><span class="nav-icon">📋</span>Deal CRM</a>
+      <a class="nav-item" href="deal-network.html"><span class="nav-icon">🤝</span>Deal Network</a>
+      <a class="nav-item" href="capital-radar.html"><span class="nav-icon">🎯</span>Capital Radar</a>
+      <a class="nav-item" href="market-oracle.html"><span class="nav-icon">🔮</span>Market Oracle</a>
+      <a class="nav-item" href="document-vault.html"><span class="nav-icon">📂</span>Document Vault</a>
+      <div class="nav-item active"><span class="nav-icon">🏛</span>Education</div>
+    </div>
+    <div class="sidebar-footer">
+      <div class="user-chip" onclick="window.location.href='profile.html'" style="cursor:pointer;">
+        <div class="user-avatar">JD</div>
+        <div class="user-info">
+          <div class="user-name">John Dessauer</div>
+          <div class="user-tier">Founding Member</div>
+        </div>
+      </div>
+      <button onclick="handleLogout()" style="width:100%;margin-top:10px;background:transparent;border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:8px;font-size:11px;color:#6B7280;cursor:pointer;font-family:Inter,sans-serif;letter-spacing:0.5px;transition:all 0.15s;" onmouseover="this.style.color='#ef4444';this.style.borderColor='rgba(239,68,68,0.3)'" onmouseout="this.style.color='#6B7280';this.style.borderColor='rgba(255,255,255,0.08)'">Sign Out</button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- TOP BAR -->
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-avatar"><span id="topbar-initials">JD</span></div>
+        <div class="topbar-greeting">
+          <div class="topbar-welcome">Learn</div>
+          <div class="topbar-name">Education</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCROLL AREA -->
+    <div class="dashboard-scroll">
+
+      <!-- LIST VIEW -->
+      <div id="view-list">
+        <div id="module-list-container">
+          <div style="color:var(--grey);font-size:13px;">Loading modules...</div>
+        </div>
+      </div>
+
+      <!-- READER VIEW -->
+      <div id="view-reader" style="display:none;">
+        <button class="reader-back" onclick="backToList()">&larr; Back to Education</button>
+        <div class="reader-category" id="reader-category"></div>
+        <div class="reader-title" id="reader-title"></div>
+        <div class="reader-body" id="reader-body"></div>
+        <button class="profile-edit-btn" id="reader-quiz-btn" onclick="startQuiz()" style="margin-top:0;">Take the Quiz</button>
+      </div>
+
+      <!-- QUIZ VIEW -->
+      <div id="view-quiz" style="display:none;">
+        <button class="reader-back" onclick="backToReader()">&larr; Back to Lesson</button>
+        <div class="reader-title" id="quiz-title" style="margin-bottom:20px;"></div>
+        <div id="quiz-questions"></div>
+        <button class="profile-edit-btn" id="quiz-submit-btn" onclick="submitQuiz()" style="margin-top:4px;">Submit Answers</button>
+      </div>
+
+      <!-- RESULTS VIEW -->
+      <div id="view-results" style="display:none;">
+        <div id="results-banner"></div>
+        <div id="results-questions"></div>
+        <button class="profile-edit-btn" onclick="backToList()" style="margin-top:4px;">Back to Education</button>
+      </div>
+
+    </div>
+    <div style="text-align:center; padding: 16px 28px 12px; border-top: 1px solid rgba(200,155,60,0.15);">
+      <p style="color: #6B7280; font-size: 12px; font-family: 'Inter', sans-serif; margin: 0;">
+        &copy; 2026 The Dessauer Group &nbsp;|&nbsp;
+        <span style="color:#6B7280;">ForgedByAris.com</span> &nbsp;|&nbsp;
+        <a href="mailto:support@forgedbyaris.com" style="color:#C89B3C; text-decoration:none;">support@forgedbyaris.com</a>
+      </p>
+      <p style="font-size: 12px; font-family: 'Inter', sans-serif; margin: 6px 0 0 0;">
+        <a href="/privacy-policy.html" style="color:#C89B3C; text-decoration:none;">Privacy Policy</a>
+        &nbsp;|&nbsp;
+        <a href="/terms.html" style="color:#C89B3C; text-decoration:none;">Terms &amp; Conditions</a>
+        &nbsp;|&nbsp;
+        <a href="/earnings-disclaimer.html" style="color:#C89B3C; text-decoration:none;">Earnings Disclaimer</a>
+      </p>
+    </div>
+  </main>
+</div>
+
+<script>
+let memberToken = null;
+let currentModule = null;
+let currentQuestions = null;
+let selectedAnswers = [];
+
+function waitForMemberstack(maxWaitMs = 6000, intervalMs = 100) {
+  return new Promise((resolve, reject) => {
+    const start = Date.now();
+    const check = () => {
+      if (window.$memberstackDom && window.$memberstackDom.getCurrentMember) resolve();
+      else if (Date.now() - start > maxWaitMs) reject(new Error('Memberstack failed to load'));
+      else setTimeout(check, intervalMs);
+    };
+    check();
+  });
+}
+
+async function initEducationPage() {
+  try {
+    await waitForMemberstack();
+    const memberstack = window.$memberstackDom;
+    const { data: member } = await memberstack.getCurrentMember();
+    if (!member) { window.location.href = 'login.html'; return; }
+
+    const FOUNDING_MEMBER_PRICE_IDS = ['prc_497-97-3m13d01j8', 'prc_247-97-ne13e01d6', 'prc_997-97-5fmt0nr5', 'prc_-97-direct-ka9b0lq3'];
+    const hasActiveMembership = (member.planConnections || []).some(
+      pc => FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
+    );
+    if (!hasActiveMembership) { window.location.href = 'signup.html'; return; }
+
+    memberToken = await memberstack.getMemberCookie();
+
+    const customFields = member.customFields || {};
+    const fullName = customFields['full-name'] || member.auth?.email || 'Member';
+    const initials = fullName.split(' ').filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase() || 'M';
+    document.getElementById('topbar-initials').textContent = initials;
+
+    await loadModules();
+  } catch (err) {
+    console.error('Education page init failed:', err);
+    document.getElementById('module-list-container').innerHTML = '<div class="error-notice">Could not load Education — refresh the page to try again.</div>';
+  }
+}
+
+async function loadModules() {
+  const res = await fetch('/api/education-data?action=list', {
+    headers: { Authorization: `Bearer ${memberToken}` },
+  });
+  if (!res.ok) throw new Error('Failed to load modules');
+  const { modules } = await res.json();
+
+  const container = document.getElementById('module-list-container');
+  if (!modules.length) {
+    container.innerHTML = '<div style="color:var(--grey);font-size:13px;">No lessons published yet — check back soon.</div>';
+    return;
+  }
+
+  const byCategory = {};
+  for (const m of modules) {
+    if (!byCategory[m.category]) byCategory[m.category] = [];
+    byCategory[m.category].push(m);
+  }
+
+  container.innerHTML = Object.entries(byCategory).map(([category, mods]) => `
+    <div class="category-block">
+      <div class="category-title">${escapeHtml(category)}</div>
+      <div class="module-grid">
+        ${mods.map(m => {
+          const done = m.progress && m.progress.completed;
+          const statusHtml = done
+            ? `<div class="module-card-status done">✓ Completed — ${m.progress.quiz_score}/${m.progress.quiz_total}</div>`
+            : `<div class="module-card-status todo">Not started</div>`;
+          return `
+            <div class="module-card" onclick="openModule('${m.id}')">
+              <div class="module-card-title">${escapeHtml(m.title)}</div>
+              <div class="module-card-desc">${escapeHtml(m.description || '')}</div>
+              ${statusHtml}
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+async function openModule(id) {
+  const res = await fetch(`/api/education-data?action=get&id=${id}`, {
+    headers: { Authorization: `Bearer ${memberToken}` },
+  });
+  if (!res.ok) { alert('Could not load this lesson.'); return; }
+  const { module: mod, questions } = await res.json();
+  currentModule = mod;
+  currentQuestions = questions;
+
+  document.getElementById('reader-category').textContent = mod.category;
+  document.getElementById('reader-title').textContent = mod.title;
+  document.getElementById('reader-body').textContent = mod.content || '';
+  document.getElementById('reader-quiz-btn').style.display = questions.length ? 'inline-block' : 'none';
+
+  showView('reader');
+}
+
+function startQuiz() {
+  selectedAnswers = new Array(currentQuestions.length).fill(null);
+  document.getElementById('quiz-title').textContent = currentModule.title + ' — Quiz';
+  document.getElementById('quiz-questions').innerHTML = currentQuestions.map((q, qi) => `
+    <div class="quiz-card">
+      <div class="quiz-q">${qi + 1}. ${escapeHtml(q.question)}</div>
+      ${q.options.map((opt, oi) => `
+        <div class="quiz-option" id="q${qi}-o${oi}" onclick="selectAnswer(${qi}, ${oi})">${escapeHtml(opt)}</div>
+      `).join('')}
+    </div>
+  `).join('');
+  showView('quiz');
+}
+
+function selectAnswer(qi, oi) {
+  selectedAnswers[qi] = oi;
+  currentQuestions[qi].options.forEach((_, i) => {
+    document.getElementById(`q${qi}-o${i}`).classList.toggle('selected', i === oi);
+  });
+}
+
+async function submitQuiz() {
+  if (selectedAnswers.some(a => a === null)) {
+    alert('Please answer every question before submitting.');
+    return;
+  }
+  const res = await fetch('/api/education-data', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${memberToken}` },
+    body: JSON.stringify({ action: 'submit_quiz', moduleId: currentModule.id, answers: selectedAnswers }),
+  });
+  if (!res.ok) { alert('Could not submit quiz — check your connection and try again.'); return; }
+  const { score, total, results } = await res.json();
+
+  const passed = score === total;
+  document.getElementById('results-banner').innerHTML = `
+    <div class="quiz-score-banner ${passed ? 'pass' : 'fail'}">You scored ${score} / ${total}</div>
+  `;
+  document.getElementById('results-questions').innerHTML = currentQuestions.map((q, qi) => {
+    const r = results[qi];
+    return `
+      <div class="quiz-card">
+        <div class="quiz-q">${qi + 1}. ${escapeHtml(q.question)}</div>
+        ${q.options.map((opt, oi) => {
+          let cls = 'quiz-option';
+          if (oi === r.correctIndex) cls += ' correct';
+          else if (oi === selectedAnswers[qi] && !r.correct) cls += ' incorrect';
+          return `<div class="${cls}">${escapeHtml(opt)}</div>`;
+        }).join('')}
+        ${r.explanation ? `<div class="quiz-explanation">${escapeHtml(r.explanation)}</div>` : ''}
+      </div>
+    `;
+  }).join('');
+
+  showView('results');
+}
+
+function backToList() { loadModules(); showView('list'); }
+function backToReader() { showView('reader'); }
+
+function showView(name) {
+  ['list', 'reader', 'quiz', 'results'].forEach(v => {
+    document.getElementById('view-' + v).style.display = v === name ? 'block' : 'none';
+  });
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str == null ? '' : str;
+  return div.innerHTML;
+}
+
+async function handleLogout() {
+  try {
+    await waitForMemberstack();
+    await window.$memberstackDom.logout();
+  } catch (err) { console.error('Logout failed:', err); }
+  window.location.href = '/';
+}
+
+initEducationPage();
+</script>
+</body>
+</html>
