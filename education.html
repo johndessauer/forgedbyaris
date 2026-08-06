@@ -236,6 +236,13 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 .dashboard-scroll { flex: 1; overflow-y: auto; padding: 24px 28px 32px; display: flex; flex-direction: column; gap: 24px; }
 .dashboard-scroll::-webkit-scrollbar { width: 4px; }
 .dashboard-scroll::-webkit-scrollbar-thumb { background: var(--border-sub); border-radius: 2px; }
+
+/* ── MOBILE ── */
+@media (max-width: 768px) {
+  .sidebar { display: none; }
+  .dashboard-scroll { padding: 16px; }
+  .module-grid { grid-template-columns: 1fr; }
+}
 </style>
 <script src="https://static.memberstack.com/scripts/v1/memberstack.js" data-memberstack-app="app_cmr41qq5500q80tsx94pj61rc" defer></script>
 </head>
