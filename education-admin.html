@@ -474,7 +474,7 @@ async function openEditor(id) {
     document.getElementById('f-category').value = mod.category;
     document.getElementById('f-description').value = mod.description || '';
     document.getElementById('f-content').value = mod.content || '';
-    questionBuilderState = questions.map(q => ({ question: q.question, options: q.options, correctIndex: q.correct_index, explanation: q.explanation || '' }));
+    questionBuilderState = questions.map(q => ({ question: q.question, options: q.options, correctIndex: q.correct_index, explanation: q.explanation || '', difficulty: q.difficulty || 'rookie' }));
     document.getElementById('publish-toggle-btn').style.display = 'inline-block';
     document.getElementById('publish-toggle-btn').textContent = mod.published ? 'Unpublish' : 'Publish';
   } else {
@@ -499,7 +499,7 @@ function backToAdminList() {
 }
 
 function addQuestion() {
-  questionBuilderState.push({ question: '', options: ['', '', '', ''], correctIndex: 0, explanation: '' });
+  questionBuilderState.push({ question: '', options: ['', '', '', ''], correctIndex: 0, explanation: '', difficulty: 'rookie' });
   renderQuestionBuilder();
 }
 
@@ -508,10 +508,27 @@ function removeQuestion(qi) {
   renderQuestionBuilder();
 }
 
+const DIFFICULTY_TIERS = [
+  { value: 'rookie', label: 'Rookie', color: '#6B7280' },
+  { value: 'investor', label: 'Investor', color: '#C89B3C' },
+  { value: 'mogul', label: 'Mogul', color: '#FF6B2B' },
+];
+
 function renderQuestionBuilder() {
   const container = document.getElementById('qb-questions');
   container.innerHTML = questionBuilderState.map((q, qi) => `
     <div class="qb-question">
+      <div class="qb-tier-row" style="display:flex;gap:6px;margin-bottom:12px;">
+        ${DIFFICULTY_TIERS.map(t => `
+          <button type="button" onclick="updateQuestionField(${qi}, 'difficulty', '${t.value}')"
+            style="flex:1;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;cursor:pointer;
+              border:1px solid ${(q.difficulty || 'rookie') === t.value ? t.color : 'var(--border-sub)'};
+              background:${(q.difficulty || 'rookie') === t.value ? t.color + '22' : 'transparent'};
+              color:${(q.difficulty || 'rookie') === t.value ? t.color : 'var(--grey)'};">
+            ${t.label}
+          </button>
+        `).join('')}
+      </div>
       <div class="form-row" style="margin-bottom:10px;">
         <input type="text" placeholder="Question text" value="${escapeAttr(q.question)}" onchange="updateQuestionField(${qi}, 'question', this.value)">
       </div>
@@ -529,7 +546,7 @@ function renderQuestionBuilder() {
   `).join('');
 }
 
-function updateQuestionField(qi, field, value) { questionBuilderState[qi][field] = value; }
+function updateQuestionField(qi, field, value) { questionBuilderState[qi][field] = value; renderQuestionBuilder(); }
 function updateOptionText(qi, oi, value) { questionBuilderState[qi].options[oi] = value; }
 function updateCorrectIndex(qi, oi) { questionBuilderState[qi].correctIndex = oi; }
 

@@ -174,12 +174,16 @@ exports.handler = async function (event, context) {
         if (!moduleId || !Array.isArray(questions)) {
           return json(400, { error: 'moduleId and questions array are required' });
         }
+        const VALID_DIFFICULTIES = ['rookie', 'investor', 'mogul'];
         for (const q of questions) {
           if (!q.question || !Array.isArray(q.options) || q.options.length < 2) {
             return json(400, { error: 'Each question needs question text and at least 2 options' });
           }
           if (typeof q.correctIndex !== 'number' || q.correctIndex < 0 || q.correctIndex >= q.options.length) {
             return json(400, { error: 'Each question needs a valid correctIndex within its options' });
+          }
+          if (q.difficulty && !VALID_DIFFICULTIES.includes(q.difficulty)) {
+            return json(400, { error: `difficulty must be one of: ${VALID_DIFFICULTIES.join(', ')}` });
           }
         }
 
@@ -190,12 +194,19 @@ exports.handler = async function (event, context) {
         if (deleteError) throw deleteError;
 
         if (questions.length) {
-          const rows = questions.map((q, i) => ({
+          // Sort rookie -> investor -> mogul before assigning order_index,
+          // so the quiz always plays in escalating-difficulty order
+          // regardless of the order questions were added in the builder.
+          const tierRank = { rookie: 0, investor: 1, mogul: 2 };
+          const sorted = [...questions].sort((a, b) => (tierRank[a.difficulty || 'rookie'] ?? 0) - (tierRank[b.difficulty || 'rookie'] ?? 0));
+
+          const rows = sorted.map((q, i) => ({
             module_id: moduleId,
             question: q.question,
             options: q.options,
             correct_index: q.correctIndex,
             explanation: q.explanation || null,
+            difficulty: q.difficulty || 'rookie',
             order_index: i,
           }));
           const { error: insertError } = await supabase.from('education_quiz_questions').insert(rows);

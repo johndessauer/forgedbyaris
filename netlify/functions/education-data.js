@@ -69,12 +69,14 @@ exports.handler = async function (event, context) {
 
         const { data: questions, error: qError } = await supabase
           .from('education_quiz_questions')
-          .select('id, question, options, explanation, order_index')
+          .select('id, question, options, explanation, difficulty, order_index')
           .eq('module_id', id)
           .order('order_index', { ascending: true });
         if (qError) throw qError;
         // Deliberately NOT selecting correct_index here — the client
         // never receives correct answers before submitting, only after.
+        // order_index already reflects rookie -> investor -> mogul order,
+        // since education-admin.js sorts by difficulty before assigning it.
 
         const { data: progress } = await supabase
           .from('education_progress')

@@ -448,17 +448,44 @@ async function openModule(id) {
   showView('reader');
 }
 
+const TIER_META = {
+  rookie: { label: 'Rookie', color: '#6B7280', icon: '🔰' },
+  investor: { label: 'Investor', color: '#C89B3C', icon: '💼' },
+  mogul: { label: 'Mogul', color: '#FF6B2B', icon: '👑' },
+};
+
+function tierBadge(difficulty) {
+  const t = TIER_META[difficulty] || TIER_META.rookie;
+  return `<span style="display:inline-block;font-size:10px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;padding:3px 9px;border-radius:20px;background:${t.color}22;color:${t.color};margin-bottom:10px;">${t.icon} ${t.label}</span>`;
+}
+
+function tierTransitionBanner(difficulty) {
+  const t = TIER_META[difficulty] || TIER_META.rookie;
+  return `<div style="text-align:center;padding:14px;margin:20px 0 16px;border-top:1px solid ${t.color}44;border-bottom:1px solid ${t.color}44;">
+    <span style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;color:${t.color};">${t.icon} ENTERING ${t.label.toUpperCase()} TIER</span>
+  </div>`;
+}
+
 function startQuiz() {
   selectedAnswers = new Array(currentQuestions.length).fill(null);
   document.getElementById('quiz-title').textContent = currentModule.title + ' — Quiz';
-  document.getElementById('quiz-questions').innerHTML = currentQuestions.map((q, qi) => `
-    <div class="quiz-card">
-      <div class="quiz-q">${qi + 1}. ${escapeHtml(q.question)}</div>
-      ${q.options.map((opt, oi) => `
-        <div class="quiz-option" id="q${qi}-o${oi}" onclick="selectAnswer(${qi}, ${oi})">${escapeHtml(opt)}</div>
-      `).join('')}
-    </div>
-  `).join('');
+
+  let lastTier = null;
+  document.getElementById('quiz-questions').innerHTML = currentQuestions.map((q, qi) => {
+    const difficulty = q.difficulty || 'rookie';
+    const showTransition = difficulty !== lastTier;
+    lastTier = difficulty;
+    return `
+      ${showTransition ? tierTransitionBanner(difficulty) : ''}
+      <div class="quiz-card">
+        ${tierBadge(difficulty)}
+        <div class="quiz-q">${qi + 1}. ${escapeHtml(q.question)}</div>
+        ${q.options.map((opt, oi) => `
+          <div class="quiz-option" id="q${qi}-o${oi}" onclick="selectAnswer(${qi}, ${oi})">${escapeHtml(opt)}</div>
+        `).join('')}
+      </div>
+    `;
+  }).join('');
   showView('quiz');
 }
 
@@ -490,6 +517,7 @@ async function submitQuiz() {
     const r = results[qi];
     return `
       <div class="quiz-card">
+        ${tierBadge(q.difficulty || 'rookie')}
         <div class="quiz-q">${qi + 1}. ${escapeHtml(q.question)}</div>
         ${q.options.map((opt, oi) => {
           let cls = 'quiz-option';
