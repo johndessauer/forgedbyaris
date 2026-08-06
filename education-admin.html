@@ -298,10 +298,10 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
     <!-- TOP BAR -->
     <div class="topbar">
       <div class="topbar-left">
-        <div class="topbar-avatar"><span id="topbar-initials">JD</span></div>
-        <div class="topbar-greeting">
-          <div class="topbar-welcome">Admin</div>
+        <div class="topbar-icon">🛠️</div>
+        <div class="topbar-title">
           <div class="topbar-name">Education Authoring</div>
+          <div class="topbar-sub">Admin only</div>
         </div>
       </div>
     </div>
@@ -400,8 +400,6 @@ async function initAdminPage() {
 
     const customFields = member.customFields || {};
     const fullName = customFields['full-name'] || email || 'Member';
-    const initials = fullName.split(' ').filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase() || 'M';
-    document.getElementById('topbar-initials').textContent = initials;
 
     await loadAdminList();
   } catch (err) {

@@ -273,10 +273,10 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
     <!-- TOP BAR -->
     <div class="topbar">
       <div class="topbar-left">
-        <div class="topbar-avatar"><span id="topbar-initials">JD</span></div>
-        <div class="topbar-greeting">
-          <div class="topbar-welcome">Learn</div>
+        <div class="topbar-icon">🏛</div>
+        <div class="topbar-title">
           <div class="topbar-name">Education</div>
+          <div class="topbar-sub">Lessons &nbsp;·&nbsp; Quizzes &nbsp;·&nbsp; Practice</div>
         </div>
       </div>
     </div>
@@ -368,8 +368,6 @@ async function initEducationPage() {
 
     const customFields = member.customFields || {};
     const fullName = customFields['full-name'] || member.auth?.email || 'Member';
-    const initials = fullName.split(' ').filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase() || 'M';
-    document.getElementById('topbar-initials').textContent = initials;
 
     await loadModules();
   } catch (err) {
