@@ -353,8 +353,15 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
           <input type="text" id="f-description" placeholder="One line summary">
         </div>
         <div class="form-row">
-          <label>Lesson Content</label>
-          <textarea id="f-content" placeholder="The lesson text members will read."></textarea>
+          <label>Lesson Content <span style="text-transform:none;font-weight:400;color:var(--grey);">(one per difficulty tier — members switch between these with tabs)</span></label>
+          <div style="display:flex;gap:6px;margin-bottom:10px;">
+            <button type="button" id="lesson-tab-rookie" class="admin-btn" onclick="switchLessonTab('rookie')" style="flex:1;">🔰 Rookie</button>
+            <button type="button" id="lesson-tab-investor" class="admin-btn" onclick="switchLessonTab('investor')" style="flex:1;">💼 Investor</button>
+            <button type="button" id="lesson-tab-mogul" class="admin-btn" onclick="switchLessonTab('mogul')" style="flex:1;">👑 Mogul</button>
+          </div>
+          <textarea id="f-content-rookie" placeholder="The Rookie-tier lesson text — foundational concepts and definitions."></textarea>
+          <textarea id="f-content-investor" placeholder="The Investor-tier lesson text — deeper analysis, real numbers, common mistakes." style="display:none;"></textarea>
+          <textarea id="f-content-mogul" placeholder="The Mogul-tier lesson text — advanced strategy, edge cases, portfolio-level thinking." style="display:none;"></textarea>
         </div>
 
         <div class="form-row">
@@ -461,6 +468,17 @@ async function loadAdminList() {
   }
 }
 
+function switchLessonTab(tier) {
+  const tiers = ['rookie', 'investor', 'mogul'];
+  const colors = { rookie: '#6B7280', investor: '#C89B3C', mogul: '#FF6B2B' };
+  tiers.forEach(t => {
+    document.getElementById('f-content-' + t).style.display = t === tier ? 'block' : 'none';
+    const btn = document.getElementById('lesson-tab-' + t);
+    btn.style.borderColor = t === tier ? colors[t] : '';
+    btn.style.color = t === tier ? colors[t] : '';
+  });
+}
+
 async function openEditor(id) {
   editingModuleId = id;
   questionBuilderState = [];
@@ -473,7 +491,9 @@ async function openEditor(id) {
     document.getElementById('f-title').value = mod.title;
     document.getElementById('f-category').value = mod.category;
     document.getElementById('f-description').value = mod.description || '';
-    document.getElementById('f-content').value = mod.content || '';
+    document.getElementById('f-content-rookie').value = mod.content || '';
+    document.getElementById('f-content-investor').value = mod.content_investor || '';
+    document.getElementById('f-content-mogul').value = mod.content_mogul || '';
     questionBuilderState = questions.map(q => ({ question: q.question, options: q.options, correctIndex: q.correct_index, explanation: q.explanation || '', difficulty: q.difficulty || 'rookie' }));
     document.getElementById('publish-toggle-btn').style.display = 'inline-block';
     document.getElementById('publish-toggle-btn').textContent = mod.published ? 'Unpublish' : 'Publish';
@@ -483,9 +503,12 @@ async function openEditor(id) {
     document.getElementById('f-title').value = '';
     document.getElementById('f-category').value = '';
     document.getElementById('f-description').value = '';
-    document.getElementById('f-content').value = '';
+    document.getElementById('f-content-rookie').value = '';
+    document.getElementById('f-content-investor').value = '';
+    document.getElementById('f-content-mogul').value = '';
     document.getElementById('publish-toggle-btn').style.display = 'none';
   }
+  switchLessonTab('rookie');
 
   renderQuestionBuilder();
   document.getElementById('admin-view-list').style.display = 'none';
@@ -554,7 +577,9 @@ async function saveModule() {
   const title = document.getElementById('f-title').value.trim();
   const category = document.getElementById('f-category').value.trim();
   const description = document.getElementById('f-description').value.trim();
-  const content = document.getElementById('f-content').value;
+  const content = document.getElementById('f-content-rookie').value;
+  const contentInvestor = document.getElementById('f-content-investor').value;
+  const contentMogul = document.getElementById('f-content-mogul').value;
 
   if (!title || !category) { alert('Title and category are required.'); return; }
 
@@ -566,14 +591,14 @@ async function saveModule() {
       const res = await fetch('/api/education-admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${memberToken}` },
-        body: JSON.stringify({ action: 'update_module', id: moduleId, title, category, description, content }),
+        body: JSON.stringify({ action: 'update_module', id: moduleId, title, category, description, content, contentInvestor, contentMogul }),
       });
       if (!res.ok) throw new Error('update_module failed');
     } else {
       const res = await fetch('/api/education-admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${memberToken}` },
-        body: JSON.stringify({ action: 'create_module', title, category, description, content }),
+        body: JSON.stringify({ action: 'create_module', title, category, description, content, contentInvestor, contentMogul }),
       });
       if (!res.ok) throw new Error('create_module failed');
       const { module: created } = await res.json();

@@ -103,7 +103,7 @@ exports.handler = async function (event, context) {
       const payload = JSON.parse(event.body || '{}');
 
       if (payload.action === 'create_module') {
-        const { title, category, description, content, contentType, videoUrl, orderIndex } = payload;
+        const { title, category, description, content, contentInvestor, contentMogul, contentType, videoUrl, orderIndex } = payload;
         if (!title || !category) return json(400, { error: 'title and category are required' });
 
         let slug = slugify(title);
@@ -119,7 +119,9 @@ exports.handler = async function (event, context) {
             category,
             content_type: contentType || 'text',
             description: description || null,
-            content: content || null,
+            content: content || null,               // Rookie-tier lesson
+            content_investor: contentInvestor || null,
+            content_mogul: contentMogul || null,
             video_url: videoUrl || null,
             order_index: orderIndex || 0,
             published: false, // always created as a draft; publish is a separate explicit step
@@ -131,7 +133,7 @@ exports.handler = async function (event, context) {
       }
 
       if (payload.action === 'update_module') {
-        const { id, title, category, description, content, contentType, videoUrl, orderIndex } = payload;
+        const { id, title, category, description, content, contentInvestor, contentMogul, contentType, videoUrl, orderIndex } = payload;
         if (!id) return json(400, { error: 'id is required' });
 
         const updates = {};
@@ -139,6 +141,8 @@ exports.handler = async function (event, context) {
         if (category !== undefined) updates.category = category;
         if (description !== undefined) updates.description = description;
         if (content !== undefined) updates.content = content;
+        if (contentInvestor !== undefined) updates.content_investor = contentInvestor;
+        if (contentMogul !== undefined) updates.content_mogul = contentMogul;
         if (contentType !== undefined) updates.content_type = contentType;
         if (videoUrl !== undefined) updates.video_url = videoUrl;
         if (orderIndex !== undefined) updates.order_index = orderIndex;

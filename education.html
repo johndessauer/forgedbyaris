@@ -310,6 +310,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
         <button class="reader-back" onclick="backToList()">&larr; Back to Education</button>
         <div class="reader-category" id="reader-category"></div>
         <div class="reader-title" id="reader-title"></div>
+        <div id="reader-tier-tabs" style="display:flex;gap:6px;margin-bottom:20px;"></div>
         <div class="reader-body" id="reader-body"></div>
         <button class="profile-edit-btn" id="reader-quiz-btn" onclick="startQuiz()" style="margin-top:0;">Take the Quiz</button>
       </div>
@@ -431,6 +432,12 @@ async function loadModules() {
   `).join('');
 }
 
+const TIER_META = {
+  rookie: { label: 'Rookie', color: '#6B7280', icon: '🔰' },
+  investor: { label: 'Investor', color: '#C89B3C', icon: '💼' },
+  mogul: { label: 'Mogul', color: '#FF6B2B', icon: '👑' },
+};
+
 async function openModule(id) {
   const res = await fetch(`/api/education-data?action=get&id=${id}`, {
     headers: { Authorization: `Bearer ${memberToken}` },
@@ -442,17 +449,52 @@ async function openModule(id) {
 
   document.getElementById('reader-category').textContent = mod.category;
   document.getElementById('reader-title').textContent = mod.title;
-  document.getElementById('reader-body').textContent = mod.content || '';
   document.getElementById('reader-quiz-btn').style.display = questions.length ? 'inline-block' : 'none';
 
+  renderTierTabs(mod);
   showView('reader');
 }
 
-const TIER_META = {
-  rookie: { label: 'Rookie', color: '#6B7280', icon: '🔰' },
-  investor: { label: 'Investor', color: '#C89B3C', icon: '💼' },
-  mogul: { label: 'Mogul', color: '#FF6B2B', icon: '👑' },
-};
+function renderTierTabs(mod) {
+  const tierContent = { rookie: mod.content, investor: mod.content_investor, mogul: mod.content_mogul };
+  const available = Object.keys(tierContent).filter(t => tierContent[t] && tierContent[t].trim());
+
+  const tabsEl = document.getElementById('reader-tier-tabs');
+  if (available.length <= 1) {
+    // Only one tier written (or none) — no point showing tabs for a
+    // single option, just render whatever content exists directly.
+    tabsEl.innerHTML = '';
+    document.getElementById('reader-body').textContent = tierContent.rookie || tierContent[available[0]] || '';
+    return;
+  }
+
+  tabsEl.innerHTML = available.map(t => {
+    const meta = TIER_META[t];
+    return `<button type="button" id="reader-tab-${t}" onclick="showReaderTier('${t}')"
+      style="padding:7px 16px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;cursor:pointer;
+        border:1px solid var(--border-sub);background:transparent;color:var(--grey);">
+      ${meta.icon} ${meta.label}
+    </button>`;
+  }).join('');
+
+  currentModule._tierContent = tierContent;
+  showReaderTier(available[0]);
+}
+
+function showReaderTier(tier) {
+  const content = currentModule._tierContent ? currentModule._tierContent[tier] : currentModule.content;
+  document.getElementById('reader-body').textContent = content || '';
+
+  ['rookie', 'investor', 'mogul'].forEach(t => {
+    const btn = document.getElementById('reader-tab-' + t);
+    if (!btn) return;
+    const meta = TIER_META[t];
+    const active = t === tier;
+    btn.style.borderColor = active ? meta.color : 'var(--border-sub)';
+    btn.style.background = active ? meta.color + '22' : 'transparent';
+    btn.style.color = active ? meta.color : 'var(--grey)';
+  });
+}
 
 function tierBadge(difficulty) {
   const t = TIER_META[difficulty] || TIER_META.rookie;
