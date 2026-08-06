@@ -473,6 +473,15 @@ function getSelectedStrategies() {
   return Array.from(items).map(el => el.textContent.trim().replace(/^[^\w]+/, ''));
 }
 
+function setSelectedStrategies(strategies) {
+  const items = document.querySelectorAll('#strategy-group .check-item');
+  items.forEach(item => {
+    const label = item.querySelector('.check-label');
+    const text = label ? label.textContent.trim().replace(/^[^\w]+/, '') : '';
+    item.classList.toggle('selected', strategies.includes(text));
+  });
+}
+
 // ── UI STATE ──
 function resetResults() {
   document.getElementById('emptyState').style.display = 'flex';
@@ -542,6 +551,60 @@ function formatARIS(text) {
 }
 
 // ── BUY BOX BUILDER ──
+function renderBuyBoxHTML(fields, result) {
+  const { name, markets, minPrice, maxPrice, areaClass, propType, minProfit, maxRehab, capital, dealTarget, strategies } = fields;
+
+  const tagMap = {
+    'Fix & Flip': 'tag-flip', 'Buy & Hold Rental': 'tag-rental',
+    'Wholesaling': 'tag-wholesale', 'BRRRR': 'tag-brrrr',
+    'Commercial / Multifamily': 'tag-commercial'
+  };
+  const strategyTags = (strategies || []).map(s => {
+    const cls = Object.entries(tagMap).find(([k]) => s.includes(k.split(' ')[0]))?.[1] || 'tag-flip';
+    return '<span class="strategy-tag ' + cls + '">' + s + '</span>';
+  }).join('');
+
+  return (
+    '<div class="result-header">' +
+      '<div class="result-header-left">' +
+        '<div class="result-icon">🎯</div>' +
+        '<div><div class="result-title">FORGE Buy Box</div>' +
+        '<div class="result-sub">' + name + ' · ' + (markets || 'All Markets') + '</div></div>' +
+      '</div>' +
+    '</div>' +
+
+    '<div class="buybox-card">' +
+      '<div class="buybox-card-header">' +
+        '<div class="buybox-badge">FORGE BUY BOX</div>' +
+        '<div class="buybox-member">' + name + ' · ' + new Date().toLocaleDateString() + '</div>' +
+      '</div>' +
+      '<div class="strategy-tags">' + strategyTags + '</div>' +
+      '<div class="criteria-grid">' +
+        '<div class="criteria-cell"><div class="criteria-cell-label">Target Market</div><div class="criteria-cell-value orange">' + (markets || '—') + '</div></div>' +
+        '<div class="criteria-cell"><div class="criteria-cell-label">Price Range</div><div class="criteria-cell-value">' + (minPrice || 'Any') + ' – ' + (maxPrice || 'Any') + '</div></div>' +
+        '<div class="criteria-cell"><div class="criteria-cell-label">Area Class</div><div class="criteria-cell-value gold">' + areaClass + '</div></div>' +
+        '<div class="criteria-cell"><div class="criteria-cell-label">Property Type</div><div class="criteria-cell-value">' + propType + '</div></div>' +
+        '<div class="criteria-cell"><div class="criteria-cell-label">Min Profit / CF</div><div class="criteria-cell-value green">' + (minProfit || '—') + '</div></div>' +
+        '<div class="criteria-cell"><div class="criteria-cell-label">Max Rehab</div><div class="criteria-cell-value">' + (maxRehab || '—') + '</div></div>' +
+        '<div class="criteria-cell"><div class="criteria-cell-label">Capital Available</div><div class="criteria-cell-value">' + (capital || '—') + '</div></div>' +
+        '<div class="criteria-cell"><div class="criteria-cell-label">Deal Target</div><div class="criteria-cell-value orange">' + dealTarget + '/year</div></div>' +
+      '</div>' +
+    '</div>' +
+
+    '<div class="result-section">' +
+      '<div class="result-section-label">ARIS Buy Box Analysis</div>' +
+      '<div class="result-text">' + formatARIS(result) + '</div>' +
+    '</div>' +
+
+    '<div class="action-row">' +
+      '<button class="action-btn" onclick="copyBuyBox()">📋 Copy Buy Box</button>' +
+      '<button class="action-btn" onclick="printBuyBox()">🖨️ Print</button>' +
+    '</div>' +
+
+    '<div style="height:20px;"></div>'
+  );
+}
+
 async function runBuyBox() {
   const name       = document.getElementById('bb-name').value.trim() || 'FORGE Member';
   const markets    = document.getElementById('bb-markets').value.trim();
@@ -587,58 +650,16 @@ async function runBuyBox() {
   try {
     const result = await callARIS(prompt, 800);
 
-    // Build strategy tags
-    const tagMap = {
-      'Fix & Flip': 'tag-flip', 'Buy & Hold Rental': 'tag-rental',
-      'Wholesaling': 'tag-wholesale', 'BRRRR': 'tag-brrrr',
-      'Commercial / Multifamily': 'tag-commercial'
-    };
-    const strategyTags = strategies.map(s => {
-      const cls = Object.entries(tagMap).find(([k]) => s.includes(k.split(' ')[0]))?.[1] || 'tag-flip';
-      return '<span class="strategy-tag ' + cls + '">' + s + '</span>';
-    }).join('');
-
-    const html =
-      '<div class="result-header">' +
-        '<div class="result-header-left">' +
-          '<div class="result-icon">🎯</div>' +
-          '<div><div class="result-title">FORGE Buy Box</div>' +
-          '<div class="result-sub">' + name + ' · ' + (markets || 'All Markets') + '</div></div>' +
-        '</div>' +
-      '</div>' +
-
-      '<div class="buybox-card">' +
-        '<div class="buybox-card-header">' +
-          '<div class="buybox-badge">FORGE BUY BOX</div>' +
-          '<div class="buybox-member">' + name + ' · ' + new Date().toLocaleDateString() + '</div>' +
-        '</div>' +
-        '<div class="strategy-tags">' + strategyTags + '</div>' +
-        '<div class="criteria-grid">' +
-          '<div class="criteria-cell"><div class="criteria-cell-label">Target Market</div><div class="criteria-cell-value orange">' + (markets || '—') + '</div></div>' +
-          '<div class="criteria-cell"><div class="criteria-cell-label">Price Range</div><div class="criteria-cell-value">' + (minPrice || 'Any') + ' – ' + (maxPrice || 'Any') + '</div></div>' +
-          '<div class="criteria-cell"><div class="criteria-cell-label">Area Class</div><div class="criteria-cell-value gold">' + areaClass + '</div></div>' +
-          '<div class="criteria-cell"><div class="criteria-cell-label">Property Type</div><div class="criteria-cell-value">' + propType + '</div></div>' +
-          '<div class="criteria-cell"><div class="criteria-cell-label">Min Profit / CF</div><div class="criteria-cell-value green">' + (minProfit || '—') + '</div></div>' +
-          '<div class="criteria-cell"><div class="criteria-cell-label">Max Rehab</div><div class="criteria-cell-value">' + (maxRehab || '—') + '</div></div>' +
-          '<div class="criteria-cell"><div class="criteria-cell-label">Capital Available</div><div class="criteria-cell-value">' + (capital || '—') + '</div></div>' +
-          '<div class="criteria-cell"><div class="criteria-cell-label">Deal Target</div><div class="criteria-cell-value orange">' + dealTarget + '/year</div></div>' +
-        '</div>' +
-      '</div>' +
-
-      '<div class="result-section">' +
-        '<div class="result-section-label">ARIS Buy Box Analysis</div>' +
-        '<div class="result-text">' + formatARIS(result) + '</div>' +
-      '</div>' +
-
-      '<div class="action-row">' +
-        '<button class="action-btn" onclick="copyBuyBox()">📋 Copy Buy Box</button>' +
-        '<button class="action-btn" onclick="printBuyBox()">🖨️ Print</button>' +
-      '</div>' +
-
-      '<div style="height:20px;"></div>';
+    const fields = { name, markets, minPrice, maxPrice, areaClass, propType, minProfit, maxRehab, capital, dealTarget, strategies };
+    const html = renderBuyBoxHTML(fields, result);
 
     showResults(html);
     window._buyBoxText = name + ' — FORGE Buy Box\n' + markets + ' | ' + strategies.join(', ') + '\n\n' + result;
+
+    // Persist the full buy box (every field + ARIS's analysis) so it's
+    // still here on next login — previously this had no persistence at
+    // all beyond the current page load.
+    saveBuyBoxToServer(fields, result);
 
   } catch(e) {
     showError(e.message);
@@ -694,6 +715,8 @@ function printBuyBox() {
 }
 
 // ── MEMBERSTACK AUTH GATE ──
+let memberToken = null;
+
 window.addEventListener('load', async () => {
   try {
     const memberstack = window.$memberstackDom;
@@ -710,8 +733,66 @@ window.addEventListener('load', async () => {
       window.location.href = 'signup.html';
       return;
     }
+    memberToken = await memberstack.getMemberCookie();
+    await loadBuyBoxFromServer();
   } catch(e) {}
 });
+
+async function saveBuyBoxToServer(fields, result) {
+  if (!memberToken) return; // not authenticated yet somehow — skip rather than throw
+  try {
+    const res = await fetch('/api/profile-data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${memberToken}` },
+      body: JSON.stringify({ action: 'save', buyBox: { fields, result, savedAt: new Date().toISOString() } }),
+    });
+    if (!res.ok) throw new Error('save failed');
+  } catch (err) {
+    console.error('Failed to save Buy Box to server:', err);
+    // Deliberately not surfacing an error to the member here — they already
+    // see their generated Buy Box on screen and can copy/print it; a failed
+    // background sync shouldn't interrupt that. It'll just need regenerating
+    // next visit if this particular save didn't land.
+  }
+}
+
+async function loadBuyBoxFromServer() {
+  if (!memberToken) return;
+  try {
+    const res = await fetch('/api/profile-data?action=get', {
+      headers: { Authorization: `Bearer ${memberToken}` },
+    });
+    if (!res.ok) return;
+    const { profile } = await res.json();
+    if (!profile || !profile.buy_box || !profile.buy_box.fields) return;
+
+    const { fields, result } = profile.buy_box;
+
+    // Repopulate the form so the member can see and tweak their saved criteria.
+    if (document.getElementById('bb-name')) document.getElementById('bb-name').value = fields.name || '';
+    if (document.getElementById('bb-markets')) document.getElementById('bb-markets').value = fields.markets || '';
+    if (document.getElementById('bb-min-price')) document.getElementById('bb-min-price').value = fields.minPrice || '';
+    if (document.getElementById('bb-max-price')) document.getElementById('bb-max-price').value = fields.maxPrice || '';
+    if (document.getElementById('bb-prop-type')) document.getElementById('bb-prop-type').value = fields.propType || '';
+    if (document.getElementById('bb-min-profit')) document.getElementById('bb-min-profit').value = fields.minProfit || '';
+    if (document.getElementById('bb-max-rehab')) document.getElementById('bb-max-rehab').value = fields.maxRehab || '';
+    if (document.getElementById('bb-area-class')) document.getElementById('bb-area-class').value = fields.areaClass || '';
+    if (document.getElementById('bb-capital')) document.getElementById('bb-capital').value = fields.capital || '';
+    if (document.getElementById('bb-deal-target')) document.getElementById('bb-deal-target').value = fields.dealTarget || '';
+    if (typeof setSelectedStrategies === 'function' && fields.strategies) setSelectedStrategies(fields.strategies);
+
+    // Show the previously-generated result immediately, so a returning
+    // member sees their Buy Box right away instead of an empty form.
+    if (result && typeof showResults === 'function') {
+      showResults(renderBuyBoxHTML(fields, result));
+      window._buyBoxText = fields.name + ' — FORGE Buy Box\n' + fields.markets + ' | ' + (fields.strategies || []).join(', ') + '\n\n' + result;
+    }
+  } catch (err) {
+    console.error('Failed to load Buy Box from server:', err);
+    // Fail silently — member just sees the normal empty Buy Box form,
+    // same as before this feature existed. Not a regression either way.
+  }
+}
 
 async function handleLogout() {
   try {

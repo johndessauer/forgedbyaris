@@ -262,6 +262,14 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 .phase-step.active { color: var(--orange); border-bottom-color: var(--orange); font-weight: 700; }
 .phase-step.done { color: var(--gold); border-bottom-color: var(--gold); }
 
+/* ── MOBILE ── */
+@media (max-width: 768px) {
+  .sidebar { display: none; }
+  .content { flex-direction: column; }
+  .form-panel { width: 100%; min-width: 0; border-right: none; border-bottom: 1px solid var(--border-sub); }
+  .results-scroll { padding: 16px; }
+}
+
 </style>
 <script src="https://static.memberstack.com/scripts/v1/memberstack.js" data-memberstack-app="app_cmr41qq5500q80tsx94pj61rc" defer></script>
 </head>

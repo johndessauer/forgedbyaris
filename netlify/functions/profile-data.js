@@ -1,7 +1,7 @@
 // netlify/functions/profile-data.js
 //
-// Get/save the Member Profile page data (avatar, Why answers, phone, preferences,
-// calendar feed token).
+// Get/save the Member Profile page data (avatar, Why answers, phone, buy box,
+// preferences, calendar feed token).
 // Every request must carry a valid Memberstack Bearer token.
 // All reads/writes are scoped to the verified member ID — a client can
 // never read or write another member's profile by supplying a different ID.
@@ -9,7 +9,7 @@
 // Routes:
 //   GET  ?action=get                                  -> fetch this member's profile row (creates an empty one if none exists,
 //         and auto-generates a calendar_feed_token if the row exists but doesn't have one yet)
-//   POST { action: 'save', ...fields }                -> upsert fields (avatarUrl, phone, whyQ1, whyQ2, whyQ3, preferences)
+//   POST { action: 'save', ...fields }                -> upsert fields (avatarUrl, phone, whyQ1, whyQ2, whyQ3, buyBox, preferences)
 //   POST { action: 'upload_avatar', imageData, contentType } -> uploads a base64 image to the
 //         'avatars' Storage bucket and saves the resulting public URL onto the profile row.
 //         imageData must be a bare base64 string (no data: prefix — strip that client-side).
@@ -67,6 +67,7 @@ exports.handler = async function (event, context) {
               why_saved_at: null,
               preferences: {},
               calendar_feed_token: null,
+              buy_box: null,
             },
           });
         }
@@ -153,6 +154,7 @@ exports.handler = async function (event, context) {
         }
 
         if (payload.preferences !== undefined) updates.preferences = payload.preferences;
+        if (payload.buyBox !== undefined) updates.buy_box = payload.buyBox;
 
         if (Object.keys(updates).length === 1) {
           return json(400, { error: 'No fields to update' });

@@ -638,6 +638,25 @@ Respond ONLY in this exact JSON format — no preamble, no explanation:
 }`;
 
 // ── INIT ──
+let memberToken = null;
+
+async function syncWhyFromServer() {
+  try {
+    const res = await fetch('/api/profile-data?action=get', {
+      headers: { Authorization: `Bearer ${memberToken}` },
+    });
+    if (!res.ok) return; // fall back to whatever localStorage already has
+    const { profile } = await res.json();
+    if (profile && (profile.why_q1 || profile.why_q2 || profile.why_q3)) {
+      const why = { q1: profile.why_q1 || '', q2: profile.why_q2 || '', q3: profile.why_q3 || '', savedAt: profile.why_saved_at };
+      localStorage.setItem('forge-member-why', JSON.stringify(why));
+      localStorage.removeItem('forge-ob-skipped');
+    }
+  } catch (err) {
+    console.error('syncWhyFromServer failed, using local data:', err);
+  }
+}
+
 function waitForMemberstack(maxWaitMs = 6000, intervalMs = 100) {
   return new Promise((resolve) => {
     const start = Date.now();
@@ -671,6 +690,12 @@ window.onload = async () => {
       window.location.href = 'signup.html';
       return;
     }
+    memberToken = await memberstack.getMemberCookie();
+    // Pull Why answers from the server before deciding whether to show
+    // the onboarding prompt — without this, a member who already answered
+    // on another device would incorrectly see the prompt again here, since
+    // it previously only ever checked localStorage.
+    await syncWhyFromServer();
     // Populate member name dynamically
     const customFields = member.customFields || {};
     const fullName = customFields['full-name'] || (customFields['first-name'] ? customFields['first-name'] + ' ' + (customFields['last-name'] || '') : null) || member.auth?.email || 'Member';
@@ -920,7 +945,7 @@ function skipOnboarding() {
   document.getElementById('ob-overlay').style.display = 'none';
 }
 
-function saveOnboarding() {
+async function saveOnboarding() {
   const q1 = document.getElementById('ob-q1').value.trim();
   const q2 = document.getElementById('ob-q2').value.trim();
   const q3 = document.getElementById('ob-q3').value.trim();
@@ -938,6 +963,23 @@ function saveOnboarding() {
   loadWhyCard();
   loadDailyQuote(true);
   showToast('Your why is saved — ARIS will keep it in mind.');
+
+  // Sync to the server so this survives a new device or a cleared browser —
+  // previously this only ever saved to localStorage, which is the exact
+  // bug a beta tester reported (Why answers vanishing on re-login).
+  if (memberToken) {
+    try {
+      const res = await fetch('/api/profile-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${memberToken}` },
+        body: JSON.stringify({ action: 'save', whyQ1: q1, whyQ2: q2, whyQ3: q3 }),
+      });
+      if (!res.ok) throw new Error('save failed');
+    } catch (err) {
+      console.error('Failed to sync Why answers to server:', err);
+      showToast('Saved on this device — but couldn\u2019t sync to your account. Check your connection.');
+    }
+  }
 }
 
 function loadWhyCard() {
