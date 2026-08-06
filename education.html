@@ -215,8 +215,11 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 .reader-back { background: none; border: none; color: var(--gold); font-size: 12px; cursor: pointer; margin-bottom: 16px; padding: 0; }
 .reader-title { font-family: 'Bebas Neue', sans-serif; font-size: 30px; letter-spacing: 1px; color: var(--white); margin-bottom: 4px; }
 .reader-category { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--gold); margin-bottom: 20px; }
-.reader-body { font-size: 14px; line-height: 1.8; color: var(--grey-light); white-space: pre-wrap; margin-bottom: 28px; }
+.reader-body { font-size: 14px; line-height: 1.8; color: var(--grey-light); margin-bottom: 28px; }
 .reader-body strong, .reader-body b { color: var(--white); }
+.reader-body p { margin: 0 0 16px 0; }
+.lesson-subhead { font-size: 15px; font-weight: 700; color: var(--gold); margin: 22px 0 8px 0; }
+.lesson-subhead:first-child { margin-top: 0; }
 
 .quiz-card { background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 10px; padding: 20px; margin-bottom: 16px; }
 .quiz-q { font-size: 14px; font-weight: 600; color: var(--white); margin-bottom: 12px; }
@@ -455,6 +458,24 @@ async function openModule(id) {
   showView('reader');
 }
 
+// Safely renders lesson content: escapes any raw HTML first (so nothing
+// in the text can inject markup), then turns **bold** segments into
+// styled subheadings and blank lines into paragraph breaks. This is why
+// lesson content is authored with **bold** around each subheading in the
+// admin tool's plain textarea — it's intentional markdown-lite syntax,
+// not accidental leftover formatting.
+function formatLesson(text) {
+  if (!text) return '';
+  const escaped = escapeHtml(text);
+  const withHeadings = escaped.replace(/\*\*(.+?)\*\*/g, '<div class="lesson-subhead">$1</div>');
+  return withHeadings
+    .split(/\n{2,}/)
+    .map(block => block.trim())
+    .filter(Boolean)
+    .map(block => block.startsWith('<div class="lesson-subhead">') ? block : `<p>${block.replace(/\n/g, '<br>')}</p>`)
+    .join('');
+}
+
 function renderTierTabs(mod) {
   const tierContent = { rookie: mod.content, investor: mod.content_investor, mogul: mod.content_mogul };
   const available = Object.keys(tierContent).filter(t => tierContent[t] && tierContent[t].trim());
@@ -464,7 +485,7 @@ function renderTierTabs(mod) {
     // Only one tier written (or none) — no point showing tabs for a
     // single option, just render whatever content exists directly.
     tabsEl.innerHTML = '';
-    document.getElementById('reader-body').textContent = tierContent.rookie || tierContent[available[0]] || '';
+    document.getElementById('reader-body').innerHTML = formatLesson(tierContent.rookie || tierContent[available[0]] || '');
     return;
   }
 
@@ -483,7 +504,7 @@ function renderTierTabs(mod) {
 
 function showReaderTier(tier) {
   const content = currentModule._tierContent ? currentModule._tierContent[tier] : currentModule.content;
-  document.getElementById('reader-body').textContent = content || '';
+  document.getElementById('reader-body').innerHTML = formatLesson(content);
 
   ['rookie', 'investor', 'mogul'].forEach(t => {
     const btn = document.getElementById('reader-tab-' + t);
