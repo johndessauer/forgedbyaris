@@ -262,12 +262,25 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 .phase-step.active { color: var(--orange); border-bottom-color: var(--orange); font-weight: 700; }
 .phase-step.done { color: var(--gold); border-bottom-color: var(--gold); }
 
-/* ── MOBILE ── */
+/* ── MOBILE ──
+   Same fixed-height split-pane shell as Market Oracle / Deal Analyzer /
+   Deal Network: the page itself never scrolls (html/body overflow:hidden),
+   and each panel scrolls internally instead (.form-scroll, .results-scroll).
+   Below 768px we drop that model: panels stack full width, and every fixed
+   height / internal scroll well is unwound so the page scrolls normally. */
 @media (max-width: 768px) {
+  html, body { height: auto; overflow: visible; }
+  .app { height: auto; min-height: 100vh; flex-direction: column; width: 100%; }
   .sidebar { display: none; }
-  .content { flex-direction: column; }
-  .form-panel { width: 100%; min-width: 0; border-right: none; border-bottom: 1px solid var(--border-sub); }
-  .results-scroll { padding: 16px; }
+  .main { overflow: visible; }
+  .content { flex-direction: column; overflow: visible; }
+  .form-panel {
+    width: 100%; min-width: 0; overflow: visible;
+    border-right: none; border-bottom: 1px solid var(--border-sub);
+  }
+  .form-scroll { overflow-y: visible; flex: none; }
+  .results-panel { overflow: visible; flex: none; }
+  .results-scroll { overflow-y: visible; flex: none; padding: 16px; }
 }
 
 </style>
