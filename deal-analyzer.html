@@ -432,8 +432,30 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
   .msg-av { -webkit-print-color-adjust: exact !important; }
 }
 
-@media (max-width: 900px) { .sidebar { display: none; } .form-panel { width: 340px; min-width: 340px; } }
-@media (max-width: 680px) { .form-panel { display: none; } }
+/* ── MOBILE ──
+   Same fixed-height (100vh) split-pane shell as the rest of the app: the
+   page itself never scrolls (html/body overflow:hidden), and each panel
+   scrolls internally instead (.form-scroll, .messages). Below 768px we drop
+   that model: form-panel and aris-panel stack full width, form-panel is no
+   longer hidden (previously .form-panel{display:none} at 680px made deal
+   entry impossible on a phone), and every fixed height / internal scroll
+   well is unwound so the page scrolls normally top to bottom. */
+@media (max-width: 900px) {
+  .sidebar { display: none; }
+}
+@media (max-width: 768px) {
+  html, body { height: auto; overflow: visible; }
+  .app { height: auto; min-height: 100vh; flex-direction: column; width: 100%; }
+  .main { overflow: visible; }
+  .content { flex-direction: column; overflow: visible; }
+  .form-panel {
+    display: flex; width: 100%; min-width: 0; overflow: visible;
+    border-right: none; border-bottom: 1px solid var(--border-sub);
+  }
+  .form-scroll { overflow-y: visible; flex: none; }
+  .aris-panel { overflow: visible; flex: none; }
+  .messages { overflow-y: visible; flex: none; }
+}
 </style>
 <script src="https://static.memberstack.com/scripts/v1/memberstack.js" data-memberstack-app="app_cmr41qq5500q80tsx94pj61rc" defer></script>
 </head>
