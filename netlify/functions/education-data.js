@@ -5,10 +5,11 @@
 // unpublished drafts are only visible through education-admin.js's
 // admin-gated routes.
 //
-// Tiers (rookie -> investor -> mogul) are now sequentially gated: a member
-// must score 100% on a tier's quiz to unlock the next tier's quiz AND
-// lesson content. This is enforced server-side in submit_quiz, not just
-// hidden in the UI — a client can't skip ahead by calling the API directly.
+// Tiers (rookie -> investor -> mogul) are sequentially gated: a member
+// must pass a tier's quiz at that tier's threshold to unlock the next
+// tier's quiz AND lesson content. This is enforced server-side in
+// submit_quiz, not just hidden in the UI — a client can't skip ahead by
+// calling the API directly.
 //
 // Routes:
 //   GET  ?action=list                    -> published modules grouped by category, with this member's per-tier progress merged in
@@ -23,12 +24,29 @@ const { json, preflight } = require('./_Lib/http');
 
 const TIER_ORDER = ['rookie', 'investor', 'mogul'];
 
-// Pass threshold per tier — not uniform on purpose. Rookie moved to 80%
-// once it grew to 12 questions per topic (Aug 2026); Investor and Mogul
-// stay at 100% until they're expanded the same way, since a percentage
-// threshold doesn't work cleanly on a small question count (e.g. there's
-// no way to score exactly 80% on 4 questions).
-const PASS_THRESHOLD = { rookie: 0.8, investor: 1.0, mogul: 1.0 };
+// Pass threshold per tier, expressed as exact fractions of question count —
+// NOT rounded decimals. All three tiers now have exactly 12 questions per
+// topic (as of Aug 2026), which only cleanly supports thresholds in
+// twelfths: 100% (12/12), 91.67% (11/12), 83.33% (10/12), etc. A requested
+// "95%" or "90%" threshold has no achievable score on 12 questions — the
+// nearest real scores bracket those numbers without ever landing on them,
+// which would make the displayed requirement misleading. Rookie is
+// deliberately the strict 100% bar (foundational, low-ambiguity material);
+// Investor and Mogul both sit at 11/12 (~92%) — one missed question is
+// tolerated, but not two, given the higher-judgment nature of that content.
+//
+// Written as exact fractions (not decimals) so the score/total comparison
+// below has no floating-point rounding risk — `score / total` and
+// `PASS_THRESHOLD[tier]` are computed from the same division when total is
+// 12, so equality/inequality checks are exact.
+const PASS_THRESHOLD = { rookie: 12 / 12, investor: 11 / 12, mogul: 11 / 12 };
+
+// Human-readable version of each threshold, for error messages and any
+// server-driven copy. Keep in sync with PASS_THRESHOLD above by hand —
+// intentionally not derived automatically, so a future threshold change
+// forces a conscious update to the wording too.
+const PASS_THRESHOLD_LABEL = { rookie: '12/12 (100%)', investor: '11/12 (92%)', mogul: '11/12 (92%)' };
+
 const VALID_TIERS = new Set(TIER_ORDER);
 
 function priorTier(tier) {
@@ -79,7 +97,21 @@ exports.handler = async function (event, context) {
           progress: progressByModule[m.id] || null,
         }));
 
-        return json(200, { modules: enriched });
+        // Tier badges: a badge is earned once this member has PASSED that
+        // tier on every currently published module, not just one. This is
+        // computed fresh from the live published-module list each time, so
+        // adding a new topic later automatically re-requires it for anyone
+        // who already held a badge — no separate badge-tracking table to
+        // keep in sync, no risk of a stale badge surviving a new topic.
+        const totalModules = (modules || []).length;
+        const badges = {};
+        for (const tier of TIER_ORDER) {
+          badges[tier] =
+            totalModules > 0 &&
+            (modules || []).every((m) => !!(progressByModule[m.id] && progressByModule[m.id][tier] && progressByModule[m.id][tier].passed));
+        }
+
+        return json(200, { modules: enriched, badges, totalModules });
       }
 
       if (action === 'get') {
@@ -117,7 +149,7 @@ exports.handler = async function (event, context) {
         const progressByTier = {};
         for (const p of progressRows || []) progressByTier[p.tier] = p;
 
-        return json(200, { module: mod, questions: questions || [], progressByTier });
+        return json(200, { module: mod, questions: questions || [], progressByTier, passThresholdLabel: PASS_THRESHOLD_LABEL });
       }
 
       return json(400, { error: 'Unknown action' });
@@ -148,7 +180,7 @@ exports.handler = async function (event, context) {
             .maybeSingle();
           if (priorError) throw priorError;
           if (!priorProgress || !priorProgress.passed) {
-            return json(403, { error: `Complete the ${prior} quiz with a perfect score first to unlock ${effectiveTier}.` });
+            return json(403, { error: `Score ${PASS_THRESHOLD_LABEL[prior]} on the ${prior} quiz first to unlock ${effectiveTier}.` });
           }
         }
 
@@ -190,7 +222,7 @@ exports.handler = async function (event, context) {
 
         const nextTier = passed ? getNextTier(effectiveTier) : null;
 
-        return json(200, { score, total, passed, results, unlockedNextTier: nextTier });
+        return json(200, { score, total, passed, results, unlockedNextTier: nextTier, passThresholdLabel: PASS_THRESHOLD_LABEL[effectiveTier] });
       }
 
       return json(400, { error: 'Unknown action' });

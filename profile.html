@@ -393,6 +393,23 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 
 @media (max-width: 900px) { .membership-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 500px) { .membership-grid { grid-template-columns: 1fr; } }
+
+/* ── TIER BADGES (Rookie/Investor/Mogul — earned once a member has
+   passed that tier across every currently published Education topic).
+   Same component/visual language as education.html and dashboard.html. ── */
+.tier-badges-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.tier-badge {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: 20px;
+  border: 1px solid var(--border-sub);
+  font-size: 12px; font-weight: 600; letter-spacing: 0.2px;
+  transition: all 0.15s ease;
+}
+.tier-badge-icon { font-size: 14px; line-height: 1; }
+.tier-badge.locked { opacity: 0.35; filter: grayscale(1); }
+.tier-badge.earned.rookie   { border-color: rgba(107,114,128,0.5); background: rgba(107,114,128,0.12); color: var(--grey-light); }
+.tier-badge.earned.investor { border-color: rgba(200,155,60,0.5); background: rgba(200,155,60,0.12); color: var(--gold); }
+.tier-badge.earned.mogul    { border-color: rgba(255,107,43,0.5); background: rgba(255,107,43,0.12); color: var(--orange); }
 </style>
 <script src="https://static.memberstack.com/scripts/v1/memberstack.js" data-memberstack-app="app_cmr41qq5500q80tsx94pj61rc" defer></script>
 </head>
@@ -471,6 +488,12 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
             <div class="avatar-meta-hint">Click the camera icon to update your photo. JPG or PNG, up to 4MB.</div>
           </div>
         </div>
+      </div>
+
+      <!-- ACHIEVEMENTS -->
+      <div class="profile-card">
+        <div class="profile-card-label">Achievements</div>
+        <div class="tier-badges-row" id="tier-badges-row"></div>
       </div>
 
       <!-- WHY ANSWERS -->
@@ -606,6 +629,48 @@ function waitForMemberstack(maxWaitMs = 6000, intervalMs = 100) {
   });
 }
 
+// ── TIER BADGES ──
+// Rookie/Investor/Mogul badges, earned once the member has passed that
+// tier's quiz across every currently published Education topic. Computed
+// server-side (education-data.js `list` action) so a new topic added
+// later automatically re-requires it for anyone who already held a badge.
+const TIER_META = {
+  rookie: { label: 'Rookie', icon: '🔰' },
+  investor: { label: 'Investor', icon: '💼' },
+  mogul: { label: 'Mogul', icon: '👑' },
+};
+
+async function loadEducationBadges() {
+  try {
+    const res = await fetch('/api/education-data?action=list', {
+      headers: { Authorization: `Bearer ${memberToken}` },
+    });
+    if (!res.ok) throw new Error('Failed to load education badges');
+    const { badges } = await res.json();
+    renderTierBadges(badges);
+  } catch (e) {
+    console.error('Failed to load education badges:', e);
+    // Non-critical widget — leave the badge row empty rather than
+    // surfacing an error on the whole profile page.
+  }
+}
+
+function renderTierBadges(badges) {
+  const el = document.getElementById('tier-badges-row');
+  if (!el) return;
+  const b = badges || {};
+  el.innerHTML = ['rookie', 'investor', 'mogul'].map((t) => {
+    const meta = TIER_META[t];
+    const earned = !!b[t];
+    return `
+      <div class="tier-badge ${earned ? `earned ${t}` : 'locked'}" title="${earned ? `${meta.label} badge earned — every topic passed at ${meta.label} level` : `${meta.label} badge locked — pass every topic at ${meta.label} level to earn it`}">
+        <span class="tier-badge-icon">${meta.icon}</span>
+        <span>${meta.label}</span>
+      </div>
+    `;
+  }).join('');
+}
+
 async function initProfilePage() {
   try {
     await waitForMemberstack();
@@ -628,6 +693,7 @@ async function initProfilePage() {
 
     memberId = member.id;
     memberToken = await memberstack.getMemberCookie();
+    loadEducationBadges();
 
     const customFields = member.customFields || {};
     const fullName = customFields['full-name'] || (customFields['first-name'] ? customFields['first-name'] + ' ' + (customFields['last-name'] || '') : null) || member.auth?.email || 'Member';

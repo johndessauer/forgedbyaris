@@ -333,6 +333,29 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 /* ── RESPONSIVE ── */
 @media (max-width: 1100px) { .modules-grid { grid-template-columns: repeat(2, 1fr); } .stats-row { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 768px) { .sidebar { display: none; } .dashboard-scroll { padding: 16px; } .recent-grid { grid-template-columns: 1fr; } .recent-empty { grid-column: span 1; } }
+
+/* ── TIER BADGES (Rookie/Investor/Mogul — earned once a member has
+   passed that tier across every currently published Education topic).
+   Same component/visual language as education.html and profile.html. ── */
+.tier-badges-card {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  background: var(--navy-mid); border: 1px solid var(--border-sub); border-radius: 10px;
+  padding: 14px 18px; margin-bottom: 16px;
+}
+.tier-badges-card-label { font-size: 12px; font-weight: 600; color: var(--grey-light); white-space: nowrap; }
+.tier-badges-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.tier-badge {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: 20px;
+  border: 1px solid var(--border-sub);
+  font-size: 12px; font-weight: 600; letter-spacing: 0.2px;
+  transition: all 0.15s ease;
+}
+.tier-badge-icon { font-size: 14px; line-height: 1; }
+.tier-badge.locked { opacity: 0.35; filter: grayscale(1); }
+.tier-badge.earned.rookie   { border-color: rgba(107,114,128,0.5); background: rgba(107,114,128,0.12); color: var(--grey-light); }
+.tier-badge.earned.investor { border-color: rgba(200,155,60,0.5); background: rgba(200,155,60,0.12); color: var(--gold); }
+.tier-badge.earned.mogul    { border-color: rgba(255,107,43,0.5); background: rgba(255,107,43,0.12); color: var(--orange); }
 </style>
 <script src="https://static.memberstack.com/scripts/v1/memberstack.js" data-memberstack-app="app_cmr41qq5500q80tsx94pj61rc" defer></script>
 </head>
@@ -395,6 +418,12 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 
     <!-- DASHBOARD SCROLL -->
     <div class="dashboard-scroll">
+
+      <!-- TIER BADGES -->
+      <div class="tier-badges-card">
+        <div class="tier-badges-card-label">Your FORGE Badges</div>
+        <div class="tier-badges-row" id="tier-badges-row"></div>
+      </div>
 
       <!-- ARIS DAILY QUOTE -->
       <div class="quote-banner" id="quote-banner">
@@ -692,6 +721,7 @@ window.onload = async () => {
       return;
     }
     memberToken = await memberstack.getMemberCookie();
+    loadEducationBadges();
     // Pull Why answers from the server before deciding whether to show
     // the onboarding prompt — without this, a member who already answered
     // on another device would incorrectly see the prompt again here, since
@@ -762,6 +792,49 @@ function loadStats() {
 function trackSession() {
   const sessions = parseInt(localStorage.getItem('forge-sessions') || '0');
   localStorage.setItem('forge-sessions', sessions + 1);
+}
+
+
+// ── TIER BADGES ──
+// Rookie/Investor/Mogul badges, earned once the member has passed that
+// tier's quiz across every currently published Education topic. Computed
+// server-side (education-data.js `list` action) so a new topic added
+// later automatically re-requires it for anyone who already held a badge.
+const TIER_META = {
+  rookie: { label: 'Rookie', icon: '🔰' },
+  investor: { label: 'Investor', icon: '💼' },
+  mogul: { label: 'Mogul', icon: '👑' },
+};
+
+async function loadEducationBadges() {
+  try {
+    const res = await fetch('/api/education-data?action=list', {
+      headers: { Authorization: `Bearer ${memberToken}` },
+    });
+    if (!res.ok) throw new Error('Failed to load education badges');
+    const { badges } = await res.json();
+    renderTierBadges(badges);
+  } catch (e) {
+    console.error('Failed to load education badges:', e);
+    // Non-critical widget — leave the badge row empty rather than
+    // surfacing an error on the whole dashboard.
+  }
+}
+
+function renderTierBadges(badges) {
+  const el = document.getElementById('tier-badges-row');
+  if (!el) return;
+  const b = badges || {};
+  el.innerHTML = ['rookie', 'investor', 'mogul'].map((t) => {
+    const meta = TIER_META[t];
+    const earned = !!b[t];
+    return `
+      <div class="tier-badge ${earned ? `earned ${t}` : 'locked'}" title="${earned ? `${meta.label} badge earned — every topic passed at ${meta.label} level` : `${meta.label} badge locked — pass every topic at ${meta.label} level to earn it`}">
+        <span class="tier-badge-icon">${meta.icon}</span>
+        <span>${meta.label}</span>
+      </div>
+    `;
+  }).join('');
 }
 
 // ── DAILY QUOTE ──

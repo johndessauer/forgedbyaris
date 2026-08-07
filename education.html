@@ -290,6 +290,22 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
   transition: border-color 0.15s ease, color 0.15s ease;
 }
 .quiz-secondary-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+/* ── TIER BADGES (Rookie/Investor/Mogul — earned once a member has
+   passed that tier across every currently published Education topic) ── */
+.tier-badges-row { display: flex; gap: 10px; align-items: center; }
+.tier-badge {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: 20px;
+  border: 1px solid var(--border-sub);
+  font-size: 12px; font-weight: 600; letter-spacing: 0.2px;
+  transition: all 0.15s ease;
+}
+.tier-badge-icon { font-size: 14px; line-height: 1; }
+.tier-badge.locked { opacity: 0.35; filter: grayscale(1); }
+.tier-badge.earned.rookie   { border-color: rgba(107,114,128,0.5); background: rgba(107,114,128,0.12); color: var(--grey-light); }
+.tier-badge.earned.investor { border-color: rgba(200,155,60,0.5); background: rgba(200,155,60,0.12); color: var(--gold); }
+.tier-badge.earned.mogul    { border-color: rgba(255,107,43,0.5); background: rgba(255,107,43,0.12); color: var(--orange); }
 </style>
 <script src="https://static.memberstack.com/scripts/v1/memberstack.js" data-memberstack-app="app_cmr41qq5500q80tsx94pj61rc" defer></script>
 </head>
@@ -339,6 +355,9 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
           <div class="topbar-name">Education</div>
           <div class="topbar-sub">Lessons &nbsp;·&nbsp; Quizzes &nbsp;·&nbsp; Practice</div>
         </div>
+      </div>
+      <div class="topbar-right">
+        <div class="tier-badges-row" id="tier-badges-row"></div>
       </div>
     </div>
 
@@ -444,7 +463,9 @@ async function loadModules() {
     headers: { Authorization: `Bearer ${memberToken}` },
   });
   if (!res.ok) throw new Error('Failed to load modules');
-  const { modules } = await res.json();
+  const { modules, badges } = await res.json();
+
+  renderTierBadges(badges);
 
   const container = document.getElementById('module-list-container');
   if (!modules.length) {
@@ -487,9 +508,42 @@ const TIER_META = {
   mogul: { label: 'Mogul', color: '#FF6B2B', icon: '👑' },
 };
 
+// Renders the Rookie/Investor/Mogul badge row. `badges` comes straight from
+// the education-data.js `list` response — { rookie, investor, mogul }
+// booleans computed server-side against every currently published topic.
+// If a member somehow hasn't loaded any badge state yet (e.g. a fetch
+// error upstream left it undefined), every badge just renders locked
+// rather than throwing.
+function renderTierBadges(badges) {
+  const el = document.getElementById('tier-badges-row');
+  if (!el) return;
+  const b = badges || {};
+  el.innerHTML = ['rookie', 'investor', 'mogul'].map((t) => {
+    const meta = TIER_META[t];
+    const earned = !!b[t];
+    return `
+      <div class="tier-badge ${earned ? `earned ${t}` : 'locked'}" title="${earned ? `${meta.label} badge earned — every topic passed at ${meta.label} level` : `${meta.label} badge locked — pass every topic at ${meta.label} level to earn it`}">
+        <span class="tier-badge-icon">${meta.icon}</span>
+        <span>${meta.label}</span>
+      </div>
+    `;
+  }).join('');
+}
+
 // Mirrors the server's actual per-tier pass threshold (education-data.js)
 // — only used here for display text, the server is the real enforcement.
-const PASS_THRESHOLD_LABEL = { rookie: '80%', investor: '100%', mogul: '100%' };
+// All three tiers now have exactly 12 questions per topic, which only
+// cleanly supports thresholds in twelfths — see education-data.js for why
+// these specific numbers (not a round 95%/90%) were chosen.
+const PASS_THRESHOLD_LABEL = { rookie: '12/12 (100%)', investor: '11/12 (92%)', mogul: '11/12 (92%)' };
+
+// Short, tier-specific copy explaining why FORGE's standards are this
+// strict — shown on the quiz-start screen alongside the threshold itself.
+const GRADING_NARRATIVE = {
+  rookie: 'Rookie material covers the definitions and mechanics everything else is built on — there\'s no partial credit for foundational knowledge, which is why this tier requires a perfect score.',
+  investor: 'Investor-level questions test real worked numbers, not just concepts — the kind of math that backs an actual investment decision. One miss is tolerated; two isn\'t, because these are the numbers you\'ll be relying on.',
+  mogul: 'Mogul-level content covers portfolio- and institutional-scale strategy. The same high bar applies here as at Investor level — this is where the stakes, and the capital involved, are highest.',
+};
 
 async function openModule(id) {
   currentTier = 'rookie';
@@ -633,7 +687,8 @@ function startQuiz() {
 
   document.getElementById('quiz-questions').innerHTML = `
     <div style="text-align:center;margin-bottom:16px;">${tierBadge(currentTier)}</div>
-    <div style="text-align:center;font-size:12px;color:var(--grey);margin-bottom:20px;">Score ${PASS_THRESHOLD_LABEL[currentTier]} to unlock the next tier. You can retake this as many times as you need.</div>
+    <div style="text-align:center;font-size:12px;color:var(--grey);margin-bottom:8px;">Score ${PASS_THRESHOLD_LABEL[currentTier]} to unlock the next tier. You can retake this as many times as you need.</div>
+    <div style="text-align:center;font-size:11px;color:var(--grey);opacity:0.85;max-width:520px;margin:0 auto 20px;line-height:1.5;">${GRADING_NARRATIVE[currentTier]}</div>
   ` + currentQuestions.map((q, qi) => `
     <div class="quiz-card">
       <div class="quiz-q">${qi + 1}. ${escapeHtml(q.question)}</div>
