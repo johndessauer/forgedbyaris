@@ -410,6 +410,8 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 .tier-badge.earned.rookie   { border-color: rgba(107,114,128,0.5); background: rgba(107,114,128,0.12); color: var(--grey-light); }
 .tier-badge.earned.investor { border-color: rgba(200,155,60,0.5); background: rgba(200,155,60,0.12); color: var(--gold); }
 .tier-badge.earned.mogul    { border-color: rgba(255,107,43,0.5); background: rgba(255,107,43,0.12); color: var(--orange); }
+.tier-badge.membership-chip { border-color: rgba(200,155,60,0.5); background: rgba(200,155,60,0.12); color: var(--gold); }
+.tier-badges-divider { color: var(--grey); font-size: 13px; opacity: 0.6; }
 </style>
 <script src="https://static.memberstack.com/scripts/v1/memberstack.js" data-memberstack-app="app_cmr41qq5500q80tsx94pj61rc" defer></script>
 </head>
@@ -610,6 +612,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 // ── STATE ──
 let currentProfile = null;
 let memberToken = null;
+let currentPlanName = 'Founding Member';
 let memberId = null;
 
 // ── MEMBERSTACK AUTH GATE (matches dashboard.html pattern) ──
@@ -659,7 +662,14 @@ function renderTierBadges(badges) {
   const el = document.getElementById('tier-badges-row');
   if (!el) return;
   const b = badges || {};
-  el.innerHTML = ['rookie', 'investor', 'mogul'].map((t) => {
+  const membershipChip = `
+    <div class="tier-badge membership-chip" title="Your current FORGE membership">
+      <span class="tier-badge-icon">⭐</span>
+      <span>${escapeHtml(currentPlanName)}</span>
+    </div>
+    <div class="tier-badges-divider">&rarr;</div>
+  `;
+  const tierChips = ['rookie', 'investor', 'mogul'].map((t) => {
     const meta = TIER_META[t];
     const earned = !!b[t];
     return `
@@ -669,6 +679,7 @@ function renderTierBadges(badges) {
       </div>
     `;
   }).join('');
+  el.innerHTML = membershipChip + tierChips;
 }
 
 async function initProfilePage() {
@@ -683,13 +694,16 @@ async function initProfilePage() {
     }
 
     const FOUNDING_MEMBER_PRICE_IDS = ['prc_497-97-3m13d01j8', 'prc_247-97-ne13e01d6', 'prc_997-97-5fmt0nr5', 'prc_-97-direct-ka9b0lq3'];
-    const hasActiveMembership = (member.planConnections || []).some(
+    const activeConn = (member.planConnections || []).find(
       pc => FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
     );
+    const hasActiveMembership = !!activeConn;
     if (!hasActiveMembership) {
       window.location.href = 'signup.html';
       return;
     }
+    const planName = activeConn?.planName || 'Founding Member';
+    currentPlanName = planName;
 
     memberId = member.id;
     memberToken = await memberstack.getMemberCookie();
@@ -698,10 +712,6 @@ async function initProfilePage() {
     const customFields = member.customFields || {};
     const fullName = customFields['full-name'] || (customFields['first-name'] ? customFields['first-name'] + ' ' + (customFields['last-name'] || '') : null) || member.auth?.email || 'Member';
     const initials = fullName.split(' ').filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase() || 'M';
-    const activeConn = (member.planConnections || []).find(
-      pc => FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
-    );
-    const planName = activeConn?.planName || 'Founding Member';
 
     document.getElementById('profile-name').textContent = fullName;
     document.getElementById('profile-tier').textContent = planName;
