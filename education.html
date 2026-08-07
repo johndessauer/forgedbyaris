@@ -308,6 +308,19 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 .tier-badge.earned.mogul    { border-color: rgba(255,107,43,0.5); background: rgba(255,107,43,0.12); color: var(--orange); }
 .tier-badge.membership-chip { border-color: rgba(200,155,60,0.5); background: rgba(200,155,60,0.12); color: var(--gold); }
 .tier-badges-divider { color: var(--grey); font-size: 13px; opacity: 0.6; }
+
+/* ── INCOME TYPE FILTER (Active / Passive / Legacy / Other) ── */
+.income-filter-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
+.income-filter-tab {
+  padding: 7px 16px; border-radius: 8px;
+  border: 1px solid var(--border-sub);
+  background: var(--navy-mid, transparent);
+  color: var(--grey-light);
+  font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.3px;
+  cursor: pointer; transition: all 0.15s ease; user-select: none;
+}
+.income-filter-tab:hover { border-color: var(--gold); color: var(--gold); }
+.income-filter-tab.active { background: var(--orange-dim); border-color: rgba(255,107,43,0.4); color: var(--orange); }
 </style>
 <script src="https://static.memberstack.com/scripts/v1/memberstack.js" data-memberstack-app="app_cmr41qq5500q80tsx94pj61rc" defer></script>
 </head>
@@ -368,6 +381,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 
       <!-- LIST VIEW -->
       <div id="view-list">
+        <div class="income-filter-row" id="income-filter-row"></div>
         <div id="module-list-container">
           <div style="color:var(--grey);font-size:13px;">Loading modules...</div>
         </div>
@@ -463,6 +477,15 @@ async function initEducationPage() {
   }
 }
 
+const INCOME_TYPE_META = {
+  active:  { label: 'Active Income',  icon: '⚡' },
+  passive: { label: 'Passive Income', icon: '💰' },
+  legacy:  { label: 'Legacy Income',  icon: '🏛' },
+  other:   { label: 'Other',          icon: '🧩' },
+};
+let allModules = [];
+let currentIncomeFilter = 'all';
+
 async function loadModules() {
   const res = await fetch('/api/education-data?action=list', {
     headers: { Authorization: `Bearer ${memberToken}` },
@@ -471,10 +494,41 @@ async function loadModules() {
   const { modules, badges } = await res.json();
 
   renderTierBadges(badges);
+  allModules = modules;
+  renderIncomeFilterTabs();
+  renderModuleList();
+}
 
+function renderIncomeFilterTabs() {
+  const el = document.getElementById('income-filter-row');
+  if (!el) return;
+  const tabs = ['all', 'active', 'passive', 'legacy', 'other'];
+  el.innerHTML = tabs.map((t) => {
+    const label = t === 'all' ? 'All Lessons' : INCOME_TYPE_META[t].label;
+    const icon = t === 'all' ? '📚' : INCOME_TYPE_META[t].icon;
+    const isActive = currentIncomeFilter === t;
+    return `<div class="income-filter-tab ${isActive ? 'active' : ''}" onclick="setIncomeFilter('${t}')">${icon} ${label}</div>`;
+  }).join('');
+}
+
+function setIncomeFilter(t) {
+  currentIncomeFilter = t;
+  renderIncomeFilterTabs();
+  renderModuleList();
+}
+
+function renderModuleList() {
   const container = document.getElementById('module-list-container');
-  if (!modules.length) {
+  const modules = currentIncomeFilter === 'all'
+    ? allModules
+    : allModules.filter(m => m.income_type === currentIncomeFilter);
+
+  if (!allModules.length) {
     container.innerHTML = '<div style="color:var(--grey);font-size:13px;">No lessons published yet — check back soon.</div>';
+    return;
+  }
+  if (!modules.length) {
+    container.innerHTML = '<div style="color:var(--grey);font-size:13px;">No lessons in this category yet.</div>';
     return;
   }
 

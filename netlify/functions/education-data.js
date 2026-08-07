@@ -72,7 +72,7 @@ exports.handler = async function (event, context) {
       if (action === 'list') {
         const { data: modules, error: modError } = await supabase
           .from('education_modules')
-          .select('id, title, slug, category, content_type, description, order_index')
+          .select('id, title, slug, category, income_type, content_type, description, order_index')
           .eq('published', true)
           .order('category', { ascending: true })
           .order('order_index', { ascending: true });
