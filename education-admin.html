@@ -244,7 +244,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 
 .form-row { margin-bottom: 16px; }
 .form-row label { display: block; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--grey); margin-bottom: 6px; }
-.form-row input[type=text], .form-row textarea, .form-row select {
+.form-row input[type=text], .form-row input[type=date], .form-row input[type=number], .form-row textarea, .form-row select {
   width: 100%; background: var(--navy-mid); border: 1px solid var(--border-sub); border-radius: 6px;
   padding: 10px 12px; color: var(--white); font-size: 13px; font-family: 'Inter', sans-serif;
 }
@@ -326,6 +326,15 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 
       <div id="admin-gate-notice" style="display:none;" class="error-notice">You don't have access to this page.</div>
 
+      <!-- SECTION SWITCHER -->
+      <div style="display:flex;gap:8px;margin-bottom:20px;">
+        <button class="admin-btn primary" id="section-tab-modules" onclick="switchAdminSection('modules')">📚 Modules</button>
+        <button class="admin-btn" id="section-tab-videos" onclick="switchAdminSection('videos')">🎬 Video Library</button>
+      </div>
+
+      <!-- ===== MODULES SECTION ===== -->
+      <div id="admin-section-modules">
+
       <!-- LIST VIEW -->
       <div id="admin-view-list">
         <button class="admin-btn primary" onclick="openEditor(null)" style="margin-bottom:16px;">+ New Module</button>
@@ -375,6 +384,63 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
           <button class="admin-btn" id="publish-toggle-btn" onclick="togglePublish()" style="display:none;"></button>
         </div>
       </div>
+
+      </div>
+      <!-- ===== END MODULES SECTION ===== -->
+
+      <!-- ===== VIDEO LIBRARY SECTION ===== -->
+      <div id="admin-section-videos" style="display:none;">
+
+      <!-- LIST VIEW -->
+      <div id="video-view-list">
+        <button class="admin-btn primary" onclick="openVideoEditor(null)" style="margin-bottom:16px;">+ New Video</button>
+        <table class="admin-table">
+          <thead><tr><th>Title</th><th>Type</th><th>Recorded</th><th>Status</th><th></th></tr></thead>
+          <tbody id="admin-video-rows"><tr><td colspan="5" style="color:var(--grey);">Loading...</td></tr></tbody>
+        </table>
+      </div>
+
+      <!-- EDITOR VIEW -->
+      <div id="video-view-editor" style="display:none;">
+        <button class="reader-back" onclick="backToVideoList()">&larr; Back to list</button>
+        <div class="reader-title" id="video-editor-heading" style="margin-bottom:20px;">New Video</div>
+
+        <div class="form-row">
+          <label>Title</label>
+          <input type="text" id="v-title" placeholder="e.g. August 6 Group Coaching Call">
+        </div>
+        <div class="form-row">
+          <label>Description <span style="text-transform:none;font-weight:400;color:var(--grey);">(optional)</span></label>
+          <input type="text" id="v-description" placeholder="One line summary">
+        </div>
+        <div class="form-row">
+          <label>YouTube Link or Video ID</label>
+          <input type="text" id="v-youtube" placeholder="Paste the full YouTube URL or just the video ID">
+        </div>
+        <div class="form-row">
+          <label>Type</label>
+          <select id="v-type" onchange="onVideoTypeChange()">
+            <option value="lesson">Video Lesson</option>
+            <option value="recorded_call">Recorded Call (Wednesday Group Coaching)</option>
+          </select>
+        </div>
+        <div class="form-row" id="v-date-row" style="display:none;">
+          <label>Call Date</label>
+          <input type="date" id="v-date">
+        </div>
+        <div class="form-row">
+          <label>Order <span style="text-transform:none;font-weight:400;color:var(--grey);">(lower numbers show first; 0 is fine for most)</span></label>
+          <input type="number" id="v-order" value="0" style="max-width:120px;">
+        </div>
+
+        <div style="margin-top:24px;display:flex;gap:10px;">
+          <button class="admin-btn primary" onclick="saveVideo()">Save Video</button>
+          <button class="admin-btn" id="video-publish-toggle-btn" onclick="toggleVideoPublish()" style="display:none;"></button>
+        </div>
+      </div>
+
+      </div>
+      <!-- ===== END VIDEO LIBRARY SECTION ===== -->
 
     </div>
   </main>
@@ -427,6 +493,168 @@ async function initAdminPage() {
   } catch (err) {
     console.error('Admin page init failed:', err);
   }
+}
+
+// ── SECTION SWITCHER (Modules / Video Library) ──
+let videosLoaded = false;
+function switchAdminSection(section) {
+  const modulesBtn = document.getElementById('section-tab-modules');
+  const videosBtn = document.getElementById('section-tab-videos');
+  const modulesSection = document.getElementById('admin-section-modules');
+  const videosSection = document.getElementById('admin-section-videos');
+
+  if (section === 'modules') {
+    modulesSection.style.display = 'block';
+    videosSection.style.display = 'none';
+    modulesBtn.classList.add('primary');
+    videosBtn.classList.remove('primary');
+  } else {
+    modulesSection.style.display = 'none';
+    videosSection.style.display = 'block';
+    modulesBtn.classList.remove('primary');
+    videosBtn.classList.add('primary');
+    // Lazy-load: only fetch videos the first time this tab is opened.
+    if (!videosLoaded) {
+      videosLoaded = true;
+      loadVideoAdminList();
+    }
+  }
+}
+
+// ── VIDEO LIBRARY ADMIN ──
+let videoAdminCache = [];
+let editingVideoId = null;
+
+const VIDEO_TYPE_LABELS = { lesson: 'Video Lesson', recorded_call: 'Recorded Call' };
+
+async function loadVideoAdminList() {
+  const res = await fetch('/api/video-library-admin?action=list_all', {
+    headers: { Authorization: `Bearer ${memberToken}` },
+  });
+  if (!res.ok) {
+    document.getElementById('admin-video-rows').innerHTML = '<tr><td colspan="5" style="color:var(--red);">Could not load videos.</td></tr>';
+    return;
+  }
+  const { videos } = await res.json();
+  videoAdminCache = videos || [];
+  const rows = document.getElementById('admin-video-rows');
+  if (!videos.length) {
+    rows.innerHTML = '<tr><td colspan="5" style="color:var(--grey);">No videos yet — add your first one above.</td></tr>';
+    return;
+  }
+  rows.innerHTML = videos.map(v => `
+    <tr>
+      <td>${escapeHtml(v.title)}</td>
+      <td>${VIDEO_TYPE_LABELS[v.video_type] || v.video_type}</td>
+      <td>${v.recorded_date ? new Date(v.recorded_date + 'T00:00:00').toLocaleDateString() : '—'}</td>
+      <td><span class="pill ${v.published ? 'published' : 'draft'}">${v.published ? 'Published' : 'Draft'}</span></td>
+      <td>
+        <button class="admin-btn" onclick="openVideoEditor('${v.id}')">Edit</button>
+        <button class="admin-btn danger" onclick="deleteVideo('${v.id}', '${escapeHtml(v.title).replace(/'/g, "\\'")}')">Delete</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function openVideoEditor(id) {
+  editingVideoId = id;
+
+  if (id) {
+    const v = videoAdminCache.find(x => x.id === id);
+    if (!v) return;
+    document.getElementById('video-editor-heading').textContent = 'Edit: ' + v.title;
+    document.getElementById('v-title').value = v.title;
+    document.getElementById('v-description').value = v.description || '';
+    document.getElementById('v-youtube').value = v.youtube_id;
+    document.getElementById('v-type').value = v.video_type;
+    document.getElementById('v-date').value = v.recorded_date || '';
+    document.getElementById('v-order').value = v.order_index || 0;
+    document.getElementById('video-publish-toggle-btn').style.display = 'inline-block';
+    document.getElementById('video-publish-toggle-btn').textContent = v.published ? 'Unpublish' : 'Publish';
+  } else {
+    document.getElementById('video-editor-heading').textContent = 'New Video';
+    document.getElementById('v-title').value = '';
+    document.getElementById('v-description').value = '';
+    document.getElementById('v-youtube').value = '';
+    document.getElementById('v-type').value = 'lesson';
+    document.getElementById('v-date').value = '';
+    document.getElementById('v-order').value = 0;
+    document.getElementById('video-publish-toggle-btn').style.display = 'none';
+  }
+  onVideoTypeChange();
+  document.getElementById('video-view-list').style.display = 'none';
+  document.getElementById('video-view-editor').style.display = 'block';
+}
+
+function backToVideoList() {
+  document.getElementById('video-view-editor').style.display = 'none';
+  document.getElementById('video-view-list').style.display = 'block';
+  loadVideoAdminList();
+}
+
+function onVideoTypeChange() {
+  const isCall = document.getElementById('v-type').value === 'recorded_call';
+  document.getElementById('v-date-row').style.display = isCall ? 'block' : 'none';
+}
+
+async function saveVideo() {
+  const title = document.getElementById('v-title').value.trim();
+  const description = document.getElementById('v-description').value.trim();
+  const youtubeUrl = document.getElementById('v-youtube').value.trim();
+  const videoType = document.getElementById('v-type').value;
+  const recordedDate = document.getElementById('v-date').value || null;
+  const orderIndex = parseInt(document.getElementById('v-order').value, 10) || 0;
+
+  if (!title || !youtubeUrl) {
+    alert('Title and a YouTube link/ID are required.');
+    return;
+  }
+
+  const action = editingVideoId ? 'update' : 'create';
+  const payload = { action, title, description, youtubeUrl, videoType, recordedDate, orderIndex };
+  if (editingVideoId) payload.id = editingVideoId;
+
+  const res = await fetch('/api/video-library-admin', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${memberToken}` },
+    body: JSON.stringify(payload),
+  });
+  const result = await res.json();
+  if (!res.ok) {
+    alert(result.error || 'Could not save this video.');
+    return;
+  }
+  backToVideoList();
+}
+
+async function toggleVideoPublish() {
+  if (!editingVideoId) return;
+  const v = videoAdminCache.find(x => x.id === editingVideoId);
+  const newPublished = !(v && v.published);
+  const res = await fetch('/api/video-library-admin', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${memberToken}` },
+    body: JSON.stringify({ action: 'toggle_publish', id: editingVideoId, published: newPublished }),
+  });
+  if (!res.ok) {
+    alert('Could not update publish status.');
+    return;
+  }
+  backToVideoList();
+}
+
+async function deleteVideo(id, title) {
+  if (!confirm(`Delete "${title}"? This can't be undone.`)) return;
+  const res = await fetch('/api/video-library-admin', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${memberToken}` },
+    body: JSON.stringify({ action: 'delete', id }),
+  });
+  if (!res.ok) {
+    alert('Could not delete this video.');
+    return;
+  }
+  loadVideoAdminList();
 }
 
 async function loadAdminList() {

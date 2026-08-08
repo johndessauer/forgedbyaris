@@ -63,3 +63,13 @@
   from = "/api/member-stats"
   to = "/.netlify/functions/member-stats"
   status = 200
+
+[[redirects]]
+  from = "/api/video-library"
+  to = "/.netlify/functions/video-library"
+  status = 200
+
+[[redirects]]
+  from = "/api/video-library-admin"
+  to = "/.netlify/functions/video-library-admin"
+  status = 200

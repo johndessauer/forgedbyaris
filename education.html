@@ -320,6 +320,57 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 }
 .income-filter-tab:hover { border-color: var(--gold); color: var(--gold); }
 .income-filter-tab.active { background: var(--orange-dim); border-color: rgba(255,107,43,0.4); color: var(--orange); }
+
+/* ── EDUCATION TOP-LEVEL SECTION SWITCHER (Lessons / Video Library) ── */
+.edu-section-tabs { display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--border-sub); padding-bottom: 16px; }
+.edu-section-tab {
+  padding: 9px 18px; border-radius: 8px;
+  border: 1px solid var(--border-sub);
+  color: var(--grey-light);
+  font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 0.3px;
+  cursor: pointer; transition: all 0.15s ease; user-select: none;
+}
+.edu-section-tab:hover { border-color: var(--gold); color: var(--gold); }
+.edu-section-tab.active { background: var(--gold-dim); border-color: var(--gold); color: var(--gold); }
+
+/* ── VIDEO LIBRARY ── */
+.video-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.video-card {
+  background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 10px;
+  overflow: hidden; cursor: pointer; transition: border-color 0.15s, transform 0.15s;
+}
+.video-card:hover { border-color: var(--gold); transform: translateY(-1px); }
+.video-card-thumb-wrap { position: relative; width: 100%; aspect-ratio: 16/9; background: var(--navy-mid); overflow: hidden; }
+.video-card-thumb-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.video-card-play {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.25); transition: background 0.15s;
+}
+.video-card:hover .video-card-play { background: rgba(0,0,0,0.45); }
+.video-card-play-icon {
+  width: 52px; height: 52px; border-radius: 50%; background: rgba(0,0,0,0.6);
+  border: 2px solid var(--white); display: flex; align-items: center; justify-content: center; font-size: 18px;
+}
+.video-card-body { padding: 14px; }
+.video-card-type-tag { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--gold); opacity: 0.85; margin-bottom: 6px; }
+.video-card-title { font-size: 14px; font-weight: 700; color: var(--white); margin-bottom: 4px; }
+.video-card-desc { font-size: 12px; color: var(--grey-light); line-height: 1.5; }
+.video-card-date { font-size: 11px; color: var(--grey); margin-top: 8px; }
+
+.video-lightbox-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 300;
+  display: none; align-items: center; justify-content: center; padding: 24px;
+}
+.video-lightbox-overlay.open { display: flex; }
+.video-lightbox { width: 100%; max-width: 900px; }
+.video-lightbox-frame-wrap { position: relative; width: 100%; aspect-ratio: 16/9; background: black; border-radius: 10px; overflow: hidden; }
+.video-lightbox-frame-wrap iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: none; }
+.video-lightbox-title { color: var(--white); font-size: 15px; font-weight: 700; margin-top: 14px; }
+.video-lightbox-close {
+  position: absolute; top: -40px; right: 0; background: none; border: none; color: var(--grey-light);
+  font-size: 14px; cursor: pointer; font-family: 'Inter', sans-serif;
+}
+.video-lightbox-close:hover { color: var(--white); }
 </style>
 <script src="https://static.memberstack.com/scripts/v1/memberstack.js" data-memberstack-app="app_cmr41qq5500q80tsx94pj61rc" defer></script>
 </head>
@@ -378,11 +429,25 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
     <!-- SCROLL AREA -->
     <div class="dashboard-scroll">
 
+      <!-- TOP-LEVEL SECTION SWITCHER (always visible, not part of showView) -->
+      <div class="edu-section-tabs">
+        <div class="edu-section-tab active" id="edu-tab-lessons" onclick="switchEduSection('lessons')">📚 Lessons</div>
+        <div class="edu-section-tab" id="edu-tab-videos" onclick="switchEduSection('videos')">🎬 Video Library</div>
+      </div>
+
       <!-- LIST VIEW -->
       <div id="view-list">
         <div class="income-filter-row" id="income-filter-row"></div>
         <div id="module-list-container">
           <div style="color:var(--grey);font-size:13px;">Loading modules...</div>
+        </div>
+      </div>
+
+      <!-- VIDEO LIBRARY VIEW -->
+      <div id="view-videos" style="display:none;">
+        <div class="income-filter-row" id="video-filter-row"></div>
+        <div id="video-list-container">
+          <div style="color:var(--grey);font-size:13px;">Loading videos...</div>
         </div>
       </div>
 
@@ -429,6 +494,15 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
   </main>
 </div>
 
+<!-- VIDEO LIGHTBOX -->
+<div class="video-lightbox-overlay" id="video-lightbox-overlay" onclick="if(event.target===this) closeVideoLightbox()">
+  <div class="video-lightbox">
+    <button class="video-lightbox-close" onclick="closeVideoLightbox()">✕ Close</button>
+    <div class="video-lightbox-frame-wrap" id="video-lightbox-frame-wrap"></div>
+    <div class="video-lightbox-title" id="video-lightbox-title"></div>
+  </div>
+</div>
+
 <script>
 let memberToken = null;
 let currentPlanName = 'Founding Member';
@@ -447,6 +521,123 @@ function waitForMemberstack(maxWaitMs = 6000, intervalMs = 100) {
     };
     check();
   });
+}
+
+// ── VIDEO LIBRARY ──
+let allVideos = [];
+let currentVideoFilter = 'all';
+let videosLoaded = false;
+
+const VIDEO_TYPE_META = {
+  lesson: { label: 'Video Lesson', icon: '🎓' },
+  recorded_call: { label: 'Recorded Call', icon: '📞' },
+};
+
+function switchEduSection(section) {
+  document.getElementById('edu-tab-lessons').classList.toggle('active', section === 'lessons');
+  document.getElementById('edu-tab-videos').classList.toggle('active', section === 'videos');
+
+  if (section === 'lessons') {
+    showView('list');
+  } else {
+    showView('videos');
+    // Lazy-load: only fetch the video library the first time this tab
+    // is opened, not on every Education page load.
+    if (!videosLoaded) {
+      videosLoaded = true;
+      loadVideoLibrary();
+    }
+  }
+}
+
+async function loadVideoLibrary() {
+  const container = document.getElementById('video-list-container');
+  try {
+    const res = await fetch('/api/video-library?action=list', {
+      headers: { Authorization: `Bearer ${memberToken}` },
+    });
+    if (!res.ok) throw new Error('Failed to load video library');
+    const { videos } = await res.json();
+    allVideos = videos || [];
+  } catch (e) {
+    console.error('Failed to load video library:', e);
+    container.innerHTML = '<div style="color:var(--grey);font-size:13px;">Couldn\'t load the video library — check your connection and try reopening this tab.</div>';
+    return;
+  }
+  renderVideoFilterTabs();
+  renderVideoList();
+}
+
+function renderVideoFilterTabs() {
+  const el = document.getElementById('video-filter-row');
+  const tabs = ['all', 'lesson', 'recorded_call'];
+  el.innerHTML = tabs.map((t) => {
+    const label = t === 'all' ? 'All Videos' : VIDEO_TYPE_META[t].label + 's';
+    const icon = t === 'all' ? '🎬' : VIDEO_TYPE_META[t].icon;
+    const isActive = currentVideoFilter === t;
+    return `<div class="income-filter-tab ${isActive ? 'active' : ''}" onclick="setVideoFilter('${t}')">${icon} ${label}</div>`;
+  }).join('');
+}
+
+function setVideoFilter(t) {
+  currentVideoFilter = t;
+  renderVideoFilterTabs();
+  renderVideoList();
+}
+
+function renderVideoList() {
+  const container = document.getElementById('video-list-container');
+  const videos = currentVideoFilter === 'all'
+    ? allVideos
+    : allVideos.filter(v => v.video_type === currentVideoFilter);
+
+  if (!allVideos.length) {
+    container.innerHTML = '<div style="color:var(--grey);font-size:13px;">No videos published yet — check back soon.</div>';
+    return;
+  }
+  if (!videos.length) {
+    container.innerHTML = '<div style="color:var(--grey);font-size:13px;">No videos in this category yet.</div>';
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="video-grid">
+      ${videos.map(v => {
+        const meta = VIDEO_TYPE_META[v.video_type] || { label: v.video_type, icon: '🎬' };
+        const dateHtml = v.recorded_date
+          ? `<div class="video-card-date">${new Date(v.recorded_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>`
+          : '';
+        return `
+          <div class="video-card" onclick="playVideo('${v.youtube_id}', '${escapeHtml(v.title).replace(/'/g, "\\'")}')">
+            <div class="video-card-thumb-wrap">
+              <img src="https://img.youtube.com/vi/${v.youtube_id}/hqdefault.jpg" alt="${escapeHtml(v.title)}" loading="lazy" />
+              <div class="video-card-play"><div class="video-card-play-icon">▶</div></div>
+            </div>
+            <div class="video-card-body">
+              <div class="video-card-type-tag">${meta.icon} ${meta.label}</div>
+              <div class="video-card-title">${escapeHtml(v.title)}</div>
+              ${v.description ? `<div class="video-card-desc">${escapeHtml(v.description)}</div>` : ''}
+              ${dateHtml}
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function playVideo(youtubeId, title) {
+  document.getElementById('video-lightbox-frame-wrap').innerHTML =
+    `<iframe src="https://www.youtube.com/embed/${youtubeId}?autoplay=1" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>`;
+  document.getElementById('video-lightbox-title').textContent = title;
+  document.getElementById('video-lightbox-overlay').classList.add('open');
+}
+
+function closeVideoLightbox() {
+  document.getElementById('video-lightbox-overlay').classList.remove('open');
+  // Clear the iframe entirely rather than just hiding it, so the video
+  // actually stops playing instead of continuing muted in the background.
+  document.getElementById('video-lightbox-frame-wrap').innerHTML = '';
 }
 
 async function initEducationPage() {
@@ -836,7 +1027,7 @@ function backToList() { loadModules(); showView('list'); }
 function backToReader() { showView('reader'); }
 
 function showView(name) {
-  ['list', 'reader', 'quiz', 'results'].forEach(v => {
+  ['list', 'videos', 'reader', 'quiz', 'results'].forEach(v => {
     document.getElementById('view-' + v).style.display = v === name ? 'block' : 'none';
   });
 }
