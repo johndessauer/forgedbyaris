@@ -53,3 +53,13 @@
   from = "/api/education-admin"
   to = "/.netlify/functions/education-admin"
   status = 200
+
+[[redirects]]
+  from = "/api/saved-deals"
+  to = "/.netlify/functions/saved-deals"
+  status = 200
+
+[[redirects]]
+  from = "/api/member-stats"
+  to = "/.netlify/functions/member-stats"
+  status = 200
