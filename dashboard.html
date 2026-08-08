@@ -672,6 +672,7 @@ Respond ONLY in this exact JSON format — no preamble, no explanation:
 // ── INIT ──
 let memberToken = null;
 let currentPlanName = 'Founding Member';
+let memberCreatedAt = null;
 
 async function syncWhyFromServer() {
   try {
@@ -725,6 +726,7 @@ window.onload = async () => {
       return;
     }
     currentPlanName = activeConn?.planName || 'Founding Member';
+    memberCreatedAt = member.createdAt || null;
     memberToken = await memberstack.getMemberCookie();
     loadEducationBadges();
     // Pull Why answers from the server before deciding whether to show
@@ -753,7 +755,6 @@ window.onload = async () => {
   loadAvatar();
   loadWhyCard();
   loadDailyQuote();
-  trackSession();
   checkOnboarding();
 };
 
@@ -779,24 +780,32 @@ function setDate() {
 }
 
 // ── STATS ──
-function loadStats() {
-  const deals = JSON.parse(localStorage.getItem('forge-deals') || '[]');
-  document.getElementById('stat-deals').textContent = deals.length;
-
-  const sessions = parseInt(localStorage.getItem('forge-sessions') || '0');
-  document.getElementById('stat-sessions').textContent = sessions;
-
-  let since = localStorage.getItem('forge-member-since');
-  if (!since) {
-    since = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-    localStorage.setItem('forge-member-since', since);
+async function loadStats() {
+  // Member Since — from Memberstack's own createdAt, not a client-side
+  // guess. Previously this checked localStorage and, if empty, silently
+  // wrote today's date — meaning a new device would show the wrong join
+  // date entirely, not just fail to sync.
+  if (memberCreatedAt) {
+    const since = new Date(memberCreatedAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    document.getElementById('stat-since').textContent = since;
   }
-  document.getElementById('stat-since').textContent = since;
-}
 
-function trackSession() {
-  const sessions = parseInt(localStorage.getItem('forge-sessions') || '0');
-  localStorage.setItem('forge-sessions', sessions + 1);
+  // ARIS Sessions — server-side count (member-stats.js), incremented from
+  // aris-coach.html each time that page loads. Previously this was a
+  // localStorage counter that didn't even track the right thing: it
+  // incremented once per Dashboard page load AND once per ARIS Coach page
+  // load into the same key, conflating two unrelated triggers.
+  try {
+    const res = await fetch('/api/member-stats?action=get', {
+      headers: { Authorization: `Bearer ${memberToken}` },
+    });
+    if (!res.ok) throw new Error('Failed to load session stats');
+    const { arisSessions } = await res.json();
+    document.getElementById('stat-sessions').textContent = arisSessions;
+  } catch (e) {
+    console.error('Failed to load ARIS session count:', e);
+    document.getElementById('stat-sessions').textContent = '—';
+  }
 }
 
 
@@ -935,10 +944,26 @@ function renderQuote(quote, type) {
 }
 
 // ── RECENT DEALS ──
-function loadRecentDeals() {
-  const saved = JSON.parse(localStorage.getItem('forge-deals') || '[]');
+async function loadRecentDeals() {
   const grid = document.getElementById('recent-deals-grid');
-  const tabLabels = { wholesale:'Wholesale', flip:'Fix & Flip', rental:'LT Rental', str:'STR/MTR', multi:'2-4 Units' };
+  const tabLabels = { wholesale:'Wholesale', flip:'Fix & Flip', rental:'LT Rental', str:'STR/MTR', multi:'2-4 Units', commercial: 'Commercial 5+', storage: 'Self-Storage', mhp: 'Mobile Home Park', office: 'Office & Industrial', mixeduse: 'Mixed-Use', hotel: 'Hotels' };
+
+  let saved = [];
+  try {
+    const res = await fetch('/api/saved-deals?action=list', {
+      headers: { Authorization: `Bearer ${memberToken}` },
+    });
+    if (!res.ok) throw new Error('Failed to load saved deals');
+    const data = await res.json();
+    saved = data.deals || [];
+  } catch (e) {
+    console.error('Failed to load saved deals:', e);
+    document.getElementById('stat-deals').textContent = '—';
+    grid.innerHTML = `<div class="recent-empty"><strong>Couldn't load your saved deals.</strong><br>Check your connection and refresh.</div>`;
+    return;
+  }
+
+  document.getElementById('stat-deals').textContent = saved.length;
 
   if (!saved.length) {
     grid.innerHTML = `<div class="recent-empty"><strong>No saved deals yet.</strong><br>Head to the Deal Analyzer, run your first analysis, and save it here.</div>`;
@@ -946,20 +971,20 @@ function loadRecentDeals() {
   }
 
   grid.innerHTML = saved.slice(0, 3).map(d => {
-    const verdict = d.data?.verdict || 'caution';
-    const verdictText = d.data?.verdictText || 'PENDING';
+    const verdict = d.verdict || 'caution';
+    const verdictText = d.verdict_text || 'PENDING';
     return `
       <a class="recent-card" href="deal-analyzer.html">
         <div class="recent-card-top">
           <div>
-            <div class="recent-deal-name">${d.displayName || d.name || 'Unnamed Deal'}</div>
+            <div class="recent-deal-name">${d.display_name || 'Unnamed Deal'}</div>
             ${d.address && d.nickname ? `<div class="recent-deal-address">📍 ${d.address}</div>` : ''}
           </div>
           <div class="recent-verdict ${verdict}">${verdictText}</div>
         </div>
         <div class="recent-deal-meta">
           <span class="recent-deal-type">${tabLabels[d.tab] || d.tab}</span>
-          <span>${new Date(d.timestamp).toLocaleDateString()}</span>
+          <span>${new Date(d.created_at).toLocaleDateString()}</span>
         </div>
       </a>
     `;

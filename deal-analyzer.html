@@ -1317,7 +1317,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 
     <div class="modal-actions">
       <button class="modal-btn cancel" onclick="closeSaveModal()">Cancel</button>
-      <button class="modal-btn confirm" onclick="confirmSave()">Save Deal</button>
+      <button id="modal-save-btn" class="modal-btn confirm" onclick="confirmSave()">Save Deal</button>
     </div>
   </div>
 </div>
@@ -1407,6 +1407,8 @@ let conversationHistory = [];
 let isLoading = false;
 let lastDealData = null;
 let formIsDirty = false;
+let memberToken = null;
+let savedDealsCache = [];
 
 // Real protection to back up the banner above — warns before leaving if any
 // field has been touched and the deal hasn't been saved yet.
@@ -2840,7 +2842,7 @@ function closeSaveModal() {
   document.getElementById('modal-overlay').classList.remove('open');
 }
 
-function confirmSave() {
+async function confirmSave() {
   const street   = document.getElementById('save-street').value.trim();
   const city     = document.getElementById('save-city').value.trim();
   const state    = document.getElementById('save-state').value.trim();
@@ -2852,32 +2854,34 @@ function confirmSave() {
   const address = [street, city, state, zip].filter(Boolean).join(', ');
   const displayName = nickname || address;
 
-  const saved = JSON.parse(localStorage.getItem('forge-deals') || '[]');
-  saved.unshift({
-    displayName,
-    nickname,
-    address,
-    street, city, state, zip,
-    photos: pendingPhotos,
-    docs: pendingDocs,
-    ...lastDealData
-  });
+  const saveBtn = document.getElementById('modal-save-btn');
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving...'; }
 
   try {
-    localStorage.setItem('forge-deals', JSON.stringify(saved));
-  } catch(e) {
-    // localStorage full — save without media
-    const lite = saved.map(d => ({ ...d, photos: [], docs: [] }));
-    localStorage.setItem('forge-deals', JSON.stringify(lite));
-    formIsDirty = false;
-    showToast('Deal saved (photos omitted — storage full)');
-    closeSaveModal();
-    return;
-  }
+    const res = await fetch('/api/saved-deals', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${memberToken}` },
+      body: JSON.stringify({
+        action: 'create',
+        displayName, nickname, address, street, city, state, zip,
+        tab: lastDealData.tab,
+        verdict: lastDealData.data?.verdict || null,
+        verdictText: lastDealData.data?.verdictText || null,
+        dealData: lastDealData.data,
+        photos: pendingPhotos,
+        docs: pendingDocs,
+      }),
+    });
+    if (!res.ok) throw new Error('Save failed');
 
-  formIsDirty = false;
-  closeSaveModal();
-  showToast('Deal saved — ' + displayName);
+    formIsDirty = false;
+    closeSaveModal();
+    showToast('Deal saved — ' + displayName);
+  } catch (e) {
+    alert('Could not save this deal — please check your connection and try again.');
+  } finally {
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Deal'; }
+  }
 }
 
 function openDrawer() {
@@ -2891,50 +2895,83 @@ function closeDrawer() {
   document.getElementById('drawer').classList.remove('open');
 }
 
-function renderDrawer() {
-  const saved = JSON.parse(localStorage.getItem('forge-deals') || '[]');
+async function renderDrawer() {
   const body = document.getElementById('drawer-body');
+  body.innerHTML = `<div class="drawer-empty">Loading saved deals...</div>`;
+
+  try {
+    const res = await fetch('/api/saved-deals?action=list', {
+      headers: { Authorization: `Bearer ${memberToken}` },
+    });
+    if (!res.ok) throw new Error('Failed to load saved deals');
+    const { deals } = await res.json();
+    savedDealsCache = deals || [];
+  } catch (e) {
+    body.innerHTML = `<div class="drawer-empty">Couldn't load your saved deals — check your connection and try reopening this.</div>`;
+    return;
+  }
+
+  const saved = savedDealsCache;
   if (!saved.length) {
-    body.innerHTML = `<div class="drawer-empty">No saved deals yet.<br>Run an analysis and hit <strong>Save Deal</strong> to store it here.<br><br><em>Saved locally — cloud sync coming soon.</em></div>`;
+    body.innerHTML = `<div class="drawer-empty">No saved deals yet.<br>Run an analysis and hit <strong>Save Deal</strong> to store it here.</div>`;
     return;
   }
   const tabLabels = { wholesale:'Wholesale', flip:'Fix & Flip', rental:'LT Rental', str:'STR/MTR', multi:'2-4 Units (Residential)', commercial:'Commercial — 5+ Units', storage:'Self-Storage Facility', mhp:'Mobile Home Park', office:'Office & Industrial', mixeduse:'Mixed-Use', hotel:'Hotels & Hospitality' };
 
-  body.innerHTML = saved.map((d,i) => {
+  body.innerHTML = saved.map((d) => {
     const thumbs = (d.photos||[]).slice(0,3).map(p =>
-      `<img class="deal-card-thumb" src="${p.dataUrl}" alt="${p.name}" onclick="openDetail(${i})" title="${p.name}" />`
+      `<img class="deal-card-thumb" src="${p.dataUrl}" alt="${p.name}" onclick="openDetail('${d.id}')" title="${p.name}" />`
     ).join('');
     const docLinks = (d.docs||[]).slice(0,2).map(doc =>
       `<div class="deal-card-doc" onclick="downloadDoc('${doc.name}','${doc.dataUrl}')">📄 ${doc.name}</div>`
     ).join('');
     const extraPhotos = (d.photos||[]).length > 3 ? `<div style="font-size:10px;color:var(--grey);margin-top:2px;">+${(d.photos.length-3)} more</div>` : '';
+    const pipelineBtn = d.crm_deal_id
+      ? `<button class="deal-action-btn" disabled style="opacity:0.6;cursor:default;">✓ In Pipeline</button>`
+      : `<button class="deal-action-btn" onclick="addToPipeline('${d.id}')">+ Add to Pipeline</button>`;
 
     return `
       <div class="saved-deal-card">
-        <div class="saved-deal-name">${d.displayName || d.name || 'Unnamed Deal'}</div>
+        <div class="saved-deal-name">${d.display_name || 'Unnamed Deal'}</div>
         ${d.address && d.nickname ? `<div class="deal-card-address">📍 ${d.address}</div>` : ''}
         <div class="saved-deal-meta">
           <span class="saved-deal-type">${tabLabels[d.tab] || d.tab}</span>
-          <span>${new Date(d.timestamp).toLocaleDateString()}</span>
+          <span>${new Date(d.created_at).toLocaleDateString()}</span>
         </div>
         ${thumbs ? `<div class="deal-card-thumb-row">${thumbs}</div>${extraPhotos}` : ''}
         ${docLinks ? `<div class="deal-card-doc-row">${docLinks}</div>` : ''}
         <div class="saved-deal-actions">
-          <button class="deal-action-btn" onclick="openDetail(${i})">View</button>
-          <button class="deal-action-btn del" onclick="deleteDeal(${i})">Delete</button>
+          <button class="deal-action-btn" onclick="openDetail('${d.id}')">View</button>
+          ${pipelineBtn}
+          <button class="deal-action-btn del" onclick="deleteDeal('${d.id}')">Delete</button>
         </div>
       </div>
     `;
   }).join('');
 }
 
-function openDetail(idx) {
-  const saved = JSON.parse(localStorage.getItem('forge-deals') || '[]');
-  const d = saved[idx];
+async function addToPipeline(id) {
+  try {
+    const res = await fetch('/api/saved-deals', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${memberToken}` },
+      body: JSON.stringify({ action: 'add_to_pipeline', id }),
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || 'Failed to add to pipeline');
+    showToast('Added to your CRM pipeline');
+    renderDrawer();
+  } catch (e) {
+    alert(e.message || 'Could not add this deal to the pipeline.');
+  }
+}
+
+function openDetail(id) {
+  const d = savedDealsCache.find(x => x.id === id);
   if (!d) return;
   const tabLabels = { wholesale:'Wholesale', flip:'Fix & Flip', rental:'LT Rental', str:'STR/MTR', multi:'2-4 Units (Residential)', commercial:'Commercial — 5+ Units', storage:'Self-Storage Facility', mhp:'Mobile Home Park', office:'Office & Industrial', mixeduse:'Mixed-Use', hotel:'Hotels & Hospitality' };
 
-  document.getElementById('detail-title').textContent = d.displayName || d.name || 'Deal Detail';
+  document.getElementById('detail-title').textContent = d.display_name || 'Deal Detail';
 
   const photoGrid = (d.photos||[]).length
     ? `<div class="detail-photo-grid">${(d.photos).map(p => `<img class="detail-photo" src="${p.dataUrl}" alt="${p.name}" />`).join('')}</div>`
@@ -2949,7 +2986,7 @@ function openDetail(idx) {
         </div>`).join('')}</div>`
     : '';
 
-  const metrics = (d.data?.metrics||[]).map(m =>
+  const metrics = (d.deal_data?.metrics||[]).map(m =>
     `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border-sub);font-size:12px;">
       <span style="color:var(--grey-light);">${m.label}</span>
       <span style="font-weight:600;color:var(--white);">${m.value}</span>
@@ -2958,9 +2995,8 @@ function openDetail(idx) {
 
   document.getElementById('detail-body').innerHTML = `
     ${d.address ? `<div style="font-size:12px;color:var(--grey-light);margin-bottom:12px;">📍 ${d.address}</div>` : ''}
-    <div style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);margin-bottom:8px;">${tabLabels[d.tab]||''} · ${new Date(d.timestamp).toLocaleDateString()}</div>
+    <div style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);margin-bottom:8px;">${tabLabels[d.tab]||''} · ${new Date(d.created_at).toLocaleDateString()}</div>
     ${photoGrid}
-    ${(d.photos||[]).length === 0 && (d.docs||[]).length === 0 ? '' : ''}
     ${metrics ? `<div style="margin-bottom:14px;">${metrics}</div>` : ''}
     ${docList}
   `;
@@ -2977,12 +3013,19 @@ function downloadDoc(name, dataUrl) {
   a.click();
 }
 
-function deleteDeal(idx) {
+async function deleteDeal(id) {
   if (!confirm('Delete this saved deal?')) return;
-  const saved = JSON.parse(localStorage.getItem('forge-deals') || '[]');
-  saved.splice(idx,1);
-  localStorage.setItem('forge-deals', JSON.stringify(saved));
-  renderDrawer();
+  try {
+    const res = await fetch('/api/saved-deals', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${memberToken}` },
+      body: JSON.stringify({ action: 'delete', id }),
+    });
+    if (!res.ok) throw new Error('Delete failed');
+    renderDrawer();
+  } catch (e) {
+    alert('Could not delete this deal — please try again.');
+  }
 }
 
 function showToast(msg) {
@@ -3072,6 +3115,7 @@ window.addEventListener('load', async () => {
       window.location.href = 'signup.html';
       return;
     }
+    memberToken = await memberstack.getMemberCookie();
   } catch(e) {}
 });
 

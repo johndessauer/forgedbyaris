@@ -931,10 +931,6 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
         sendMessage();
       }, 600);
     }
-
-    // ── UPDATE SESSION COUNT ──
-    const sessions = parseInt(localStorage.getItem('forge-sessions') || '0');
-    localStorage.setItem('forge-sessions', sessions + 1);
   };
 
   // ── RENDER HELPERS ──
@@ -1933,6 +1929,18 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
       currentMemberToken = await memberstack.getMemberCookie();
     } catch (e) {
       console.error('Could not retrieve Memberstack token for CRM tool access:', e);
+    }
+    // ── UPDATE SESSION COUNT (server-side, syncs across devices) ──
+    // Previously a localStorage counter — didn't sync across devices, and
+    // also incorrectly incremented once per Dashboard page load in
+    // addition to once per ARIS Coach page load into the same key.
+    // Fire-and-forget: a failure here shouldn't block the rest of init.
+    if (currentMemberToken) {
+      fetch('/api/member-stats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + currentMemberToken },
+        body: JSON.stringify({ action: 'increment_sessions' }),
+      }).catch((e) => console.error('Could not record ARIS session:', e));
     }
     const customFields = member.customFields || {};
     const fullName = customFields['full-name'] || member.auth?.email || 'Member';
