@@ -108,16 +108,14 @@ exports.handler = async function (event, context) {
   }
 
   // Verify this request genuinely came from Memberstack, not a spoofed
-  // POST to a guessed URL. @memberstack/admin's verifyWebhookSignature
-  // does its own internal lookup for svix-id / svix-timestamp /
-  // svix-signature and (per real-world reports of this exact library)
-  // expects them as an explicit object with these specific uppercase
-  // keys — passing the raw Netlify headers object as-is fails even
-  // though the values are present, just under different casing/shape.
+  // POST to a guessed URL. Per Memberstack's own troubleshooting docs for
+  // this exact error: "the Memberstack method expects the header keys to
+  // be in all caps despite the headers being sent in lowercase" — this
+  // was confirmed against a real failed test delivery, not a guess.
   const svixHeaders = {
-    'svix-id': event.headers['svix-id'] || event.headers['Svix-Id'],
-    'svix-timestamp': event.headers['svix-timestamp'] || event.headers['Svix-Timestamp'],
-    'svix-signature': event.headers['svix-signature'] || event.headers['Svix-Signature'],
+    'SVIX-ID': event.headers['svix-id'] || event.headers['Svix-Id'],
+    'SVIX-TIMESTAMP': event.headers['svix-timestamp'] || event.headers['Svix-Timestamp'],
+    'SVIX-SIGNATURE': event.headers['svix-signature'] || event.headers['Svix-Signature'],
   };
 
   let isValid = false;
