@@ -73,3 +73,8 @@
   from = "/api/video-library-admin"
   to = "/.netlify/functions/video-library-admin"
   status = 200
+
+[[redirects]]
+  from = "/api/memberstack-webhook"
+  to = "/.netlify/functions/memberstack-webhook"
+  status = 200
