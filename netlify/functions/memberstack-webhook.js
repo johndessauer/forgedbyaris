@@ -108,24 +108,35 @@ exports.handler = async function (event, context) {
   }
 
   // Verify this request genuinely came from Memberstack, not a spoofed
-  // POST to a guessed URL. Logs the raw headers on failure specifically
-  // so a real mismatch (casing, wrong secret, etc.) is diagnosable from
-  // the Netlify function log rather than a guess.
+  // POST to a guessed URL. @memberstack/admin's verifyWebhookSignature
+  // does its own internal lookup for svix-id / svix-timestamp /
+  // svix-signature and (per real-world reports of this exact library)
+  // expects them as an explicit object with these specific uppercase
+  // keys — passing the raw Netlify headers object as-is fails even
+  // though the values are present, just under different casing/shape.
+  const svixHeaders = {
+    'svix-id': event.headers['svix-id'] || event.headers['Svix-Id'],
+    'svix-timestamp': event.headers['svix-timestamp'] || event.headers['Svix-Timestamp'],
+    'svix-signature': event.headers['svix-signature'] || event.headers['Svix-Signature'],
+  };
+
   let isValid = false;
   try {
     isValid = memberstack.verifyWebhookSignature({
       payload: parsedBody,
-      headers: event.headers,
+      headers: svixHeaders,
       secret,
     });
   } catch (err) {
     console.error('Webhook signature verification threw an error:', err);
     console.error('Raw headers received:', JSON.stringify(event.headers));
+    console.error('Constructed svix headers:', JSON.stringify(svixHeaders));
   }
 
   if (!isValid) {
     console.error('Webhook signature verification failed.');
     console.error('Raw headers received:', JSON.stringify(event.headers));
+    console.error('Constructed svix headers:', JSON.stringify(svixHeaders));
     console.error('Raw body received:', event.body);
     return json(401, { error: 'Invalid signature' });
   }
@@ -140,19 +151,23 @@ exports.handler = async function (event, context) {
     return json(200, { received: true, ignored: true, eventType });
   }
 
-  const email = payload?.auth?.email;
+  // Confirmed real payload shape for member.plan.added (verified against
+  // an actual test delivery, not just Memberstack's generic docs example
+  // — the docs example shown for member.created/member.updated uses a
+  // different, flatter shape than this event actually sends):
+  //   payload.member.email, payload.member.id, payload.member.metaData,
+  //   payload.member.stripeCustomerId, payload.planConnection.planId,
+  //   payload.planConnection.status
+  const email = payload?.member?.email;
   if (!email) {
-    console.error('member.plan.added payload missing auth.email:', JSON.stringify(payload));
+    console.error('member.plan.added payload missing member.email:', JSON.stringify(payload));
     return json(200, { received: true, skipped: true, reason: 'no email in payload' });
   }
 
-  const customFields = payload?.customFields || {};
-  const firstName = customFields['first-name'] || customFields.firstName || undefined;
-  const lastName = customFields['last-name'] || customFields.lastName || undefined;
-  // Plan name isn't confirmed to live at a specific path in this payload
-  // shape yet — logging the full payload on first real delivery will show
-  // exactly where it is, so this can be tightened once we see a real one.
-  const planName = payload?.planName || payload?.plan?.name || undefined;
+  const metaData = payload?.member?.metaData || {};
+  const firstName = metaData['first-name'] || metaData.firstName || undefined;
+  const lastName = metaData['last-name'] || metaData.lastName || undefined;
+  const planName = payload?.planConnection?.planId || undefined;
 
   const ghlResult = await upsertGhlContact({ email, firstName, lastName, planName });
 
