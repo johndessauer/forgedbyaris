@@ -78,3 +78,8 @@
   from = "/api/memberstack-webhook"
   to = "/.netlify/functions/memberstack-webhook"
   status = 200
+
+[[redirects]]
+  from = "/api/lab-scenarios"
+  to = "/.netlify/functions/lab-scenarios"
+  status = 200

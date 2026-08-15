@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Real Estate Lab | FORGE</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+:root {
+  --navy:       #0D1B2A;
+  --navy-light: #13233a;
+  --navy-mid:   #1a3350;
+  --orange:     #FF6B2B;
+  --orange-dim: rgba(255,107,43,0.12);
+  --gold:       #C89B3C;
+  --gold-dim:   rgba(200,155,60,0.15);
+  --white:      #FFFFFF;
+  --grey:       #6B7280;
+  --grey-light: #9CA3AF;
+  --border-sub: rgba(255,255,255,0.08);
+  --red:        #ef4444;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--navy); color: var(--white); font-family: 'Inter', sans-serif; height: 100%; overflow: visible; }
+html { height: 100%; }
+.app { display: flex; min-height: 100vh; width: 100%; }
+
+/* ── SIDEBAR (follow-up pass will add "Real Estate Lab" nav link across every other page) ── */
+.sidebar { width: 220px; background: var(--navy-light); border-right: 1px solid var(--border-sub); padding: 20px 14px; flex-shrink: 0; display: flex; flex-direction: column; }
+.logo-row { display: flex; align-items: center; gap: 8px; padding: 0 6px 20px; }
+.logo-icon { width: 28px; height: 28px; }
+.logo-words .wordmark { font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 1px; color: var(--white); }
+.logo-words .wordmark span { color: var(--gold); }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--grey-light); transition: background 0.15s, color 0.15s; text-decoration: none; user-select: none; }
+.nav-item.active { background: var(--orange-dim); color: var(--orange); border: 1px solid rgba(255,107,43,0.2); }
+.nav-item:hover:not(.active) { background: var(--navy-mid); color: var(--white); }
+
+/* ── MAIN ── */
+.main { flex: 1; display: flex; flex-direction: column; overflow: visible; }
+.topbar { display: flex; align-items: center; justify-content: space-between; padding: 16px 28px; border-bottom: 1px solid var(--border-sub); flex-shrink: 0; }
+.topbar-left { display: flex; align-items: center; gap: 12px; }
+.topbar-icon { font-size: 22px; }
+.topbar-name { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 1px; }
+.topbar-sub { font-size: 11px; color: var(--grey); letter-spacing: 1px; }
+
+.dashboard-scroll { padding: 24px 28px 32px; }
+
+/* ── SCENARIO LIST ── */
+.scenario-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.scenario-card {
+  background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 10px;
+  padding: 18px; cursor: pointer; transition: border-color 0.15s, transform 0.15s;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.scenario-card:hover { border-color: var(--gold); transform: translateY(-1px); }
+.scenario-card-category { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--gold); opacity: 0.85; }
+.scenario-card-title { font-size: 16px; font-weight: 700; }
+.scenario-card-desc { font-size: 13px; color: var(--grey-light); line-height: 1.5; }
+
+/* ── BRIEFING ── */
+.briefing-box { max-width: 640px; background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 12px; padding: 28px; }
+.briefing-category { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--gold); margin-bottom: 8px; }
+.briefing-title { font-family: 'Bebas Neue', sans-serif; font-size: 26px; letter-spacing: 1px; margin-bottom: 14px; }
+.briefing-desc { font-size: 14px; line-height: 1.6; color: var(--grey-light); margin-bottom: 22px; }
+.btn { display: inline-flex; align-items: center; gap: 8px; background: var(--orange); color: var(--white); font-weight: 700; font-size: 13px; letter-spacing: 0.3px; padding: 11px 22px; border: none; border-radius: 8px; cursor: pointer; transition: opacity 0.15s; }
+.btn:hover { opacity: 0.88; }
+.btn:disabled { opacity: 0.5; cursor: default; }
+.btn-secondary { background: transparent; color: var(--grey-light); border: 1px solid var(--border-sub); }
+.btn-secondary:hover { border-color: var(--gold); color: var(--gold); }
+
+/* ── ROLEPLAY CHAT ── */
+.chat-shell { display: flex; flex-direction: column; height: calc(100vh - 130px); max-width: 780px; }
+.chat-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 14px; border-bottom: 1px solid var(--border-sub); margin-bottom: 16px; }
+.chat-header-title { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 1px; }
+.messages { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; padding-right: 4px; }
+.msg-row { display: flex; }
+.msg-row.user { justify-content: flex-end; }
+.msg-bubble { max-width: 80%; padding: 12px 16px; border-radius: 12px; font-size: 14px; line-height: 1.55; white-space: pre-wrap; }
+.msg-row.counterparty .msg-bubble { background: var(--navy-light); border: 1px solid var(--border-sub); border-bottom-left-radius: 2px; }
+.msg-row.user .msg-bubble { background: var(--orange); color: var(--white); border-bottom-right-radius: 2px; }
+.typing-dots { display: inline-flex; gap: 4px; padding: 4px 0; }
+.typing-dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--grey-light); animation: blink 1.2s infinite; }
+.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes blink { 0%, 80%, 100% { opacity: 0.3; } 40% { opacity: 1; } }
+
+.chat-input-row { display: flex; gap: 10px; padding-top: 16px; border-top: 1px solid var(--border-sub); margin-top: 12px; }
+.chat-input {
+  flex: 1; background: var(--navy-mid); border: 1px solid var(--border-sub); border-radius: 8px;
+  padding: 12px 14px; color: var(--white); font-family: 'Inter', sans-serif; font-size: 14px; resize: none; max-height: 120px;
+}
+.chat-input:focus { outline: none; border-color: var(--gold); }
+.chat-send-btn {
+  background: var(--orange); color: var(--white); border: none; border-radius: 8px;
+  padding: 0 20px; font-weight: 700; cursor: pointer; transition: opacity 0.15s;
+}
+.chat-send-btn:hover { opacity: 0.88; }
+.chat-send-btn:disabled { opacity: 0.4; cursor: default; }
+.end-session-row { padding-top: 12px; text-align: right; }
+
+/* ── DEBRIEF ── */
+.debrief-box { max-width: 680px; }
+.debrief-score-row { display: flex; align-items: baseline; gap: 12px; margin-bottom: 20px; }
+.debrief-score { font-family: 'Bebas Neue', sans-serif; font-size: 56px; color: var(--gold); line-height: 1; }
+.debrief-score-label { font-size: 13px; color: var(--grey-light); }
+.debrief-section { margin-bottom: 20px; }
+.debrief-section-title { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--gold); margin-bottom: 8px; }
+.debrief-section p { font-size: 14px; line-height: 1.6; color: var(--grey-light); }
+.debrief-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.debrief-list li { font-size: 14px; line-height: 1.5; color: var(--grey-light); padding-left: 18px; position: relative; }
+.debrief-list li::before { content: '—'; position: absolute; left: 0; color: var(--gold); }
+
+.loading-msg { color: var(--grey); font-size: 13px; padding: 20px 0; }
+</style>
+<script src="https://static.memberstack.com/scripts/v1/memberstack.js" data-memberstack-app="app_cmr41qq5500q80tsx94pj61rc" defer></script>
+</head>
+<body>
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="logo-row">
+      <div class="logo-words">
+        <div class="wordmark">F<span>O</span>RGE</div>
+      </div>
+    </div>
+    <a class="nav-item" href="dashboard.html"><span>🏠</span>Dashboard</a>
+    <a class="nav-item" href="aris-coach.html"><span>⚡</span>ARIS AI Coach</a>
+    <a class="nav-item" href="deal-analyzer.html"><span>🔍</span>Deal Analyzer</a>
+    <a class="nav-item active" href="real-estate-lab.html"><span>🥊</span>Real Estate Lab</a>
+    <a class="nav-item" href="crm.html"><span>📋</span>Deal CRM</a>
+    <a class="nav-item" href="deal-network.html"><span>🤝</span>Deal Network</a>
+    <a class="nav-item" href="capital-radar.html"><span>🎯</span>Capital Radar</a>
+    <a class="nav-item" href="market-oracle.html"><span>🔮</span>Market Oracle</a>
+    <a class="nav-item" href="document-vault.html"><span>📂</span>Document Vault</a>
+    <a class="nav-item" href="education.html"><span>🏛</span>Education</a>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-icon">🥊</div>
+        <div>
+          <div class="topbar-name">Real Estate Lab</div>
+          <div class="topbar-sub">Practice &nbsp;·&nbsp; Roleplay &nbsp;·&nbsp; Real Feedback</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dashboard-scroll">
+
+      <!-- SCENARIO LIST VIEW -->
+      <div id="view-list">
+        <div id="scenario-list-container">
+          <div class="loading-msg">Loading scenarios...</div>
+        </div>
+      </div>
+
+      <!-- BRIEFING VIEW -->
+      <div id="view-briefing" style="display:none;">
+        <div class="briefing-box">
+          <div class="briefing-category" id="briefing-category"></div>
+          <div class="briefing-title" id="briefing-title"></div>
+          <div class="briefing-desc" id="briefing-desc"></div>
+          <div style="display:flex; gap:10px;">
+            <button class="btn" onclick="startRoleplay()">Start Roleplay</button>
+            <button class="btn btn-secondary" onclick="backToList()">&larr; Back</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ROLEPLAY VIEW -->
+      <div id="view-roleplay" style="display:none;">
+        <div class="chat-shell">
+          <div class="chat-header">
+            <div class="chat-header-title" id="roleplay-title"></div>
+            <button class="btn btn-secondary" onclick="backToList()">&larr; Exit</button>
+          </div>
+          <div class="messages" id="messages"></div>
+          <div class="chat-input-row">
+            <textarea class="chat-input" id="user-input" rows="1" placeholder="Type your response..." onkeydown="handleInputKeydown(event)"></textarea>
+            <button class="chat-send-btn" id="send-btn" onclick="sendMessage()">Send</button>
+          </div>
+          <div class="end-session-row">
+            <button class="btn" id="end-session-btn" onclick="endSession()">End Session &amp; Get Debrief</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- DEBRIEF VIEW -->
+      <div id="view-debrief" style="display:none;">
+        <div class="debrief-box" id="debrief-container"></div>
+        <div style="margin-top:24px;">
+          <button class="btn" onclick="backToList()">&larr; Back to Scenarios</button>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script>
+let memberToken = null;
+let currentMemberId = null;
+let allScenarios = [];
+let currentScenario = null;
+let conversationHistory = []; // [{role: 'user'|'assistant', content: string}] — sent to lab-stream.js
+let isStreaming = false;
+
+function showView(name) {
+  ['list', 'briefing', 'roleplay', 'debrief'].forEach(v => {
+    document.getElementById('view-' + v).style.display = v === name ? 'block' : 'none';
+  });
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str == null ? '' : String(str);
+  return div.innerHTML;
+}
+
+function waitForMemberstack(maxWaitMs = 6000, intervalMs = 100) {
+  return new Promise((resolve, reject) => {
+    const start = Date.now();
+    const check = () => {
+      if (window.$memberstackDom && window.$memberstackDom.getCurrentMember) resolve();
+      else if (Date.now() - start > maxWaitMs) reject(new Error('Memberstack failed to load'));
+      else setTimeout(check, intervalMs);
+    };
+    check();
+  });
+}
+
+async function initLabPage() {
+  try {
+    await waitForMemberstack();
+    const memberstack = window.$memberstackDom;
+    const { data: member } = await memberstack.getCurrentMember();
+    if (!member) { window.location.href = 'login.html'; return; }
+
+    const FOUNDING_MEMBER_PRICE_IDS = ['prc_497-97-3m13d01j8', 'prc_247-97-ne13e01d6', 'prc_997-97-5fmt0nr5', 'prc_-97-direct-ka9b0lq3'];
+    const hasActiveMembership = (member.planConnections || []).some(
+      pc => FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
+    );
+    if (!hasActiveMembership) { window.location.href = 'signup.html'; return; }
+
+    currentMemberId = member.id;
+    memberToken = await memberstack.getMemberCookie();
+    await loadScenarios();
+  } catch (err) {
+    console.error('Lab page init failed:', err);
+  }
+}
+
+async function loadScenarios() {
+  const container = document.getElementById('scenario-list-container');
+  try {
+    const res = await fetch('/api/lab-scenarios?action=list', {
+      headers: { Authorization: `Bearer ${memberToken}` },
+    });
+    if (!res.ok) throw new Error('Failed to load scenarios');
+    const { scenarios } = await res.json();
+    allScenarios = scenarios || [];
+  } catch (e) {
+    console.error(e);
+    container.innerHTML = '<div class="loading-msg">Couldn\'t load scenarios — check your connection and refresh.</div>';
+    return;
+  }
+
+  if (!allScenarios.length) {
+    container.innerHTML = '<div class="loading-msg">No scenarios published yet — check back soon.</div>';
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="scenario-grid">
+      ${allScenarios.map(s => `
+        <div class="scenario-card" onclick="openBriefing('${s.id}')">
+          <div class="scenario-card-category">${escapeHtml(s.category || 'General')}</div>
+          <div class="scenario-card-title">${escapeHtml(s.title)}</div>
+          <div class="scenario-card-desc">${escapeHtml(s.description || '')}</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function openBriefing(id) {
+  const s = allScenarios.find(x => x.id === id);
+  if (!s) return;
+  currentScenario = s;
+  document.getElementById('briefing-category').textContent = s.category || 'General';
+  document.getElementById('briefing-title').textContent = s.title;
+  document.getElementById('briefing-desc').textContent = s.description || '';
+  showView('briefing');
+}
+
+function backToList() {
+  currentScenario = null;
+  conversationHistory = [];
+  document.getElementById('messages').innerHTML = '';
+  showView('list');
+}
+
+function startRoleplay() {
+  if (!currentScenario) return;
+  conversationHistory = [];
+  document.getElementById('roleplay-title').textContent = currentScenario.title;
+  document.getElementById('messages').innerHTML = '';
+  showView('roleplay');
+  document.getElementById('user-input').focus();
+}
+
+function handleInputKeydown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+}
+
+function renderMessages() {
+  const el = document.getElementById('messages');
+  el.innerHTML = conversationHistory.map(m => `
+    <div class="msg-row ${m.role === 'user' ? 'user' : 'counterparty'}">
+      <div class="msg-bubble">${escapeHtml(m.content)}</div>
+    </div>
+  `).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+function showTypingIndicator() {
+  const el = document.getElementById('messages');
+  const row = document.createElement('div');
+  row.className = 'msg-row counterparty';
+  row.id = 'typing-indicator';
+  row.innerHTML = `<div class="msg-bubble"><div class="typing-dots"><span></span><span></span><span></span></div></div>`;
+  el.appendChild(row);
+  el.scrollTop = el.scrollHeight;
+}
+
+function removeTypingIndicator() {
+  const el = document.getElementById('typing-indicator');
+  if (el) el.remove();
+}
+
+async function sendMessage() {
+  if (isStreaming) return;
+  const input = document.getElementById('user-input');
+  const text = input.value.trim();
+  if (!text || !currentScenario) return;
+
+  conversationHistory.push({ role: 'user', content: text });
+  renderMessages();
+  input.value = '';
+  isStreaming = true;
+  document.getElementById('send-btn').disabled = true;
+  showTypingIndicator();
+
+  try {
+    const res = await fetch('/api/lab-stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        scenarioId: currentScenario.id,
+        messages: conversationHistory,
+      }),
+    });
+
+    if (!res.ok || !res.body) {
+      removeTypingIndicator();
+      conversationHistory.push({ role: 'assistant', content: '(Something went wrong reaching the counterparty — try again.)' });
+      renderMessages();
+      return;
+    }
+
+    removeTypingIndicator();
+    conversationHistory.push({ role: 'assistant', content: '' });
+    renderMessages();
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      const lines = buffer.split('\n');
+      buffer = lines.pop(); // keep the last, possibly-incomplete line for the next chunk
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const dataStr = line.slice(6).trim();
+        if (!dataStr || dataStr === '[DONE]') continue;
+        try {
+          const evt = JSON.parse(dataStr);
+          if (evt.type === 'content_block_delta' && evt.delta?.type === 'text_delta') {
+            conversationHistory[conversationHistory.length - 1].content += evt.delta.text;
+            renderMessages();
+          }
+        } catch (e) {
+          // Incomplete or non-JSON SSE line — ignore and continue.
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Roleplay streaming error:', err);
+    removeTypingIndicator();
+  } finally {
+    isStreaming = false;
+    document.getElementById('send-btn').disabled = false;
+    document.getElementById('user-input').focus();
+  }
+}
+
+async function endSession() {
+  if (!currentScenario || !conversationHistory.length) {
+    backToList();
+    return;
+  }
+  if (!confirm('End this session and get your debrief? You won\'t be able to continue this conversation afterward.')) return;
+
+  showView('debrief');
+  document.getElementById('debrief-container').innerHTML = '<div class="loading-msg">ARIS is reviewing your session...</div>';
+
+  try {
+    const res = await fetch('/api/lab-debrief', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        scenarioId: currentScenario.id,
+        memberId: currentMemberId,
+        transcript: conversationHistory,
+      }),
+    });
+    const result = await res.json();
+    if (!res.ok || !result.debrief) throw new Error(result.error || 'Debrief failed');
+    renderDebrief(result.debrief);
+  } catch (err) {
+    console.error('Debrief error:', err);
+    document.getElementById('debrief-container').innerHTML = '<div class="loading-msg">Couldn\'t generate your debrief — please try again.</div>';
+  }
+}
+
+function renderDebrief(d) {
+  const strengths = (d.strengths || []).map(s => `<li>${escapeHtml(s)}</li>`).join('');
+  const improve = (d.areasToImprove || []).map(s => `<li>${escapeHtml(s)}</li>`).join('');
+
+  document.getElementById('debrief-container').innerHTML = `
+    <div class="debrief-score-row">
+      <div class="debrief-score">${escapeHtml(String(d.score ?? '—'))}/10</div>
+      <div class="debrief-score-label">${escapeHtml(currentScenario?.title || '')}</div>
+    </div>
+    <div class="debrief-section">
+      <div class="debrief-section-title">Summary</div>
+      <p>${escapeHtml(d.summary || '')}</p>
+    </div>
+    ${strengths ? `<div class="debrief-section"><div class="debrief-section-title">Strengths</div><ul class="debrief-list">${strengths}</ul></div>` : ''}
+    ${improve ? `<div class="debrief-section"><div class="debrief-section-title">Areas to Improve</div><ul class="debrief-list">${improve}</ul></div>` : ''}
+    ${d.keyMoment ? `<div class="debrief-section"><div class="debrief-section-title">Key Moment</div><p>${escapeHtml(d.keyMoment)}</p></div>` : ''}
+  `;
+}
+
+initLabPage();
+</script>
+</body>
+</html>
