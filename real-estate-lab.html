@@ -96,6 +96,37 @@ html { height: 100%; }
 }
 .chat-send-btn:hover { opacity: 0.88; }
 .chat-send-btn:disabled { opacity: 0.4; cursor: default; }
+
+/* ── MIC BUTTON (push-to-talk voice input) — mirrors aris-coach.html exactly ── */
+.mic-btn {
+  width: 44px; height: auto;
+  border-radius: 8px;
+  background: var(--navy-mid);
+  border: 1px solid var(--border-sub);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s, border-color 0.15s;
+  color: var(--gold);
+}
+.mic-btn:hover { background: var(--gold-dim); border-color: var(--gold); }
+.mic-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.mic-btn.recording { background: var(--orange); border-color: var(--orange); color: white; animation: mic-pulse 1.2s ease-in-out infinite; }
+.mic-btn.transcribing { background: var(--gold-dim); border-color: var(--gold); cursor: wait; }
+.mic-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+@keyframes mic-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,107,43,0.5); } 50% { box-shadow: 0 0 0 6px rgba(255,107,43,0); } }
+
+.voice-status { font-size: 12px; color: var(--grey); margin-top: 8px; min-height: 16px; }
+.voice-status.recording-active { color: var(--orange); font-weight: 600; }
+
+/* ── MUTE TOGGLE (Lab auto-plays Carol's voice by default — walkie-talkie feel — this opts out) ── */
+.mute-toggle {
+  background: transparent; border: 1px solid var(--border-sub); border-radius: 8px;
+  color: var(--grey-light); font-size: 12px; padding: 7px 12px; cursor: pointer;
+  display: flex; align-items: center; gap: 6px; transition: border-color 0.15s, color 0.15s;
+}
+.mute-toggle:hover { border-color: var(--gold); color: var(--gold); }
+.mute-toggle.muted { color: var(--grey); }
 .end-session-row { padding-top: 12px; text-align: right; }
 
 /* ── DEBRIEF ── */
@@ -175,13 +206,20 @@ html { height: 100%; }
         <div class="chat-shell">
           <div class="chat-header">
             <div class="chat-header-title" id="roleplay-title"></div>
-            <button class="btn btn-secondary" onclick="backToList()">&larr; Exit</button>
+            <div style="display:flex; gap:8px;">
+              <button class="mute-toggle" id="mute-toggle" onclick="toggleMute()" title="Toggle voice playback">🔊 Voice On</button>
+              <button class="btn btn-secondary" onclick="backToList()">&larr; Exit</button>
+            </div>
           </div>
           <div class="messages" id="messages"></div>
           <div class="chat-input-row">
-            <textarea class="chat-input" id="user-input" rows="1" placeholder="Type your response..." onkeydown="handleInputKeydown(event)"></textarea>
+            <button class="mic-btn" id="mic-btn" onclick="toggleVoiceInput()" title="Speak your response">
+              <span id="mic-icon"><svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/></svg></span>
+            </button>
+            <textarea class="chat-input" id="user-input" rows="1" placeholder="Type your response, or click the mic to speak..." onkeydown="handleInputKeydown(event)"></textarea>
             <button class="chat-send-btn" id="send-btn" onclick="sendMessage()">Send</button>
           </div>
+          <div class="voice-status" id="voice-status"></div>
           <div class="end-session-row">
             <button class="btn" id="end-session-btn" onclick="endSession()">End Session &amp; Get Debrief</button>
           </div>
@@ -207,6 +245,16 @@ let allScenarios = [];
 let currentScenario = null;
 let conversationHistory = []; // [{role: 'user'|'assistant', content: string}] — sent to lab-stream.js
 let isStreaming = false;
+
+// ── VOICE STATE ──
+// Auto-play is ON by default here (unlike ARIS Coach's manual click-to-play
+// button) — a roleplay negotiation is meant to feel like an actual call,
+// not a chat log with an optional play button. toggleMute() opts out.
+let voiceMuted = false;
+let mediaRecorder = null;
+let recordedChunks = [];
+let micStream = null;
+let currentVoiceAudio = null;
 
 function showView(name) {
   ['list', 'briefing', 'roleplay', 'debrief'].forEach(v => {
@@ -297,6 +345,13 @@ function openBriefing(id) {
 }
 
 function backToList() {
+  // Clean up any in-progress recording or playback if the member exits
+  // mid-conversation, rather than leaving a mic stream open in the
+  // background.
+  if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
+  if (micStream) { micStream.getTracks().forEach((t) => t.stop()); micStream = null; }
+  if (currentVoiceAudio) { currentVoiceAudio.pause(); currentVoiceAudio = null; }
+
   currentScenario = null;
   conversationHistory = [];
   document.getElementById('messages').innerHTML = '';
@@ -412,7 +467,162 @@ async function sendMessage() {
     isStreaming = false;
     document.getElementById('send-btn').disabled = false;
     document.getElementById('user-input').focus();
+
+    // Auto-play the completed response as voice, unless muted. Runs after
+    // the full stream has landed (not mid-stream) so ElevenLabs gets the
+    // complete line, not a partial sentence.
+    const lastMsg = conversationHistory[conversationHistory.length - 1];
+    if (!voiceMuted && lastMsg && lastMsg.role === 'assistant' && lastMsg.content.trim()) {
+      playCarolVoice(lastMsg.content);
+    }
   }
+}
+
+// ── VOICE PLAYBACK (auto-play, walkie-talkie style) ──
+async function playCarolVoice(text) {
+  if (currentVoiceAudio) {
+    currentVoiceAudio.pause();
+    currentVoiceAudio = null;
+  }
+  try {
+    const res = await fetch('/api/aris-voice', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+    if (!res.ok) throw new Error(`Voice request failed (${res.status})`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    currentVoiceAudio = audio;
+    audio.addEventListener('ended', () => { URL.revokeObjectURL(url); if (currentVoiceAudio === audio) currentVoiceAudio = null; });
+    audio.addEventListener('error', () => { URL.revokeObjectURL(url); if (currentVoiceAudio === audio) currentVoiceAudio = null; });
+    await audio.play();
+  } catch (err) {
+    console.error('Voice playback failed:', err);
+    // Fails silently in the UI — the text response is already visible in
+    // the transcript, so a voice failure shouldn't block the conversation.
+  }
+}
+
+function toggleMute() {
+  voiceMuted = !voiceMuted;
+  const btn = document.getElementById('mute-toggle');
+  if (voiceMuted) {
+    btn.classList.add('muted');
+    btn.textContent = '🔇 Voice Off';
+    if (currentVoiceAudio) { currentVoiceAudio.pause(); currentVoiceAudio = null; }
+  } else {
+    btn.classList.remove('muted');
+    btn.textContent = '🔊 Voice On';
+  }
+}
+
+// ── VOICE INPUT (push-to-talk mic → ElevenLabs Scribe → existing sendMessage()) ──
+// Mirrors aris-coach.html's exact toggleVoiceInput()/mediaRecorder pattern.
+// Click once to start recording, click again to stop; the transcribed text
+// is fed into the same sendMessage() flow as if it had been typed.
+const MIC_ICON = `<svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/></svg>`;
+const STOP_ICON = `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>`;
+
+function setMicState(state) {
+  const btn = document.getElementById('mic-btn');
+  const icon = document.getElementById('mic-icon');
+  const status = document.getElementById('voice-status');
+  btn.classList.remove('recording', 'transcribing');
+  status.classList.remove('recording-active');
+  btn.disabled = false;
+
+  if (state === 'recording') {
+    btn.classList.add('recording');
+    btn.title = 'Click to stop and send';
+    icon.innerHTML = STOP_ICON;
+    status.classList.add('recording-active');
+    status.textContent = '● Recording — click the mic again to stop and send';
+  } else if (state === 'transcribing') {
+    btn.classList.add('transcribing');
+    btn.disabled = true;
+    btn.title = 'Transcribing...';
+    icon.innerHTML = MIC_ICON;
+    status.classList.add('recording-active');
+    status.textContent = '● Transcribing your message...';
+  } else {
+    btn.title = 'Speak your response';
+    icon.innerHTML = MIC_ICON;
+    status.textContent = '';
+  }
+}
+
+async function toggleVoiceInput() {
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    mediaRecorder.stop(); // onstop handler below does the rest
+    return;
+  }
+
+  // Stop any currently-playing Carol audio before recording — otherwise
+  // the mic could pick up her own voice as background noise.
+  if (currentVoiceAudio) { currentVoiceAudio.pause(); currentVoiceAudio = null; }
+
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (err) {
+    console.error('Microphone access denied or unavailable:', err);
+    document.getElementById('voice-status').textContent = "Couldn't access your microphone — check your browser's permission settings.";
+    return;
+  }
+
+  micStream = stream;
+  recordedChunks = [];
+  mediaRecorder = new MediaRecorder(stream);
+
+  mediaRecorder.ondataavailable = (e) => {
+    if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+  };
+
+  mediaRecorder.onstop = async () => {
+    micStream.getTracks().forEach((t) => t.stop());
+    micStream = null;
+
+    if (!recordedChunks.length) { setMicState('idle'); return; }
+
+    const mimeType = mediaRecorder.mimeType || 'audio/webm';
+    const blob = new Blob(recordedChunks, { type: mimeType });
+    recordedChunks = [];
+
+    if (blob.size < 1000) {
+      setMicState('idle');
+      return;
+    }
+
+    setMicState('transcribing');
+    try {
+      const res = await fetch('/api/aris-transcribe', {
+        method: 'POST',
+        headers: { 'Content-Type': mimeType },
+        body: blob,
+      });
+      if (!res.ok) throw new Error(`Transcription failed (${res.status})`);
+      const { text } = await res.json();
+
+      setMicState('idle');
+
+      if (!text || !text.trim()) {
+        document.getElementById('voice-status').textContent = "Didn't catch that — try speaking again, a little closer to the mic.";
+        return;
+      }
+
+      document.getElementById('user-input').value = text.trim();
+      await sendMessage();
+    } catch (err) {
+      console.error('Voice input failed:', err);
+      setMicState('idle');
+      document.getElementById('voice-status').textContent = 'Had trouble hearing that — check your connection and try again.';
+    }
+  };
+
+  mediaRecorder.start();
+  setMicState('recording');
 }
 
 async function endSession() {
