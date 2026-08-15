@@ -28,7 +28,7 @@ exports.handler = async function (event, context) {
       if (action === 'list') {
         const { data, error } = await supabase
           .from('lab_scenarios')
-          .select('id, title, description, category, order_index')
+          .select('id, title, description, category, counterparty_role, order_index')
           .eq('published', true)
           .order('order_index', { ascending: true });
         if (error) throw error;

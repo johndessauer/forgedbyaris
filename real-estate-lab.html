@@ -46,6 +46,14 @@ html { height: 100%; }
 .dashboard-scroll { padding: 24px 28px 32px; }
 
 /* ── SCENARIO LIST ── */
+.role-filter-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+.role-filter-pill {
+  font-size: 12px; font-weight: 600; padding: 7px 14px; border-radius: 20px;
+  background: var(--navy-light); color: var(--grey-light); border: 1px solid var(--border-sub);
+  cursor: pointer; transition: all 0.15s; white-space: nowrap;
+}
+.role-filter-pill:hover { border-color: var(--gold); color: var(--gold); }
+.role-filter-pill.active { background: var(--orange-dim); border-color: var(--orange); color: var(--orange); }
 .scenario-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
 .scenario-card {
   background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 10px;
@@ -183,6 +191,7 @@ html { height: 100%; }
 
       <!-- SCENARIO LIST VIEW -->
       <div id="view-list">
+        <div id="role-filter-container"></div>
         <div id="scenario-list-container">
           <div class="loading-msg">Loading scenarios...</div>
         </div>
@@ -243,6 +252,12 @@ let memberToken = null;
 let currentMemberId = null;
 let allScenarios = [];
 let currentScenario = null;
+let activeRoleFilter = 'All'; // 'All' or one of COUNTERPARTY_ROLES
+
+// Fixed role list — kept in sync with the dropdown in lab-admin.html.
+// A scenario with no counterparty_role set (older/legacy entries) always
+// shows under "All" but never matches a specific role pill.
+const COUNTERPARTY_ROLES = ['Seller', 'Private Lender', 'LP/Investor', 'Buyer', 'Contractor', 'Tenant', 'Commercial Bank - Loan Officer'];
 let conversationHistory = []; // [{role: 'user'|'assistant', content: string}] — sent to lab-stream.js
 let isStreaming = false;
 
@@ -321,11 +336,50 @@ async function loadScenarios() {
     return;
   }
 
+  renderRoleFilter();
+  renderScenarioGrid();
+}
+
+function renderRoleFilter() {
+  // Only show roles that at least one loaded scenario actually uses,
+  // so the pill row doesn't list roles with zero scenarios behind them.
+  const rolesPresent = COUNTERPARTY_ROLES.filter(r => allScenarios.some(s => s.counterparty_role === r));
+  const el = document.getElementById('role-filter-container');
+
+  if (!rolesPresent.length) { el.innerHTML = ''; return; }
+
+  el.innerHTML = `
+    <div class="role-filter-row">
+      <button class="role-filter-pill ${activeRoleFilter === 'All' ? 'active' : ''}" onclick="setRoleFilter('All')">All</button>
+      ${rolesPresent.map(r => `
+        <button class="role-filter-pill ${activeRoleFilter === r ? 'active' : ''}" onclick="setRoleFilter('${r.replace(/'/g, "\\'")}')">${escapeHtml(r)}</button>
+      `).join('')}
+    </div>
+  `;
+}
+
+function setRoleFilter(role) {
+  activeRoleFilter = role;
+  renderRoleFilter();
+  renderScenarioGrid();
+}
+
+function renderScenarioGrid() {
+  const container = document.getElementById('scenario-list-container');
+  const filtered = activeRoleFilter === 'All'
+    ? allScenarios
+    : allScenarios.filter(s => s.counterparty_role === activeRoleFilter);
+
+  if (!filtered.length) {
+    container.innerHTML = `<div class="loading-msg">No scenarios yet for "${escapeHtml(activeRoleFilter)}" — try a different filter.</div>`;
+    return;
+  }
+
   container.innerHTML = `
     <div class="scenario-grid">
-      ${allScenarios.map(s => `
+      ${filtered.map(s => `
         <div class="scenario-card" onclick="openBriefing('${s.id}')">
-          <div class="scenario-card-category">${escapeHtml(s.category || 'General')}</div>
+          <div class="scenario-card-category">${escapeHtml(s.category || 'General')}${s.counterparty_role ? ' · ' + escapeHtml(s.counterparty_role) : ''}</div>
           <div class="scenario-card-title">${escapeHtml(s.title)}</div>
           <div class="scenario-card-desc">${escapeHtml(s.description || '')}</div>
         </div>
@@ -338,7 +392,7 @@ function openBriefing(id) {
   const s = allScenarios.find(x => x.id === id);
   if (!s) return;
   currentScenario = s;
-  document.getElementById('briefing-category').textContent = s.category || 'General';
+  document.getElementById('briefing-category').textContent = (s.category || 'General') + (s.counterparty_role ? ' · ' + s.counterparty_role : '');
   document.getElementById('briefing-title').textContent = s.title;
   document.getElementById('briefing-desc').textContent = s.description || '';
   showView('briefing');

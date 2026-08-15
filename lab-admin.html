@@ -90,7 +90,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 
 .form-row { margin-bottom: 16px; }
 .form-row label { display: block; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--grey); margin-bottom: 6px; }
-.form-row input[type=text], .form-row input[type=number], .form-row textarea {
+.form-row input[type=text], .form-row input[type=number], .form-row textarea, .form-row select {
   width: 100%; background: var(--navy-mid); border: 1px solid var(--border-sub); border-radius: 6px;
   padding: 10px 12px; color: var(--white); font-size: 13px; font-family: 'Inter', sans-serif;
 }
@@ -168,8 +168,8 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
       <div id="admin-view-list">
         <button class="admin-btn primary" onclick="openEditor(null)" style="margin-bottom:16px;">+ New Scenario</button>
         <table class="admin-table">
-          <thead><tr><th>Title</th><th>Category</th><th>Status</th><th>Order</th><th></th></tr></thead>
-          <tbody id="admin-scenario-rows"><tr><td colspan="5" style="color:var(--grey);">Loading...</td></tr></tbody>
+          <thead><tr><th>Title</th><th>Category</th><th>Counterparty</th><th>Status</th><th>Order</th><th></th></tr></thead>
+          <tbody id="admin-scenario-rows"><tr><td colspan="6" style="color:var(--grey);">Loading...</td></tr></tbody>
         </table>
       </div>
 
@@ -185,6 +185,19 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
         <div class="form-row">
           <label>Category <span style="text-transform:none;font-weight:400;color:var(--grey);">(reuses Education's category taxonomy — e.g. Wholesaling, Tax Lien Investing)</span></label>
           <input type="text" id="f-category" placeholder="e.g. Wholesaling">
+        </div>
+        <div class="form-row">
+          <label>Counterparty Role <span style="text-transform:none;font-weight:400;color:var(--grey);">(who ARIS plays in this scenario — separate from Category)</span></label>
+          <select id="f-counterparty-role">
+            <option value="">— unspecified —</option>
+            <option value="Seller">Seller</option>
+            <option value="Private Lender">Private Lender</option>
+            <option value="LP/Investor">LP/Investor</option>
+            <option value="Buyer">Buyer</option>
+            <option value="Contractor">Contractor</option>
+            <option value="Tenant">Tenant</option>
+            <option value="Commercial Bank - Loan Officer">Commercial Bank - Loan Officer</option>
+          </select>
         </div>
         <div class="form-row">
           <label>Short Description (shown on the scenario card)</label>
@@ -280,6 +293,7 @@ async function loadAdminList() {
     <tr>
       <td>${escapeHtml(s.title)}</td>
       <td>${escapeHtml(s.category)}</td>
+      <td>${escapeHtml(s.counterparty_role || '—')}</td>
       <td><span class="pill ${s.published ? 'published' : 'draft'}">${s.published ? 'Published' : 'Draft'}</span></td>
       <td>${s.order_index ?? 0}</td>
       <td>
@@ -300,6 +314,7 @@ async function openEditor(id) {
     document.getElementById('editor-heading').textContent = 'Edit: ' + scenario.title;
     document.getElementById('f-title').value = scenario.title;
     document.getElementById('f-category').value = scenario.category;
+    document.getElementById('f-counterparty-role').value = scenario.counterparty_role || '';
     document.getElementById('f-description').value = scenario.description || '';
     document.getElementById('f-order').value = scenario.order_index || 0;
     document.getElementById('f-role-prompt').value = scenario.role_prompt || '';
@@ -311,6 +326,7 @@ async function openEditor(id) {
     document.getElementById('editor-heading').textContent = 'New Scenario';
     document.getElementById('f-title').value = '';
     document.getElementById('f-category').value = '';
+    document.getElementById('f-counterparty-role').value = '';
     document.getElementById('f-description').value = '';
     document.getElementById('f-order').value = 0;
     document.getElementById('f-role-prompt').value = '';
@@ -331,6 +347,7 @@ function backToAdminList() {
 async function saveScenario() {
   const title = document.getElementById('f-title').value.trim();
   const category = document.getElementById('f-category').value.trim();
+  const counterpartyRole = document.getElementById('f-counterparty-role').value;
   const description = document.getElementById('f-description').value.trim();
   const orderIndex = parseInt(document.getElementById('f-order').value, 10) || 0;
   const rolePrompt = document.getElementById('f-role-prompt').value.trim();
@@ -345,14 +362,14 @@ async function saveScenario() {
       const res = await fetch('/api/lab-admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${memberToken}` },
-        body: JSON.stringify({ action: 'update_scenario', id: scenarioId, title, category, description, orderIndex, rolePrompt, objective }),
+        body: JSON.stringify({ action: 'update_scenario', id: scenarioId, title, category, counterpartyRole, description, orderIndex, rolePrompt, objective }),
       });
       if (!res.ok) throw new Error('update_scenario failed');
     } else {
       const res = await fetch('/api/lab-admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${memberToken}` },
-        body: JSON.stringify({ action: 'create_scenario', title, category, description, orderIndex, rolePrompt, objective }),
+        body: JSON.stringify({ action: 'create_scenario', title, category, counterpartyRole, description, orderIndex, rolePrompt, objective }),
       });
       if (!res.ok) throw new Error('create_scenario failed');
       const { scenario: created } = await res.json();
