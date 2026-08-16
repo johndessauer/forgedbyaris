@@ -64,7 +64,7 @@ exports.handler = async function (event, context) {
       if (action === 'list_all') {
         const { data, error } = await supabase
           .from('lab_scenarios')
-          .select('id, title, description, category, counterparty_role, counterparty_gender, order_index, published')
+          .select('id, title, description, student_briefing, category, counterparty_role, counterparty_gender, order_index, published')
           .order('category', { ascending: true })
           .order('order_index', { ascending: true });
         if (error) throw error;
@@ -93,7 +93,7 @@ exports.handler = async function (event, context) {
       const payload = JSON.parse(event.body || '{}');
 
       if (payload.action === 'create_scenario') {
-        const { title, category, counterpartyRole, counterpartyGender, description, rolePrompt, objective, orderIndex } = payload;
+        const { title, category, counterpartyRole, counterpartyGender, description, studentBriefing, rolePrompt, objective, orderIndex } = payload;
         if (!title || !category) return json(400, { error: 'title and category are required' });
         if (!rolePrompt || !objective) return json(400, { error: 'rolePrompt and objective are required' });
         if (counterpartyGender && !['M', 'F'].includes(counterpartyGender)) {
@@ -108,6 +108,7 @@ exports.handler = async function (event, context) {
             counterparty_role: counterpartyRole || null,
             counterparty_gender: counterpartyGender || null,
             description: description || null,
+            student_briefing: studentBriefing || null,
             role_prompt: rolePrompt,
             objective,
             order_index: orderIndex || 0,
@@ -120,7 +121,7 @@ exports.handler = async function (event, context) {
       }
 
       if (payload.action === 'update_scenario') {
-        const { id, title, category, counterpartyRole, counterpartyGender, description, rolePrompt, objective, orderIndex } = payload;
+        const { id, title, category, counterpartyRole, counterpartyGender, description, studentBriefing, rolePrompt, objective, orderIndex } = payload;
         if (!id) return json(400, { error: 'id is required' });
         if (counterpartyGender && !['M', 'F'].includes(counterpartyGender)) {
           return json(400, { error: "counterpartyGender must be 'M' or 'F'" });
@@ -132,6 +133,7 @@ exports.handler = async function (event, context) {
         if (counterpartyRole !== undefined) updates.counterparty_role = counterpartyRole;
         if (counterpartyGender !== undefined) updates.counterparty_gender = counterpartyGender;
         if (description !== undefined) updates.description = description;
+        if (studentBriefing !== undefined) updates.student_briefing = studentBriefing;
         if (rolePrompt !== undefined) updates.role_prompt = rolePrompt;
         if (objective !== undefined) updates.objective = objective;
         if (orderIndex !== undefined) updates.order_index = orderIndex;

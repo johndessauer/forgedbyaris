@@ -394,7 +394,7 @@ function openBriefing(id) {
   currentScenario = s;
   document.getElementById('briefing-category').textContent = (s.category || 'General') + (s.counterparty_role ? ' · ' + s.counterparty_role : '');
   document.getElementById('briefing-title').textContent = s.title;
-  document.getElementById('briefing-desc').textContent = s.description || '';
+  document.getElementById('briefing-desc').textContent = s.student_briefing || s.description || '';
   showView('briefing');
 }
 

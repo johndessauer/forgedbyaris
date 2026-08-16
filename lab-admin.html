@@ -212,6 +212,10 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
           <input type="text" id="f-description" placeholder="One line summary">
         </div>
         <div class="form-row">
+          <label>Student Briefing <span style="text-transform:none;font-weight:400;color:var(--grey);">(shown to the member on the pre-roleplay screen — their role, the situation, their goal. Never reveal the counterparty's hidden thresholds here.)</span></label>
+          <textarea id="f-student-briefing" placeholder="e.g. You're a wholesaler with a signed contract on a distressed property. You've found a cash buyer, Ray Delgado, who's shown interest in deals like this before. Your job: present the deal, justify your assignment fee, and get him to a signed agreement..."></textarea>
+        </div>
+        <div class="form-row">
           <label>Order <span style="text-transform:none;font-weight:400;color:var(--grey);">(lower numbers show first; 0 is fine for most)</span></label>
           <input type="number" id="f-order" value="0" style="max-width:120px;">
         </div>
@@ -326,6 +330,7 @@ async function openEditor(id) {
     document.getElementById('f-counterparty-role').value = scenario.counterparty_role || '';
     document.getElementById('f-counterparty-gender').value = scenario.counterparty_gender || '';
     document.getElementById('f-description').value = scenario.description || '';
+    document.getElementById('f-student-briefing').value = scenario.student_briefing || '';
     document.getElementById('f-order').value = scenario.order_index || 0;
     document.getElementById('f-role-prompt').value = scenario.role_prompt || '';
     document.getElementById('f-objective').value = scenario.objective || '';
@@ -339,6 +344,7 @@ async function openEditor(id) {
     document.getElementById('f-counterparty-role').value = '';
     document.getElementById('f-counterparty-gender').value = '';
     document.getElementById('f-description').value = '';
+    document.getElementById('f-student-briefing').value = '';
     document.getElementById('f-order').value = 0;
     document.getElementById('f-role-prompt').value = '';
     document.getElementById('f-objective').value = '';
@@ -361,6 +367,7 @@ async function saveScenario() {
   const counterpartyRole = document.getElementById('f-counterparty-role').value;
   const counterpartyGender = document.getElementById('f-counterparty-gender').value;
   const description = document.getElementById('f-description').value.trim();
+  const studentBriefing = document.getElementById('f-student-briefing').value.trim();
   const orderIndex = parseInt(document.getElementById('f-order').value, 10) || 0;
   const rolePrompt = document.getElementById('f-role-prompt').value.trim();
   const objective = document.getElementById('f-objective').value.trim();
@@ -374,14 +381,14 @@ async function saveScenario() {
       const res = await fetch('/api/lab-admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${memberToken}` },
-        body: JSON.stringify({ action: 'update_scenario', id: scenarioId, title, category, counterpartyRole, counterpartyGender, description, orderIndex, rolePrompt, objective }),
+        body: JSON.stringify({ action: 'update_scenario', id: scenarioId, title, category, counterpartyRole, counterpartyGender, description, studentBriefing, orderIndex, rolePrompt, objective }),
       });
       if (!res.ok) throw new Error('update_scenario failed');
     } else {
       const res = await fetch('/api/lab-admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${memberToken}` },
-        body: JSON.stringify({ action: 'create_scenario', title, category, counterpartyRole, counterpartyGender, description, orderIndex, rolePrompt, objective }),
+        body: JSON.stringify({ action: 'create_scenario', title, category, counterpartyRole, counterpartyGender, description, studentBriefing, orderIndex, rolePrompt, objective }),
       });
       if (!res.ok) throw new Error('create_scenario failed');
       const { scenario: created } = await res.json();
