@@ -168,8 +168,8 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
       <div id="admin-view-list">
         <button class="admin-btn primary" onclick="openEditor(null)" style="margin-bottom:16px;">+ New Scenario</button>
         <table class="admin-table">
-          <thead><tr><th>Title</th><th>Category</th><th>Counterparty</th><th>Status</th><th>Order</th><th></th></tr></thead>
-          <tbody id="admin-scenario-rows"><tr><td colspan="6" style="color:var(--grey);">Loading...</td></tr></tbody>
+          <thead><tr><th>Title</th><th>Category</th><th>Counterparty</th><th>Voice</th><th>Status</th><th>Order</th><th></th></tr></thead>
+          <tbody id="admin-scenario-rows"><tr><td colspan="7" style="color:var(--grey);">Loading...</td></tr></tbody>
         </table>
       </div>
 
@@ -197,6 +197,14 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
             <option value="Contractor">Contractor</option>
             <option value="Tenant">Tenant</option>
             <option value="Commercial Bank - Loan Officer">Commercial Bank - Loan Officer</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Counterparty Gender <span style="text-transform:none;font-weight:400;color:var(--grey);">(picks which of the 2 Lab voices speaks this scenario)</span></label>
+          <select id="f-counterparty-gender">
+            <option value="">— unspecified (uses ARIS's voice) —</option>
+            <option value="M">Male</option>
+            <option value="F">Female</option>
           </select>
         </div>
         <div class="form-row">
@@ -294,6 +302,7 @@ async function loadAdminList() {
       <td>${escapeHtml(s.title)}</td>
       <td>${escapeHtml(s.category)}</td>
       <td>${escapeHtml(s.counterparty_role || '—')}</td>
+      <td>${s.counterparty_gender === 'M' ? 'Male' : s.counterparty_gender === 'F' ? 'Female' : '—'}</td>
       <td><span class="pill ${s.published ? 'published' : 'draft'}">${s.published ? 'Published' : 'Draft'}</span></td>
       <td>${s.order_index ?? 0}</td>
       <td>
@@ -315,6 +324,7 @@ async function openEditor(id) {
     document.getElementById('f-title').value = scenario.title;
     document.getElementById('f-category').value = scenario.category;
     document.getElementById('f-counterparty-role').value = scenario.counterparty_role || '';
+    document.getElementById('f-counterparty-gender').value = scenario.counterparty_gender || '';
     document.getElementById('f-description').value = scenario.description || '';
     document.getElementById('f-order').value = scenario.order_index || 0;
     document.getElementById('f-role-prompt').value = scenario.role_prompt || '';
@@ -327,6 +337,7 @@ async function openEditor(id) {
     document.getElementById('f-title').value = '';
     document.getElementById('f-category').value = '';
     document.getElementById('f-counterparty-role').value = '';
+    document.getElementById('f-counterparty-gender').value = '';
     document.getElementById('f-description').value = '';
     document.getElementById('f-order').value = 0;
     document.getElementById('f-role-prompt').value = '';
@@ -348,6 +359,7 @@ async function saveScenario() {
   const title = document.getElementById('f-title').value.trim();
   const category = document.getElementById('f-category').value.trim();
   const counterpartyRole = document.getElementById('f-counterparty-role').value;
+  const counterpartyGender = document.getElementById('f-counterparty-gender').value;
   const description = document.getElementById('f-description').value.trim();
   const orderIndex = parseInt(document.getElementById('f-order').value, 10) || 0;
   const rolePrompt = document.getElementById('f-role-prompt').value.trim();
@@ -362,14 +374,14 @@ async function saveScenario() {
       const res = await fetch('/api/lab-admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${memberToken}` },
-        body: JSON.stringify({ action: 'update_scenario', id: scenarioId, title, category, counterpartyRole, description, orderIndex, rolePrompt, objective }),
+        body: JSON.stringify({ action: 'update_scenario', id: scenarioId, title, category, counterpartyRole, counterpartyGender, description, orderIndex, rolePrompt, objective }),
       });
       if (!res.ok) throw new Error('update_scenario failed');
     } else {
       const res = await fetch('/api/lab-admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${memberToken}` },
-        body: JSON.stringify({ action: 'create_scenario', title, category, counterpartyRole, description, orderIndex, rolePrompt, objective }),
+        body: JSON.stringify({ action: 'create_scenario', title, category, counterpartyRole, counterpartyGender, description, orderIndex, rolePrompt, objective }),
       });
       if (!res.ok) throw new Error('create_scenario failed');
       const { scenario: created } = await res.json();

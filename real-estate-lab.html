@@ -527,22 +527,35 @@ async function sendMessage() {
     // complete line, not a partial sentence.
     const lastMsg = conversationHistory[conversationHistory.length - 1];
     if (!voiceMuted && lastMsg && lastMsg.role === 'assistant' && lastMsg.content.trim()) {
-      playCarolVoice(lastMsg.content);
+      playCounterpartyVoice(lastMsg.content);
     }
   }
 }
 
+// Voice IDs for the Lab's 2 counterparty voices — separate from ARIS's own
+// voice, which aris-voice.js still defaults to if no voiceId is passed.
+const LAB_VOICE_MALE = '83q1pBDDePRioCY8grPY';
+const LAB_VOICE_FEMALE = 'PBjLN8WJmwHEGB1u1UzI';
+
+function voiceIdForCurrentScenario() {
+  if (!currentScenario) return undefined;
+  if (currentScenario.counterparty_gender === 'M') return LAB_VOICE_MALE;
+  if (currentScenario.counterparty_gender === 'F') return LAB_VOICE_FEMALE;
+  return undefined; // unspecified — falls back to ARIS's own voice server-side
+}
+
 // ── VOICE PLAYBACK (auto-play, walkie-talkie style) ──
-async function playCarolVoice(text) {
+async function playCounterpartyVoice(text) {
   if (currentVoiceAudio) {
     currentVoiceAudio.pause();
     currentVoiceAudio = null;
   }
   try {
+    const voiceId = voiceIdForCurrentScenario();
     const res = await fetch('/api/aris-voice', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify(voiceId ? { text, voiceId } : { text }),
     });
     if (!res.ok) throw new Error(`Voice request failed (${res.status})`);
     const blob = await res.blob();

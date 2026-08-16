@@ -19,13 +19,23 @@ const PRONUNCIATION_DICTIONARY_VERSION_ID = 'H5j6yzxGjOqVPWfU0ZT9';
 const MODEL_ID = 'eleven_flash_v2_5'; // low-latency model for production playback
 
 // Voice settings dialed in during the ElevenLabs Voice Design session —
-// refined British RP, calm/precise/composed, subtle dry wit.
-const VOICE_SETTINGS = {
+// refined British RP, calm/precise/composed, subtle dry wit. Only used
+// for ARIS's own voice — a non-default voiceId (e.g. Real Estate Lab
+// counterparties) uses ElevenLabs' stock defaults instead, since these
+// settings were tuned specifically for ARIS's voice and don't transfer.
+const ARIS_VOICE_SETTINGS = {
   stability: 0.58,
   similarity_boost: 0.75,
   style: 0.18,
   use_speaker_boost: true,
   speed: 0.99,
+};
+
+// ElevenLabs' standard defaults — used for any voiceId other than ARIS's own.
+const DEFAULT_VOICE_SETTINGS = {
+  stability: 0.5,
+  similarity_boost: 0.75,
+  use_speaker_boost: true,
 };
 
 const MAX_CHARS = 5000; // sane upper bound so a runaway request can't rack up huge TTS cost
@@ -82,6 +92,13 @@ export default async (request, context) => {
     });
   }
 
+  // Optional override — used by Real Estate Lab so each counterparty can
+  // speak in a different voice than ARIS. Falls back to ARIS's own voice
+  // and tuning when omitted, so every existing caller (ARIS Coach, etc.)
+  // is unaffected.
+  const voiceId = typeof body.voiceId === 'string' && body.voiceId.trim() ? body.voiceId.trim() : VOICE_ID;
+  const voiceSettings = voiceId === VOICE_ID ? ARIS_VOICE_SETTINGS : DEFAULT_VOICE_SETTINGS;
+
   const speechText = stripMarkdownForSpeech(rawText).slice(0, MAX_CHARS);
   if (!speechText) {
     return new Response(JSON.stringify({ error: 'Nothing left to speak after stripping formatting' }), {
@@ -89,7 +106,7 @@ export default async (request, context) => {
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     });
   }
-  console.log(`aris-voice: request received, ${speechText.length} chars to speak`);
+  console.log(`aris-voice: request received, ${speechText.length} chars to speak, voiceId=${voiceId}`);
 
   const API_KEY = Netlify.env.get('ELEVENLABS_API_KEY');
   if (!API_KEY) {
@@ -103,7 +120,7 @@ export default async (request, context) => {
 
   let upstream;
   try {
-    upstream = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}/stream`, {
+    upstream = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -113,7 +130,7 @@ export default async (request, context) => {
       body: JSON.stringify({
         text: speechText,
         model_id: MODEL_ID,
-        voice_settings: VOICE_SETTINGS,
+        voice_settings: voiceSettings,
         pronunciation_dictionary_locators: [
           {
             pronunciation_dictionary_id: PRONUNCIATION_DICTIONARY_ID,
