@@ -310,6 +310,14 @@
     gap: 10px;
   }
 
+  /* With an odd total card count, the last card can be left alone in its
+     row, leaving empty grid cells that show the grid's border-color
+     background instead of black. Spanning it full-width avoids that gap
+     without needing the total count to divide evenly into the column count. */
+  .feature:last-child {
+    grid-column: 1 / -1;
+  }
+
   .feature-icon {
     font-size: 22px;
     color: var(--gold);
