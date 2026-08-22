@@ -18,6 +18,7 @@ const { supabase } = require('./_Lib/supabase-client');
 const { json, preflight } = require('./_Lib/http');
 
 const VALID_CREATED_BY = ['student', 'aris'];
+const VALID_CONTACT_METHODS = ['text', 'call', 'meeting', 'email', 'other'];
 
 exports.handler = async function (event, context) {
   if (event.httpMethod === 'OPTIONS') return preflight();
@@ -53,7 +54,7 @@ exports.handler = async function (event, context) {
 
     if (event.httpMethod === 'POST') {
       const payload = JSON.parse(event.body || '{}');
-      const { deal_id, contact_id, body, created_by } = payload;
+      const { deal_id, contact_id, body, created_by, contact_method } = payload;
 
       if (!body) return json(400, { error: 'body is required' });
       if (!deal_id && !contact_id) {
@@ -61,6 +62,9 @@ exports.handler = async function (event, context) {
       }
       if (!created_by || !VALID_CREATED_BY.includes(created_by)) {
         return json(400, { error: `created_by is required and must be one of: ${VALID_CREATED_BY.join(', ')}` });
+      }
+      if (contact_method && !VALID_CONTACT_METHODS.includes(contact_method)) {
+        return json(400, { error: `contact_method must be one of: ${VALID_CONTACT_METHODS.join(', ')}` });
       }
 
       // Verify ownership of whatever this note is being attached to,
@@ -92,6 +96,7 @@ exports.handler = async function (event, context) {
           contact_id: contact_id || null,
           body,
           created_by,
+          contact_method: contact_method || null,
         })
         .select()
         .single();

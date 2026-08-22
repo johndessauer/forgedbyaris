@@ -88,11 +88,13 @@ exports.handler = async function (event, context) {
       if (error) throw error;
 
       // Enrich each deal with a last_activity_at (latest note, or the deal's
-      // own updated_at if it has no notes) and a stale flag -- 30+ days
-      // since that activity, meaning no note or stage change has happened.
-      // This powers both the "Needs Follow-up" badge in the CRM UI and
-      // ARIS's find_stale_deals tool, computed once here so neither has to
-      // guess from raw timestamps.
+      // own updated_at if it has no notes), a stale flag, and — when
+      // stale — a stage-specific nudge_message. Thresholds vary by stage
+      // (see STALE_THRESHOLDS below) rather than one flat 30-day rule,
+      // since how urgently a deal needs a touch depends heavily on where
+      // it sits in the pipeline. This powers the "Needs Follow-up" badge
+      // in the CRM UI and ARIS's find_stale_deals tool, computed once
+      // here so neither has to guess from raw timestamps.
       const dealIds = data.map((d) => d.id);
       let latestNoteByDeal = {};
       if (dealIds.length) {
@@ -108,14 +110,38 @@ exports.handler = async function (event, context) {
         }
       }
 
-      const STALE_DAYS = 30;
+      const STALE_THRESHOLDS = {
+        // Days without activity before a deal is flagged, tuned per stage —
+        // a brand-new lead going cold for a week is a much bigger problem
+        // than a deal already Under Contract sitting a week between
+        // scheduled milestones. Closed/Dead are excluded entirely below.
+        'New Lead': 1,
+        Contacted: 3,
+        Qualified: 5,
+        'Making Offer': 2,
+        'Under Contract': 5,
+      };
+      const NUDGE_MESSAGES = {
+        'New Lead': 'New leads go cold fast — reach out today.',
+        Contacted: "It's been a few days since your last touch — follow up before they lose interest.",
+        Qualified: 'Keep the momentum going — check in on where their decision stands.',
+        'Making Offer': 'Your offer is waiting on a response — confirm where things stand.',
+        'Under Contract': 'Confirm the closing timeline is still on track.',
+      };
       const now = Date.now();
       const enriched = data.map((deal) => {
         const lastNote = latestNoteByDeal[deal.id];
         const lastActivityAt = lastNote && new Date(lastNote) > new Date(deal.updated_at) ? lastNote : deal.updated_at;
         const daysSinceActivity = Math.floor((now - new Date(lastActivityAt).getTime()) / (1000 * 60 * 60 * 24));
-        const stale = deal.stage !== 'Closed' && deal.stage !== 'Dead' && daysSinceActivity >= STALE_DAYS;
-        return { ...deal, last_activity_at: lastActivityAt, days_since_activity: daysSinceActivity, stale };
+        const threshold = STALE_THRESHOLDS[deal.stage];
+        const stale = deal.stage !== 'Closed' && deal.stage !== 'Dead' && threshold !== undefined && daysSinceActivity >= threshold;
+        return {
+          ...deal,
+          last_activity_at: lastActivityAt,
+          days_since_activity: daysSinceActivity,
+          stale,
+          nudge_message: stale ? NUDGE_MESSAGES[deal.stage] || 'This deal needs a follow-up.' : null,
+        };
       });
 
       return json(200, { deals: enriched });

@@ -934,9 +934,25 @@ function tierBadge(difficulty) {
   return `<span style="display:inline-block;font-size:10px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;padding:3px 9px;border-radius:20px;background:${t.color}22;color:${t.color};margin-bottom:10px;">${t.icon} ${t.label}</span>`;
 }
 
+function shuffledIndices(n) {
+  // Fisher-Yates shuffle of [0..n-1] — used to randomize quiz answer
+  // display order per question, independent of authoring/storage order.
+  // Fixes answers clustering on one letter (e.g. mostly "B") since the
+  // underlying data is never reordered, only how it's displayed.
+  const arr = Array.from({ length: n }, (_, i) => i);
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
 function startQuiz() {
   if (!currentQuestions.length) return;
   selectedAnswers = new Array(currentQuestions.length).fill(null);
+  // Assign (or reassign) a fresh random display order each time the quiz
+  // starts, so a retake also reshuffles rather than showing the same order.
+  currentQuestions.forEach(q => { q._shuffleOrder = shuffledIndices(q.options.length); });
   document.getElementById('quiz-title').textContent = `${currentModule.title} — ${TIER_META[currentTier].label} Quiz`;
 
   document.getElementById('quiz-questions').innerHTML = `
@@ -946,8 +962,8 @@ function startQuiz() {
   ` + currentQuestions.map((q, qi) => `
     <div class="quiz-card">
       <div class="quiz-q">${qi + 1}. ${escapeHtml(q.question)}</div>
-      ${q.options.map((opt, oi) => `
-        <div class="quiz-option" id="q${qi}-o${oi}" onclick="selectAnswer(${qi}, ${oi})">${escapeHtml(opt)}</div>
+      ${q._shuffleOrder.map((origIdx, oi) => `
+        <div class="quiz-option" id="q${qi}-o${oi}" onclick="selectAnswer(${qi}, ${oi})">${escapeHtml(q.options[origIdx])}</div>
       `).join('')}
     </div>
   `).join('');
@@ -955,8 +971,12 @@ function startQuiz() {
 }
 
 function selectAnswer(qi, oi) {
-  selectedAnswers[qi] = oi;
-  currentQuestions[qi].options.forEach((_, i) => {
+  // oi is the on-screen position; translate through this question's
+  // shuffle order to get back the original option index for storage,
+  // so submission/grading logic downstream is completely unaffected.
+  const origIdx = currentQuestions[qi]._shuffleOrder[oi];
+  selectedAnswers[qi] = origIdx;
+  currentQuestions[qi]._shuffleOrder.forEach((_, i) => {
     document.getElementById(`q${qi}-o${i}`).classList.toggle('selected', i === oi);
   });
 }
@@ -1001,14 +1021,18 @@ async function submitQuiz() {
 
   document.getElementById('results-questions').innerHTML = currentQuestions.map((q, qi) => {
     const r = results[qi];
+    // Reuse the same per-question shuffle order the quiz was taken with,
+    // so the results view shows options in the identical position the
+    // member actually saw and clicked — just with correctness revealed.
+    const order = q._shuffleOrder || q.options.map((_, i) => i);
     return `
       <div class="quiz-card">
         <div class="quiz-q">${qi + 1}. ${escapeHtml(q.question)}</div>
-        ${q.options.map((opt, oi) => {
+        ${order.map((origIdx, oi) => {
           let cls = 'quiz-option';
-          if (oi === r.correctIndex) cls += ' correct';
-          else if (oi === selectedAnswers[qi] && !r.correct) cls += ' incorrect';
-          return `<div class="${cls}">${escapeHtml(opt)}</div>`;
+          if (origIdx === r.correctIndex) cls += ' correct';
+          else if (origIdx === selectedAnswers[qi] && !r.correct) cls += ' incorrect';
+          return `<div class="${cls}">${escapeHtml(q.options[origIdx])}</div>`;
         }).join('')}
         ${r.explanation ? `<div class="quiz-explanation">${escapeHtml(r.explanation)}</div>` : ''}
       </div>

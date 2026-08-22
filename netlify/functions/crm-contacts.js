@@ -46,7 +46,37 @@ exports.handler = async function (event, context) {
 
       const { data, error } = await query;
       if (error) throw error;
-      return json(200, { contacts: data });
+
+      // Enrich each contact with last_contact_at / last_contact_method from
+      // their most recent note, so the list view can show "Last contact:
+      // Phone Call · 3 days ago" without a separate round-trip per contact.
+      const contactIds = data.map((c) => c.id);
+      let latestNoteByContact = {};
+      if (contactIds.length) {
+        const { data: notesData, error: notesError } = await supabase
+          .from('notes')
+          .select('contact_id, created_at, contact_method')
+          .in('contact_id', contactIds)
+          .order('created_at', { ascending: false });
+        if (!notesError && notesData) {
+          for (const n of notesData) {
+            if (!latestNoteByContact[n.contact_id]) {
+              latestNoteByContact[n.contact_id] = { at: n.created_at, method: n.contact_method };
+            }
+          }
+        }
+      }
+
+      const enriched = data.map((contact) => {
+        const latest = latestNoteByContact[contact.id];
+        return {
+          ...contact,
+          last_contact_at: latest ? latest.at : null,
+          last_contact_method: latest ? latest.method : null,
+        };
+      });
+
+      return json(200, { contacts: enriched });
     }
 
     if (event.httpMethod === 'POST') {
