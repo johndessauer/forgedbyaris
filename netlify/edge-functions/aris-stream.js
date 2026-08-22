@@ -187,13 +187,18 @@ const SYSTEM_PROMPTS = {
 };
 
 // Builds the MEMBER'S WHY block server-side from raw answers only.
-// The client never sends prompt text — just the 3 raw strings.
+// The client never sends prompt text — just the raw strings/values.
 function buildWhyBlock(memberWhy) {
-  if (!memberWhy || (!memberWhy.q1 && !memberWhy.q2 && !memberWhy.q3)) return '';
+  if (!memberWhy || (!memberWhy.q1 && !memberWhy.q2 && !memberWhy.q3 && !memberWhy.experienceLevel && !memberWhy.purchaseHistory)) return '';
   const lines = [];
   if (memberWhy.q1) lines.push(`- Why they want to invest: "${memberWhy.q1}"`);
   if (memberWhy.q2) lines.push(`- How they'll make the world better: "${memberWhy.q2}"`);
   if (memberWhy.q3) lines.push(`- Why now is their time: "${memberWhy.q3}"`);
+  if (memberWhy.experienceLevel) {
+    const EXPERIENCE_LABELS = { beginner: 'Beginner', intermediate: 'Intermediate', advanced: 'Advanced' };
+    lines.push(`- Experience level: ${EXPERIENCE_LABELS[memberWhy.experienceLevel] || memberWhy.experienceLevel} — calibrate explanation depth and pacing to this.`);
+  }
+  if (memberWhy.purchaseHistory) lines.push(`- Purchase history: "${memberWhy.purchaseHistory}"`);
   return `\n\nMEMBER'S WHY — This member shared their deeper motivation. Reference it periodically when it adds real impact — when they need a push, are hesitating, or celebrate a win. Never force it into every message:\n${lines.join('\n')}`;
 }
 
