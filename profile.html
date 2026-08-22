@@ -297,6 +297,15 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
   font-size: 16px; letter-spacing: 3px;
 }
 .ob-btn.save:hover { background: #e55a1c; }
+.ob-choice-row { display: flex; gap: 8px; }
+.ob-choice-btn {
+  flex: 1; padding: 12px 8px; border-radius: 8px; text-align: center;
+  background: var(--navy-light); border: 1px solid var(--border-sub);
+  color: var(--grey-light); font-family: 'Inter', sans-serif; font-size: 13px;
+  font-weight: 600; cursor: pointer; transition: all 0.15s;
+}
+.ob-choice-btn:hover { border-color: var(--gold); color: var(--white); }
+.ob-choice-btn.selected { background: rgba(200,155,60,0.15); border-color: var(--gold); color: var(--gold); }
 
 /* ── WHY CARD (on dashboard) ── */
 .why-card {
@@ -601,6 +610,20 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
       <div class="ob-question-text">Why is now your time?</div>
       <textarea class="ob-textarea" id="why-q3"></textarea>
     </div>
+    <div class="ob-question">
+      <div class="ob-question-num">04</div>
+      <div class="ob-question-text">What's your experience level as a real estate investor?</div>
+      <div class="ob-choice-row" id="why-experience-row">
+        <div class="ob-choice-btn" data-level="beginner" onclick="selectWhyExperienceLevel('beginner')">Beginner</div>
+        <div class="ob-choice-btn" data-level="intermediate" onclick="selectWhyExperienceLevel('intermediate')">Intermediate</div>
+        <div class="ob-choice-btn" data-level="advanced" onclick="selectWhyExperienceLevel('advanced')">Advanced</div>
+      </div>
+    </div>
+    <div class="ob-question">
+      <div class="ob-question-num">05</div>
+      <div class="ob-question-text">Tell me about your real estate purchases so far.</div>
+      <textarea class="ob-textarea" id="why-q5" placeholder="e.g. I own 2 rental properties, both single-family. No flips yet."></textarea>
+    </div>
     <div class="ob-actions">
       <button class="ob-btn skip" onclick="closeWhyEdit()">Cancel</button>
       <button class="ob-btn save" onclick="saveWhyEdit()">Save</button>
@@ -741,7 +764,7 @@ async function loadProfileData() {
     currentProfile = profile;
 
     if (profile.avatar_url) applyAvatar(profile.avatar_url);
-    renderWhyDisplay(profile.why_q1, profile.why_q2, profile.why_q3);
+    renderWhyDisplay(profile.why_q1, profile.why_q2, profile.why_q3, profile.experience_level, profile.purchase_history);
     renderPhoneDisplay(profile.phone);
     renderCalendarSync(profile.calendar_feed_token);
   } catch (err) {
@@ -754,8 +777,8 @@ function loadWhyFromLocalFallback() {
   // Offline/error fallback — reads the same localStorage key the dashboard
   // has always used, so the page still shows something useful.
   const why = JSON.parse(localStorage.getItem('forge-member-why') || 'null');
-  if (why) renderWhyDisplay(why.q1, why.q2, why.q3);
-  else renderWhyDisplay(null, null, null);
+  if (why) renderWhyDisplay(why.q1, why.q2, why.q3, why.experienceLevel, why.purchaseHistory);
+  else renderWhyDisplay(null, null, null, null, null);
 
   const avatar = localStorage.getItem('forge-avatar');
   if (avatar) applyAvatar(avatar);
@@ -763,9 +786,11 @@ function loadWhyFromLocalFallback() {
   document.getElementById('calendar-sync-loading').textContent = 'Calendar sync needs a live connection — refresh once you\'re back online.';
 }
 
-function renderWhyDisplay(q1, q2, q3) {
+const EXPERIENCE_LEVEL_LABELS = { beginner: 'Beginner', intermediate: 'Intermediate', advanced: 'Advanced' };
+
+function renderWhyDisplay(q1, q2, q3, experienceLevel, purchaseHistory) {
   const el = document.getElementById('why-display');
-  if (!q1 && !q2 && !q3) {
+  if (!q1 && !q2 && !q3 && !experienceLevel && !purchaseHistory) {
     el.innerHTML = '<div class="why-display-empty">You haven\'t saved your Why yet. Click "Edit Your Why" to get started.</div>';
     return;
   }
@@ -773,6 +798,8 @@ function renderWhyDisplay(q1, q2, q3) {
     ['Why you want to invest', q1],
     ['How this makes the world better', q2],
     ['Why now is your time', q3],
+    ['Experience level', experienceLevel ? EXPERIENCE_LEVEL_LABELS[experienceLevel] || experienceLevel : null],
+    ['Purchase history', purchaseHistory],
   ];
   el.innerHTML = rows
     .filter(([, a]) => a)
@@ -786,10 +813,21 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+function selectWhyExperienceLevel(level) {
+  document.getElementById('why-experience-row').dataset.selected = level;
+  document.querySelectorAll('#why-experience-row .ob-choice-btn').forEach(btn => {
+    btn.classList.toggle('selected', btn.dataset.level === level);
+  });
+}
+
 function openWhyEdit() {
   document.getElementById('why-q1').value = currentProfile?.why_q1 || '';
   document.getElementById('why-q2').value = currentProfile?.why_q2 || '';
   document.getElementById('why-q3').value = currentProfile?.why_q3 || '';
+  document.getElementById('why-q5').value = currentProfile?.purchase_history || '';
+  document.getElementById('why-experience-row').dataset.selected = '';
+  document.querySelectorAll('#why-experience-row .ob-choice-btn').forEach(btn => btn.classList.remove('selected'));
+  if (currentProfile?.experience_level) selectWhyExperienceLevel(currentProfile.experience_level);
   document.getElementById('why-overlay').style.display = 'flex';
 }
 
@@ -801,21 +839,23 @@ async function saveWhyEdit() {
   const whyQ1 = document.getElementById('why-q1').value.trim();
   const whyQ2 = document.getElementById('why-q2').value.trim();
   const whyQ3 = document.getElementById('why-q3').value.trim();
+  const experienceLevel = document.getElementById('why-experience-row').dataset.selected || '';
+  const purchaseHistory = document.getElementById('why-q5').value.trim();
 
   try {
     const res = await fetch('/api/profile-data', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${memberToken}` },
-      body: JSON.stringify({ action: 'save', whyQ1, whyQ2, whyQ3 }),
+      body: JSON.stringify({ action: 'save', whyQ1, whyQ2, whyQ3, experienceLevel: experienceLevel || null, purchaseHistory: purchaseHistory || null }),
     });
     if (!res.ok) throw new Error('Save failed');
     const { profile } = await res.json();
     currentProfile = profile;
-    renderWhyDisplay(profile.why_q1, profile.why_q2, profile.why_q3);
+    renderWhyDisplay(profile.why_q1, profile.why_q2, profile.why_q3, profile.experience_level, profile.purchase_history);
 
     // Keep the localStorage copy in sync too, since dashboard.html and
     // aris-coach.html still read from it directly for the ARIS prompt context.
-    localStorage.setItem('forge-member-why', JSON.stringify({ q1: whyQ1, q2: whyQ2, q3: whyQ3, savedAt: new Date().toISOString() }));
+    localStorage.setItem('forge-member-why', JSON.stringify({ q1: whyQ1, q2: whyQ2, q3: whyQ3, experienceLevel, purchaseHistory, savedAt: new Date().toISOString() }));
 
     closeWhyEdit();
     showToast('Your Why has been saved.');

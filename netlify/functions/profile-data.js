@@ -19,6 +19,8 @@ const { verifyMember, AuthError } = require('./_Lib/verify-member');
 const { supabase } = require('./_Lib/supabase-client');
 const { json, preflight } = require('./_Lib/http');
 
+const VALID_EXPERIENCE_LEVELS = ['beginner', 'intermediate', 'advanced'];
+
 exports.handler = async function (event, context) {
   if (event.httpMethod === 'OPTIONS') return preflight();
 
@@ -65,6 +67,8 @@ exports.handler = async function (event, context) {
               why_q2: null,
               why_q3: null,
               why_saved_at: null,
+              experience_level: null,
+              purchase_history: null,
               preferences: {},
               calendar_feed_token: null,
               buy_box: null,
@@ -155,6 +159,14 @@ exports.handler = async function (event, context) {
 
         if (payload.preferences !== undefined) updates.preferences = payload.preferences;
         if (payload.buyBox !== undefined) updates.buy_box = payload.buyBox;
+
+        if (payload.experienceLevel !== undefined) {
+          if (payload.experienceLevel && !VALID_EXPERIENCE_LEVELS.includes(payload.experienceLevel)) {
+            return json(400, { error: `experienceLevel must be one of: ${VALID_EXPERIENCE_LEVELS.join(', ')}` });
+          }
+          updates.experience_level = payload.experienceLevel || null;
+        }
+        if (payload.purchaseHistory !== undefined) updates.purchase_history = payload.purchaseHistory || null;
 
         if (Object.keys(updates).length === 1) {
           return json(400, { error: 'No fields to update' });
