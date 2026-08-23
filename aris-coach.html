@@ -292,6 +292,21 @@
   }
   .topbar-btn:hover { background: var(--border); color: var(--white); }
 
+  .mute-toggle {
+    background: var(--border-sub);
+    border: 1px solid var(--border-sub);
+    color: var(--grey-light);
+    font-size: 12px;
+    font-family: 'Inter', sans-serif;
+    padding: 6px 14px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.3px;
+  }
+  .mute-toggle:hover { border-color: var(--gold); color: var(--gold); }
+  .mute-toggle.muted { color: var(--grey); }
+
   /* ── MESSAGES ── */
   .messages {
     flex: 1;
@@ -783,6 +798,7 @@
         </div>
       </div>
       <div class="topbar-right">
+        <button class="mute-toggle" id="mute-toggle" onclick="toggleMute()" title="Toggle voice playback">🔇 Voice Off</button>
         <button class="topbar-btn" onclick="clearChat()">New Session</button>
       </div>
     </div>
@@ -907,6 +923,8 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
 
   // ── INIT ──
   window.onload = () => {
+    initVoiceDefault();
+
     // ── CAPTURE MEMBER WHY (raw answers only) ──
     // The prompt block built from these is now assembled server-side.
     const why = JSON.parse(localStorage.getItem('forge-member-why') || 'null');
@@ -1045,6 +1063,35 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
     btn.title = 'Play ARIS\u2019s response';
     btn.addEventListener('click', () => playARISVoice(text, btn));
     metaEl.appendChild(btn);
+    return btn;
+  }
+
+  // Session-level auto-play toggle, mirroring real-estate-lab.html's
+  // mute-toggle exactly. Defaults to OFF unless the member has explicitly
+  // saved a Preferences default of "on" — this is a brand-new behavior for
+  // this page, so it should never surprise anyone who hasn't opted in.
+  let voiceMuted = true;
+
+  function initVoiceDefault() {
+    const prefs = JSON.parse(localStorage.getItem('forge-preferences') || 'null');
+    voiceMuted = !(prefs && prefs.arisVoiceDefault === 'on');
+    const btn = document.getElementById('mute-toggle');
+    if (!btn) return;
+    btn.classList.toggle('muted', voiceMuted);
+    btn.textContent = voiceMuted ? '🔇 Voice Off' : '🔊 Voice On';
+  }
+
+  function toggleMute() {
+    voiceMuted = !voiceMuted;
+    const btn = document.getElementById('mute-toggle');
+    if (voiceMuted) {
+      btn.classList.add('muted');
+      btn.textContent = '🔇 Voice Off';
+      stopCurrentVoice();
+    } else {
+      btn.classList.remove('muted');
+      btn.textContent = '🔊 Voice On';
+    }
   }
 
   // ── VOICE INPUT (push-to-talk mic \u2192 ElevenLabs Scribe \u2192 existing chat pipeline) ──
@@ -1624,7 +1671,8 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
       },
       finalize(rawText) {
         bubble.innerHTML = formatMarkdown(rawText);
-        attachVoiceButton(metaEl, rawText);
+        const voiceBtn = attachVoiceButton(metaEl, rawText);
+        if (!voiceMuted) playARISVoice(rawText, voiceBtn);
         messages.scrollTop = messages.scrollHeight;
       },
       remove() { row.remove(); }

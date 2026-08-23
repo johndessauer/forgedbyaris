@@ -438,6 +438,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 
       <!-- LIST VIEW -->
       <div id="view-list">
+        <div class="income-filter-row" id="category-filter-row"></div>
         <div class="income-filter-row" id="income-filter-row"></div>
         <div id="module-list-container">
           <div style="color:var(--grey);font-size:13px;">Loading modules...</div>
@@ -676,6 +677,32 @@ const INCOME_TYPE_META = {
 };
 let allModules = [];
 let currentIncomeFilter = 'all';
+let currentCategoryFilter = 'all';
+
+// Maps a member's saved "Default Strategy Focus" preference to keywords we
+// look for in the actual category strings pulled from Supabase — matched
+// this way (rather than a hardcoded category list) since category names
+// are free text set by whoever authors modules in Lab Admin, and this
+// stays correct even if categories are renamed or added to later.
+const STRATEGY_FOCUS_KEYWORDS = {
+  wholesale: ['wholesal'],
+  fix_flip: ['flip', 'fix & flip', 'fix and flip'],
+  lt_rental: ['rental', 'long-term', 'long term', 'buy and hold', 'buy & hold'],
+  str_mtr: ['str', 'mtr', 'short-term', 'short term', 'mid-term', 'mid term'],
+  commercial: ['commercial', 'multifamily', '5+'],
+  raising_capital: ['raising capital', 'capital', 'private money', 'private lending'],
+};
+
+function findCategoryMatchingStrategyFocus(categories, strategyFocus) {
+  const keywords = STRATEGY_FOCUS_KEYWORDS[strategyFocus];
+  if (!keywords) return null;
+  const lowerCats = categories.map(c => ({ original: c, lower: c.toLowerCase() }));
+  for (const kw of keywords) {
+    const match = lowerCats.find(c => c.lower.includes(kw));
+    if (match) return match.original;
+  }
+  return null;
+}
 
 async function loadModules() {
   const res = await fetch('/api/education-data?action=list', {
@@ -686,7 +713,40 @@ async function loadModules() {
 
   renderTierBadges(badges);
   allModules = modules;
+
+  // Apply the member's default strategy focus preference, if set, the
+  // very first time the page loads — a distinct category tab the member
+  // clicks afterward always overrides this, it only sets the starting view.
+  if (currentCategoryFilter === 'all') {
+    const prefs = JSON.parse(localStorage.getItem('forge-preferences') || 'null');
+    if (prefs && prefs.strategyFocus) {
+      const distinctCategories = [...new Set(allModules.map(m => m.category).filter(Boolean))];
+      const matched = findCategoryMatchingStrategyFocus(distinctCategories, prefs.strategyFocus);
+      if (matched) currentCategoryFilter = matched;
+    }
+  }
+
+  renderCategoryFilterTabs();
   renderIncomeFilterTabs();
+  renderModuleList();
+}
+
+function renderCategoryFilterTabs() {
+  const el = document.getElementById('category-filter-row');
+  if (!el) return;
+  const distinctCategories = [...new Set(allModules.map(m => m.category).filter(Boolean))].sort();
+  if (!distinctCategories.length) { el.innerHTML = ''; return; }
+  const tabs = ['all', ...distinctCategories];
+  el.innerHTML = tabs.map((t) => {
+    const label = t === 'all' ? 'All Topics' : t;
+    const isActive = currentCategoryFilter === t;
+    return `<div class="income-filter-tab ${isActive ? 'active' : ''}" onclick="setCategoryFilter('${escapeHtml(t).replace(/'/g, "\\'")}')">${escapeHtml(label)}</div>`;
+  }).join('');
+}
+
+function setCategoryFilter(t) {
+  currentCategoryFilter = t;
+  renderCategoryFilterTabs();
   renderModuleList();
 }
 
@@ -710,9 +770,12 @@ function setIncomeFilter(t) {
 
 function renderModuleList() {
   const container = document.getElementById('module-list-container');
-  const modules = currentIncomeFilter === 'all'
+  let modules = currentIncomeFilter === 'all'
     ? allModules
     : allModules.filter(m => m.income_type === currentIncomeFilter);
+  if (currentCategoryFilter !== 'all') {
+    modules = modules.filter(m => m.category === currentCategoryFilter);
+  }
 
   if (!allModules.length) {
     container.innerHTML = '<div style="color:var(--grey);font-size:13px;">No lessons published yet — check back soon.</div>';
@@ -722,6 +785,7 @@ function renderModuleList() {
     container.innerHTML = '<div style="color:var(--grey);font-size:13px;">No lessons in this category yet.</div>';
     return;
   }
+
 
   // One continuous grid, not grouped by category — each of the 22 topics
   // has a unique category name, so category-based sectioning previously

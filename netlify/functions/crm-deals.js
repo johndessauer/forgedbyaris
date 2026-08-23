@@ -87,6 +87,18 @@ exports.handler = async function (event, context) {
       const { data, error } = await query;
       if (error) throw error;
 
+      // Read the member's nudge sensitivity preference (set on the Profile
+      // page) so stale-deal thresholds can be scaled up or down per member
+      // rather than every member sharing one fixed schedule.
+      const { data: profileRow } = await supabase
+        .from('member_profiles')
+        .select('preferences')
+        .eq('memberstack_id', memberId)
+        .maybeSingle();
+      const NUDGE_SENSITIVITY_MULTIPLIERS = { frequent: 0.5, default: 1, relaxed: 1.75 };
+      const sensitivity = profileRow?.preferences?.nudgeSensitivity;
+      const sensitivityMultiplier = NUDGE_SENSITIVITY_MULTIPLIERS[sensitivity] ?? 1;
+
       // Enrich each deal with a last_activity_at (latest note, or the deal's
       // own updated_at if it has no notes), a stale flag, and — when
       // stale — a stage-specific nudge_message. Thresholds vary by stage
@@ -110,11 +122,12 @@ exports.handler = async function (event, context) {
         }
       }
 
-      const STALE_THRESHOLDS = {
+      const BASE_STALE_THRESHOLDS = {
         // Days without activity before a deal is flagged, tuned per stage —
         // a brand-new lead going cold for a week is a much bigger problem
         // than a deal already Under Contract sitting a week between
         // scheduled milestones. Closed/Dead are excluded entirely below.
+        // Scaled by the member's nudge sensitivity preference below.
         'New Lead': 1,
         Contacted: 3,
         Qualified: 5,
@@ -133,7 +146,8 @@ exports.handler = async function (event, context) {
         const lastNote = latestNoteByDeal[deal.id];
         const lastActivityAt = lastNote && new Date(lastNote) > new Date(deal.updated_at) ? lastNote : deal.updated_at;
         const daysSinceActivity = Math.floor((now - new Date(lastActivityAt).getTime()) / (1000 * 60 * 60 * 24));
-        const threshold = STALE_THRESHOLDS[deal.stage];
+        const baseThreshold = BASE_STALE_THRESHOLDS[deal.stage];
+        const threshold = baseThreshold !== undefined ? Math.max(1, Math.round(baseThreshold * sensitivityMultiplier)) : undefined;
         const stale = deal.stage !== 'Closed' && deal.stage !== 'Dead' && threshold !== undefined && daysSinceActivity >= threshold;
         return {
           ...deal,
@@ -143,6 +157,7 @@ exports.handler = async function (event, context) {
           nudge_message: stale ? NUDGE_MESSAGES[deal.stage] || 'This deal needs a follow-up.' : null,
         };
       });
+
 
       return json(200, { deals: enriched });
     }

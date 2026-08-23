@@ -216,7 +216,7 @@ html { height: 100%; }
           <div class="chat-header">
             <div class="chat-header-title" id="roleplay-title"></div>
             <div style="display:flex; gap:8px;">
-              <button class="mute-toggle" id="mute-toggle" onclick="toggleMute()" title="Toggle voice playback">🔊 Voice On</button>
+              <button class="mute-toggle" id="mute-toggle" onclick="toggleMute()" title="Toggle voice playback">🔇 Voice Off</button>
               <button class="btn btn-secondary" onclick="backToList()">&larr; Exit</button>
             </div>
           </div>
@@ -310,6 +310,21 @@ async function initLabPage() {
 
     currentMemberId = member.id;
     memberToken = await memberstack.getMemberCookie();
+
+    // Apply the member's saved ARIS voice default. Defaults to OFF unless
+    // explicitly saved as "on" in Preferences — matches aris-coach.html's
+    // behavior so both pages are consistent (confirmed with John 8/22/2026:
+    // this changes Real Estate Lab's prior always-on-by-default behavior,
+    // intentionally, so a new member never gets surprised by unexpected
+    // audio either place).
+    const prefs = JSON.parse(localStorage.getItem('forge-preferences') || 'null');
+    voiceMuted = !(prefs && prefs.arisVoiceDefault === 'on');
+    const muteBtn = document.getElementById('mute-toggle');
+    if (muteBtn) {
+      muteBtn.classList.toggle('muted', voiceMuted);
+      muteBtn.textContent = voiceMuted ? '🔇 Voice Off' : '🔊 Voice On';
+    }
+
     await loadScenarios();
   } catch (err) {
     console.error('Lab page init failed:', err);

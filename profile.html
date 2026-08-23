@@ -355,6 +355,19 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
   padding: 22px 24px;
 }
 .profile-card-label { font-size: 9px; letter-spacing: 2.5px; text-transform: uppercase; color: var(--gold); font-weight: 600; margin-bottom: 16px; }
+.pref-row { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+.pref-row:last-of-type { border-bottom: none; }
+.pref-row-main { flex: 1; min-width: 0; }
+.pref-row-title { font-size: 13px; font-weight: 600; color: var(--white); }
+.pref-row-hint { font-size: 11px; color: var(--grey); margin-top: 3px; line-height: 1.5; max-width: 420px; }
+.pref-select { width: 170px; flex: none; }
+.pref-divider { border-top: 1px solid rgba(200,155,60,0.15); margin: 18px 0 4px; }
+.pref-coming-soon-label { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--grey); margin-bottom: 4px; }
+.form-input {
+  background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 8px;
+  padding: 10px 12px; color: var(--white); font-family: 'Inter', sans-serif; font-size: 13px;
+}
+.form-input:focus { outline: none; border-color: var(--gold); }
 .profile-card-label.coming-soon { color: var(--grey); }
 
 /* Avatar section */
@@ -562,10 +575,86 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
         </div>
       </div>
 
-      <!-- PREFERENCES (placeholder) -->
+      <!-- PREFERENCES -->
       <div class="profile-card">
-        <div class="profile-card-label coming-soon">Preferences — Coming Soon</div>
-        <div class="coming-soon-body">Notification and ARIS behavior preferences will live here in a future update.</div>
+        <div class="profile-card-label">Preferences</div>
+
+        <div class="pref-row">
+          <div class="pref-row-main">
+            <div class="pref-row-title">Default Strategy Focus</div>
+            <div class="pref-row-hint">Pre-filters Education Modules to the strategy you care about most. You can still browse everything — this just sets your starting view.</div>
+          </div>
+          <select class="form-input pref-select" id="pref-strategy-focus" onchange="savePreferences()">
+            <option value="">No default</option>
+            <option value="wholesale">Wholesaling</option>
+            <option value="fix_flip">Fix & Flip</option>
+            <option value="lt_rental">Long-Term Rental</option>
+            <option value="str_mtr">STR / MTR</option>
+            <option value="commercial">Commercial Multifamily</option>
+            <option value="raising_capital">Raising Capital</option>
+          </select>
+        </div>
+
+        <div class="pref-row">
+          <div class="pref-row-main">
+            <div class="pref-row-title">ARIS Voice Default</div>
+            <div class="pref-row-hint">Whether ARIS Coach and Real Estate Lab start with voice on or off. You can still toggle it per session.</div>
+          </div>
+          <select class="form-input pref-select" id="pref-voice-default" onchange="savePreferences()">
+            <option value="off" selected>Off</option>
+            <option value="on">On</option>
+          </select>
+        </div>
+
+        <div class="pref-row">
+          <div class="pref-row-main">
+            <div class="pref-row-title">Stale-Deal Nudge Sensitivity</div>
+            <div class="pref-row-hint">How eagerly your CRM flags a deal as needing follow-up. "Frequent" nudges sooner; "Relaxed" gives deals more room before flagging.</div>
+          </div>
+          <select class="form-input pref-select" id="pref-nudge-sensitivity" onchange="savePreferences()">
+            <option value="frequent">Frequent</option>
+            <option value="default" selected>Default</option>
+            <option value="relaxed">Relaxed</option>
+          </select>
+        </div>
+
+        <div class="pref-divider"></div>
+        <div class="pref-coming-soon-label">Coming Soon — these will save now, but nothing acts on them yet</div>
+
+        <div class="pref-row">
+          <div class="pref-row-main">
+            <div class="pref-row-title">Email Notification Frequency</div>
+            <div class="pref-row-hint">Instant emails vs. a daily/weekly digest.</div>
+          </div>
+          <select class="form-input pref-select" id="pref-email-frequency" onchange="savePreferences()">
+            <option value="instant">Instant</option>
+            <option value="digest">Digest</option>
+          </select>
+        </div>
+
+        <div class="pref-row">
+          <div class="pref-row-main">
+            <div class="pref-row-title">SMS Notifications</div>
+            <div class="pref-row-hint">Text alerts for deal activity and reminders.</div>
+          </div>
+          <select class="form-input pref-select" id="pref-sms-optin" onchange="savePreferences()">
+            <option value="false">Off</option>
+            <option value="true">On</option>
+          </select>
+        </div>
+
+        <div class="pref-row">
+          <div class="pref-row-main">
+            <div class="pref-row-title">Wednesday Group Coaching Reminder</div>
+            <div class="pref-row-hint">A reminder before the weekly live call.</div>
+          </div>
+          <select class="form-input pref-select" id="pref-call-reminder" onchange="savePreferences()">
+            <option value="false">Off</option>
+            <option value="true">On</option>
+          </select>
+        </div>
+
+        <div id="pref-save-status" style="font-size:11px;color:var(--gold);margin-top:12px;min-height:14px;"></div>
       </div>
 
     </div><!-- end dashboard-scroll -->
@@ -767,10 +856,62 @@ async function loadProfileData() {
     renderWhyDisplay(profile.why_q1, profile.why_q2, profile.why_q3, profile.experience_level, profile.purchase_history);
     renderPhoneDisplay(profile.phone);
     renderCalendarSync(profile.calendar_feed_token);
+    loadPreferences(profile.preferences);
   } catch (err) {
     console.error('loadProfileData failed:', err);
     loadWhyFromLocalFallback();
   }
+}
+
+// ── PREFERENCES ──
+function loadPreferences(preferences) {
+  const prefs = preferences || {};
+  document.getElementById('pref-strategy-focus').value = prefs.strategyFocus || '';
+  document.getElementById('pref-voice-default').value = prefs.arisVoiceDefault || 'off';
+  document.getElementById('pref-nudge-sensitivity').value = prefs.nudgeSensitivity || 'default';
+  document.getElementById('pref-email-frequency').value = prefs.emailFrequency || 'instant';
+  document.getElementById('pref-sms-optin').value = String(prefs.smsOptIn || false);
+  document.getElementById('pref-call-reminder').value = String(prefs.callReminderOptIn || false);
+
+  // Also keep a localStorage mirror for the same reason Why answers are
+  // mirrored — aris-coach.html and real-estate-lab.html read the ARIS
+  // voice default directly from localStorage rather than round-tripping
+  // to profile-data.js on every page load.
+  localStorage.setItem('forge-preferences', JSON.stringify(prefs));
+}
+
+let prefSaveDebounce = null;
+async function savePreferences() {
+  const preferences = {
+    strategyFocus: document.getElementById('pref-strategy-focus').value || null,
+    arisVoiceDefault: document.getElementById('pref-voice-default').value,
+    nudgeSensitivity: document.getElementById('pref-nudge-sensitivity').value,
+    emailFrequency: document.getElementById('pref-email-frequency').value,
+    smsOptIn: document.getElementById('pref-sms-optin').value === 'true',
+    callReminderOptIn: document.getElementById('pref-call-reminder').value === 'true',
+  };
+
+  localStorage.setItem('forge-preferences', JSON.stringify(preferences));
+
+  const statusEl = document.getElementById('pref-save-status');
+  statusEl.textContent = 'Saving...';
+
+  clearTimeout(prefSaveDebounce);
+  prefSaveDebounce = setTimeout(async () => {
+    try {
+      const res = await fetch('/api/profile-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${memberToken}` },
+        body: JSON.stringify({ action: 'save', preferences }),
+      });
+      if (!res.ok) throw new Error('Save failed');
+      statusEl.textContent = 'Saved';
+      setTimeout(() => { if (statusEl.textContent === 'Saved') statusEl.textContent = ''; }, 2000);
+    } catch (err) {
+      console.error('savePreferences failed:', err);
+      statusEl.textContent = 'Could not save — check your connection.';
+    }
+  }, 400); // debounce so rapid changes across multiple dropdowns don't fire a save per keystroke/click
 }
 
 function loadWhyFromLocalFallback() {
@@ -782,6 +923,9 @@ function loadWhyFromLocalFallback() {
 
   const avatar = localStorage.getItem('forge-avatar');
   if (avatar) applyAvatar(avatar);
+
+  const prefs = JSON.parse(localStorage.getItem('forge-preferences') || 'null');
+  if (prefs) loadPreferences(prefs);
 
   document.getElementById('calendar-sync-loading').textContent = 'Calendar sync needs a live connection — refresh once you\'re back online.';
 }
