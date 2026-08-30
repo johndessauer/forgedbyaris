@@ -247,8 +247,8 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
       <div class="user-chip" onclick="window.location.href='profile.html'" style="cursor:pointer;">
         <div class="user-avatar">JD</div>
         <div class="user-info">
-          <div class="user-name">John Dessauer</div>
-          <div class="user-tier">Founding Member</div>
+          <div class="user-name" id="sidebar-name">Member</div>
+          <div class="user-tier" id="sidebar-tier">Member</div>
         </div>
       </div>
       <button onclick="handleLogout()" style="width:100%;margin-top:10px;background:transparent;border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:8px;font-size:11px;color:#6B7280;cursor:pointer;font-family:Inter,sans-serif;letter-spacing:0.5px;transition:all 0.15s;" onmouseover="this.style.color='#ef4444';this.style.borderColor='rgba(239,68,68,0.3)'" onmouseout="this.style.color='#6B7280';this.style.borderColor='rgba(255,255,255,0.08)'">Sign Out</button>
@@ -957,6 +957,17 @@ window.addEventListener('load', async () => {
       window.location.href = 'signup.html';
       return;
     }
+    const activeConn = (member.planConnections || []).find(
+      pc => (FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) || pc.planId === FORGE_ZERO_PLAN_ID) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
+    );
+    const PLAN_NAME_OVERRIDES = { [FORGE_ZERO_PLAN_ID]: 'FORGE Zero' };
+    const planName = activeConn?.planName || PLAN_NAME_OVERRIDES[activeConn?.planId] || 'Member';
+    const customFields = member.customFields || {};
+    const fullName = customFields['full-name'] || (customFields['first-name'] ? customFields['first-name'] + ' ' + (customFields['last-name'] || '') : null) || member.auth?.email || 'Member';
+    const nameEl = document.getElementById('sidebar-name');
+    if (nameEl) nameEl.textContent = fullName;
+    const tierEl = document.getElementById('sidebar-tier');
+    if (tierEl) tierEl.textContent = planName;
   } catch(e) {}
 });
 

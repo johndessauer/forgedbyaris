@@ -189,7 +189,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
         <div class="user-avatar"><span id="sidebar-initials">JD</span></div>
         <div>
           <div class="user-name" id="sidebar-name">Member</div>
-          <div class="user-tier">Founding Member</div>
+          <div class="user-tier" id="sidebar-tier">Member</div>
         </div>
       </div>
     </div>
@@ -471,6 +471,11 @@ window.onload = async () => {
       window.location.href = 'signup.html';
       return;
     }
+    const activeConn = (member.planConnections || []).find(
+      pc => (FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) || pc.planId === FORGE_ZERO_PLAN_ID) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
+    );
+    const PLAN_NAME_OVERRIDES = { [FORGE_ZERO_PLAN_ID]: 'FORGE Zero' };
+    const planName = activeConn?.planName || PLAN_NAME_OVERRIDES[activeConn?.planId] || 'Member';
 
     // Retrieve the member's Memberstack token to send to our backend.
     // getMemberCookie() returns the JWT Memberstack stores for the session.
@@ -487,6 +492,7 @@ window.onload = async () => {
     const fullName = customFields['full-name'] || (customFields['first-name'] ? customFields['first-name'] + ' ' + (customFields['last-name'] || '') : null) || member.auth?.email || 'Member';
     const initials = fullName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
     document.getElementById('sidebar-name').textContent = fullName;
+    document.getElementById('sidebar-tier').textContent = planName;
     document.getElementById('sidebar-initials').textContent = initials;
     document.getElementById('topbar-name').textContent = fullName;
     document.getElementById('topbar-initials').textContent = initials;

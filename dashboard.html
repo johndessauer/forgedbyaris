@@ -393,8 +393,8 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
           <div class="avatar-upload-btn" onclick="event.stopPropagation(); document.getElementById('avatar-input').click()">📷</div>
         </div>
         <div class="user-info">
-          <div class="user-name" id="sidebar-name">John Dessauer</div>
-          <div class="user-tier">Founding Member</div>
+          <div class="user-name" id="sidebar-name">Member</div>
+          <div class="user-tier" id="sidebar-tier">Member</div>
         </div>
       </div>
       <button onclick="handleLogout()" style="width:100%;margin-top:10px;background:transparent;border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:8px;font-size:11px;color:#6B7280;cursor:pointer;font-family:Inter,sans-serif;letter-spacing:0.5px;transition:all 0.15s;" onmouseover="this.style.color='#ef4444';this.style.borderColor='rgba(239,68,68,0.3)'" onmouseout="this.style.color='#6B7280';this.style.borderColor='rgba(255,255,255,0.08)'">Sign Out</button>
@@ -411,7 +411,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
         <div class="topbar-avatar" id="topbar-avatar"><span id="topbar-initials">JD</span></div>
         <div class="topbar-greeting">
           <div class="topbar-welcome" id="topbar-welcome">Good morning</div>
-          <div class="topbar-name" id="topbar-name">John Dessauer</div>
+          <div class="topbar-name" id="topbar-name">Member</div>
         </div>
       </div>
       <div class="topbar-right">
@@ -679,7 +679,7 @@ Respond ONLY in this exact JSON format — no preamble, no explanation:
 
 // ── INIT ──
 let memberToken = null;
-let currentPlanName = 'Founding Member';
+let currentPlanName = 'Member';
 let memberCreatedAt = null;
 
 async function syncWhyFromServer() {
@@ -734,7 +734,8 @@ window.onload = async () => {
       window.location.href = 'signup.html';
       return;
     }
-    currentPlanName = activeConn?.planName || 'Founding Member';
+    const PLAN_NAME_OVERRIDES = { [FORGE_ZERO_PLAN_ID]: 'FORGE Zero' };
+    currentPlanName = activeConn?.planName || PLAN_NAME_OVERRIDES[activeConn?.planId] || 'Member';
     memberCreatedAt = member.createdAt || null;
     memberToken = await memberstack.getMemberCookie();
     loadEducationBadges();
@@ -750,6 +751,7 @@ window.onload = async () => {
     const initials = fullName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
 
     document.getElementById('sidebar-name').textContent = fullName;
+    document.getElementById('sidebar-tier').textContent = currentPlanName;
     document.getElementById('sidebar-initials').textContent = initials;
     document.getElementById('topbar-name').textContent = fullName;
     document.getElementById('topbar-initials').textContent = initials;

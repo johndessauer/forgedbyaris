@@ -760,7 +760,7 @@
         <div class="user-avatar" id="sidebar-avatar-coach">JD</div>
         <div class="user-info">
           <div class="user-name" id="sidebar-name-coach">Member</div>
-          <div class="user-tier">Founding Member</div>
+          <div class="user-tier" id="sidebar-tier-coach">Member</div>
         </div>
       </div>
       <button onclick="handleLogout()" style="width:100%;margin-top:10px;background:transparent;border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:8px;font-size:11px;color:#6B7280;cursor:pointer;font-family:Inter,sans-serif;letter-spacing:0.5px;transition:all 0.15s;" onmouseover="this.style.color='#ef4444';this.style.borderColor='rgba(239,68,68,0.3)'" onmouseout="this.style.color='#6B7280';this.style.borderColor='rgba(255,255,255,0.08)'">Sign Out</button>
@@ -1926,6 +1926,11 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
       pc => (FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) || pc.planId === FORGE_ZERO_PLAN_ID) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
     );
     if (!hasActiveMembership) { window.location.href = 'signup.html'; return; }
+    const activeConn = (member.planConnections || []).find(
+      pc => (FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) || pc.planId === FORGE_ZERO_PLAN_ID) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
+    );
+    const PLAN_NAME_OVERRIDES = { [FORGE_ZERO_PLAN_ID]: 'FORGE Zero' };
+    const planName = activeConn?.planName || PLAN_NAME_OVERRIDES[activeConn?.planId] || 'Member';
     // Retrieve the member's Memberstack token so CRM tool calls (crm-deals.js,
     // crm-contacts.js, crm-notes.js) can be authenticated. Wrapped separately
     // so a failure here degrades to "ARIS can't access your CRM data this
@@ -1952,8 +1957,10 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
     const initials = fullName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
     const el = document.getElementById('sidebar-name-coach');
     const av = document.getElementById('sidebar-avatar-coach');
+    const tierEl = document.getElementById('sidebar-tier-coach');
     if (el) el.textContent = fullName;
     if (av) av.textContent = initials;
+    if (tierEl) tierEl.textContent = planName;
   } catch(e) { console.error('Auth gate error:', e); }
 })();
 

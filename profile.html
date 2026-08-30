@@ -447,8 +447,8 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
           <div class="avatar-upload-btn" onclick="document.getElementById('avatar-input').click()">📷</div>
         </div>
         <div class="user-info">
-          <div class="user-name" id="sidebar-name">John Dessauer</div>
-          <div class="user-tier">Founding Member</div>
+          <div class="user-name" id="sidebar-name">Member</div>
+          <div class="user-tier" id="sidebar-tier">Member</div>
         </div>
       </div>
       <button onclick="handleLogout()" style="width:100%;margin-top:10px;background:transparent;border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:8px;font-size:11px;color:#6B7280;cursor:pointer;font-family:Inter,sans-serif;letter-spacing:0.5px;transition:all 0.15s;" onmouseover="this.style.color='#ef4444';this.style.borderColor='rgba(239,68,68,0.3)'" onmouseout="this.style.color='#6B7280';this.style.borderColor='rgba(255,255,255,0.08)'">Sign Out</button>
@@ -612,7 +612,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 // ── STATE ──
 let currentProfile = null;
 let memberToken = null;
-let currentPlanName = 'Founding Member';
+let currentPlanName = 'Member';
 let memberId = null;
 
 // ── MEMBERSTACK AUTH GATE (matches dashboard.html pattern) ──
@@ -703,7 +703,8 @@ async function initProfilePage() {
       window.location.href = 'signup.html';
       return;
     }
-    const planName = activeConn?.planName || 'Founding Member';
+    const PLAN_NAME_OVERRIDES = { [FORGE_ZERO_PLAN_ID]: 'FORGE Zero' };
+    const planName = activeConn?.planName || PLAN_NAME_OVERRIDES[activeConn?.planId] || 'Member';
     currentPlanName = planName;
 
     memberId = member.id;
@@ -721,6 +722,8 @@ async function initProfilePage() {
     document.getElementById('mem-name').textContent = fullName;
     document.getElementById('mem-email').textContent = member.auth?.email || '—';
     document.getElementById('mem-plan').textContent = planName;
+    document.getElementById('sidebar-name').textContent = fullName;
+    document.getElementById('sidebar-tier').textContent = planName;
 
     await loadProfileData();
   } catch (err) {
