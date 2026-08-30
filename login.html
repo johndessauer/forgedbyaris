@@ -125,6 +125,20 @@ html, body { min-height: 100vh; background: var(--black); color: var(--white); f
   margin-bottom: 16px; display: none;
 }
 
+.success-msg {
+  background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3);
+  border-radius: 8px; padding: 10px 14px;
+  font-size: 13px; color: var(--green);
+  margin-bottom: 16px; display: none;
+}
+
+.field-hint { font-size: 11px; color: var(--grey); margin-top: 6px; }
+
+.resend-row { text-align: center; margin-top: 4px; margin-bottom: 20px; }
+.resend-row a { font-size: 12px; color: var(--gold); text-decoration: none; }
+.resend-row a:hover { text-decoration: underline; }
+.resend-row span { font-size: 12px; color: var(--grey); }
+
 .footer-note { text-align: center; margin-top: 28px; font-size: 11px; color: var(--grey); }
 .footer-note a { color: var(--gold); text-decoration: none; }
 .footer-note a:hover { text-decoration: underline; }
@@ -147,31 +161,63 @@ html, body { min-height: 100vh; background: var(--black); color: var(--white); f
   </div>
 
   <div class="auth-card">
-    <div class="auth-title">Welcome Back</div>
-    <div class="auth-sub">Sign in to your FORGE account</div>
+    <div id="login-view">
+      <div class="auth-title">Welcome Back</div>
+      <div class="auth-sub">Sign in to your FORGE account</div>
 
-    <div class="error-msg" id="error-msg"></div>
+      <div class="error-msg" id="error-msg"></div>
 
-    <div class="field">
-      <label>Email Address</label>
-      <input type="email" id="email" placeholder="john@example.com" autocomplete="email" />
+      <div class="field">
+        <label>Email Address</label>
+        <input type="email" id="email" placeholder="john@example.com" autocomplete="email" />
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input type="password" id="password" placeholder="••••••••••••" autocomplete="current-password" />
+      </div>
+
+      <div class="forgot"><a href="#" onclick="handleForgotPassword(event)">Forgot password?</a></div>
+
+      <button class="btn-primary" id="login-btn" onclick="handleLogin()">Sign In to FORGE</button>
+
+      <div class="divider">
+        <div class="divider-line"></div>
+        <div class="divider-text">not a member yet?</div>
+        <div class="divider-line"></div>
+      </div>
+
+      <a class="btn-secondary" href="founding-member.html">Join as a Founding Member →</a>
     </div>
-    <div class="field">
-      <label>Password</label>
-      <input type="password" id="password" placeholder="••••••••••••" autocomplete="current-password" />
+
+    <div id="reset-view" style="display:none;">
+      <div class="auth-title">Reset Password</div>
+      <div class="auth-sub" id="reset-sub">Enter the code we emailed you, and choose a new password.</div>
+
+      <div class="error-msg" id="reset-error-msg"></div>
+      <div class="success-msg" id="reset-success-msg"></div>
+
+      <div class="field">
+        <label>Reset Code</label>
+        <input type="text" id="reset-code" placeholder="6-digit code" autocomplete="one-time-code" inputmode="numeric" />
+        <div class="field-hint">Check your email for a code from FORGE — it may take a minute to arrive.</div>
+      </div>
+      <div class="field">
+        <label>New Password</label>
+        <input type="password" id="new-password" placeholder="••••••••••••" autocomplete="new-password" />
+      </div>
+      <div class="field">
+        <label>Confirm New Password</label>
+        <input type="password" id="confirm-password" placeholder="••••••••••••" autocomplete="new-password" />
+      </div>
+
+      <button class="btn-primary" id="reset-btn" onclick="handleResetPassword()">Set New Password</button>
+
+      <div class="resend-row">
+        <span>Didn't get a code?</span> <a href="#" onclick="handleResendCode(event)">Resend it</a>
+      </div>
+
+      <a class="btn-secondary" href="#" onclick="showLoginView(event)">← Back to Sign In</a>
     </div>
-
-    <div class="forgot"><a href="#" onclick="handleForgotPassword(event)">Forgot password?</a></div>
-
-    <button class="btn-primary" id="login-btn" onclick="handleLogin()">Sign In to FORGE</button>
-
-    <div class="divider">
-      <div class="divider-line"></div>
-      <div class="divider-text">not a member yet?</div>
-      <div class="divider-line"></div>
-    </div>
-
-    <a class="btn-secondary" href="founding-member.html">Join as a Founding Member →</a>
   </div>
 
   <div class="footer-note">
@@ -182,9 +228,17 @@ html, body { min-height: 100vh; background: var(--black); color: var(--white); f
 </div>
 
 <script>
-  // Allow Enter key to submit
+  let pendingResetEmail = '';
+
+  // Allow Enter key to submit whichever form is currently visible
   document.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') handleLogin();
+    if (e.key !== 'Enter') return;
+    const resetVisible = document.getElementById('reset-view').style.display !== 'none';
+    if (resetVisible) {
+      handleResetPassword();
+    } else {
+      handleLogin();
+    }
   });
 
   async function handleLogin() {
@@ -237,17 +291,122 @@ html, body { min-height: 100vh; background: var(--black); color: var(--white); f
     try {
       const memberstack = window.$memberstackDom;
       await memberstack.sendMemberResetPasswordEmail({ email });
-      document.getElementById('error-msg').style.background = 'rgba(34,197,94,0.1)';
-      document.getElementById('error-msg').style.borderColor = 'rgba(34,197,94,0.3)';
-      document.getElementById('error-msg').style.color = '#22c55e';
-      showError('Password reset email sent. Check your inbox.');
-    } catch(err) {
+      pendingResetEmail = email;
+      showResetView(email);
+    } catch (err) {
       showError('Could not send reset email. Please try again.');
+    }
+  }
+
+  async function handleResendCode(e) {
+    e.preventDefault();
+    if (!pendingResetEmail) return;
+    const resetBtn = document.getElementById('reset-btn');
+    try {
+      const memberstack = window.$memberstackDom;
+      await memberstack.sendMemberResetPasswordEmail({ email: pendingResetEmail });
+      showResetSuccess('A new code has been sent to ' + pendingResetEmail + '.');
+    } catch (err) {
+      showResetError('Could not resend the code. Please try again in a moment.');
+    }
+  }
+
+  // This is the step that was previously entirely missing — Memberstack's
+  // sendMemberResetPasswordEmail only requests the code; completing the
+  // reset requires this second call with that code plus the new password.
+  async function handleResetPassword() {
+    const code = document.getElementById('reset-code').value.trim();
+    const newPassword = document.getElementById('new-password').value;
+    const confirmPassword = document.getElementById('confirm-password').value;
+    const btn = document.getElementById('reset-btn');
+
+    document.getElementById('reset-error-msg').style.display = 'none';
+    document.getElementById('reset-success-msg').style.display = 'none';
+
+    if (!code) {
+      showResetError('Enter the code from your email.');
+      return;
+    }
+    if (!newPassword || newPassword.length < 8) {
+      showResetError('Choose a new password that is at least 8 characters.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      showResetError('Passwords do not match.');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Setting password...';
+
+    try {
+      const memberstack = window.$memberstackDom;
+      const { data, error } = await memberstack.resetMemberPassword({
+        token: code,
+        newPassword: newPassword
+      });
+
+      if (error) {
+        showResetError(error.message || 'That code is invalid or has expired. Request a new one below.');
+        btn.disabled = false;
+        btn.innerHTML = 'Set New Password';
+        return;
+      }
+
+      showResetSuccess('Your password has been reset. You can now sign in.');
+      setTimeout(() => {
+        showLoginView(null, pendingResetEmail);
+      }, 1500);
+
+    } catch (err) {
+      showResetError('Something went wrong. Please try again.');
+      btn.disabled = false;
+      btn.innerHTML = 'Set New Password';
+    }
+  }
+
+  function showResetView(email) {
+    document.getElementById('login-view').style.display = 'none';
+    document.getElementById('reset-view').style.display = 'block';
+    document.getElementById('reset-sub').textContent =
+      'We sent a code to ' + email + '. Enter it below with your new password.';
+    document.getElementById('reset-error-msg').style.display = 'none';
+    document.getElementById('reset-success-msg').style.display = 'none';
+    document.getElementById('reset-code').value = '';
+    document.getElementById('new-password').value = '';
+    document.getElementById('confirm-password').value = '';
+    const btn = document.getElementById('reset-btn');
+    btn.disabled = false;
+    btn.innerHTML = 'Set New Password';
+    document.getElementById('reset-code').focus();
+  }
+
+  function showLoginView(e, prefillEmail) {
+    if (e) e.preventDefault();
+    document.getElementById('reset-view').style.display = 'none';
+    document.getElementById('login-view').style.display = 'block';
+    document.getElementById('error-msg').style.display = 'none';
+    if (prefillEmail) {
+      document.getElementById('email').value = prefillEmail;
+      document.getElementById('password').value = '';
+      document.getElementById('password').focus();
     }
   }
 
   function showError(msg) {
     const el = document.getElementById('error-msg');
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+
+  function showResetError(msg) {
+    const el = document.getElementById('reset-error-msg');
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+
+  function showResetSuccess(msg) {
+    const el = document.getElementById('reset-success-msg');
     el.textContent = msg;
     el.style.display = 'block';
   }
