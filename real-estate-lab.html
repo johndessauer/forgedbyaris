@@ -294,8 +294,9 @@ async function initLabPage() {
     const FORGE_ZERO_PLAN_ID = 'pln_forge-zero-psnx0aea'; // free plan — has no Stripe priceId, so it needs its own explicit allowed condition below
     const EMPIRE_PLAN_ID = 'pln_empire--871c00ah3';
     const FOUNDATION_EMPIRE_PLAN_ID = 'pln_foundation-empire-eh1bv0h3e';
+    const FOUNDATION_PLAN_ID = 'pln_foundation--s11cv0hs9'; // NEW standalone Foundation-only plan — grants base access below but is deliberately NOT added to hasEmpireAccess
     const hasActiveMembership = (member.planConnections || []).some(
-      pc => (FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) || pc.planId === FORGE_ZERO_PLAN_ID) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
+      pc => (FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) || pc.planId === FORGE_ZERO_PLAN_ID || pc.planId === FOUNDATION_PLAN_ID) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
     );
     if (!hasActiveMembership) { window.location.href = 'signup.html'; return; }
     hasEmpireAccess = (member.planConnections || []).some(pc =>

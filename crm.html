@@ -464,18 +464,30 @@ window.onload = async () => {
     }
     const FOUNDING_MEMBER_PRICE_IDS = ['prc_497-97-3m13d01j8', 'prc_247-97-ne13e01d6', 'prc_997-97-5fmt0nr5', 'prc_-97-direct-ka9b0lq3'];
     const FORGE_ZERO_PLAN_ID = 'pln_forge-zero-psnx0aea'; // free plan — has no Stripe priceId, so it needs its own explicit allowed condition below
+    const EMPIRE_PLAN_ID = 'pln_empire--871c00ah3';
+    const FOUNDATION_EMPIRE_PLAN_ID = 'pln_foundation-empire-eh1bv0h3e';
+    const FOUNDATION_PLAN_ID = 'pln_foundation--s11cv0hs9'; // NEW standalone Foundation-only plan — grants base access below but is deliberately NOT added to hasEmpireAccess
     const hasActiveMembership = (member.planConnections || []).some(
-      pc => (FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) || pc.planId === FORGE_ZERO_PLAN_ID) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
+      pc => (FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) || pc.planId === FORGE_ZERO_PLAN_ID || pc.planId === FOUNDATION_PLAN_ID) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
     );
     if (!hasActiveMembership) {
       window.location.href = 'signup.html';
       return;
     }
     const activeConn = (member.planConnections || []).find(
-      pc => (FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) || pc.planId === FORGE_ZERO_PLAN_ID) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
+      pc => (FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) || pc.planId === FORGE_ZERO_PLAN_ID || pc.planId === FOUNDATION_PLAN_ID) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
     );
     const PLAN_NAME_OVERRIDES = { [FORGE_ZERO_PLAN_ID]: 'FORGE Zero' };
-    const planName = activeConn?.planName || PLAN_NAME_OVERRIDES[activeConn?.planId] || 'Member';
+    const baseConnHasEmpireBuiltIn = activeConn && (
+      activeConn.planId === FOUNDATION_EMPIRE_PLAN_ID ||
+      FOUNDING_MEMBER_PRICE_IDS.includes(activeConn.payment?.priceId) ||
+      activeConn.planId === FORGE_ZERO_PLAN_ID
+    );
+    const hasSeparateEmpireConn = (member.planConnections || []).some(pc =>
+      pc.planId === EMPIRE_PLAN_ID && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
+    );
+    const baseName = activeConn?.planName || PLAN_NAME_OVERRIDES[activeConn?.planId] || 'Member';
+    const planName = (hasSeparateEmpireConn && !baseConnHasEmpireBuiltIn) ? (baseName + ' + Empire') : baseName;
 
     // Retrieve the member's Memberstack token to send to our backend.
     // getMemberCookie() returns the JWT Memberstack stores for the session.
