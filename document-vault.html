@@ -229,7 +229,6 @@ html,body{height:100%;background:var(--black);color:var(--white);font-family:'In
       <div class="nav-item"><span class="nav-icon">🔮</span>Market Oracle</div>
       <a class="nav-item active" href="document-vault.html"><span class="nav-icon">📂</span>Document Vault</a>
       <a class="nav-item" href="education.html"><span class="nav-icon">🏛</span>Education</a>
-      <a class="nav-item" href="real-estate-lab.html"><span class="nav-icon">🎭</span>Real Estate Lab</a>
     </div>
     <div class="sidebar-footer">
       <div class="profile-chip" onclick="window.location.href='profile.html'" style="cursor:pointer;">
@@ -741,8 +740,9 @@ window.addEventListener('load', async () => {
       return;
     }
     const FOUNDING_MEMBER_PRICE_IDS = ['prc_497-97-3m13d01j8', 'prc_247-97-ne13e01d6', 'prc_997-97-5fmt0nr5', 'prc_-97-direct-ka9b0lq3'];
+    const FORGE_ZERO_PLAN_ID = 'pln_forge-zero-psnx0aea'; // free plan — has no Stripe priceId, so it needs its own explicit allowed condition below
     const hasActiveMembership = (member.planConnections || []).some(
-      pc => FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
+      pc => (FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) || pc.planId === FORGE_ZERO_PLAN_ID) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
     );
     if (!hasActiveMembership) {
       window.location.href = 'signup.html';

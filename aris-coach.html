@@ -292,21 +292,6 @@
   }
   .topbar-btn:hover { background: var(--border); color: var(--white); }
 
-  .mute-toggle {
-    background: var(--border-sub);
-    border: 1px solid var(--border-sub);
-    color: var(--grey-light);
-    font-size: 12px;
-    font-family: 'Inter', sans-serif;
-    padding: 6px 14px;
-    border-radius: 5px;
-    cursor: pointer;
-    transition: all 0.15s;
-    letter-spacing: 0.3px;
-  }
-  .mute-toggle:hover { border-color: var(--gold); color: var(--gold); }
-  .mute-toggle.muted { color: var(--grey); }
-
   /* ── MESSAGES ── */
   .messages {
     flex: 1;
@@ -798,7 +783,6 @@
         </div>
       </div>
       <div class="topbar-right">
-        <button class="mute-toggle" id="mute-toggle" onclick="toggleMute()" title="Toggle voice playback">🔇 Voice Off</button>
         <button class="topbar-btn" onclick="clearChat()">New Session</button>
       </div>
     </div>
@@ -923,8 +907,6 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
 
   // ── INIT ──
   window.onload = () => {
-    initVoiceDefault();
-
     // ── CAPTURE MEMBER WHY (raw answers only) ──
     // The prompt block built from these is now assembled server-side.
     const why = JSON.parse(localStorage.getItem('forge-member-why') || 'null');
@@ -1063,35 +1045,6 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
     btn.title = 'Play ARIS\u2019s response';
     btn.addEventListener('click', () => playARISVoice(text, btn));
     metaEl.appendChild(btn);
-    return btn;
-  }
-
-  // Session-level auto-play toggle, mirroring real-estate-lab.html's
-  // mute-toggle exactly. Defaults to OFF unless the member has explicitly
-  // saved a Preferences default of "on" — this is a brand-new behavior for
-  // this page, so it should never surprise anyone who hasn't opted in.
-  let voiceMuted = true;
-
-  function initVoiceDefault() {
-    const prefs = JSON.parse(localStorage.getItem('forge-preferences') || 'null');
-    voiceMuted = !(prefs && prefs.arisVoiceDefault === 'on');
-    const btn = document.getElementById('mute-toggle');
-    if (!btn) return;
-    btn.classList.toggle('muted', voiceMuted);
-    btn.textContent = voiceMuted ? '🔇 Voice Off' : '🔊 Voice On';
-  }
-
-  function toggleMute() {
-    voiceMuted = !voiceMuted;
-    const btn = document.getElementById('mute-toggle');
-    if (voiceMuted) {
-      btn.classList.add('muted');
-      btn.textContent = '🔇 Voice Off';
-      stopCurrentVoice();
-    } else {
-      btn.classList.remove('muted');
-      btn.textContent = '🔊 Voice On';
-    }
   }
 
   // ── VOICE INPUT (push-to-talk mic \u2192 ElevenLabs Scribe \u2192 existing chat pipeline) ──
@@ -1671,8 +1624,7 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
       },
       finalize(rawText) {
         bubble.innerHTML = formatMarkdown(rawText);
-        const voiceBtn = attachVoiceButton(metaEl, rawText);
-        if (!voiceMuted) playARISVoice(rawText, voiceBtn);
+        attachVoiceButton(metaEl, rawText);
         messages.scrollTop = messages.scrollHeight;
       },
       remove() { row.remove(); }
@@ -1969,8 +1921,9 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
     const { data: member } = await memberstack.getCurrentMember();
     if (!member) { window.location.href = 'login.html'; return; }
     const FOUNDING_MEMBER_PRICE_IDS = ['prc_497-97-3m13d01j8', 'prc_247-97-ne13e01d6', 'prc_997-97-5fmt0nr5', 'prc_-97-direct-ka9b0lq3'];
+    const FORGE_ZERO_PLAN_ID = 'pln_forge-zero-psnx0aea'; // free plan — has no Stripe priceId, so it needs its own explicit allowed condition below
     const hasActiveMembership = (member.planConnections || []).some(
-      pc => FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
+      pc => (FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) || pc.planId === FORGE_ZERO_PLAN_ID) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
     );
     if (!hasActiveMembership) { window.location.href = 'signup.html'; return; }
     // Retrieve the member's Memberstack token so CRM tool calls (crm-deals.js,

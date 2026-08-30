@@ -297,15 +297,6 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
   font-size: 16px; letter-spacing: 3px;
 }
 .ob-btn.save:hover { background: #e55a1c; }
-.ob-choice-row { display: flex; gap: 8px; }
-.ob-choice-btn {
-  flex: 1; padding: 12px 8px; border-radius: 8px; text-align: center;
-  background: var(--navy-light); border: 1px solid var(--border-sub);
-  color: var(--grey-light); font-family: 'Inter', sans-serif; font-size: 13px;
-  font-weight: 600; cursor: pointer; transition: all 0.15s;
-}
-.ob-choice-btn:hover { border-color: var(--gold); color: var(--white); }
-.ob-choice-btn.selected { background: rgba(200,155,60,0.15); border-color: var(--gold); color: var(--gold); }
 
 /* ── WHY CARD (on dashboard) ── */
 .why-card {
@@ -661,24 +652,6 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
       <textarea class="ob-textarea" id="ob-q3" placeholder="e.g. My youngest just started school. I have 3 hours a day back and I'm done waiting for the right moment..."></textarea>
     </div>
 
-    <div class="ob-question">
-      <div class="ob-question-num">Question 04</div>
-      <div class="ob-question-text">What's your experience level as a real estate investor?</div>
-      <div class="ob-question-hint">This helps ARIS calibrate how much it explains vs. how fast it moves.</div>
-      <div class="ob-choice-row" id="ob-experience-row">
-        <div class="ob-choice-btn" data-level="beginner" onclick="selectExperienceLevel('beginner')">Beginner</div>
-        <div class="ob-choice-btn" data-level="intermediate" onclick="selectExperienceLevel('intermediate')">Intermediate</div>
-        <div class="ob-choice-btn" data-level="advanced" onclick="selectExperienceLevel('advanced')">Advanced</div>
-      </div>
-    </div>
-
-    <div class="ob-question">
-      <div class="ob-question-num">Question 05</div>
-      <div class="ob-question-text">Tell me about your real estate purchases so far.</div>
-      <div class="ob-question-hint">Roughly how many properties, and what kind — rentals, flips, wholesale deals? Leave blank if you haven't purchased anything yet.</div>
-      <textarea class="ob-textarea" id="ob-q5" placeholder="e.g. I own 2 rental properties, both single-family, bought in 2023 and 2024. No flips yet."></textarea>
-    </div>
-
     <div class="ob-actions">
       <button class="ob-btn skip" onclick="skipOnboarding()">Skip for now</button>
       <button class="ob-btn save" onclick="saveOnboarding()">SAVE MY WHY</button>
@@ -752,8 +725,9 @@ window.onload = async () => {
       return;
     }
     const FOUNDING_MEMBER_PRICE_IDS = ['prc_497-97-3m13d01j8', 'prc_247-97-ne13e01d6', 'prc_997-97-5fmt0nr5', 'prc_-97-direct-ka9b0lq3'];
+    const FORGE_ZERO_PLAN_ID = 'pln_forge-zero-psnx0aea'; // free plan — has no Stripe priceId, so it needs its own explicit allowed condition below
     const activeConn = (member.planConnections || []).find(
-      pc => FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
+      pc => (FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) || pc.planId === FORGE_ZERO_PLAN_ID) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
     );
     const hasActiveMembership = !!activeConn;
     if (!hasActiveMembership) {
@@ -1082,13 +1056,6 @@ function checkOnboarding() {
   }
 }
 
-function selectExperienceLevel(level) {
-  document.getElementById('ob-experience-row').dataset.selected = level;
-  document.querySelectorAll('#ob-experience-row .ob-choice-btn').forEach(btn => {
-    btn.classList.toggle('selected', btn.dataset.level === level);
-  });
-}
-
 function openOnboarding(isEdit = false) {
   // Pre-fill if editing
   if (isEdit) {
@@ -1096,8 +1063,6 @@ function openOnboarding(isEdit = false) {
     document.getElementById('ob-q1').value = why.q1 || '';
     document.getElementById('ob-q2').value = why.q2 || '';
     document.getElementById('ob-q3').value = why.q3 || '';
-    document.getElementById('ob-q5').value = why.purchaseHistory || '';
-    if (why.experienceLevel) selectExperienceLevel(why.experienceLevel);
   }
   document.getElementById('ob-overlay').style.display = 'flex';
 }
@@ -1111,15 +1076,13 @@ async function saveOnboarding() {
   const q1 = document.getElementById('ob-q1').value.trim();
   const q2 = document.getElementById('ob-q2').value.trim();
   const q3 = document.getElementById('ob-q3').value.trim();
-  const experienceLevel = document.getElementById('ob-experience-row').dataset.selected || '';
-  const purchaseHistory = document.getElementById('ob-q5').value.trim();
 
-  if (!q1 && !q2 && !q3 && !experienceLevel && !purchaseHistory) {
+  if (!q1 && !q2 && !q3) {
     skipOnboarding();
     return;
   }
 
-  const why = { q1, q2, q3, experienceLevel, purchaseHistory, savedAt: new Date().toISOString() };
+  const why = { q1, q2, q3, savedAt: new Date().toISOString() };
   localStorage.setItem('forge-member-why', JSON.stringify(why));
   localStorage.removeItem('forge-ob-skipped');
 
@@ -1136,7 +1099,7 @@ async function saveOnboarding() {
       const res = await fetch('/api/profile-data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${memberToken}` },
-        body: JSON.stringify({ action: 'save', whyQ1: q1, whyQ2: q2, whyQ3: q3, experienceLevel: experienceLevel || null, purchaseHistory: purchaseHistory || null }),
+        body: JSON.stringify({ action: 'save', whyQ1: q1, whyQ2: q2, whyQ3: q3 }),
       });
       if (!res.ok) throw new Error('save failed');
     } catch (err) {
@@ -1165,15 +1128,7 @@ function loadWhyCard() {
 function getWhyContext() {
   const why = JSON.parse(localStorage.getItem('forge-member-why') || 'null');
   if (!why) return '';
-  const EXPERIENCE_LABELS = { beginner: 'Beginner', intermediate: 'Intermediate', advanced: 'Advanced' };
-  let extra = '';
-  if (why.experienceLevel) {
-    extra += `\n- Experience level: ${EXPERIENCE_LABELS[why.experienceLevel] || why.experienceLevel} — calibrate explanation depth and pacing to this.`;
-  }
-  if (why.purchaseHistory) {
-    extra += `\n- Purchase history: "${why.purchaseHistory}"`;
-  }
-  return `\n\nMEMBER'S WHY — Reference this periodically when relevant, especially when the member needs motivation, is hesitating, or celebrates a win:\n- Why they want to invest: "${why.q1}"\n- How they'll make the world better: "${why.q2}"\n- Why now is their time: "${why.q3}"${extra}\n\nDo NOT reference their why in every single message — only when it adds real impact. When you do use it, make it feel personal and specific, not generic.`;
+  return `\n\nMEMBER'S WHY — Reference this periodically when relevant, especially when the member needs motivation, is hesitating, or celebrates a win:\n- Why they want to invest: "${why.q1}"\n- How they'll make the world better: "${why.q2}"\n- Why now is their time: "${why.q3}"\n\nDo NOT reference their why in every single message — only when it adds real impact. When you do use it, make it feel personal and specific, not generic.`;
 }
 function showToast(msg) {
   const t = document.createElement('div');

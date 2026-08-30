@@ -96,7 +96,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 .kanban-col-body { padding: 8px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
 .deal-card { background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 6px; padding: 10px; cursor: pointer; transition: border-color 0.15s; position: relative; }
 .deal-card.stale { border-color: rgba(245,158,11,0.4); }
-.stale-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 600; color: var(--yellow); background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.3); border-radius: 4px; padding: 4px 7px; margin-top: 6px; line-height: 1.4; }
+.stale-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 9px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; color: var(--yellow); background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.3); border-radius: 4px; padding: 2px 6px; margin-top: 6px; }
 .deal-card:hover { border-color: var(--gold); }
 .deal-card-addr { font-size: 12px; font-weight: 600; color: var(--white); margin-bottom: 4px; }
 .deal-card-meta { font-size: 10px; color: var(--grey); text-transform: capitalize; }
@@ -114,7 +114,6 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 .contact-card-name { font-size: 13px; font-weight: 700; color: var(--white); }
 .contact-card-type { display: inline-block; margin-top: 4px; font-size: 9px; text-transform: uppercase; letter-spacing: 0.6px; padding: 2px 8px; border-radius: 10px; background: var(--gold-dim); color: var(--gold); }
 .contact-card-info { margin-top: 8px; font-size: 11px; color: var(--grey); }
-.contact-card-last { margin-top: 6px; font-size: 10px; color: var(--gold); }
 .import-row { display: flex; align-items: center; gap: 10px; background: var(--navy-mid); border-radius: 6px; padding: 8px 10px; font-size: 12px; }
 .import-row.dup { border-left: 2px solid var(--yellow); }
 .import-row.new { border-left: 2px solid var(--green); }
@@ -327,14 +326,6 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
           <div class="notes-list" id="deal-notes-list"></div>
           <div style="margin-top:10px; display:flex; gap:6px;">
             <input class="form-input" id="deal-note-input" placeholder="Add a note...">
-            <select class="form-input" id="deal-note-method" style="width:110px; flex:none;">
-              <option value="">Method</option>
-              <option value="text">Text</option>
-              <option value="call">Phone Call</option>
-              <option value="meeting">Meeting</option>
-              <option value="email">Email</option>
-              <option value="other">Other</option>
-            </select>
             <button class="btn-secondary" onclick="addDealNote()">Add</button>
           </div>
         </div>
@@ -384,14 +375,6 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
           <div class="notes-list" id="contact-notes-list"></div>
           <div style="margin-top:10px; display:flex; gap:6px;">
             <input class="form-input" id="contact-note-input" placeholder="Add a note...">
-            <select class="form-input" id="contact-note-method" style="width:110px; flex:none;">
-              <option value="">Method</option>
-              <option value="text">Text</option>
-              <option value="call">Phone Call</option>
-              <option value="meeting">Meeting</option>
-              <option value="email">Email</option>
-              <option value="other">Other</option>
-            </select>
             <button class="btn-secondary" onclick="addContactNote()">Add</button>
           </div>
         </div>
@@ -480,8 +463,9 @@ window.onload = async () => {
       return;
     }
     const FOUNDING_MEMBER_PRICE_IDS = ['prc_497-97-3m13d01j8', 'prc_247-97-ne13e01d6', 'prc_997-97-5fmt0nr5', 'prc_-97-direct-ka9b0lq3'];
+    const FORGE_ZERO_PLAN_ID = 'pln_forge-zero-psnx0aea'; // free plan — has no Stripe priceId, so it needs its own explicit allowed condition below
     const hasActiveMembership = (member.planConnections || []).some(
-      pc => FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
+      pc => (FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) || pc.planId === FORGE_ZERO_PLAN_ID) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
     );
     if (!hasActiveMembership) {
       window.location.href = 'signup.html';
@@ -616,7 +600,7 @@ function renderKanban() {
         card.innerHTML = `
           <div class="deal-card-addr">${escapeHtml(deal.property_address || 'Untitled property')}</div>
           <div class="deal-card-meta">${DEAL_TYPE_LABELS[deal.deal_type] || deal.deal_type}</div>
-          ${deal.stale ? `<div class="stale-badge" title="No activity in ${deal.days_since_activity} days">⚠ ${escapeHtml(deal.nudge_message || 'Needs Follow-up')}</div>` : ''}
+          ${deal.stale ? `<div class="stale-badge" title="No activity in ${deal.days_since_activity} days">⚠ Needs Follow-up</div>` : ''}
         `;
         body.appendChild(card);
       });
@@ -689,8 +673,6 @@ async function loadDealNotes(dealId) {
   }
 }
 
-const CONTACT_METHOD_LABELS = { text: '💬 Text', call: '📞 Call', meeting: '🤝 Meeting', email: '✉️ Email', other: '📝 Other' };
-
 function renderNotesList(container, notes) {
   if (!notes.length) { container.innerHTML = '<div class="kanban-empty">No notes yet</div>'; return; }
   container.innerHTML = '';
@@ -698,21 +680,18 @@ function renderNotesList(container, notes) {
     const item = document.createElement('div');
     item.className = 'note-item ' + n.created_by;
     const when = new Date(n.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-    const methodTag = n.contact_method ? ` · ${CONTACT_METHOD_LABELS[n.contact_method] || n.contact_method}` : '';
-    item.innerHTML = `<div class="note-item-meta">${n.created_by === 'aris' ? 'ARIS' : 'You'} · ${when}${methodTag}</div>${escapeHtml(n.body)}`;
+    item.innerHTML = `<div class="note-item-meta">${n.created_by === 'aris' ? 'ARIS' : 'You'} · ${when}</div>${escapeHtml(n.body)}`;
     container.appendChild(item);
   });
 }
 
 async function addDealNote() {
   const input = document.getElementById('deal-note-input');
-  const methodSelect = document.getElementById('deal-note-method');
   const body = input.value.trim();
   if (!body || !activeDealId) return;
   try {
-    await apiCall('crm-notes', { method: 'POST', body: JSON.stringify({ deal_id: activeDealId, body, created_by: 'student', contact_method: methodSelect.value || null }) });
+    await apiCall('crm-notes', { method: 'POST', body: JSON.stringify({ deal_id: activeDealId, body, created_by: 'student' }) });
     input.value = '';
-    methodSelect.value = '';
     loadDealNotes(activeDealId);
   } catch (e) {
     showToast('Could not add note: ' + e.message, true);
@@ -812,13 +791,6 @@ function setContactFilter(type) {
   loadContacts();
 }
 
-function relativeDays(isoDate) {
-  const days = Math.floor((Date.now() - new Date(isoDate).getTime()) / (1000 * 60 * 60 * 24));
-  if (days <= 0) return 'today';
-  if (days === 1) return '1 day ago';
-  return `${days} days ago`;
-}
-
 function renderContacts() {
   const root = document.getElementById('contacts-root');
   if (!allContacts.length) {
@@ -834,14 +806,10 @@ function renderContacts() {
     const card = document.createElement('div');
     card.className = 'contact-card';
     card.onclick = () => openContactModal(c.id);
-    const lastContact = c.last_contact_at
-      ? `<div class="contact-card-last">Last contact: ${CONTACT_METHOD_LABELS[c.last_contact_method] || 'Note'} · ${relativeDays(c.last_contact_at)}</div>`
-      : `<div class="contact-card-last" style="opacity:0.6;">No contact logged yet</div>`;
     card.innerHTML = `
       <div class="contact-card-name">${escapeHtml(c.name)}</div>
       <div class="contact-card-type">${c.type}</div>
       <div class="contact-card-info">${escapeHtml(c.phone || '')}${c.phone && c.email ? ' · ' : ''}${escapeHtml(c.email || '')}</div>
-      ${lastContact}
     `;
     root.appendChild(card);
   });
@@ -894,15 +862,12 @@ async function loadContactNotes(contactId) {
 
 async function addContactNote() {
   const input = document.getElementById('contact-note-input');
-  const methodSelect = document.getElementById('contact-note-method');
   const body = input.value.trim();
   if (!body || !activeContactId) return;
   try {
-    await apiCall('crm-notes', { method: 'POST', body: JSON.stringify({ contact_id: activeContactId, body, created_by: 'student', contact_method: methodSelect.value || null }) });
+    await apiCall('crm-notes', { method: 'POST', body: JSON.stringify({ contact_id: activeContactId, body, created_by: 'student' }) });
     input.value = '';
-    methodSelect.value = '';
     loadContactNotes(activeContactId);
-    loadContacts(); // refresh the contact card's Last Contact summary too
   } catch (e) {
     showToast('Could not add note: ' + e.message, true);
   }

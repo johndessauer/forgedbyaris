@@ -46,14 +46,6 @@ html { height: 100%; }
 .dashboard-scroll { padding: 24px 28px 32px; }
 
 /* ── SCENARIO LIST ── */
-.role-filter-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
-.role-filter-pill {
-  font-size: 12px; font-weight: 600; padding: 7px 14px; border-radius: 20px;
-  background: var(--navy-light); color: var(--grey-light); border: 1px solid var(--border-sub);
-  cursor: pointer; transition: all 0.15s; white-space: nowrap;
-}
-.role-filter-pill:hover { border-color: var(--gold); color: var(--gold); }
-.role-filter-pill.active { background: var(--orange-dim); border-color: var(--orange); color: var(--orange); }
 .scenario-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
 .scenario-card {
   background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 10px;
@@ -191,7 +183,6 @@ html { height: 100%; }
 
       <!-- SCENARIO LIST VIEW -->
       <div id="view-list">
-        <div id="role-filter-container"></div>
         <div id="scenario-list-container">
           <div class="loading-msg">Loading scenarios...</div>
         </div>
@@ -216,7 +207,7 @@ html { height: 100%; }
           <div class="chat-header">
             <div class="chat-header-title" id="roleplay-title"></div>
             <div style="display:flex; gap:8px;">
-              <button class="mute-toggle" id="mute-toggle" onclick="toggleMute()" title="Toggle voice playback">🔇 Voice Off</button>
+              <button class="mute-toggle" id="mute-toggle" onclick="toggleMute()" title="Toggle voice playback">🔊 Voice On</button>
               <button class="btn btn-secondary" onclick="backToList()">&larr; Exit</button>
             </div>
           </div>
@@ -252,12 +243,6 @@ let memberToken = null;
 let currentMemberId = null;
 let allScenarios = [];
 let currentScenario = null;
-let activeRoleFilter = 'All'; // 'All' or one of COUNTERPARTY_ROLES
-
-// Fixed role list — kept in sync with the dropdown in lab-admin.html.
-// A scenario with no counterparty_role set (older/legacy entries) always
-// shows under "All" but never matches a specific role pill.
-const COUNTERPARTY_ROLES = ['Seller', 'Private Lender', 'LP/Investor', 'Buyer', 'Contractor', 'Tenant', 'Commercial Bank - Loan Officer'];
 let conversationHistory = []; // [{role: 'user'|'assistant', content: string}] — sent to lab-stream.js
 let isStreaming = false;
 
@@ -303,28 +288,14 @@ async function initLabPage() {
     if (!member) { window.location.href = 'login.html'; return; }
 
     const FOUNDING_MEMBER_PRICE_IDS = ['prc_497-97-3m13d01j8', 'prc_247-97-ne13e01d6', 'prc_997-97-5fmt0nr5', 'prc_-97-direct-ka9b0lq3'];
+    const FORGE_ZERO_PLAN_ID = 'pln_forge-zero-psnx0aea'; // free plan — has no Stripe priceId, so it needs its own explicit allowed condition below
     const hasActiveMembership = (member.planConnections || []).some(
-      pc => FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
+      pc => (FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) || pc.planId === FORGE_ZERO_PLAN_ID) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
     );
     if (!hasActiveMembership) { window.location.href = 'signup.html'; return; }
 
     currentMemberId = member.id;
     memberToken = await memberstack.getMemberCookie();
-
-    // Apply the member's saved ARIS voice default. Defaults to OFF unless
-    // explicitly saved as "on" in Preferences — matches aris-coach.html's
-    // behavior so both pages are consistent (confirmed with John 8/22/2026:
-    // this changes Real Estate Lab's prior always-on-by-default behavior,
-    // intentionally, so a new member never gets surprised by unexpected
-    // audio either place).
-    const prefs = JSON.parse(localStorage.getItem('forge-preferences') || 'null');
-    voiceMuted = !(prefs && prefs.arisVoiceDefault === 'on');
-    const muteBtn = document.getElementById('mute-toggle');
-    if (muteBtn) {
-      muteBtn.classList.toggle('muted', voiceMuted);
-      muteBtn.textContent = voiceMuted ? '🔇 Voice Off' : '🔊 Voice On';
-    }
-
     await loadScenarios();
   } catch (err) {
     console.error('Lab page init failed:', err);
@@ -351,50 +322,11 @@ async function loadScenarios() {
     return;
   }
 
-  renderRoleFilter();
-  renderScenarioGrid();
-}
-
-function renderRoleFilter() {
-  // Only show roles that at least one loaded scenario actually uses,
-  // so the pill row doesn't list roles with zero scenarios behind them.
-  const rolesPresent = COUNTERPARTY_ROLES.filter(r => allScenarios.some(s => s.counterparty_role === r));
-  const el = document.getElementById('role-filter-container');
-
-  if (!rolesPresent.length) { el.innerHTML = ''; return; }
-
-  el.innerHTML = `
-    <div class="role-filter-row">
-      <button class="role-filter-pill ${activeRoleFilter === 'All' ? 'active' : ''}" onclick="setRoleFilter('All')">All</button>
-      ${rolesPresent.map(r => `
-        <button class="role-filter-pill ${activeRoleFilter === r ? 'active' : ''}" onclick="setRoleFilter('${r.replace(/'/g, "\\'")}')">${escapeHtml(r)}</button>
-      `).join('')}
-    </div>
-  `;
-}
-
-function setRoleFilter(role) {
-  activeRoleFilter = role;
-  renderRoleFilter();
-  renderScenarioGrid();
-}
-
-function renderScenarioGrid() {
-  const container = document.getElementById('scenario-list-container');
-  const filtered = activeRoleFilter === 'All'
-    ? allScenarios
-    : allScenarios.filter(s => s.counterparty_role === activeRoleFilter);
-
-  if (!filtered.length) {
-    container.innerHTML = `<div class="loading-msg">No scenarios yet for "${escapeHtml(activeRoleFilter)}" — try a different filter.</div>`;
-    return;
-  }
-
   container.innerHTML = `
     <div class="scenario-grid">
-      ${filtered.map(s => `
+      ${allScenarios.map(s => `
         <div class="scenario-card" onclick="openBriefing('${s.id}')">
-          <div class="scenario-card-category">${escapeHtml(s.category || 'General')}${s.counterparty_role ? ' · ' + escapeHtml(s.counterparty_role) : ''}</div>
+          <div class="scenario-card-category">${escapeHtml(s.category || 'General')}</div>
           <div class="scenario-card-title">${escapeHtml(s.title)}</div>
           <div class="scenario-card-desc">${escapeHtml(s.description || '')}</div>
         </div>
@@ -407,9 +339,9 @@ function openBriefing(id) {
   const s = allScenarios.find(x => x.id === id);
   if (!s) return;
   currentScenario = s;
-  document.getElementById('briefing-category').textContent = (s.category || 'General') + (s.counterparty_role ? ' · ' + s.counterparty_role : '');
+  document.getElementById('briefing-category').textContent = s.category || 'General';
   document.getElementById('briefing-title').textContent = s.title;
-  document.getElementById('briefing-desc').textContent = s.student_briefing || s.description || '';
+  document.getElementById('briefing-desc').textContent = s.description || '';
   showView('briefing');
 }
 
@@ -542,35 +474,22 @@ async function sendMessage() {
     // complete line, not a partial sentence.
     const lastMsg = conversationHistory[conversationHistory.length - 1];
     if (!voiceMuted && lastMsg && lastMsg.role === 'assistant' && lastMsg.content.trim()) {
-      playCounterpartyVoice(lastMsg.content);
+      playCarolVoice(lastMsg.content);
     }
   }
 }
 
-// Voice IDs for the Lab's 2 counterparty voices — separate from ARIS's own
-// voice, which aris-voice.js still defaults to if no voiceId is passed.
-const LAB_VOICE_MALE = '83q1pBDDePRioCY8grPY';
-const LAB_VOICE_FEMALE = 'PBjLN8WJmwHEGB1u1UzI';
-
-function voiceIdForCurrentScenario() {
-  if (!currentScenario) return undefined;
-  if (currentScenario.counterparty_gender === 'M') return LAB_VOICE_MALE;
-  if (currentScenario.counterparty_gender === 'F') return LAB_VOICE_FEMALE;
-  return undefined; // unspecified — falls back to ARIS's own voice server-side
-}
-
 // ── VOICE PLAYBACK (auto-play, walkie-talkie style) ──
-async function playCounterpartyVoice(text) {
+async function playCarolVoice(text) {
   if (currentVoiceAudio) {
     currentVoiceAudio.pause();
     currentVoiceAudio = null;
   }
   try {
-    const voiceId = voiceIdForCurrentScenario();
     const res = await fetch('/api/aris-voice', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(voiceId ? { text, voiceId } : { text }),
+      body: JSON.stringify({ text }),
     });
     if (!res.ok) throw new Error(`Voice request failed (${res.status})`);
     const blob = await res.blob();

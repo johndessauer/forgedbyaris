@@ -438,7 +438,6 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 
       <!-- LIST VIEW -->
       <div id="view-list">
-        <div class="income-filter-row" id="category-filter-row"></div>
         <div class="income-filter-row" id="income-filter-row"></div>
         <div id="module-list-container">
           <div style="color:var(--grey);font-size:13px;">Loading modules...</div>
@@ -650,8 +649,9 @@ async function initEducationPage() {
     if (!member) { window.location.href = 'login.html'; return; }
 
     const FOUNDING_MEMBER_PRICE_IDS = ['prc_497-97-3m13d01j8', 'prc_247-97-ne13e01d6', 'prc_997-97-5fmt0nr5', 'prc_-97-direct-ka9b0lq3'];
+    const FORGE_ZERO_PLAN_ID = 'pln_forge-zero-psnx0aea'; // free plan — has no Stripe priceId, so it needs its own explicit allowed condition below
     const activeConn = (member.planConnections || []).find(
-      pc => FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
+      pc => (FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) || pc.planId === FORGE_ZERO_PLAN_ID) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
     );
     const hasActiveMembership = !!activeConn;
     if (!hasActiveMembership) { window.location.href = 'signup.html'; return; }
@@ -677,32 +677,6 @@ const INCOME_TYPE_META = {
 };
 let allModules = [];
 let currentIncomeFilter = 'all';
-let currentCategoryFilter = 'all';
-
-// Maps a member's saved "Default Strategy Focus" preference to keywords we
-// look for in the actual category strings pulled from Supabase — matched
-// this way (rather than a hardcoded category list) since category names
-// are free text set by whoever authors modules in Lab Admin, and this
-// stays correct even if categories are renamed or added to later.
-const STRATEGY_FOCUS_KEYWORDS = {
-  wholesale: ['wholesal'],
-  fix_flip: ['flip', 'fix & flip', 'fix and flip'],
-  lt_rental: ['rental', 'long-term', 'long term', 'buy and hold', 'buy & hold'],
-  str_mtr: ['str', 'mtr', 'short-term', 'short term', 'mid-term', 'mid term'],
-  commercial: ['commercial', 'multifamily', '5+'],
-  raising_capital: ['raising capital', 'capital', 'private money', 'private lending'],
-};
-
-function findCategoryMatchingStrategyFocus(categories, strategyFocus) {
-  const keywords = STRATEGY_FOCUS_KEYWORDS[strategyFocus];
-  if (!keywords) return null;
-  const lowerCats = categories.map(c => ({ original: c, lower: c.toLowerCase() }));
-  for (const kw of keywords) {
-    const match = lowerCats.find(c => c.lower.includes(kw));
-    if (match) return match.original;
-  }
-  return null;
-}
 
 async function loadModules() {
   const res = await fetch('/api/education-data?action=list', {
@@ -713,40 +687,7 @@ async function loadModules() {
 
   renderTierBadges(badges);
   allModules = modules;
-
-  // Apply the member's default strategy focus preference, if set, the
-  // very first time the page loads — a distinct category tab the member
-  // clicks afterward always overrides this, it only sets the starting view.
-  if (currentCategoryFilter === 'all') {
-    const prefs = JSON.parse(localStorage.getItem('forge-preferences') || 'null');
-    if (prefs && prefs.strategyFocus) {
-      const distinctCategories = [...new Set(allModules.map(m => m.category).filter(Boolean))];
-      const matched = findCategoryMatchingStrategyFocus(distinctCategories, prefs.strategyFocus);
-      if (matched) currentCategoryFilter = matched;
-    }
-  }
-
-  renderCategoryFilterTabs();
   renderIncomeFilterTabs();
-  renderModuleList();
-}
-
-function renderCategoryFilterTabs() {
-  const el = document.getElementById('category-filter-row');
-  if (!el) return;
-  const distinctCategories = [...new Set(allModules.map(m => m.category).filter(Boolean))].sort();
-  if (!distinctCategories.length) { el.innerHTML = ''; return; }
-  const tabs = ['all', ...distinctCategories];
-  el.innerHTML = tabs.map((t) => {
-    const label = t === 'all' ? 'All Topics' : t;
-    const isActive = currentCategoryFilter === t;
-    return `<div class="income-filter-tab ${isActive ? 'active' : ''}" onclick="setCategoryFilter('${escapeHtml(t).replace(/'/g, "\\'")}')">${escapeHtml(label)}</div>`;
-  }).join('');
-}
-
-function setCategoryFilter(t) {
-  currentCategoryFilter = t;
-  renderCategoryFilterTabs();
   renderModuleList();
 }
 
@@ -770,12 +711,9 @@ function setIncomeFilter(t) {
 
 function renderModuleList() {
   const container = document.getElementById('module-list-container');
-  let modules = currentIncomeFilter === 'all'
+  const modules = currentIncomeFilter === 'all'
     ? allModules
     : allModules.filter(m => m.income_type === currentIncomeFilter);
-  if (currentCategoryFilter !== 'all') {
-    modules = modules.filter(m => m.category === currentCategoryFilter);
-  }
 
   if (!allModules.length) {
     container.innerHTML = '<div style="color:var(--grey);font-size:13px;">No lessons published yet — check back soon.</div>';
@@ -785,7 +723,6 @@ function renderModuleList() {
     container.innerHTML = '<div style="color:var(--grey);font-size:13px;">No lessons in this category yet.</div>';
     return;
   }
-
 
   // One continuous grid, not grouped by category — each of the 22 topics
   // has a unique category name, so category-based sectioning previously
@@ -998,25 +935,9 @@ function tierBadge(difficulty) {
   return `<span style="display:inline-block;font-size:10px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;padding:3px 9px;border-radius:20px;background:${t.color}22;color:${t.color};margin-bottom:10px;">${t.icon} ${t.label}</span>`;
 }
 
-function shuffledIndices(n) {
-  // Fisher-Yates shuffle of [0..n-1] — used to randomize quiz answer
-  // display order per question, independent of authoring/storage order.
-  // Fixes answers clustering on one letter (e.g. mostly "B") since the
-  // underlying data is never reordered, only how it's displayed.
-  const arr = Array.from({ length: n }, (_, i) => i);
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
-}
-
 function startQuiz() {
   if (!currentQuestions.length) return;
   selectedAnswers = new Array(currentQuestions.length).fill(null);
-  // Assign (or reassign) a fresh random display order each time the quiz
-  // starts, so a retake also reshuffles rather than showing the same order.
-  currentQuestions.forEach(q => { q._shuffleOrder = shuffledIndices(q.options.length); });
   document.getElementById('quiz-title').textContent = `${currentModule.title} — ${TIER_META[currentTier].label} Quiz`;
 
   document.getElementById('quiz-questions').innerHTML = `
@@ -1026,8 +947,8 @@ function startQuiz() {
   ` + currentQuestions.map((q, qi) => `
     <div class="quiz-card">
       <div class="quiz-q">${qi + 1}. ${escapeHtml(q.question)}</div>
-      ${q._shuffleOrder.map((origIdx, oi) => `
-        <div class="quiz-option" id="q${qi}-o${oi}" onclick="selectAnswer(${qi}, ${oi})">${escapeHtml(q.options[origIdx])}</div>
+      ${q.options.map((opt, oi) => `
+        <div class="quiz-option" id="q${qi}-o${oi}" onclick="selectAnswer(${qi}, ${oi})">${escapeHtml(opt)}</div>
       `).join('')}
     </div>
   `).join('');
@@ -1035,12 +956,8 @@ function startQuiz() {
 }
 
 function selectAnswer(qi, oi) {
-  // oi is the on-screen position; translate through this question's
-  // shuffle order to get back the original option index for storage,
-  // so submission/grading logic downstream is completely unaffected.
-  const origIdx = currentQuestions[qi]._shuffleOrder[oi];
-  selectedAnswers[qi] = origIdx;
-  currentQuestions[qi]._shuffleOrder.forEach((_, i) => {
+  selectedAnswers[qi] = oi;
+  currentQuestions[qi].options.forEach((_, i) => {
     document.getElementById(`q${qi}-o${i}`).classList.toggle('selected', i === oi);
   });
 }
@@ -1085,18 +1002,14 @@ async function submitQuiz() {
 
   document.getElementById('results-questions').innerHTML = currentQuestions.map((q, qi) => {
     const r = results[qi];
-    // Reuse the same per-question shuffle order the quiz was taken with,
-    // so the results view shows options in the identical position the
-    // member actually saw and clicked — just with correctness revealed.
-    const order = q._shuffleOrder || q.options.map((_, i) => i);
     return `
       <div class="quiz-card">
         <div class="quiz-q">${qi + 1}. ${escapeHtml(q.question)}</div>
-        ${order.map((origIdx, oi) => {
+        ${q.options.map((opt, oi) => {
           let cls = 'quiz-option';
-          if (origIdx === r.correctIndex) cls += ' correct';
-          else if (origIdx === selectedAnswers[qi] && !r.correct) cls += ' incorrect';
-          return `<div class="${cls}">${escapeHtml(q.options[origIdx])}</div>`;
+          if (oi === r.correctIndex) cls += ' correct';
+          else if (oi === selectedAnswers[qi] && !r.correct) cls += ' incorrect';
+          return `<div class="${cls}">${escapeHtml(opt)}</div>`;
         }).join('')}
         ${r.explanation ? `<div class="quiz-explanation">${escapeHtml(r.explanation)}</div>` : ''}
       </div>

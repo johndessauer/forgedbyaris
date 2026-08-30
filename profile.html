@@ -297,15 +297,6 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
   font-size: 16px; letter-spacing: 3px;
 }
 .ob-btn.save:hover { background: #e55a1c; }
-.ob-choice-row { display: flex; gap: 8px; }
-.ob-choice-btn {
-  flex: 1; padding: 12px 8px; border-radius: 8px; text-align: center;
-  background: var(--navy-light); border: 1px solid var(--border-sub);
-  color: var(--grey-light); font-family: 'Inter', sans-serif; font-size: 13px;
-  font-weight: 600; cursor: pointer; transition: all 0.15s;
-}
-.ob-choice-btn:hover { border-color: var(--gold); color: var(--white); }
-.ob-choice-btn.selected { background: rgba(200,155,60,0.15); border-color: var(--gold); color: var(--gold); }
 
 /* ── WHY CARD (on dashboard) ── */
 .why-card {
@@ -355,19 +346,6 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
   padding: 22px 24px;
 }
 .profile-card-label { font-size: 9px; letter-spacing: 2.5px; text-transform: uppercase; color: var(--gold); font-weight: 600; margin-bottom: 16px; }
-.pref-row { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
-.pref-row:last-of-type { border-bottom: none; }
-.pref-row-main { flex: 1; min-width: 0; }
-.pref-row-title { font-size: 13px; font-weight: 600; color: var(--white); }
-.pref-row-hint { font-size: 11px; color: var(--grey); margin-top: 3px; line-height: 1.5; max-width: 420px; }
-.pref-select { width: 170px; flex: none; }
-.pref-divider { border-top: 1px solid rgba(200,155,60,0.15); margin: 18px 0 4px; }
-.pref-coming-soon-label { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--grey); margin-bottom: 4px; }
-.form-input {
-  background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 8px;
-  padding: 10px 12px; color: var(--white); font-family: 'Inter', sans-serif; font-size: 13px;
-}
-.form-input:focus { outline: none; border-color: var(--gold); }
 .profile-card-label.coming-soon { color: var(--grey); }
 
 /* Avatar section */
@@ -575,86 +553,10 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
         </div>
       </div>
 
-      <!-- PREFERENCES -->
+      <!-- PREFERENCES (placeholder) -->
       <div class="profile-card">
-        <div class="profile-card-label">Preferences</div>
-
-        <div class="pref-row">
-          <div class="pref-row-main">
-            <div class="pref-row-title">Default Strategy Focus</div>
-            <div class="pref-row-hint">Pre-filters Education Modules to the strategy you care about most. You can still browse everything — this just sets your starting view.</div>
-          </div>
-          <select class="form-input pref-select" id="pref-strategy-focus" onchange="savePreferences()">
-            <option value="">No default</option>
-            <option value="wholesale">Wholesaling</option>
-            <option value="fix_flip">Fix & Flip</option>
-            <option value="lt_rental">Long-Term Rental</option>
-            <option value="str_mtr">STR / MTR</option>
-            <option value="commercial">Commercial Multifamily</option>
-            <option value="raising_capital">Raising Capital</option>
-          </select>
-        </div>
-
-        <div class="pref-row">
-          <div class="pref-row-main">
-            <div class="pref-row-title">ARIS Voice Default</div>
-            <div class="pref-row-hint">Whether ARIS Coach and Real Estate Lab start with voice on or off. You can still toggle it per session.</div>
-          </div>
-          <select class="form-input pref-select" id="pref-voice-default" onchange="savePreferences()">
-            <option value="off" selected>Off</option>
-            <option value="on">On</option>
-          </select>
-        </div>
-
-        <div class="pref-row">
-          <div class="pref-row-main">
-            <div class="pref-row-title">Stale-Deal Nudge Sensitivity</div>
-            <div class="pref-row-hint">How eagerly your CRM flags a deal as needing follow-up. "Frequent" nudges sooner; "Relaxed" gives deals more room before flagging.</div>
-          </div>
-          <select class="form-input pref-select" id="pref-nudge-sensitivity" onchange="savePreferences()">
-            <option value="frequent">Frequent</option>
-            <option value="default" selected>Default</option>
-            <option value="relaxed">Relaxed</option>
-          </select>
-        </div>
-
-        <div class="pref-divider"></div>
-        <div class="pref-coming-soon-label">Coming Soon — these will save now, but nothing acts on them yet</div>
-
-        <div class="pref-row">
-          <div class="pref-row-main">
-            <div class="pref-row-title">Email Notification Frequency</div>
-            <div class="pref-row-hint">Instant emails vs. a daily/weekly digest.</div>
-          </div>
-          <select class="form-input pref-select" id="pref-email-frequency" onchange="savePreferences()">
-            <option value="instant">Instant</option>
-            <option value="digest">Digest</option>
-          </select>
-        </div>
-
-        <div class="pref-row">
-          <div class="pref-row-main">
-            <div class="pref-row-title">SMS Notifications</div>
-            <div class="pref-row-hint">Text alerts for deal activity and reminders.</div>
-          </div>
-          <select class="form-input pref-select" id="pref-sms-optin" onchange="savePreferences()">
-            <option value="false">Off</option>
-            <option value="true">On</option>
-          </select>
-        </div>
-
-        <div class="pref-row">
-          <div class="pref-row-main">
-            <div class="pref-row-title">Wednesday Group Coaching Reminder</div>
-            <div class="pref-row-hint">A reminder before the weekly live call.</div>
-          </div>
-          <select class="form-input pref-select" id="pref-call-reminder" onchange="savePreferences()">
-            <option value="false">Off</option>
-            <option value="true">On</option>
-          </select>
-        </div>
-
-        <div id="pref-save-status" style="font-size:11px;color:var(--gold);margin-top:12px;min-height:14px;"></div>
+        <div class="profile-card-label coming-soon">Preferences — Coming Soon</div>
+        <div class="coming-soon-body">Notification and ARIS behavior preferences will live here in a future update.</div>
       </div>
 
     </div><!-- end dashboard-scroll -->
@@ -698,20 +600,6 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
       <div class="ob-question-num">03</div>
       <div class="ob-question-text">Why is now your time?</div>
       <textarea class="ob-textarea" id="why-q3"></textarea>
-    </div>
-    <div class="ob-question">
-      <div class="ob-question-num">04</div>
-      <div class="ob-question-text">What's your experience level as a real estate investor?</div>
-      <div class="ob-choice-row" id="why-experience-row">
-        <div class="ob-choice-btn" data-level="beginner" onclick="selectWhyExperienceLevel('beginner')">Beginner</div>
-        <div class="ob-choice-btn" data-level="intermediate" onclick="selectWhyExperienceLevel('intermediate')">Intermediate</div>
-        <div class="ob-choice-btn" data-level="advanced" onclick="selectWhyExperienceLevel('advanced')">Advanced</div>
-      </div>
-    </div>
-    <div class="ob-question">
-      <div class="ob-question-num">05</div>
-      <div class="ob-question-text">Tell me about your real estate purchases so far.</div>
-      <textarea class="ob-textarea" id="why-q5" placeholder="e.g. I own 2 rental properties, both single-family. No flips yet."></textarea>
     </div>
     <div class="ob-actions">
       <button class="ob-btn skip" onclick="closeWhyEdit()">Cancel</button>
@@ -806,8 +694,9 @@ async function initProfilePage() {
     }
 
     const FOUNDING_MEMBER_PRICE_IDS = ['prc_497-97-3m13d01j8', 'prc_247-97-ne13e01d6', 'prc_997-97-5fmt0nr5', 'prc_-97-direct-ka9b0lq3'];
+    const FORGE_ZERO_PLAN_ID = 'pln_forge-zero-psnx0aea'; // free plan — has no Stripe priceId, so it needs its own explicit allowed condition below
     const activeConn = (member.planConnections || []).find(
-      pc => FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
+      pc => (FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) || pc.planId === FORGE_ZERO_PLAN_ID) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
     );
     const hasActiveMembership = !!activeConn;
     if (!hasActiveMembership) {
@@ -853,88 +742,31 @@ async function loadProfileData() {
     currentProfile = profile;
 
     if (profile.avatar_url) applyAvatar(profile.avatar_url);
-    renderWhyDisplay(profile.why_q1, profile.why_q2, profile.why_q3, profile.experience_level, profile.purchase_history);
+    renderWhyDisplay(profile.why_q1, profile.why_q2, profile.why_q3);
     renderPhoneDisplay(profile.phone);
     renderCalendarSync(profile.calendar_feed_token);
-    loadPreferences(profile.preferences);
   } catch (err) {
     console.error('loadProfileData failed:', err);
     loadWhyFromLocalFallback();
   }
 }
 
-// ── PREFERENCES ──
-function loadPreferences(preferences) {
-  const prefs = preferences || {};
-  document.getElementById('pref-strategy-focus').value = prefs.strategyFocus || '';
-  document.getElementById('pref-voice-default').value = prefs.arisVoiceDefault || 'off';
-  document.getElementById('pref-nudge-sensitivity').value = prefs.nudgeSensitivity || 'default';
-  document.getElementById('pref-email-frequency').value = prefs.emailFrequency || 'instant';
-  document.getElementById('pref-sms-optin').value = String(prefs.smsOptIn || false);
-  document.getElementById('pref-call-reminder').value = String(prefs.callReminderOptIn || false);
-
-  // Also keep a localStorage mirror for the same reason Why answers are
-  // mirrored — aris-coach.html and real-estate-lab.html read the ARIS
-  // voice default directly from localStorage rather than round-tripping
-  // to profile-data.js on every page load.
-  localStorage.setItem('forge-preferences', JSON.stringify(prefs));
-}
-
-let prefSaveDebounce = null;
-async function savePreferences() {
-  const preferences = {
-    strategyFocus: document.getElementById('pref-strategy-focus').value || null,
-    arisVoiceDefault: document.getElementById('pref-voice-default').value,
-    nudgeSensitivity: document.getElementById('pref-nudge-sensitivity').value,
-    emailFrequency: document.getElementById('pref-email-frequency').value,
-    smsOptIn: document.getElementById('pref-sms-optin').value === 'true',
-    callReminderOptIn: document.getElementById('pref-call-reminder').value === 'true',
-  };
-
-  localStorage.setItem('forge-preferences', JSON.stringify(preferences));
-
-  const statusEl = document.getElementById('pref-save-status');
-  statusEl.textContent = 'Saving...';
-
-  clearTimeout(prefSaveDebounce);
-  prefSaveDebounce = setTimeout(async () => {
-    try {
-      const res = await fetch('/api/profile-data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${memberToken}` },
-        body: JSON.stringify({ action: 'save', preferences }),
-      });
-      if (!res.ok) throw new Error('Save failed');
-      statusEl.textContent = 'Saved';
-      setTimeout(() => { if (statusEl.textContent === 'Saved') statusEl.textContent = ''; }, 2000);
-    } catch (err) {
-      console.error('savePreferences failed:', err);
-      statusEl.textContent = 'Could not save — check your connection.';
-    }
-  }, 400); // debounce so rapid changes across multiple dropdowns don't fire a save per keystroke/click
-}
-
 function loadWhyFromLocalFallback() {
   // Offline/error fallback — reads the same localStorage key the dashboard
   // has always used, so the page still shows something useful.
   const why = JSON.parse(localStorage.getItem('forge-member-why') || 'null');
-  if (why) renderWhyDisplay(why.q1, why.q2, why.q3, why.experienceLevel, why.purchaseHistory);
-  else renderWhyDisplay(null, null, null, null, null);
+  if (why) renderWhyDisplay(why.q1, why.q2, why.q3);
+  else renderWhyDisplay(null, null, null);
 
   const avatar = localStorage.getItem('forge-avatar');
   if (avatar) applyAvatar(avatar);
 
-  const prefs = JSON.parse(localStorage.getItem('forge-preferences') || 'null');
-  if (prefs) loadPreferences(prefs);
-
   document.getElementById('calendar-sync-loading').textContent = 'Calendar sync needs a live connection — refresh once you\'re back online.';
 }
 
-const EXPERIENCE_LEVEL_LABELS = { beginner: 'Beginner', intermediate: 'Intermediate', advanced: 'Advanced' };
-
-function renderWhyDisplay(q1, q2, q3, experienceLevel, purchaseHistory) {
+function renderWhyDisplay(q1, q2, q3) {
   const el = document.getElementById('why-display');
-  if (!q1 && !q2 && !q3 && !experienceLevel && !purchaseHistory) {
+  if (!q1 && !q2 && !q3) {
     el.innerHTML = '<div class="why-display-empty">You haven\'t saved your Why yet. Click "Edit Your Why" to get started.</div>';
     return;
   }
@@ -942,8 +774,6 @@ function renderWhyDisplay(q1, q2, q3, experienceLevel, purchaseHistory) {
     ['Why you want to invest', q1],
     ['How this makes the world better', q2],
     ['Why now is your time', q3],
-    ['Experience level', experienceLevel ? EXPERIENCE_LEVEL_LABELS[experienceLevel] || experienceLevel : null],
-    ['Purchase history', purchaseHistory],
   ];
   el.innerHTML = rows
     .filter(([, a]) => a)
@@ -957,21 +787,10 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-function selectWhyExperienceLevel(level) {
-  document.getElementById('why-experience-row').dataset.selected = level;
-  document.querySelectorAll('#why-experience-row .ob-choice-btn').forEach(btn => {
-    btn.classList.toggle('selected', btn.dataset.level === level);
-  });
-}
-
 function openWhyEdit() {
   document.getElementById('why-q1').value = currentProfile?.why_q1 || '';
   document.getElementById('why-q2').value = currentProfile?.why_q2 || '';
   document.getElementById('why-q3').value = currentProfile?.why_q3 || '';
-  document.getElementById('why-q5').value = currentProfile?.purchase_history || '';
-  document.getElementById('why-experience-row').dataset.selected = '';
-  document.querySelectorAll('#why-experience-row .ob-choice-btn').forEach(btn => btn.classList.remove('selected'));
-  if (currentProfile?.experience_level) selectWhyExperienceLevel(currentProfile.experience_level);
   document.getElementById('why-overlay').style.display = 'flex';
 }
 
@@ -983,23 +802,21 @@ async function saveWhyEdit() {
   const whyQ1 = document.getElementById('why-q1').value.trim();
   const whyQ2 = document.getElementById('why-q2').value.trim();
   const whyQ3 = document.getElementById('why-q3').value.trim();
-  const experienceLevel = document.getElementById('why-experience-row').dataset.selected || '';
-  const purchaseHistory = document.getElementById('why-q5').value.trim();
 
   try {
     const res = await fetch('/api/profile-data', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${memberToken}` },
-      body: JSON.stringify({ action: 'save', whyQ1, whyQ2, whyQ3, experienceLevel: experienceLevel || null, purchaseHistory: purchaseHistory || null }),
+      body: JSON.stringify({ action: 'save', whyQ1, whyQ2, whyQ3 }),
     });
     if (!res.ok) throw new Error('Save failed');
     const { profile } = await res.json();
     currentProfile = profile;
-    renderWhyDisplay(profile.why_q1, profile.why_q2, profile.why_q3, profile.experience_level, profile.purchase_history);
+    renderWhyDisplay(profile.why_q1, profile.why_q2, profile.why_q3);
 
     // Keep the localStorage copy in sync too, since dashboard.html and
     // aris-coach.html still read from it directly for the ARIS prompt context.
-    localStorage.setItem('forge-member-why', JSON.stringify({ q1: whyQ1, q2: whyQ2, q3: whyQ3, experienceLevel, purchaseHistory, savedAt: new Date().toISOString() }));
+    localStorage.setItem('forge-member-why', JSON.stringify({ q1: whyQ1, q2: whyQ2, q3: whyQ3, savedAt: new Date().toISOString() }));
 
     closeWhyEdit();
     showToast('Your Why has been saved.');
