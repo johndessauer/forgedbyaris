@@ -213,10 +213,10 @@ html, body { background: var(--black); color: var(--white); font-family: 'Inter'
   <div class="pricing-grid" style="grid-template-columns: 1fr; max-width: 460px; margin: 0 auto 40px;">
 
     <div class="price-card featured">
-      <div class="price-label" id="fm-price-label">Founding Member Pricing</div>
+      <div class="price-label" id="fm-price-label">Founding Member</div>
       <div class="price-name">Founding Member</div>
       <div class="price-amount">
-        <div class="price-dollar" id="fm-price-dollar">$497</div>
+        <div class="price-dollar" id="fm-price-dollar">$997</div>
       </div>
       <div class="price-period">one-time + <strong>$97/mo locked for life</strong></div>
       <div class="price-divider"></div>
@@ -234,23 +234,10 @@ html, body { background: var(--black); color: var(--white); font-family: 'Inter'
   </div>
 
   <script>
-    (function() {
-      const now = new Date();
-      const phase2Start = new Date('2026-09-09T00:00:00-04:00');
-      const phase3Start = new Date('2026-09-17T00:00:00-04:00');
-      let price, label;
-      if (now < phase2Start) {
-        price = '$497'; label = 'Ends Sept 8';
-      } else if (now < phase3Start) {
-        price = '$247'; label = 'Webinar Week Only';
-      } else {
-        price = '$997'; label = 'Founding Member';
-      }
-      const dollarEl = document.getElementById('fm-price-dollar');
-      const labelEl = document.getElementById('fm-price-label');
-      if (dollarEl) dollarEl.textContent = price;
-      if (labelEl) labelEl.textContent = label;
-    })();
+    // Standard pricing display — date-based auto-switching removed
+    // 8/30/2026 per John. Legacy/special prices ($497, $247, $97) are
+    // now handled by dedicated standalone links handed out directly,
+    // not shown on this public page.
   </script>
 
   <!-- GUARANTEE -->
@@ -279,7 +266,7 @@ html, body { background: var(--black); color: var(--white); font-family: 'Inter'
     </div>
     <div class="faq-item">
       <div class="faq-q">How long is Founding Member pricing available?</div>
-      <div class="faq-a">$497 through Sept 8, 2026. It drops to $247 for webinar week (Sept 9–16). After Sept 16, the price returns to $997 — the standard rate, same $97/month either way.</div>
+      <div class="faq-a">$997 one-time + $97/month, locked in for as long as your subscription stays active.</div>
     </div>
     <div class="faq-item">
       <div class="faq-q">What's coming next to the platform?</div>
