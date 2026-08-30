@@ -217,6 +217,15 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 <script src="https://static.memberstack.com/scripts/v1/memberstack.js" data-memberstack-app="app_cmr41qq5500q80tsx94pj61rc" defer></script>
 </head>
 <body>
+<div id="empire-required-overlay" style="display:none;position:fixed;inset:0;background:var(--black,#0D1B2A);z-index:9999;align-items:center;justify-content:center;">
+  <div style="max-width:440px;text-align:center;padding:40px;">
+    <div style="font-size:40px;margin-bottom:14px;">🔒</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:3px;color:var(--gold,#C89B3C);margin-bottom:12px;">Deal Network Requires Empire</div>
+    <div style="font-size:14px;color:var(--grey-light,#9CA3AF);line-height:1.6;margin-bottom:26px;">Deal Network is part of Empire — unlock it to post deals, raise capital, and connect with investors, along with Commercial Deal Analyzer and 9 Education categories. One-time $997, no change to your existing $97/mo.</div>
+    <button onclick="handleUnlockEmpireNetwork()" id="empire-overlay-unlock-btn" style="width:100%;background:var(--orange,#FF6B2B);border:none;color:white;font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:2px;padding:14px;border-radius:8px;cursor:pointer;margin-bottom:12px;">Unlock Empire →</button>
+    <a href="dashboard.html" style="display:block;font-size:12px;color:var(--grey-light,#9CA3AF);text-decoration:none;">← Back to Dashboard</a>
+  </div>
+</div>
 <div class="app">
 
   <!-- SIDEBAR -->
@@ -748,12 +757,26 @@ window.addEventListener('load', async () => {
     }
     const FOUNDING_MEMBER_PRICE_IDS = ['prc_497-97-3m13d01j8', 'prc_247-97-ne13e01d6', 'prc_997-97-5fmt0nr5', 'prc_-97-direct-ka9b0lq3'];
     const FORGE_ZERO_PLAN_ID = 'pln_forge-zero-psnx0aea'; // free plan — has no Stripe priceId, so it needs its own explicit allowed condition below
+    const EMPIRE_PLAN_ID = 'pln_empire--871c00ah3';
+    const FOUNDATION_EMPIRE_PLAN_ID = 'pln_foundation-empire-eh1bv0h3e';
     const hasActiveMembership = (member.planConnections || []).some(
       pc => (FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) || pc.planId === FORGE_ZERO_PLAN_ID) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
     );
     if (!hasActiveMembership) {
       window.location.href = 'signup.html';
       return;
+    }
+    const hasEmpireAccess = (member.planConnections || []).some(pc =>
+      (pc.status === 'ACTIVE' || pc.status === 'TRIALING') && (
+        pc.planId === EMPIRE_PLAN_ID ||
+        pc.planId === FOUNDATION_EMPIRE_PLAN_ID ||
+        pc.planId === FORGE_ZERO_PLAN_ID ||
+        FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId)
+      )
+    );
+    if (!hasEmpireAccess) {
+      document.getElementById('empire-required-overlay').style.display = 'flex';
+      return; // don't load page data/sidebar info — member can't use this tool
     }
     const activeConn = (member.planConnections || []).find(
       pc => (FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) || pc.planId === FORGE_ZERO_PLAN_ID) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
@@ -770,6 +793,18 @@ window.addEventListener('load', async () => {
     await loadBuyBoxFromServer();
   } catch(e) {}
 });
+
+async function handleUnlockEmpireNetwork() {
+  const btn = document.getElementById('empire-overlay-unlock-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Loading checkout...'; }
+  try {
+    const memberstack = window.$memberstackDom;
+    await memberstack.purchasePlansWithCheckout({ priceId: 'prc_empire-plan--401c10a7h' });
+  } catch (err) {
+    console.error('Empire checkout failed:', err);
+    if (btn) { btn.disabled = false; btn.textContent = 'Unlock Empire →'; }
+  }
+}
 
 async function saveBuyBoxToServer(fields, result) {
   if (!memberToken) return; // not authenticated yet somehow — skip rather than throw

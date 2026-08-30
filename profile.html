@@ -391,6 +391,33 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 
 .coming-soon-body { font-size: 12px; color: var(--grey); }
 
+/* Empire upgrade section */
+.empire-card-locked {
+  border: 1px solid var(--gold); border-radius: 10px;
+  padding: 20px 22px; display: flex; align-items: center;
+  justify-content: space-between; gap: 20px; flex-wrap: wrap;
+  background: linear-gradient(135deg, rgba(200,155,60,0.06), transparent);
+}
+.empire-card-copy { flex: 1; min-width: 220px; }
+.empire-card-title { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 2px; color: var(--gold); margin-bottom: 4px; }
+.empire-card-sub { font-size: 13px; color: var(--grey-light); line-height: 1.5; }
+.empire-unlock-btn {
+  background: var(--orange); border: none; color: white;
+  font-family: 'Bebas Neue', sans-serif; font-size: 15px; letter-spacing: 2px;
+  padding: 12px 22px; border-radius: 8px; cursor: pointer;
+  white-space: nowrap; transition: background 0.15s;
+}
+.empire-unlock-btn:hover { background: #e55a1c; }
+.empire-unlock-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.empire-card-unlocked {
+  border: 1px solid var(--gold); border-radius: 10px;
+  padding: 18px 22px; display: flex; align-items: center; gap: 12px;
+  background: var(--gold-dim);
+}
+.empire-badge-icon { font-size: 22px; }
+.empire-unlocked-title { font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 2px; color: var(--gold); }
+.empire-unlocked-sub { font-size: 12px; color: var(--grey-light); margin-top: 2px; }
+
 @media (max-width: 900px) { .membership-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 500px) { .membership-grid { grid-template-columns: 1fr; } }
 
@@ -531,6 +558,9 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
           </div>
         </div>
       </div>
+
+      <!-- EMPIRE UPGRADE / STATUS -->
+      <div class="profile-card" id="empire-section"></div>
 
       <!-- SYNC TO CALENDAR -->
       <div class="profile-card">
@@ -695,6 +725,9 @@ async function initProfilePage() {
 
     const FOUNDING_MEMBER_PRICE_IDS = ['prc_497-97-3m13d01j8', 'prc_247-97-ne13e01d6', 'prc_997-97-5fmt0nr5', 'prc_-97-direct-ka9b0lq3'];
     const FORGE_ZERO_PLAN_ID = 'pln_forge-zero-psnx0aea'; // free plan — has no Stripe priceId, so it needs its own explicit allowed condition below
+    const EMPIRE_PLAN_ID = 'pln_empire--871c00ah3';
+    const EMPIRE_PRICE_ID = 'prc_empire-plan--401c10a7h';
+    const FOUNDATION_EMPIRE_PLAN_ID = 'pln_foundation-empire-eh1bv0h3e';
     const activeConn = (member.planConnections || []).find(
       pc => (FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) || pc.planId === FORGE_ZERO_PLAN_ID) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
     );
@@ -703,6 +736,17 @@ async function initProfilePage() {
       window.location.href = 'signup.html';
       return;
     }
+    // Empire access check — grandfathered legacy members (already in FOUNDING_MEMBER_PRICE_IDS)
+    // get both Foundation and Empire automatically, per John's confirmation 8/30/2026.
+    // FORGE ZERO staff accounts also see everything, per the same confirmation.
+    const hasEmpireAccess = (member.planConnections || []).some(pc =>
+      (pc.status === 'ACTIVE' || pc.status === 'TRIALING') && (
+        pc.planId === EMPIRE_PLAN_ID ||
+        pc.planId === FOUNDATION_EMPIRE_PLAN_ID ||
+        pc.planId === FORGE_ZERO_PLAN_ID ||
+        FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId)
+      )
+    );
     const PLAN_NAME_OVERRIDES = { [FORGE_ZERO_PLAN_ID]: 'FORGE Zero' };
     const planName = activeConn?.planName || PLAN_NAME_OVERRIDES[activeConn?.planId] || 'Member';
     currentPlanName = planName;
@@ -724,6 +768,7 @@ async function initProfilePage() {
     document.getElementById('mem-plan').textContent = planName;
     document.getElementById('sidebar-name').textContent = fullName;
     document.getElementById('sidebar-tier').textContent = planName;
+    renderEmpireSection(hasEmpireAccess, EMPIRE_PRICE_ID);
 
     await loadProfileData();
   } catch (err) {
@@ -734,7 +779,46 @@ async function initProfilePage() {
   }
 }
 
-// ── PROFILE DATA (Supabase via profile-data function) ──
+// ── EMPIRE UPGRADE ──
+function renderEmpireSection(hasEmpireAccess, empirePriceId) {
+  const el = document.getElementById('empire-section');
+  if (!el) return;
+  if (hasEmpireAccess) {
+    el.innerHTML = `
+      <div class="empire-card-unlocked">
+        <div class="empire-badge-icon">🏆</div>
+        <div>
+          <div class="empire-unlocked-title">Empire Unlocked</div>
+          <div class="empire-unlocked-sub">You have full access to Commercial Deal Analyzer, Deal Network, and all Empire-tier Education content.</div>
+        </div>
+      </div>`;
+  } else {
+    el.innerHTML = `
+      <div class="empire-card-locked">
+        <div class="empire-card-copy">
+          <div class="empire-card-title">Unlock Empire</div>
+          <div class="empire-card-sub">Add Commercial Deal Analyzer, Deal Network, and 9 additional Education categories — one-time $997, no change to your existing $97/mo.</div>
+        </div>
+        <button class="empire-unlock-btn" id="empire-unlock-btn" onclick="handleUnlockEmpire('${empirePriceId}')">Unlock Empire →</button>
+      </div>`;
+  }
+}
+
+async function handleUnlockEmpire(priceId) {
+  const btn = document.getElementById('empire-unlock-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Loading checkout...'; }
+  try {
+    const memberstack = window.$memberstackDom;
+    await memberstack.purchasePlansWithCheckout({ priceId });
+    // Memberstack redirects to Stripe Checkout from here; on return, the
+    // auth-gate re-check on next page load will pick up the new plan.
+  } catch (err) {
+    console.error('Empire checkout failed:', err);
+    if (btn) { btn.disabled = false; btn.textContent = 'Unlock Empire →'; }
+  }
+}
+
+
 async function loadProfileData() {
   try {
     const res = await fetch('/api/profile-data?action=get', {

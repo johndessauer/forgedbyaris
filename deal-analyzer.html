@@ -1408,6 +1408,8 @@ let isLoading = false;
 let lastDealData = null;
 let formIsDirty = false;
 let memberToken = null;
+let hasEmpireAccess = false;
+const EMPIRE_PRICE_ID = 'prc_empire-plan--401c10a7h';
 let savedDealsCache = [];
 
 // Real protection to back up the banner above — warns before leaving if any
@@ -1436,6 +1438,10 @@ function switchTab(tab, btn) {
 }
 
 function switchCategory(cat, btn) {
+  if (cat === 'commercial' && !hasEmpireAccess) {
+    showEmpireLockModal();
+    return;
+  }
   document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   const resGroup  = document.getElementById('tabs-residential');
@@ -1445,6 +1451,37 @@ function switchCategory(cat, btn) {
   const firstBtn = (cat === 'residential' ? resGroup : comGroup).querySelector('.tab-btn');
   const firstTab = cat === 'residential' ? 'wholesale' : 'commercial';
   switchTab(firstTab, firstBtn);
+}
+
+function showEmpireLockModal() {
+  let modal = document.getElementById('empire-lock-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'empire-lock-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    modal.innerHTML = `
+      <div style="background:var(--navy);border:1px solid var(--gold);border-radius:12px;padding:32px;max-width:400px;text-align:center;">
+        <div style="font-size:28px;margin-bottom:8px;">🔒</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:var(--gold);margin-bottom:10px;">Commercial Requires Empire</div>
+        <div style="font-size:13px;color:var(--grey-light);line-height:1.6;margin-bottom:22px;">Unlock Empire to access Commercial Deal Analyzer, Deal Network, and 9 more Education categories — one-time $997.</div>
+        <button onclick="handleUnlockEmpireModal()" id="empire-modal-unlock-btn" style="width:100%;background:var(--orange);border:none;color:white;font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:2px;padding:13px;border-radius:8px;cursor:pointer;margin-bottom:10px;">Unlock Empire →</button>
+        <button onclick="document.getElementById('empire-lock-modal').style.display='none'" style="width:100%;background:transparent;border:1px solid var(--border-sub);color:var(--grey-light);font-size:12px;padding:10px;border-radius:8px;cursor:pointer;">Maybe later</button>
+      </div>`;
+    document.body.appendChild(modal);
+  }
+  modal.style.display = 'flex';
+}
+
+async function handleUnlockEmpireModal() {
+  const btn = document.getElementById('empire-modal-unlock-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Loading checkout...'; }
+  try {
+    const memberstack = window.$memberstackDom;
+    await memberstack.purchasePlansWithCheckout({ priceId: EMPIRE_PRICE_ID });
+  } catch (err) {
+    console.error('Empire checkout failed:', err);
+    if (btn) { btn.disabled = false; btn.textContent = 'Unlock Empire →'; }
+  }
 }
 
 function setHold(years, btn) {
@@ -3109,6 +3146,8 @@ window.addEventListener('load', async () => {
     }
     const FOUNDING_MEMBER_PRICE_IDS = ['prc_497-97-3m13d01j8', 'prc_247-97-ne13e01d6', 'prc_997-97-5fmt0nr5', 'prc_-97-direct-ka9b0lq3'];
     const FORGE_ZERO_PLAN_ID = 'pln_forge-zero-psnx0aea'; // free plan — has no Stripe priceId, so it needs its own explicit allowed condition below
+    const EMPIRE_PLAN_ID = 'pln_empire--871c00ah3';
+    const FOUNDATION_EMPIRE_PLAN_ID = 'pln_foundation-empire-eh1bv0h3e';
     const hasActiveMembership = (member.planConnections || []).some(
       pc => (FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) || pc.planId === FORGE_ZERO_PLAN_ID) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
     );
@@ -3119,6 +3158,14 @@ window.addEventListener('load', async () => {
     const activeConn = (member.planConnections || []).find(
       pc => (FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) || pc.planId === FORGE_ZERO_PLAN_ID) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
     );
+    hasEmpireAccess = (member.planConnections || []).some(pc =>
+      (pc.status === 'ACTIVE' || pc.status === 'TRIALING') && (
+        pc.planId === EMPIRE_PLAN_ID ||
+        pc.planId === FOUNDATION_EMPIRE_PLAN_ID ||
+        pc.planId === FORGE_ZERO_PLAN_ID ||
+        FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId)
+      )
+    );
     const PLAN_NAME_OVERRIDES = { [FORGE_ZERO_PLAN_ID]: 'FORGE Zero' };
     const planName = activeConn?.planName || PLAN_NAME_OVERRIDES[activeConn?.planId] || 'Member';
     const customFields = member.customFields || {};
@@ -3128,6 +3175,10 @@ window.addEventListener('load', async () => {
     const tierEl = document.getElementById('sidebar-tier');
     if (tierEl) tierEl.textContent = planName;
     memberToken = await memberstack.getMemberCookie();
+    if (!hasEmpireAccess) {
+      const commercialBtn = document.querySelector('.category-btn[data-category="commercial"]');
+      if (commercialBtn) commercialBtn.innerHTML = 'Commercial <span style="font-size:11px;">🔒</span>';
+    }
   } catch(e) {}
 });
 

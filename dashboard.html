@@ -334,6 +334,27 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 @media (max-width: 1100px) { .modules-grid { grid-template-columns: repeat(2, 1fr); } .stats-row { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 768px) { .sidebar { display: none; } .dashboard-scroll { padding: 16px; } .recent-grid { grid-template-columns: 1fr; } .recent-empty { grid-column: span 1; } }
 
+/* ── EMPIRE UPGRADE BANNER (Foundation-only members only — hidden entirely
+   once a member has Empire access, since profile.html already shows a
+   persistent unlocked status there). ── */
+.empire-banner-card {
+  border: 1px solid var(--gold); border-radius: 10px;
+  padding: 16px 20px; display: flex; align-items: center;
+  justify-content: space-between; gap: 20px; flex-wrap: wrap;
+  background: linear-gradient(135deg, rgba(200,155,60,0.06), transparent);
+}
+.empire-banner-copy { flex: 1; min-width: 220px; }
+.empire-banner-title { font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 2px; color: var(--gold); }
+.empire-banner-sub { font-size: 12px; color: var(--grey-light); margin-top: 2px; }
+.empire-banner-btn {
+  background: var(--orange); border: none; color: white;
+  font-family: 'Bebas Neue', sans-serif; font-size: 13px; letter-spacing: 1.5px;
+  padding: 10px 18px; border-radius: 7px; cursor: pointer;
+  white-space: nowrap; transition: background 0.15s;
+}
+.empire-banner-btn:hover { background: #e55a1c; }
+.empire-banner-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
 /* ── TIER BADGES (Rookie/Investor/Mogul — earned once a member has
    passed that tier across every currently published Education topic).
    Same component/visual language as education.html and profile.html. ── */
@@ -421,6 +442,9 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 
     <!-- DASHBOARD SCROLL -->
     <div class="dashboard-scroll">
+
+      <!-- EMPIRE UPGRADE BANNER -->
+      <div id="empire-banner"></div>
 
       <!-- TIER BADGES -->
       <div class="tier-badges-card">
@@ -726,6 +750,9 @@ window.onload = async () => {
     }
     const FOUNDING_MEMBER_PRICE_IDS = ['prc_497-97-3m13d01j8', 'prc_247-97-ne13e01d6', 'prc_997-97-5fmt0nr5', 'prc_-97-direct-ka9b0lq3'];
     const FORGE_ZERO_PLAN_ID = 'pln_forge-zero-psnx0aea'; // free plan — has no Stripe priceId, so it needs its own explicit allowed condition below
+    const EMPIRE_PLAN_ID = 'pln_empire--871c00ah3';
+    const EMPIRE_PRICE_ID = 'prc_empire-plan--401c10a7h';
+    const FOUNDATION_EMPIRE_PLAN_ID = 'pln_foundation-empire-eh1bv0h3e';
     const activeConn = (member.planConnections || []).find(
       pc => (FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) || pc.planId === FORGE_ZERO_PLAN_ID) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
     );
@@ -734,6 +761,14 @@ window.onload = async () => {
       window.location.href = 'signup.html';
       return;
     }
+    const hasEmpireAccess = (member.planConnections || []).some(pc =>
+      (pc.status === 'ACTIVE' || pc.status === 'TRIALING') && (
+        pc.planId === EMPIRE_PLAN_ID ||
+        pc.planId === FOUNDATION_EMPIRE_PLAN_ID ||
+        pc.planId === FORGE_ZERO_PLAN_ID ||
+        FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId)
+      )
+    );
     const PLAN_NAME_OVERRIDES = { [FORGE_ZERO_PLAN_ID]: 'FORGE Zero' };
     currentPlanName = activeConn?.planName || PLAN_NAME_OVERRIDES[activeConn?.planId] || 'Member';
     memberCreatedAt = member.createdAt || null;
@@ -755,6 +790,7 @@ window.onload = async () => {
     document.getElementById('sidebar-initials').textContent = initials;
     document.getElementById('topbar-name').textContent = fullName;
     document.getElementById('topbar-initials').textContent = initials;
+    renderEmpireBanner(hasEmpireAccess, EMPIRE_PRICE_ID);
   } catch(e) {
     // If Memberstack not loaded yet, allow page to render
   }
@@ -830,6 +866,33 @@ const TIER_META = {
   investor: { label: 'Investor', icon: '💼' },
   mogul: { label: 'Mogul', icon: '👑' },
 };
+
+// ── EMPIRE UPGRADE ──
+function renderEmpireBanner(hasEmpireAccess, empirePriceId) {
+  const el = document.getElementById('empire-banner');
+  if (!el) return;
+  if (hasEmpireAccess) { el.innerHTML = ''; return; } // profile.html already shows persistent unlocked status
+  el.innerHTML = `
+    <div class="empire-banner-card">
+      <div class="empire-banner-copy">
+        <div class="empire-banner-title">Unlock Empire</div>
+        <div class="empire-banner-sub">Add Commercial Deal Analyzer, Deal Network, and 9 more Education categories — one-time $997.</div>
+      </div>
+      <button class="empire-banner-btn" id="empire-banner-btn" onclick="handleUnlockEmpireDashboard('${empirePriceId}')">Unlock Empire →</button>
+    </div>`;
+}
+
+async function handleUnlockEmpireDashboard(priceId) {
+  const btn = document.getElementById('empire-banner-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Loading checkout...'; }
+  try {
+    const memberstack = window.$memberstackDom;
+    await memberstack.purchasePlansWithCheckout({ priceId });
+  } catch (err) {
+    console.error('Empire checkout failed:', err);
+    if (btn) { btn.disabled = false; btn.textContent = 'Unlock Empire →'; }
+  }
+}
 
 async function loadEducationBadges() {
   try {
