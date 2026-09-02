@@ -19,8 +19,6 @@ const { verifyMember, AuthError } = require('./_Lib/verify-member');
 const { supabase } = require('./_Lib/supabase-client');
 const { json, preflight } = require('./_Lib/http');
 
-const VALID_EXPERIENCE_LEVELS = ['beginner', 'intermediate', 'advanced'];
-
 exports.handler = async function (event, context) {
   if (event.httpMethod === 'OPTIONS') return preflight();
 
@@ -67,8 +65,6 @@ exports.handler = async function (event, context) {
               why_q2: null,
               why_q3: null,
               why_saved_at: null,
-              experience_level: null,
-              purchase_history: null,
               preferences: {},
               calendar_feed_token: null,
               buy_box: null,
@@ -157,16 +153,18 @@ exports.handler = async function (event, context) {
           updates.why_saved_at = new Date().toISOString();
         }
 
+        // Experience level, primary strategy, and biggest obstacle — added
+        // alongside the original 3 Why questions so ARIS can calibrate its
+        // coaching to the member's actual starting point, not just their
+        // motivation. Saved independently of why_q1-3 (not bundled into the
+        // same guard above) since a member can update these on their own
+        // from the profile page without retyping their Why answers.
+        if (payload.experienceLevel !== undefined) updates.experience_level = payload.experienceLevel || null;
+        if (payload.primaryStrategy !== undefined) updates.primary_strategy = payload.primaryStrategy || null;
+        if (payload.biggestObstacle !== undefined) updates.biggest_obstacle = payload.biggestObstacle || null;
+
         if (payload.preferences !== undefined) updates.preferences = payload.preferences;
         if (payload.buyBox !== undefined) updates.buy_box = payload.buyBox;
-
-        if (payload.experienceLevel !== undefined) {
-          if (payload.experienceLevel && !VALID_EXPERIENCE_LEVELS.includes(payload.experienceLevel)) {
-            return json(400, { error: `experienceLevel must be one of: ${VALID_EXPERIENCE_LEVELS.join(', ')}` });
-          }
-          updates.experience_level = payload.experienceLevel || null;
-        }
-        if (payload.purchaseHistory !== undefined) updates.purchase_history = payload.purchaseHistory || null;
 
         if (Object.keys(updates).length === 1) {
           return json(400, { error: 'No fields to update' });

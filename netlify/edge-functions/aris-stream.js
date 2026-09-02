@@ -189,7 +189,7 @@ const SYSTEM_PROMPTS = {
 // Builds the MEMBER'S WHY block server-side from raw answers only.
 // The client never sends prompt text — just the raw strings/values.
 function buildWhyBlock(memberWhy) {
-  if (!memberWhy || (!memberWhy.q1 && !memberWhy.q2 && !memberWhy.q3 && !memberWhy.experienceLevel && !memberWhy.purchaseHistory)) return '';
+  if (!memberWhy || (!memberWhy.q1 && !memberWhy.q2 && !memberWhy.q3 && !memberWhy.experienceLevel && !memberWhy.purchaseHistory && !memberWhy.primaryStrategy && !memberWhy.biggestObstacle)) return '';
   const lines = [];
   if (memberWhy.q1) lines.push(`- Why they want to invest: "${memberWhy.q1}"`);
   if (memberWhy.q2) lines.push(`- How they'll make the world better: "${memberWhy.q2}"`);
@@ -199,6 +199,22 @@ function buildWhyBlock(memberWhy) {
     lines.push(`- Experience level: ${EXPERIENCE_LABELS[memberWhy.experienceLevel] || memberWhy.experienceLevel} — calibrate explanation depth and pacing to this.`);
   }
   if (memberWhy.purchaseHistory) lines.push(`- Purchase history: "${memberWhy.purchaseHistory}"`);
+  if (memberWhy.primaryStrategy) {
+    const STRATEGY_LABELS = {
+      wholesaling: 'Wholesaling', 'fix-flip': 'Fix & Flip', 'buy-hold': 'Buy & Hold Rental',
+      'str-mtr': 'Short-Term / Mid-Term Rental', multifamily: 'Multifamily (5+ Units)',
+      commercial: 'Commercial (Office, Retail, Self-Storage, etc.)',
+      'raising-capital': 'Raising Capital / Private Lending', deciding: 'Still deciding'
+    };
+    lines.push(`- Primary strategy focus: ${STRATEGY_LABELS[memberWhy.primaryStrategy] || memberWhy.primaryStrategy} — point examples, education, and deal analysis toward this first, unless they're clearly asking about something else.`);
+  }
+  if (memberWhy.biggestObstacle) {
+    const OBSTACLE_LABELS = {
+      'finding-deals': 'Finding good deals', capital: 'Access to capital',
+      confidence: 'Confidence / knowledge gaps', time: 'Time'
+    };
+    lines.push(`- Biggest current obstacle: ${OBSTACLE_LABELS[memberWhy.biggestObstacle] || memberWhy.biggestObstacle} — look for natural, non-forced ways to help with this specifically, not just answer what's literally asked.`);
+  }
   return `\n\nMEMBER'S WHY — This member shared their deeper motivation. Reference it periodically when it adds real impact — when they need a push, are hesitating, or celebrate a win. Never force it into every message:\n${lines.join('\n')}`;
 }
 
