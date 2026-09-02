@@ -3643,7 +3643,22 @@ window.addEventListener('load', async () => {
         FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId)
       )
     );
-    const PLAN_NAME_OVERRIDES = { [FORGE_ZERO_PLAN_ID]: 'FORGE Zero' };
+    const PLAN_NAME_OVERRIDES = {
+      [FORGE_ZERO_PLAN_ID]: 'FORGE Zero',
+      [FOUNDATION_PLAN_ID]: 'Foundation',
+      [FOUNDATION_EMPIRE_PLAN_ID]: 'Foundation & Empire',
+      [EMPIRE_PLAN_ID]: 'Empire',
+      'pln_founding-member-a1p70rff': 'Founding Member',
+      'pln_founding-member-vip--mzs707z3': 'Founding Member VIP',
+      'pln_-97-direct--jx9b09ut': 'Beta Member',
+    };
+    // NOTE 9/2/2026: Memberstack's planConnections objects never actually
+    // include a planName field (confirmed via live console inspection —
+    // only id/status/planId/payment are present), so activeConn?.planName
+    // below is dead code that always evaluates to undefined. Every plan's
+    // display name now comes from this override map instead. Renaming a
+    // plan's "Name" field in the Memberstack dashboard has NO effect on
+    // what members see on the site — update this map instead.
     const baseConnHasEmpireBuiltIn = activeConn && (
       activeConn.planId === FOUNDATION_EMPIRE_PLAN_ID ||
       FOUNDING_MEMBER_PRICE_IDS.includes(activeConn.payment?.priceId) ||
