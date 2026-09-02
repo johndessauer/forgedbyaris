@@ -547,6 +547,24 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
           <!-- WHOLESALE FORM -->
           <div id="form-wholesale" class="form-body">
             <div class="form-section">
+              <div class="form-row single">
+                <div class="field"><label>Property Name / Address</label><input type="text" id="w-address" placeholder="e.g. 123 Main St"><div class="hint">Optional — shown on saved deals and PDF exports. Auto-fills from an uploaded document if found.</div></div>
+              </div>
+            </div>
+
+            <div class="form-section" style="border:1px dashed var(--gold); border-radius:6px; padding:12px 14px; margin-bottom:14px; background:rgba(200,155,60,0.04);">
+              <div class="form-section-label" style="margin-bottom:6px;">Auto-Fill from Document</div>
+              <div style="font-size:10px;color:var(--grey-light);margin-bottom:10px;">Upload a purchase contract, appraisal, or comps report and ARIS will read it and pre-fill the fields below. Always review the numbers before running your analysis.</div>
+              <div class="upload-drop-row">
+                <label class="upload-drop-btn" for="w-pdf-input">
+                  📄 Upload PDF
+                  <input type="file" id="w-pdf-input" accept=".pdf" style="display:none" onchange="handleWholesalePDF(event)" />
+                </label>
+                <span class="upload-hint">Max 4MB · One file</span>
+              </div>
+              <div id="w-pdf-status" style="font-size:11px;margin-top:8px;"></div>
+            </div>
+            <div class="form-section">
               <div class="form-section-label">Property Details</div>
               <div class="form-row">
                 <div class="field"><label>After Repair Value (ARV)</label><input type="number" id="w-arv" placeholder="$0"><div class="hint">Estimated post-repair market value</div></div>
@@ -568,6 +586,24 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 
           <!-- FIX & FLIP FORM -->
           <div id="form-flip" class="form-body" style="display:none">
+            <div class="form-section">
+              <div class="form-row single">
+                <div class="field"><label>Property Name / Address</label><input type="text" id="f-address" placeholder="e.g. 123 Main St"><div class="hint">Optional — shown on saved deals and PDF exports. Auto-fills from an uploaded document if found.</div></div>
+              </div>
+            </div>
+
+            <div class="form-section" style="border:1px dashed var(--gold); border-radius:6px; padding:12px 14px; margin-bottom:14px; background:rgba(200,155,60,0.04);">
+              <div class="form-section-label" style="margin-bottom:6px;">Auto-Fill from Document</div>
+              <div style="font-size:10px;color:var(--grey-light);margin-bottom:10px;">Upload a purchase contract, appraisal, or scope of work and ARIS will read it and pre-fill the fields below. Always review the numbers before running your analysis.</div>
+              <div class="upload-drop-row">
+                <label class="upload-drop-btn" for="f-pdf-input">
+                  📄 Upload PDF
+                  <input type="file" id="f-pdf-input" accept=".pdf" style="display:none" onchange="handleFlipPDF(event)" />
+                </label>
+                <span class="upload-hint">Max 4MB · One file</span>
+              </div>
+              <div id="f-pdf-status" style="font-size:11px;margin-top:8px;"></div>
+            </div>
             <div class="form-section">
               <div class="form-section-label">Acquisition</div>
               <div class="form-row">
@@ -605,6 +641,24 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
           <!-- LT RENTAL FORM -->
           <div id="form-rental" class="form-body" style="display:none">
             <div class="form-section">
+              <div class="form-row single">
+                <div class="field"><label>Property Name / Address</label><input type="text" id="r-address" placeholder="e.g. 123 Main St"><div class="hint">Optional — shown on saved deals and PDF exports. Auto-fills from an uploaded document if found.</div></div>
+              </div>
+            </div>
+
+            <div class="form-section" style="border:1px dashed var(--gold); border-radius:6px; padding:12px 14px; margin-bottom:14px; background:rgba(200,155,60,0.04);">
+              <div class="form-section-label" style="margin-bottom:6px;">Auto-Fill from Document</div>
+              <div style="font-size:10px;color:var(--grey-light);margin-bottom:10px;">Upload a lease, rent roll, or appraisal and ARIS will read it and pre-fill the fields below. Always review the numbers before running your analysis.</div>
+              <div class="upload-drop-row">
+                <label class="upload-drop-btn" for="r-pdf-input">
+                  📄 Upload PDF
+                  <input type="file" id="r-pdf-input" accept=".pdf" style="display:none" onchange="handleRentalPDF(event)" />
+                </label>
+                <span class="upload-hint">Max 4MB · One file</span>
+              </div>
+              <div id="r-pdf-status" style="font-size:11px;margin-top:8px;"></div>
+            </div>
+            <div class="form-section">
               <div class="form-section-label">Acquisition</div>
               <div class="form-row">
                 <div class="field"><label>Purchase Price</label><input type="number" id="r-purchase" placeholder="$0"></div>
@@ -638,26 +692,44 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
           <!-- STR / MTR FORM -->
           <div id="form-str" class="form-body" style="display:none">
             <div class="form-section">
+              <div class="form-row single">
+                <div class="field"><label>Property Name / Address</label><input type="text" id="str-address" placeholder="e.g. 123 Main St"><div class="hint">Optional — shown on saved deals and PDF exports. Auto-fills from an uploaded document if found.</div></div>
+              </div>
+            </div>
+
+            <div class="form-section" style="border:1px dashed var(--gold); border-radius:6px; padding:12px 14px; margin-bottom:14px; background:rgba(200,155,60,0.04);">
+              <div class="form-section-label" style="margin-bottom:6px;">Auto-Fill from Document</div>
+              <div style="font-size:10px;color:var(--grey-light);margin-bottom:10px;">Upload a listing sheet, comps report, or Airbnb/host performance report and ARIS will read it and pre-fill the fields below. Always review the numbers before running your analysis.</div>
+              <div class="upload-drop-row">
+                <label class="upload-drop-btn" for="str-pdf-input">
+                  📄 Upload PDF
+                  <input type="file" id="str-pdf-input" accept=".pdf" style="display:none" onchange="handleSTRPDF(event)" />
+                </label>
+                <span class="upload-hint">Max 4MB · One file</span>
+              </div>
+              <div id="str-pdf-status" style="font-size:11px;margin-top:8px;"></div>
+            </div>
+            <div class="form-section">
               <div class="form-section-label">Acquisition</div>
               <div class="form-row">
-                <div class="field"><label>Purchase Price</label><input type="number" id="s-purchase" placeholder="$0"></div>
-                <div class="field"><label>Down Payment %</label><input type="number" id="s-down" placeholder="20"></div>
+                <div class="field"><label>Purchase Price</label><input type="number" id="str-purchase" placeholder="$0"></div>
+                <div class="field"><label>Down Payment %</label><input type="number" id="str-down" placeholder="20"></div>
               </div>
               <div class="form-row">
-                <div class="field"><label>Interest Rate %</label><input type="number" id="s-rate" placeholder="7"></div>
-                <div class="field"><label>Furnishing Budget</label><input type="number" id="s-furnish" placeholder="$15000"></div>
+                <div class="field"><label>Interest Rate %</label><input type="number" id="str-rate" placeholder="7"></div>
+                <div class="field"><label>Furnishing Budget</label><input type="number" id="str-furnish" placeholder="$15000"></div>
               </div>
             </div>
             <div class="form-section">
               <div class="form-section-label">Revenue</div>
               <div class="form-row">
-                <div class="field"><label>Avg Nightly Rate ($)</label><input type="number" id="s-nightly" placeholder="$0"></div>
-                <div class="field"><label>Projected Occupancy %</label><input type="number" id="s-occupancy" placeholder="65"></div>
+                <div class="field"><label>Avg Nightly Rate ($)</label><input type="number" id="str-nightly" placeholder="$0"></div>
+                <div class="field"><label>Projected Occupancy %</label><input type="number" id="str-occupancy" placeholder="65"></div>
               </div>
               <div class="form-row single">
                 <div class="field">
                   <label>Rental Type</label>
-                  <select id="s-type">
+                  <select id="str-type">
                     <option value="str">Short-Term Rental (STR / Airbnb)</option>
                     <option value="mtr">Mid-Term Rental (MTR / 30-90 days)</option>
                   </select>
@@ -667,12 +739,12 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
             <div class="form-section">
               <div class="form-section-label">Expenses</div>
               <div class="form-row">
-                <div class="field"><label>Platform Fee %</label><input type="number" id="s-platform" placeholder="3"><div class="hint">Airbnb: ~3%</div></div>
-                <div class="field"><label>Property Mgmt %</label><input type="number" id="s-mgmt" placeholder="20"><div class="hint">STR manager: 15-25%</div></div>
+                <div class="field"><label>Platform Fee %</label><input type="number" id="str-platform" placeholder="3"><div class="hint">Airbnb: ~3%</div></div>
+                <div class="field"><label>Property Mgmt %</label><input type="number" id="str-mgmt" placeholder="20"><div class="hint">STR manager: 15-25%</div></div>
               </div>
               <div class="form-row">
-                <div class="field"><label>Monthly Operating Expenses</label><input type="number" id="s-opex" placeholder="$800"><div class="hint">Cleaning, supplies, utilities</div></div>
-                <div class="field"><label>Property Tax / Month</label><input type="number" id="s-tax" placeholder="$0"></div>
+                <div class="field"><label>Monthly Operating Expenses</label><input type="number" id="str-opex" placeholder="$800"><div class="hint">Cleaning, supplies, utilities</div></div>
+                <div class="field"><label>Property Tax / Month</label><input type="number" id="str-tax" placeholder="$0"></div>
               </div>
             </div>
           </div>
@@ -687,35 +759,53 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
               </div>
             </div>
             <div class="form-section">
+              <div class="form-row single">
+                <div class="field"><label>Property Name / Address</label><input type="text" id="multi-address" placeholder="e.g. 123 Main St"><div class="hint">Optional — shown on saved deals and PDF exports. Auto-fills from an uploaded document if found.</div></div>
+              </div>
+            </div>
+
+            <div class="form-section" style="border:1px dashed var(--gold); border-radius:6px; padding:12px 14px; margin-bottom:14px; background:rgba(200,155,60,0.04);">
+              <div class="form-section-label" style="margin-bottom:6px;">Auto-Fill from Document</div>
+              <div style="font-size:10px;color:var(--grey-light);margin-bottom:10px;">Upload an appraisal, comps report, or rent roll and ARIS will read it and pre-fill the fields below. Always review the numbers before running your analysis.</div>
+              <div class="upload-drop-row">
+                <label class="upload-drop-btn" for="multi-pdf-input">
+                  📄 Upload PDF
+                  <input type="file" id="multi-pdf-input" accept=".pdf" style="display:none" onchange="handleMultiPDF(event)" />
+                </label>
+                <span class="upload-hint">Max 4MB · One file</span>
+              </div>
+              <div id="multi-pdf-status" style="font-size:11px;margin-top:8px;"></div>
+            </div>
+            <div class="form-section">
               <div class="form-section-label">Acquisition</div>
               <div class="form-row">
-                <div class="field"><label>Purchase Price</label><input type="number" id="m-purchase" placeholder="$0"></div>
-                <div class="field"><label>Number of Units</label><input type="number" id="m-units" placeholder="4" max="4"><div class="hint">Max 4 units (residential)</div></div>
+                <div class="field"><label>Purchase Price</label><input type="number" id="multi-purchase" placeholder="$0"></div>
+                <div class="field"><label>Number of Units</label><input type="number" id="multi-units" placeholder="4" max="4"><div class="hint">Max 4 units (residential)</div></div>
               </div>
               <div class="form-row">
-                <div class="field"><label>Down Payment %</label><input type="number" id="m-down" placeholder="25"></div>
-                <div class="field"><label>Interest Rate %</label><input type="number" id="m-rate" placeholder="7"></div>
+                <div class="field"><label>Down Payment %</label><input type="number" id="multi-down" placeholder="25"></div>
+                <div class="field"><label>Interest Rate %</label><input type="number" id="multi-rate" placeholder="7"></div>
               </div>
               <div class="form-row single">
-                <div class="field"><label>Loan Term (years)</label><input type="number" id="m-term" placeholder="30"></div>
+                <div class="field"><label>Loan Term (years)</label><input type="number" id="multi-term" placeholder="30"></div>
               </div>
             </div>
             <div class="form-section">
               <div class="form-section-label">Comparable Sales</div>
               <div class="form-row">
-                <div class="field"><label>Estimated Market Value (comps)</label><input type="number" id="m-compvalue" placeholder="$0"><div class="hint">Based on sold comps in the area</div></div>
-                <div class="field"><label>Price Per Unit (comps avg)</label><input type="number" id="m-compppu" placeholder="$0"><div class="hint">Average from comparable sales</div></div>
+                <div class="field"><label>Estimated Market Value (comps)</label><input type="number" id="multi-compvalue" placeholder="$0"><div class="hint">Based on sold comps in the area</div></div>
+                <div class="field"><label>Price Per Unit (comps avg)</label><input type="number" id="multi-compppu" placeholder="$0"><div class="hint">Average from comparable sales</div></div>
               </div>
             </div>
             <div class="form-section">
               <div class="form-section-label">Income &amp; Expenses</div>
               <div class="form-row">
-                <div class="field"><label>Gross Monthly Rent (all units)</label><input type="number" id="m-rent" placeholder="$0"></div>
-                <div class="field"><label>Vacancy Rate %</label><input type="number" id="m-vacancy" placeholder="7"></div>
+                <div class="field"><label>Gross Monthly Rent (all units)</label><input type="number" id="multi-rent" placeholder="$0"></div>
+                <div class="field"><label>Vacancy Rate %</label><input type="number" id="multi-vacancy" placeholder="7"></div>
               </div>
               <div class="form-row">
-                <div class="field"><label>Monthly Operating Expenses</label><input type="number" id="m-opex" placeholder="$0"><div class="hint">Taxes, insurance, maintenance, mgmt</div></div>
-                <div class="field"><label>Value-Add Potential / Unit</label><input type="number" id="m-valueadd" placeholder="$100"><div class="hint">Monthly rent increase after improvements</div></div>
+                <div class="field"><label>Monthly Operating Expenses</label><input type="number" id="multi-opex" placeholder="$0"><div class="hint">Taxes, insurance, maintenance, mgmt</div></div>
+                <div class="field"><label>Value-Add Potential / Unit</label><input type="number" id="multi-valueadd" placeholder="$100"><div class="hint">Monthly rent increase after improvements</div></div>
               </div>
             </div>
           </div>
@@ -1609,16 +1699,16 @@ function calcRental() {
 }
 
 function calcSTR() {
-  const purchase   = +document.getElementById('s-purchase').value || 0;
-  const downPct    = +document.getElementById('s-down').value || 20;
-  const rate       = +document.getElementById('s-rate').value || 7;
-  const furnish    = +document.getElementById('s-furnish').value || 15000;
-  const nightly    = +document.getElementById('s-nightly').value || 0;
-  const occupancy  = +document.getElementById('s-occupancy').value || 65;
-  const platformPct= +document.getElementById('s-platform').value || 3;
-  const mgmtPct    = +document.getElementById('s-mgmt').value || 20;
-  const opex       = +document.getElementById('s-opex').value || 800;
-  const tax        = +document.getElementById('s-tax').value || 0;
+  const purchase   = +document.getElementById('str-purchase').value || 0;
+  const downPct    = +document.getElementById('str-down').value || 20;
+  const rate       = +document.getElementById('str-rate').value || 7;
+  const furnish    = +document.getElementById('str-furnish').value || 15000;
+  const nightly    = +document.getElementById('str-nightly').value || 0;
+  const occupancy  = +document.getElementById('str-occupancy').value || 65;
+  const platformPct= +document.getElementById('str-platform').value || 3;
+  const mgmtPct    = +document.getElementById('str-mgmt').value || 20;
+  const opex       = +document.getElementById('str-opex').value || 800;
+  const tax        = +document.getElementById('str-tax').value || 0;
 
   const downAmt    = purchase * (downPct/100);
   const loanAmt    = purchase - downAmt;
@@ -1647,17 +1737,17 @@ function calcSTR() {
 }
 
 function calcMulti() {
-  const purchase  = +document.getElementById('m-purchase').value || 0;
-  const units     = +document.getElementById('m-units').value || 4;
-  const downPct   = +document.getElementById('m-down').value || 25;
-  const rate      = +document.getElementById('m-rate').value || 7;
-  const term      = +document.getElementById('m-term').value || 30;
-  const rent      = +document.getElementById('m-rent').value || 0;
-  const vacPct    = +document.getElementById('m-vacancy').value || 7;
-  const opex      = +document.getElementById('m-opex').value || 0;
-  const valueAdd  = +document.getElementById('m-valueadd').value || 0;
-  const compValue = +document.getElementById('m-compvalue').value || 0;
-  const compPPU   = +document.getElementById('m-compppu').value || 0;
+  const purchase  = +document.getElementById('multi-purchase').value || 0;
+  const units     = +document.getElementById('multi-units').value || 4;
+  const downPct   = +document.getElementById('multi-down').value || 25;
+  const rate      = +document.getElementById('multi-rate').value || 7;
+  const term      = +document.getElementById('multi-term').value || 30;
+  const rent      = +document.getElementById('multi-rent').value || 0;
+  const vacPct    = +document.getElementById('multi-vacancy').value || 7;
+  const opex      = +document.getElementById('multi-opex').value || 0;
+  const valueAdd  = +document.getElementById('multi-valueadd').value || 0;
+  const compValue = +document.getElementById('multi-compvalue').value || 0;
+  const compPPU   = +document.getElementById('multi-compppu').value || 0;
 
   const downAmt   = purchase * (downPct/100);
   const loanAmt   = purchase - downAmt;
@@ -1685,6 +1775,391 @@ function calcMulti() {
     verdict: cashFlow > 200 && dscr >= 1.25 && (equitySpread >= 0 || compValue === 0) ? 'go' : cashFlow > 0 ? 'caution' : 'no-go',
     verdictText: cashFlow > 200 && dscr >= 1.25 && (equitySpread >= 0 || compValue === 0) ? 'GO' : cashFlow > 0 ? 'PROCEED WITH CAUTION' : 'NO-GO'
   };
+}
+
+async function handleWholesalePDF(event) {
+  const file = event.target.files[0];
+  event.target.value = '';
+  const statusEl = document.getElementById('w-pdf-status');
+  if (!file) return;
+
+  if (file.type !== 'application/pdf') {
+    statusEl.innerHTML = '<span style="color:var(--red);">Please upload a PDF file.</span>';
+    return;
+  }
+  if (file.size > 4 * 1024 * 1024) {
+    statusEl.innerHTML = '<span style="color:var(--red);">File too large — max 4MB.</span>';
+    return;
+  }
+
+  statusEl.innerHTML = '<span style="color:var(--gold);">📄 ARIS is reading ' + file.name + '...</span>';
+
+  try {
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    const extractPrompt = 'Extract wholesale real estate deal data from this document (purchase contract, appraisal, or comps report). Return ONLY a raw JSON object, no markdown formatting, no code fences, no explanation. Use these exact keys, and use null for any field not found in the document:\n' +
+      '{ "property_address": string or null, "arv": number or null, "repair_estimate": number or null, "asking_price": number or null }\n' +
+      '"property_address" should be the property name and/or street address if shown anywhere in the document (e.g. a title, header, or letterhead). "arv" is the after-repair value / estimated market value once renovated. "asking_price" is the seller-listed or contracted price.';
+
+    const res = await fetch('/api/aris-quote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1024,
+        system: 'You are a precise financial data extraction assistant. You only output raw JSON exactly as instructed, with no other text.',
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
+            { type: 'text', text: extractPrompt }
+          ]
+        }]
+      })
+    });
+
+    const data = await res.json();
+    let raw = (data.content && data.content[0] && data.content[0].text) || '';
+    raw = raw.trim().replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '');
+    const extracted = JSON.parse(raw);
+
+    const fieldMap = {
+      property_address: 'w-address',
+      arv: 'w-arv',
+      repair_estimate: 'w-repairs',
+      asking_price: 'w-asking'
+    };
+
+    let filledCount = 0;
+    const totalCount = Object.keys(fieldMap).length;
+    Object.entries(fieldMap).forEach(([key, id]) => {
+      const val = extracted[key];
+      if (val !== null && val !== undefined && val !== '') {
+        document.getElementById(id).value = val;
+        filledCount++;
+      }
+    });
+
+    const color = filledCount > 0 ? 'var(--green)' : 'var(--grey-light)';
+    statusEl.innerHTML = `<span style="color:${color};">✅ Extracted ${filledCount} of ${totalCount} fields from ${file.name}. Review the numbers below before running your analysis.</span>`;
+
+  } catch (err) {
+    statusEl.innerHTML = '<span style="color:var(--red);">⚠️ Could not read that document. Try a clearer PDF or enter the numbers manually.</span>';
+  }
+}
+
+async function handleFlipPDF(event) {
+  const file = event.target.files[0];
+  event.target.value = '';
+  const statusEl = document.getElementById('f-pdf-status');
+  if (!file) return;
+
+  if (file.type !== 'application/pdf') {
+    statusEl.innerHTML = '<span style="color:var(--red);">Please upload a PDF file.</span>';
+    return;
+  }
+  if (file.size > 4 * 1024 * 1024) {
+    statusEl.innerHTML = '<span style="color:var(--red);">File too large — max 4MB.</span>';
+    return;
+  }
+
+  statusEl.innerHTML = '<span style="color:var(--gold);">📄 ARIS is reading ' + file.name + '...</span>';
+
+  try {
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    const extractPrompt = 'Extract fix-and-flip real estate deal data from this document (purchase contract, appraisal, or scope of work). Return ONLY a raw JSON object, no markdown formatting, no code fences, no explanation. Use these exact keys, and use null for any field not found in the document:\n' +
+      '{ "property_address": string or null, "purchase_price": number or null, "arv": number or null, "rehab_budget": number or null }\n' +
+      '"property_address" should be the property name and/or street address if shown anywhere in the document. "arv" is the after-repair value / estimated market value once renovated. "rehab_budget" is the total estimated renovation/repair cost.';
+
+    const res = await fetch('/api/aris-quote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1024,
+        system: 'You are a precise financial data extraction assistant. You only output raw JSON exactly as instructed, with no other text.',
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
+            { type: 'text', text: extractPrompt }
+          ]
+        }]
+      })
+    });
+
+    const data = await res.json();
+    let raw = (data.content && data.content[0] && data.content[0].text) || '';
+    raw = raw.trim().replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '');
+    const extracted = JSON.parse(raw);
+
+    const fieldMap = {
+      property_address: 'f-address',
+      purchase_price: 'f-purchase',
+      arv: 'f-arv',
+      rehab_budget: 'f-rehab'
+    };
+
+    let filledCount = 0;
+    const totalCount = Object.keys(fieldMap).length;
+    Object.entries(fieldMap).forEach(([key, id]) => {
+      const val = extracted[key];
+      if (val !== null && val !== undefined && val !== '') {
+        document.getElementById(id).value = val;
+        filledCount++;
+      }
+    });
+
+    const color = filledCount > 0 ? 'var(--green)' : 'var(--grey-light)';
+    statusEl.innerHTML = `<span style="color:${color};">✅ Extracted ${filledCount} of ${totalCount} fields from ${file.name}. Review the numbers below before running your analysis.</span>`;
+
+  } catch (err) {
+    statusEl.innerHTML = '<span style="color:var(--red);">⚠️ Could not read that document. Try a clearer PDF or enter the numbers manually.</span>';
+  }
+}
+
+async function handleRentalPDF(event) {
+  const file = event.target.files[0];
+  event.target.value = '';
+  const statusEl = document.getElementById('r-pdf-status');
+  if (!file) return;
+
+  if (file.type !== 'application/pdf') {
+    statusEl.innerHTML = '<span style="color:var(--red);">Please upload a PDF file.</span>';
+    return;
+  }
+  if (file.size > 4 * 1024 * 1024) {
+    statusEl.innerHTML = '<span style="color:var(--red);">File too large — max 4MB.</span>';
+    return;
+  }
+
+  statusEl.innerHTML = '<span style="color:var(--gold);">📄 ARIS is reading ' + file.name + '...</span>';
+
+  try {
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    const extractPrompt = 'Extract long-term rental real estate deal data from this document (lease, rent roll, or appraisal). Return ONLY a raw JSON object, no markdown formatting, no code fences, no explanation. Use these exact keys, and use null for any field not found in the document:\n' +
+      '{ "property_address": string or null, "purchase_price": number or null, "monthly_rent": number or null, "property_tax_monthly": number or null, "insurance_monthly": number or null }\n' +
+      '"property_address" should be the property name and/or street address if shown anywhere in the document. "monthly_rent" is the gross monthly rent for the unit. If the document shows annual figures for tax or insurance, divide by 12 to get the monthly amount.';
+
+    const res = await fetch('/api/aris-quote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1024,
+        system: 'You are a precise financial data extraction assistant. You only output raw JSON exactly as instructed, with no other text.',
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
+            { type: 'text', text: extractPrompt }
+          ]
+        }]
+      })
+    });
+
+    const data = await res.json();
+    let raw = (data.content && data.content[0] && data.content[0].text) || '';
+    raw = raw.trim().replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '');
+    const extracted = JSON.parse(raw);
+
+    const fieldMap = {
+      property_address: 'r-address',
+      purchase_price: 'r-purchase',
+      monthly_rent: 'r-rent',
+      property_tax_monthly: 'r-tax',
+      insurance_monthly: 'r-insurance'
+    };
+
+    let filledCount = 0;
+    const totalCount = Object.keys(fieldMap).length;
+    Object.entries(fieldMap).forEach(([key, id]) => {
+      const val = extracted[key];
+      if (val !== null && val !== undefined && val !== '') {
+        document.getElementById(id).value = val;
+        filledCount++;
+      }
+    });
+
+    const color = filledCount > 0 ? 'var(--green)' : 'var(--grey-light)';
+    statusEl.innerHTML = `<span style="color:${color};">✅ Extracted ${filledCount} of ${totalCount} fields from ${file.name}. Review the numbers below before running your analysis.</span>`;
+
+  } catch (err) {
+    statusEl.innerHTML = '<span style="color:var(--red);">⚠️ Could not read that document. Try a clearer PDF or enter the numbers manually.</span>';
+  }
+}
+
+async function handleSTRPDF(event) {
+  const file = event.target.files[0];
+  event.target.value = '';
+  const statusEl = document.getElementById('str-pdf-status');
+  if (!file) return;
+
+  if (file.type !== 'application/pdf') {
+    statusEl.innerHTML = '<span style="color:var(--red);">Please upload a PDF file.</span>';
+    return;
+  }
+  if (file.size > 4 * 1024 * 1024) {
+    statusEl.innerHTML = '<span style="color:var(--red);">File too large — max 4MB.</span>';
+    return;
+  }
+
+  statusEl.innerHTML = '<span style="color:var(--gold);">📄 ARIS is reading ' + file.name + '...</span>';
+
+  try {
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    const extractPrompt = 'Extract short-term/mid-term rental real estate deal data from this document (listing sheet, comps report, or Airbnb/host performance report). Return ONLY a raw JSON object, no markdown formatting, no code fences, no explanation. Use these exact keys, and use null for any field not found in the document:\n' +
+      '{ "property_address": string or null, "purchase_price": number or null, "avg_nightly_rate": number or null, "occupancy_pct": number or null, "monthly_operating_expenses": number or null, "property_tax_monthly": number or null }\n' +
+      '"property_address" should be the property name and/or street address if shown anywhere in the document. "occupancy_pct" must be a percentage number (e.g. 65 for 65%), not a decimal. If the document shows annual property tax, divide by 12 for the monthly amount.';
+
+    const res = await fetch('/api/aris-quote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1024,
+        system: 'You are a precise financial data extraction assistant. You only output raw JSON exactly as instructed, with no other text.',
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
+            { type: 'text', text: extractPrompt }
+          ]
+        }]
+      })
+    });
+
+    const data = await res.json();
+    let raw = (data.content && data.content[0] && data.content[0].text) || '';
+    raw = raw.trim().replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '');
+    const extracted = JSON.parse(raw);
+
+    const fieldMap = {
+      property_address: 'str-address',
+      purchase_price: 'str-purchase',
+      avg_nightly_rate: 'str-nightly',
+      occupancy_pct: 'str-occupancy',
+      monthly_operating_expenses: 'str-opex',
+      property_tax_monthly: 'str-tax'
+    };
+
+    let filledCount = 0;
+    const totalCount = Object.keys(fieldMap).length;
+    Object.entries(fieldMap).forEach(([key, id]) => {
+      const val = extracted[key];
+      if (val !== null && val !== undefined && val !== '') {
+        document.getElementById(id).value = val;
+        filledCount++;
+      }
+    });
+
+    const color = filledCount > 0 ? 'var(--green)' : 'var(--grey-light)';
+    statusEl.innerHTML = `<span style="color:${color};">✅ Extracted ${filledCount} of ${totalCount} fields from ${file.name}. Review the numbers below before running your analysis.</span>`;
+
+  } catch (err) {
+    statusEl.innerHTML = '<span style="color:var(--red);">⚠️ Could not read that document. Try a clearer PDF or enter the numbers manually.</span>';
+  }
+}
+
+async function handleMultiPDF(event) {
+  const file = event.target.files[0];
+  event.target.value = '';
+  const statusEl = document.getElementById('multi-pdf-status');
+  if (!file) return;
+
+  if (file.type !== 'application/pdf') {
+    statusEl.innerHTML = '<span style="color:var(--red);">Please upload a PDF file.</span>';
+    return;
+  }
+  if (file.size > 4 * 1024 * 1024) {
+    statusEl.innerHTML = '<span style="color:var(--red);">File too large — max 4MB.</span>';
+    return;
+  }
+
+  statusEl.innerHTML = '<span style="color:var(--gold);">📄 ARIS is reading ' + file.name + '...</span>';
+
+  try {
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    const extractPrompt = 'Extract 2-4 unit residential real estate deal data from this document (appraisal, comps report, or rent roll). Return ONLY a raw JSON object, no markdown formatting, no code fences, no explanation. Use these exact keys, and use null for any field not found in the document:\n' +
+      '{ "property_address": string or null, "purchase_price": number or null, "units": number or null, "comp_value": number or null, "gross_monthly_rent": number or null, "monthly_operating_expenses": number or null }\n' +
+      '"property_address" should be the property name and/or street address if shown anywhere in the document. "units" is the total number of units (2-4). "comp_value" is the estimated market value from comparable sales, if shown. "gross_monthly_rent" is the total monthly rent across all units combined. If the document shows annual figures for rent or expenses, divide by 12 for the monthly amount.';
+
+    const res = await fetch('/api/aris-quote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1024,
+        system: 'You are a precise financial data extraction assistant. You only output raw JSON exactly as instructed, with no other text.',
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
+            { type: 'text', text: extractPrompt }
+          ]
+        }]
+      })
+    });
+
+    const data = await res.json();
+    let raw = (data.content && data.content[0] && data.content[0].text) || '';
+    raw = raw.trim().replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '');
+    const extracted = JSON.parse(raw);
+
+    const fieldMap = {
+      property_address: 'multi-address',
+      purchase_price: 'multi-purchase',
+      units: 'multi-units',
+      comp_value: 'multi-compvalue',
+      gross_monthly_rent: 'multi-rent',
+      monthly_operating_expenses: 'multi-opex'
+    };
+
+    let filledCount = 0;
+    const totalCount = Object.keys(fieldMap).length;
+    Object.entries(fieldMap).forEach(([key, id]) => {
+      const val = extracted[key];
+      if (val !== null && val !== undefined && val !== '') {
+        document.getElementById(id).value = val;
+        filledCount++;
+      }
+    });
+
+    const color = filledCount > 0 ? 'var(--green)' : 'var(--grey-light)';
+    statusEl.innerHTML = `<span style="color:${color};">✅ Extracted ${filledCount} of ${totalCount} fields from ${file.name}. Review the numbers below before running your analysis.</span>`;
+
+  } catch (err) {
+    statusEl.innerHTML = '<span style="color:var(--red);">⚠️ Could not read that document. Try a clearer PDF or enter the numbers manually.</span>';
+  }
 }
 
 function calcCommercial() {
