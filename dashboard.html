@@ -278,6 +278,20 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
   transition: border-color 0.15s;
 }
 .ob-textarea:focus { border-color: var(--gold); }
+.ob-select {
+  width: 100%;
+  background: var(--navy-light);
+  border: 1px solid var(--border-sub);
+  border-radius: 8px;
+  padding: 12px 14px;
+  color: var(--white);
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s;
+  cursor: pointer;
+}
+.ob-select:focus { border-color: var(--gold); }
 .ob-textarea::placeholder { color: var(--grey); }
 .ob-actions { display: flex; gap: 10px; margin-top: 24px; }
 .ob-btn {
@@ -475,8 +489,8 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
           <div class="why-prompt-left">
             <div class="why-prompt-av">ARIS</div>
             <div class="why-prompt-text">
-              <div class="why-prompt-title">ARIS works better when it knows your Why</div>
-              <div class="why-prompt-sub">Answer 3 quick questions and I'll personalize every coaching session to your goals.</div>
+              <div class="why-prompt-title">ARIS works better when it knows your Why, your experience, and what's holding you back</div>
+              <div class="why-prompt-sub">Answer a few quick questions and I'll personalize every coaching session — pacing, examples, and what I proactively help with.</div>
             </div>
           </div>
           <div class="why-prompt-cta">Set My Why →</div>
@@ -498,11 +512,11 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
         <div class="stat-card">
           <div class="stat-label">Member Since</div>
           <div class="stat-value" id="stat-since" style="font-size:18px;margin-top:4px;">—</div>
-          <div class="stat-sub">founding member</div>
+          <div class="stat-sub" id="stat-member-tag">member</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Membership</div>
-          <div class="stat-value gold" style="font-size:18px;margin-top:4px;">FOUNDING</div>
+          <div class="stat-value gold" id="stat-membership" style="font-size:18px;margin-top:4px;">MEMBER</div>
           <div class="stat-sub">$97 / month</div>
         </div>
       </div>
@@ -650,7 +664,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
       <div class="ob-title">Before We Begin</div>
       <div class="ob-sub">
         I'm not just your tool. I'm your advisor.<br>
-        Answer these three questions and I'll use them <strong>every time we work together.</strong>
+        Answer these questions and I'll use them <strong>every time we work together.</strong>
       </div>
     </div>
     <div class="ob-divider"></div>
@@ -674,6 +688,48 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
       <div class="ob-question-text">What makes this the right time for you to make this happen?</div>
       <div class="ob-question-hint">Why now, not a year from now? What has shifted?</div>
       <textarea class="ob-textarea" id="ob-q3" placeholder="e.g. My youngest just started school. I have 3 hours a day back and I'm done waiting for the right moment..."></textarea>
+    </div>
+
+    <div class="ob-question">
+      <div class="ob-question-num">Question 04</div>
+      <div class="ob-question-text">Where are you starting from?</div>
+      <div class="ob-question-hint">So ARIS knows how much to explain, and how fast to move.</div>
+      <select class="ob-select" id="ob-experience">
+        <option value="">Select one...</option>
+        <option value="beginner">Beginner — I haven't closed a deal yet</option>
+        <option value="intermediate">Intermediate — I've closed 1–5 deals</option>
+        <option value="advanced">Advanced — I've closed 6+ deals</option>
+      </select>
+    </div>
+
+    <div class="ob-question">
+      <div class="ob-question-num">Question 05</div>
+      <div class="ob-question-text">What's your main focus right now?</div>
+      <div class="ob-question-hint">ARIS will point examples and education toward this first.</div>
+      <select class="ob-select" id="ob-strategy">
+        <option value="">Select one...</option>
+        <option value="wholesaling">Wholesaling</option>
+        <option value="fix-flip">Fix &amp; Flip</option>
+        <option value="buy-hold">Buy &amp; Hold Rental</option>
+        <option value="str-mtr">Short-Term / Mid-Term Rental</option>
+        <option value="multifamily">Multifamily (5+ Units)</option>
+        <option value="commercial">Commercial (Office, Retail, Self-Storage, etc.)</option>
+        <option value="raising-capital">Raising Capital / Private Lending</option>
+        <option value="deciding">Still deciding</option>
+      </select>
+    </div>
+
+    <div class="ob-question">
+      <div class="ob-question-num">Question 06</div>
+      <div class="ob-question-text">What's mainly holding you back from doing more deals right now?</div>
+      <div class="ob-question-hint">Be honest. This is what ARIS should proactively help you with.</div>
+      <select class="ob-select" id="ob-obstacle">
+        <option value="">Select one...</option>
+        <option value="finding-deals">Finding good deals</option>
+        <option value="capital">Access to capital</option>
+        <option value="confidence">Confidence / knowledge gaps</option>
+        <option value="time">Time</option>
+      </select>
     </div>
 
     <div class="ob-actions">
@@ -713,8 +769,12 @@ async function syncWhyFromServer() {
     });
     if (!res.ok) return; // fall back to whatever localStorage already has
     const { profile } = await res.json();
-    if (profile && (profile.why_q1 || profile.why_q2 || profile.why_q3)) {
-      const why = { q1: profile.why_q1 || '', q2: profile.why_q2 || '', q3: profile.why_q3 || '', savedAt: profile.why_saved_at };
+    if (profile && (profile.why_q1 || profile.why_q2 || profile.why_q3 || profile.experience_level || profile.primary_strategy || profile.biggest_obstacle)) {
+      const why = {
+        q1: profile.why_q1 || '', q2: profile.why_q2 || '', q3: profile.why_q3 || '',
+        experienceLevel: profile.experience_level || '', primaryStrategy: profile.primary_strategy || '', biggestObstacle: profile.biggest_obstacle || '',
+        savedAt: profile.why_saved_at
+      };
       localStorage.setItem('forge-member-why', JSON.stringify(why));
       localStorage.removeItem('forge-ob-skipped');
     }
@@ -798,6 +858,8 @@ window.onload = async () => {
     document.getElementById('sidebar-name').textContent = fullName;
     document.getElementById('sidebar-tier').textContent = currentPlanName;
     document.getElementById('sidebar-initials').textContent = initials;
+    document.getElementById('stat-membership').textContent = currentPlanName.toUpperCase();
+    document.getElementById('stat-member-tag').textContent = currentPlanName.toLowerCase();
     document.getElementById('topbar-name').textContent = fullName;
     document.getElementById('topbar-initials').textContent = initials;
     renderEmpireBanner(hasEmpireAccess, EMPIRE_PRICE_ID);
@@ -1138,6 +1200,9 @@ function openOnboarding(isEdit = false) {
     document.getElementById('ob-q1').value = why.q1 || '';
     document.getElementById('ob-q2').value = why.q2 || '';
     document.getElementById('ob-q3').value = why.q3 || '';
+    document.getElementById('ob-experience').value = why.experienceLevel || '';
+    document.getElementById('ob-strategy').value = why.primaryStrategy || '';
+    document.getElementById('ob-obstacle').value = why.biggestObstacle || '';
   }
   document.getElementById('ob-overlay').style.display = 'flex';
 }
@@ -1151,13 +1216,16 @@ async function saveOnboarding() {
   const q1 = document.getElementById('ob-q1').value.trim();
   const q2 = document.getElementById('ob-q2').value.trim();
   const q3 = document.getElementById('ob-q3').value.trim();
+  const experienceLevel = document.getElementById('ob-experience').value;
+  const primaryStrategy = document.getElementById('ob-strategy').value;
+  const biggestObstacle = document.getElementById('ob-obstacle').value;
 
-  if (!q1 && !q2 && !q3) {
+  if (!q1 && !q2 && !q3 && !experienceLevel && !primaryStrategy && !biggestObstacle) {
     skipOnboarding();
     return;
   }
 
-  const why = { q1, q2, q3, savedAt: new Date().toISOString() };
+  const why = { q1, q2, q3, experienceLevel, primaryStrategy, biggestObstacle, savedAt: new Date().toISOString() };
   localStorage.setItem('forge-member-why', JSON.stringify(why));
   localStorage.removeItem('forge-ob-skipped');
 
@@ -1174,7 +1242,7 @@ async function saveOnboarding() {
       const res = await fetch('/api/profile-data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${memberToken}` },
-        body: JSON.stringify({ action: 'save', whyQ1: q1, whyQ2: q2, whyQ3: q3 }),
+        body: JSON.stringify({ action: 'save', whyQ1: q1, whyQ2: q2, whyQ3: q3, experienceLevel, primaryStrategy, biggestObstacle }),
       });
       if (!res.ok) throw new Error('save failed');
     } catch (err) {
