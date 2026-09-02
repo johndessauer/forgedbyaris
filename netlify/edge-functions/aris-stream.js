@@ -117,8 +117,8 @@ Field keys by tab:
 - wholesale: w-arv, w-repairs, w-asking, w-fee, w-closing, w-discount
 - flip: f-purchase, f-arv, f-rehab, f-closing-buy, f-down, f-rate, f-points, f-hold, f-carry, f-commission, f-closing-sell
 - rental: r-purchase, r-down, r-rate, r-term, r-closing, r-rent, r-vacancy, r-tax, r-insurance, r-mgmt, r-maintenance
-- str: s-purchase, s-down, s-rate, s-furnish, s-nightly, s-occupancy, s-platform, s-mgmt, s-opex, s-tax
-- multi: m-purchase, m-units, m-down, m-rate, m-term, m-rent, m-vacancy, m-opex, m-valueadd, m-compvalue, m-compppu
+- str: str-purchase, str-down, str-rate, str-furnish, str-nightly, str-occupancy, str-platform, str-mgmt, str-opex, str-tax
+- multi: multi-purchase, multi-units, multi-down, multi-rate, multi-term, multi-rent, multi-vacancy, multi-opex, multi-valueadd, multi-compvalue, multi-compppu
 
 Only include fields the user actually mentioned. Omit fields with no data. Only output the block when the user has shared actual numbers. Do not output the block for general strategy questions with no specific numbers.
 Use judgment on how to close every response. Two modes:
