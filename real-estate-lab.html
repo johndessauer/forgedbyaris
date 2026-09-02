@@ -244,6 +244,13 @@ let currentMemberId = null;
 let hasEmpireAccess = false;
 const EMPIRE_PRICE_ID = 'prc_empire-plan--401c10a7h';
 const EMPIRE_SCENARIO_TITLE = 'Pitching a Commercial Loan Officer on a 5+ Unit Acquisition';
+// Real Estate Lab's two counterparty voices — chosen 9/1/2026 to replace
+// every persona silently defaulting to ARIS's own voice (aris-voice.js
+// falls back to ARIS when no voiceId is sent, and this page never sent
+// one). Each scenario's counterparty_gender (from lab-scenarios.js) picks
+// which of these two speaks it — see getVoiceIdForScenario() below.
+const LAB_VOICE_MALE = 'Nhs7eitvQWFTQBsf0yiT';
+const LAB_VOICE_FEMALE = '8Es4wFxsDlHBmFWAOWRS';
 let allScenarios = [];
 let currentScenario = null;
 let conversationHistory = []; // [{role: 'user'|'assistant', content: string}] — sent to lab-stream.js
@@ -535,6 +542,18 @@ async function sendMessage() {
 }
 
 // ── VOICE PLAYBACK (auto-play, walkie-talkie style) ──
+// Picks the correct Lab counterparty voice from the scenario's
+// counterparty_gender (returned by lab-scenarios.js). Falls back to
+// aris-voice.js's own default (ARIS's voice) if gender is missing or
+// unrecognized, rather than guessing — same safe-fallback pattern the
+// backend already uses.
+function getVoiceIdForScenario() {
+  const gender = (currentScenario?.counterparty_gender || '').trim().toLowerCase();
+  if (gender === 'male') return LAB_VOICE_MALE;
+  if (gender === 'female') return LAB_VOICE_FEMALE;
+  return null;
+}
+
 async function playCarolVoice(text) {
   if (currentVoiceAudio) {
     currentVoiceAudio.pause();
@@ -544,7 +563,7 @@ async function playCarolVoice(text) {
     const res = await fetch('/api/aris-voice', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({ text, voiceId: getVoiceIdForScenario() }),
     });
     if (!res.ok) throw new Error(`Voice request failed (${res.status})`);
     const blob = await res.blob();
