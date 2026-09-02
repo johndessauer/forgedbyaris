@@ -1182,10 +1182,36 @@ async function selectFdocDeal(dealId) {
   }
 }
 
-async function fdocGeneratePdf(elementId, title) {
+async function fdocSnapshotElement(elementId) {
   const el = document.getElementById(elementId);
-  if (!el) throw new Error('Nothing to save yet — run an analysis first');
-  const canvas = await html2canvas(el, { backgroundColor: '#0f2035', scale: 2, useCORS: true });
+  if (!el || !el.firstElementChild) throw new Error('Nothing to save yet — run an analysis first');
+
+  // html2canvas would otherwise only capture the visible, scrolled portion
+  // of this element (it has overflow-y:auto and is height-constrained to
+  // fit the screen) — clone it off-screen with natural height first, so the
+  // FULL result gets captured instead of just what's currently in view.
+  const rect = el.getBoundingClientRect();
+  const clone = el.cloneNode(true);
+  clone.style.position = 'fixed';
+  clone.style.top = '0';
+  clone.style.left = '-99999px';
+  clone.style.width = rect.width + 'px';
+  clone.style.height = 'auto';
+  clone.style.maxHeight = 'none';
+  clone.style.overflow = 'visible';
+  clone.style.overflowY = 'visible';
+  document.body.appendChild(clone);
+  await new Promise(r => requestAnimationFrame(r));
+
+  try {
+    return await html2canvas(clone, { backgroundColor: '#0f2035', scale: 2, useCORS: true });
+  } finally {
+    clone.remove();
+  }
+}
+
+async function fdocGeneratePdf(elementId, title) {
+  const canvas = await fdocSnapshotElement(elementId);
   const imgData = canvas.toDataURL('image/jpeg', 0.85);
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF({ orientation: 'p', unit: 'pt', format: 'letter' });
