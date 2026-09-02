@@ -217,6 +217,36 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
   .results-panel { overflow: visible; flex: none; }
   .results-scroll { overflow-y: visible; flex: none; padding: 16px; }
 }
+
+/* ── SAVE TO DEAL (shared: Deal Analyzer / Market Oracle / Capital Radar) ── */
+.fdoc-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 200; }
+.fdoc-overlay.open { display: flex; }
+.fdoc-modal { background: var(--navy); border: 1px solid var(--border); border-radius: 10px; width: 100%; max-width: 440px; max-height: 80vh; overflow-y: auto; margin: 20px; }
+.fdoc-modal-head { padding: 16px 20px; border-bottom: 1px solid var(--border-sub); display: flex; justify-content: space-between; align-items: center; }
+.fdoc-modal-title { font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 1px; color: var(--white); }
+.fdoc-modal-close { background: none; border: none; color: var(--grey); font-size: 18px; cursor: pointer; }
+.fdoc-modal-body { padding: 16px 20px; }
+.fdoc-search { width: 100%; background: var(--navy-mid); border: 1px solid var(--border-sub); border-radius: 6px; padding: 9px 11px; font-size: 13px; color: var(--white); font-family: 'Inter', sans-serif; margin-bottom: 10px; outline: none; box-sizing: border-box; }
+.fdoc-search:focus { border-color: var(--gold); }
+.fdoc-deal-list { display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow-y: auto; margin-bottom: 14px; }
+.fdoc-deal-row { display: flex; flex-direction: column; width: 100%; background: var(--navy-mid); border: 1px solid var(--border-sub); border-radius: 6px; padding: 9px 11px; cursor: pointer; font-size: 12px; text-align: left; font-family: 'Inter', sans-serif; }
+.fdoc-deal-row:hover { border-color: var(--gold); }
+.fdoc-deal-row-addr { font-weight: 600; color: var(--white); }
+.fdoc-deal-row-meta { font-size: 10px; color: var(--grey); margin-top: 2px; text-transform: capitalize; }
+.fdoc-empty { font-size: 11px; color: var(--grey); text-align: center; padding: 14px 6px; }
+.fdoc-divider { display: flex; align-items: center; gap: 8px; font-size: 10px; color: var(--grey); text-transform: uppercase; letter-spacing: 1px; margin: 10px 0; }
+.fdoc-divider::before, .fdoc-divider::after { content: ''; flex: 1; height: 1px; background: var(--border-sub); }
+.fdoc-new-form { display: flex; flex-direction: column; gap: 8px; }
+.fdoc-input, .fdoc-select { width: 100%; background: var(--navy-mid); border: 1px solid var(--border-sub); border-radius: 6px; padding: 9px 11px; font-size: 13px; color: var(--white); font-family: 'Inter', sans-serif; outline: none; box-sizing: border-box; }
+.fdoc-input:focus, .fdoc-select:focus { border-color: var(--gold); }
+.fdoc-btn { background: var(--orange); color: var(--white); border: none; border-radius: 6px; padding: 9px 16px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; }
+.fdoc-btn:hover { background: #e85a1c; }
+.fdoc-btn:disabled { background: var(--grey); cursor: default; }
+.fdoc-save-trigger { background: var(--gold); color: var(--black); border: none; border-radius: 6px; padding: 8px 16px; font-size: 11px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; letter-spacing: 0.4px; }
+.fdoc-save-trigger:hover { background: #b6892f; }
+.fdoc-save-trigger:disabled { background: var(--grey); cursor: default; }
+.fdoc-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--green, #22c55e); color: white; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; z-index: 999; }
+.fdoc-toast.error { background: var(--red); }
 </style>
 <script src="https://static.memberstack.com/scripts/v1/memberstack.js" data-memberstack-app="app_cmr41qq5500q80tsx94pj61rc" defer></script>
 </head>
@@ -371,6 +401,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 <script>
 // ── STATE ──
 let currentStrategy = 'all';
+let memberToken = null;
 
 function setStrategy(el, strategy) {
   document.querySelectorAll('.strategy-btn').forEach(b => b.classList.remove('active'));
@@ -720,6 +751,7 @@ function renderResults(data, scores, location) {
   const rs = document.getElementById('resultsScroll');
 
   const highlightStrategy = currentStrategy;
+  window._fdocTitle = 'Market Report — ' + location;
 
   rs.innerHTML = `
     <!-- Market Header -->
@@ -729,6 +761,10 @@ function renderResults(data, scores, location) {
         <div class="market-sub">FORGE Market Intelligence Report</div>
       </div>
       <div class="data-freshness">${data.dataSource === 'census' ? `Live Census ACS ${data.acsVintage} Data · Verdict by ARIS` : 'ARIS Estimate · Live Data Unavailable for This Location'}</div>
+    </div>
+
+    <div style="display:flex; justify-content:flex-end;">
+      <button class="fdoc-save-trigger" onclick="openSaveToDealModal('market_oracle','resultsScroll', () => window._fdocTitle)">💾 Save to Deal</button>
     </div>
 
     ${data.dataSource === 'census' ? `<div style="font-size:11px;color:var(--grey-light);margin:-8px 0 16px;">Census 5-Year estimates are a rolling average, typically 1-3 years behind current market conditions — not live listing prices.</div>` : `<div style="font-size:11px;color:var(--grey-light);margin:-8px 0 16px;">Could not resolve live government data for this location — figures below are ARIS's best estimate based on its training data, not a live source.</div>`}
@@ -996,6 +1032,7 @@ window.addEventListener('load', async () => {
     if (nameEl) nameEl.textContent = fullName;
     const tierEl = document.getElementById('sidebar-tier');
     if (tierEl) tierEl.textContent = planName;
+    memberToken = await memberstack.getMemberCookie();
   } catch(e) {}
 });
 
@@ -1005,6 +1042,173 @@ async function handleLogout() {
     await memberstack.logout();
   } catch(e) {}
   window.location.href = 'login.html';
+}
+</script>
+
+<!-- SAVE TO DEAL MODAL -->
+<div class="fdoc-overlay" id="fdoc-overlay">
+  <div class="fdoc-modal">
+    <div class="fdoc-modal-head">
+      <div class="fdoc-modal-title">Save to Deal</div>
+      <button class="fdoc-modal-close" onclick="closeSaveToDealModal()">&times;</button>
+    </div>
+    <div class="fdoc-modal-body">
+      <input class="fdoc-search" id="fdoc-search" placeholder="Search your deals..." oninput="renderFdocDealList()">
+      <div class="fdoc-deal-list" id="fdoc-deal-list"></div>
+      <div class="fdoc-divider">or create a new deal</div>
+      <div class="fdoc-new-form">
+        <input class="fdoc-input" id="fdoc-new-address" placeholder="Property address">
+        <select class="fdoc-select" id="fdoc-new-type">
+          <optgroup label="Residential">
+            <option value="wholesale">Wholesale</option>
+            <option value="fix_flip">Fix &amp; Flip</option>
+            <option value="lt_rental">LT Rental</option>
+            <option value="str_mtr">STR / MTR</option>
+            <option value="units_2_4">2-4 Units</option>
+          </optgroup>
+          <optgroup label="Commercial">
+            <option value="commercial_5plus">Commercial — 5+ Units</option>
+          </optgroup>
+        </select>
+        <button class="fdoc-btn" id="fdoc-create-btn" onclick="createDealAndSaveDoc()">+ Create Deal &amp; Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+// ── SAVE TO DEAL (shared: Deal Analyzer / Market Oracle / Capital Radar) ──
+// Snapshots the given results element into a branded PDF and attaches it
+// to a CRM deal (existing or created on the spot) via /api/deal-documents.
+let fdocDealsCache = null;
+let fdocPending = null; // { sourceTool, elementId, getTitle }
+
+function fdocToast(msg, isError) {
+  const t = document.createElement('div');
+  t.className = 'fdoc-toast' + (isError ? ' error' : '');
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2500);
+}
+
+async function openSaveToDealModal(sourceTool, elementId, getTitle) {
+  if (!memberToken) { fdocToast('Still finishing sign-in — try again in a moment.', true); return; }
+  fdocPending = { sourceTool, elementId, getTitle };
+  document.getElementById('fdoc-search').value = '';
+  document.getElementById('fdoc-new-address').value = '';
+  document.getElementById('fdoc-overlay').classList.add('open');
+  if (!fdocDealsCache) await loadFdocDeals();
+  renderFdocDealList();
+}
+
+function closeSaveToDealModal() {
+  document.getElementById('fdoc-overlay').classList.remove('open');
+}
+
+async function loadFdocDeals() {
+  try {
+    const res = await fetch('/api/crm-deals?action=list', { headers: { Authorization: `Bearer ${memberToken}` } });
+    const data = await res.json();
+    fdocDealsCache = data.deals || [];
+  } catch (e) {
+    fdocDealsCache = [];
+  }
+}
+
+function renderFdocDealList() {
+  const list = document.getElementById('fdoc-deal-list');
+  const q = (document.getElementById('fdoc-search').value || '').toLowerCase();
+  const deals = (fdocDealsCache || []).filter(d => !q || (d.property_address || '').toLowerCase().includes(q));
+  if (!deals.length) {
+    list.innerHTML = `<div class="fdoc-empty">${(fdocDealsCache||[]).length ? 'No deals match that search' : 'No deals in your CRM yet — create one below'}</div>`;
+    return;
+  }
+  list.innerHTML = deals.map(d => `
+    <button class="fdoc-deal-row" onclick="selectFdocDeal('${d.id}')">
+      <span class="fdoc-deal-row-addr">${(d.property_address || 'Untitled property').replace(/</g,'&lt;')}</span>
+      <span class="fdoc-deal-row-meta">${(d.deal_type||'').replace(/_/g,' ')} · ${d.stage||''}</span>
+    </button>
+  `).join('');
+}
+
+async function createDealAndSaveDoc() {
+  const address = document.getElementById('fdoc-new-address').value.trim();
+  if (!address) { fdocToast('Enter a property address first', true); return; }
+  const dealType = document.getElementById('fdoc-new-type').value;
+  const btn = document.getElementById('fdoc-create-btn');
+  btn.disabled = true; btn.textContent = 'Creating...';
+  try {
+    await fetch('/api/crm-deals', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${memberToken}` },
+      body: JSON.stringify({ action: 'create', property_address: address, deal_type: dealType }),
+    });
+    // crm-deals' create response isn't relied on here — reload the list and
+    // match on address, the same pattern crm.html itself uses after create.
+    await loadFdocDeals();
+    const match = (fdocDealsCache || []).find(d => d.property_address === address);
+    if (!match) throw new Error('Deal created but could not be found — check your CRM pipeline');
+    await selectFdocDeal(match.id);
+  } catch (e) {
+    fdocToast(e.message || 'Could not create the deal', true);
+  } finally {
+    btn.disabled = false; btn.textContent = '+ Create Deal & Save';
+  }
+}
+
+async function selectFdocDeal(dealId) {
+  if (!fdocPending) return;
+  const { sourceTool, elementId, getTitle } = fdocPending;
+  const modal = document.querySelector('#fdoc-overlay .fdoc-modal');
+  modal.style.opacity = '0.5'; modal.style.pointerEvents = 'none';
+  try {
+    fdocToast('Generating PDF...');
+    const title = typeof getTitle === 'function' ? getTitle() : 'FORGE Report';
+    const fileData = await fdocGeneratePdf(elementId, title);
+    const res = await fetch('/api/deal-documents', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${memberToken}` },
+      body: JSON.stringify({ action: 'create', deal_id: dealId, source_tool: sourceTool, title, file_data: fileData }),
+    });
+    if (!res.ok) throw new Error('Save failed');
+    closeSaveToDealModal();
+    fdocToast('Saved to deal');
+  } catch (e) {
+    fdocToast(e.message || 'Could not save this to the deal', true);
+  } finally {
+    modal.style.opacity = ''; modal.style.pointerEvents = '';
+  }
+}
+
+async function fdocGeneratePdf(elementId, title) {
+  const el = document.getElementById(elementId);
+  if (!el) throw new Error('Nothing to save yet — run an analysis first');
+  const canvas = await html2canvas(el, { backgroundColor: '#0f2035', scale: 2, useCORS: true });
+  const imgData = canvas.toDataURL('image/jpeg', 0.85);
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation: 'p', unit: 'pt', format: 'letter' });
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const margin = 24;
+  const imgWidth = pageWidth - margin * 2;
+  const imgHeight = canvas.height * (imgWidth / canvas.width);
+  let heightLeft = imgHeight;
+  let position = margin;
+  pdf.setFillColor(15, 32, 53);
+  pdf.rect(0, 0, pageWidth, pageHeight, 'F');
+  pdf.addImage(imgData, 'JPEG', margin, position, imgWidth, imgHeight);
+  heightLeft -= (pageHeight - margin * 2);
+  while (heightLeft > 0) {
+    pdf.addPage();
+    pdf.setFillColor(15, 32, 53);
+    pdf.rect(0, 0, pageWidth, pageHeight, 'F');
+    position = heightLeft - imgHeight + margin;
+    pdf.addImage(imgData, 'JPEG', margin, position, imgWidth, imgHeight);
+    heightLeft -= (pageHeight - margin * 2);
+  }
+  return pdf.output('datauristring');
 }
 </script>
 <script>

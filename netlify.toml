@@ -88,3 +88,8 @@
   from = "/api/lab-admin"
   to = "/.netlify/functions/lab-admin"
   status = 200
+
+[[redirects]]
+  from = "/api/deal-documents"
+  to = "/.netlify/functions/deal-documents"
+  status = 200
