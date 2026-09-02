@@ -549,8 +549,8 @@ async function sendMessage() {
 // backend already uses.
 function getVoiceIdForScenario() {
   const gender = (currentScenario?.counterparty_gender || '').trim().toLowerCase();
-  if (gender === 'male') return LAB_VOICE_MALE;
-  if (gender === 'female') return LAB_VOICE_FEMALE;
+  if (gender === 'male' || gender === 'm') return LAB_VOICE_MALE;
+  if (gender === 'female' || gender === 'f') return LAB_VOICE_FEMALE;
   return null;
 }
 
