@@ -164,6 +164,16 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 .doc-action-link:hover { text-decoration: underline; }
 .doc-action-del { font-size: 11px; color: var(--grey); background: none; border: none; cursor: pointer; font-family: 'Inter', sans-serif; }
 .doc-action-del:hover { color: var(--red); }
+.doc-upload-row { display: flex; gap: 8px; margin-bottom: 8px; }
+
+.vault-search-row { display: flex; gap: 8px; margin-bottom: 10px; }
+.vault-list { display: flex; flex-direction: column; gap: 6px; max-height: 360px; overflow-y: auto; }
+.vault-item { display: flex; align-items: center; gap: 10px; background: var(--navy-mid); border-radius: 6px; padding: 9px 10px; font-size: 12px; cursor: pointer; border-left: 2px solid transparent; transition: border-color 0.15s; }
+.vault-item:hover { border-left-color: var(--gold); }
+.vault-item-icon { font-size: 15px; flex-shrink: 0; }
+.vault-item-info { flex: 1; min-width: 0; }
+.vault-item-title { font-weight: 600; color: var(--white); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vault-item-cat { font-size: 10px; color: var(--grey); margin-top: 2px; text-transform: capitalize; }
 
 .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--green); color: white; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; z-index: 999; }
 .toast.error { background: var(--red); }
@@ -344,7 +354,12 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
         </div>
         <div class="form-group">
           <label class="form-label">Documents</label>
-          <div style="font-size:11px;color:var(--grey);margin-bottom:8px;">PDF reports saved here from Deal Analyzer, Market Oracle, and Capital Radar via their "Save to Deal" button.</div>
+          <div style="font-size:11px;color:var(--grey);margin-bottom:8px;">PDF reports saved here from Deal Analyzer, Market Oracle, and Capital Radar via their "Save to Deal" button, plus anything you upload directly or attach from the Document Vault.</div>
+          <div class="doc-upload-row">
+            <input type="file" id="manual-doc-input" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" style="display:none;" onchange="handleManualDocSelected(event)">
+            <button class="btn-secondary" style="flex:1;" onclick="document.getElementById('manual-doc-input').click()">⬆ Upload Document</button>
+            <button class="btn-secondary" style="flex:1;" onclick="openVaultPicker()">📂 Attach from Vault</button>
+          </div>
           <div class="doc-list" id="deal-documents-list"></div>
         </div>
       </div>
@@ -353,6 +368,23 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
         <button class="btn-secondary" onclick="closeModal('deal-overlay')">Cancel</button>
         <button class="btn-primary" id="deal-save-btn" onclick="saveDeal()">Save Deal</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- VAULT PICKER MODAL -->
+<div class="overlay" id="vault-overlay">
+  <div class="modal" style="max-width:520px;">
+    <div class="modal-head">
+      <div class="modal-title">Attach from Document Vault</div>
+      <button class="modal-close" onclick="closeModal('vault-overlay')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="vault-search-row">
+        <input class="form-input" id="vault-search-input" placeholder="Search templates..." oninput="renderVaultList()" style="flex:1;">
+        <select class="form-select" id="vault-category-filter" onchange="renderVaultList()" style="width:180px;"></select>
+      </div>
+      <div class="vault-list" id="vault-list"></div>
     </div>
   </div>
 </div>
@@ -751,18 +783,232 @@ async function addDealNote() {
 }
 
 // ─────────────────────────────────────────────────────────
-// DEAL DOCUMENTS (saved from Deal Analyzer / Market Oracle / Capital Radar)
+// DOCUMENT VAULT CATALOG (mirrors the 200-template list in document-vault.html —
+// used here only to let a member search/attach a reference to a deal; the
+// files themselves still live at these paths on the site, nothing is copied)
+// ─────────────────────────────────────────────────────────
+const FORGE_VAULT_DOCS = [
+  { id: 1, title: "Accredited Investor Verification Letter", category: "financing-capital", file: "docs/FORGE-Accredited-Investor-Verification-Letter.docx" },
+  { id: 2, title: "Acknowledgement Attorney Waiver", category: "contracts-agreements", file: "docs/FORGE-Acknowledgement-Attorney-Waiver.docx" },
+  { id: 3, title: "Acquisitions Hire Evaluation", category: "team-building", file: "docs/FORGE-Acquisitions-Hire-Evaluation.docx" },
+  { id: 4, title: "Affidavit of Ownership Liens and Encumbrances", category: "contracts-agreements", file: "docs/FORGE-Affidavit-of-Ownership-Liens-and-Encumbrances.docx" },
+  { id: 5, title: "Agent Lead Sheet", category: "finding-deals", file: "docs/FORGE-Agent-Lead-Sheet.docx" },
+  { id: 6, title: "Agent Partnership Pitch Deck", category: "checklists", file: "docs/FORGE-Agent-Partnership-Pitch-Deck.docx" },
+  { id: 7, title: "Annual Performance Blueprint", category: "wholesaling", file: "docs/FORGE-Annual-Performance-Blueprint.docx" },
+  { id: 8, title: "Auction Property Questionnaire", category: "analyzing-deals", file: "docs/FORGE-Auction-Property-Questionnaire.docx" },
+  { id: 9, title: "Auction System Guide", category: "analyzing-deals", file: "docs/FORGE-Auction-System-Guide.docx" },
+  { id: 10, title: "Authorization to Act as Agent", category: "contracts-agreements", file: "docs/FORGE-Authorization-to-Act-as-Agent.docx" },
+  { id: 11, title: "Bargain Shop for Real Estate Guide", category: "analyzing-deals", file: "docs/FORGE-Bargain-Shop-for-Real-Estate-Guide.docx" },
+  { id: 12, title: "Before You Buy A Rental Report", category: "analyzing-deals", file: "docs/FORGE-Before-You-Buy-A-Rental-Report.docx" },
+  { id: 13, title: "Bill of Sale", category: "contracts-agreements", file: "docs/FORGE-Bill-of-Sale.docx" },
+  { id: 14, title: "Bookkeeper Hire Evaluation", category: "team-building", file: "docs/FORGE-Bookkeeper-Hire-Evaluation.docx" },
+  { id: 15, title: "Borrower Financial Information Form", category: "financing-capital", file: "docs/FORGE-Borrower-Financial-Information-Form.docx" },
+  { id: 16, title: "Broker Price Opinion Package", category: "checklists", file: "docs/FORGE-Broker-Price-Opinion-Package.docx" },
+  { id: 17, title: "Building Business Credit Guide", category: "financing-capital", file: "docs/FORGE-Building-Business-Credit-Guide.docx" },
+  { id: 18, title: "Business Organization System", category: "team-building", file: "docs/FORGE-Business-Organization-System.docx" },
+  { id: 19, title: "Business Partner Objections Scripts", category: "team-building", file: "docs/FORGE-Business-Partner-Objections-Scripts.docx" },
+  { id: 20, title: "Business Plan Template", category: "getting-started", file: "docs/FORGE-Business-Plan-Template.docx" },
+  { id: 21, title: "Buyer Conversation Script Contract Sale", category: "contracts-agreements", file: "docs/FORGE-Buyer-Conversation-Script-Contract-Sale.docx" },
+  { id: 22, title: "Buyer Credibility Packet Template", category: "wholesaling", file: "docs/FORGE-Buyer-Credibility-Packet-Template.docx" },
+  { id: 23, title: "Buyers Mortgage Preapproval Questionnaire", category: "checklists", file: "docs/FORGE-Buyers-Mortgage-Preapproval-Questionnaire.docx" },
+  { id: 24, title: "Buying Vacation Waterfront Luxury Properties Guide", category: "checklists", file: "docs/FORGE-Buying-Vacation-Waterfront-Luxury-Properties-Guide.docx" },
+  { id: 25, title: "Candidate Application Questionnaire", category: "team-building", file: "docs/FORGE-Candidate-Application-Questionnaire.docx" },
+  { id: 26, title: "Candidate Competency Scorecard", category: "team-building", file: "docs/FORGE-Candidate-Competency-Scorecard.xlsx" },
+  { id: 27, title: "Candidate Phone Screen Form", category: "team-building", file: "docs/FORGE-Candidate-Phone-Screen-Form.docx" },
+  { id: 28, title: "Chart of Accounts Template", category: "financing-capital", file: "docs/FORGE-Chart-of-Accounts-Template.xlsx" },
+  { id: 29, title: "Client Agent Short Sale Agreement", category: "contracts-agreements", file: "docs/FORGE-Client-Agent-Short-Sale-Agreement.docx" },
+  { id: 30, title: "Closing Preparation Checklist Buying", category: "contracts-agreements", file: "docs/FORGE-Closing-Preparation-Checklist-Buying.docx" },
+  { id: 31, title: "Closing Preparation Checklist Selling", category: "contracts-agreements", file: "docs/FORGE-Closing-Preparation-Checklist-Selling.docx" },
+  { id: 32, title: "Closing Process SOP", category: "contracts-agreements", file: "docs/FORGE-Closing-Process-SOP.docx" },
+  { id: 33, title: "Closing Settlement Information Sheet", category: "contracts-agreements", file: "docs/FORGE-Closing-Settlement-Information-Sheet.docx" },
+  { id: 34, title: "Commercial Purchase and Sale Agreement", category: "contracts-agreements", file: "docs/FORGE-Commercial-Purchase-and-Sale-Agreement.docx" },
+  { id: 35, title: "Company Balance Sheet Template", category: "financing-capital", file: "docs/FORGE-Company-Balance-Sheet-Template.xlsx" },
+  { id: 36, title: "Company Roles and Responsibilities", category: "team-building", file: "docs/FORGE-Company-Roles-and-Responsibilities.docx" },
+  { id: 37, title: "Contractor Application", category: "contracts-agreements", file: "docs/FORGE-Contractor-Application.docx" },
+  { id: 38, title: "Contractor Construction Guide", category: "contracts-agreements", file: "docs/FORGE-Contractor-Construction-Guide.docx" },
+  { id: 39, title: "Contractor Credibility Packet Checklist", category: "contracts-agreements", file: "docs/FORGE-Contractor-Credibility-Packet-Checklist.docx" },
+  { id: 40, title: "Contractor Credibility Packet Guide", category: "contracts-agreements", file: "docs/FORGE-Contractor-Credibility-Packet-Guide.docx" },
+  { id: 41, title: "Contractor Interview Sheet", category: "contracts-agreements", file: "docs/FORGE-Contractor-Interview-Sheet.docx" },
+  { id: 42, title: "Contractor Opening Script", category: "contracts-agreements", file: "docs/FORGE-Contractor-Opening-Script.docx" },
+  { id: 43, title: "Contractor Outreach Checklist", category: "contracts-agreements", file: "docs/FORGE-Contractor-Outreach-Checklist.docx" },
+  { id: 44, title: "Contractor Reference Check Sheet", category: "contracts-agreements", file: "docs/FORGE-Contractor-Reference-Check-Sheet.docx" },
+  { id: 45, title: "Contracts and Disclosures Checklist", category: "contracts-agreements", file: "docs/FORGE-Contracts-and-Disclosures-Checklist.docx" },
+  { id: 46, title: "Contracts and Disclosures Quick Reference", category: "contracts-agreements", file: "docs/FORGE-Contracts-and-Disclosures-Quick-Reference.docx" },
+  { id: 47, title: "Contracts Disclosures Checklist", category: "contracts-agreements", file: "docs/FORGE-Contracts-Disclosures-Checklist.docx" },
+  { id: 48, title: "Deal Analysis Appraisals Guide", category: "analyzing-deals", file: "docs/FORGE-Deal-Analysis-Appraisals-Guide.docx" },
+  { id: 49, title: "Deal Analysis Field Appraisal Checklist", category: "analyzing-deals", file: "docs/FORGE-Deal-Analysis-Field-Appraisal-Checklist.docx" },
+  { id: 50, title: "Driver Phone Interview Sheet", category: "team-building", file: "docs/FORGE-Driver-Phone-Interview-Sheet.docx" },
+  { id: 51, title: "Driver Sign Worker Application", category: "team-building", file: "docs/FORGE-Driver-Sign-Worker-Application.docx" },
+  { id: 52, title: "Driver Timetable Pay Schedule", category: "team-building", file: "docs/FORGE-Driver-Timetable-Pay-Schedule.xlsx" },
+  { id: 53, title: "Due Diligence Checklist", category: "contracts-agreements", file: "docs/FORGE-Due-Diligence-Checklist.docx" },
+  { id: 54, title: "Due on Sale Acknowledgment", category: "contracts-agreements", file: "docs/FORGE-Due-on-Sale-Acknowledgment.docx" },
+  { id: 55, title: "Elevator Pitch Exercise", category: "getting-started", file: "docs/FORGE-Elevator-Pitch-Exercise.docx" },
+  { id: 56, title: "Elevator Pitch Guide", category: "getting-started", file: "docs/FORGE-Elevator-Pitch-Guide.docx" },
+  { id: 57, title: "Email Offer Template", category: "analyzing-deals", file: "docs/FORGE-Email-Offer-Template.docx" },
+  { id: 58, title: "Employment Information Release Authorization", category: "contracts-agreements", file: "docs/FORGE-Employment-Information-Release-Authorization.docx" },
+  { id: 59, title: "Escrow Checklist Quick Reference", category: "contracts-agreements", file: "docs/FORGE-Escrow-Checklist-Quick-Reference.docx" },
+  { id: 60, title: "Escrow Checklist", category: "contracts-agreements", file: "docs/FORGE-Escrow-Checklist.docx" },
+  { id: 61, title: "Escrow Closing Communication Checklist", category: "contracts-agreements", file: "docs/FORGE-Escrow-Closing-Communication-Checklist.docx" },
+  { id: 62, title: "Escrow Take Sheet", category: "contracts-agreements", file: "docs/FORGE-Escrow-Take-Sheet.docx" },
+  { id: 63, title: "Executive Assistant Hire Evaluation", category: "team-building", file: "docs/FORGE-Executive-Assistant-Hire-Evaluation.docx" },
+  { id: 64, title: "Experienced Investor Credibility Packet", category: "wholesaling", file: "docs/FORGE-Experienced-Investor-Credibility-Packet.docx" },
+  { id: 65, title: "Finance Request Package", category: "financing-capital", file: "docs/FORGE-Finance-Request-Package.docx" },
+  { id: 66, title: "Financial Information Release Authorization", category: "contracts-agreements", file: "docs/FORGE-Financial-Information-Release-Authorization.docx" },
+  { id: 67, title: "Financing and Capital Curriculum Guide", category: "financing-capital", file: "docs/FORGE-Financing-and-Capital-Curriculum-Guide.docx" },
+  { id: 68, title: "Five Person Business Blueprint", category: "team-building", file: "docs/FORGE-Five-Person-Business-Blueprint.docx" },
+  { id: 69, title: "Fix Flip Deal Analyzer Guide", category: "analyzing-deals", file: "docs/FORGE-Fix-Flip-Deal-Analyzer-Guide.docx" },
+  { id: 70, title: "For Sale Vacant Properties Tracker", category: "finding-deals", file: "docs/FORGE-For-Sale-Vacant-Properties-Tracker.docx" },
+  { id: 71, title: "Full Employment Application", category: "team-building", file: "docs/FORGE-Full-Employment-Application.docx" },
+  { id: 72, title: "Full Property Sales System Checklist", category: "checklists", file: "docs/FORGE-Full-Property-Sales-System-Checklist.docx" },
+  { id: 73, title: "Goal Setting Time Blocking System", category: "getting-started", file: "docs/FORGE-Goal-Setting-Time-Blocking-System.xlsx" },
+  { id: 74, title: "Guaranty Agreement Template", category: "contracts-agreements", file: "docs/FORGE-Guaranty-Agreement-Template.docx" },
+  { id: 75, title: "Hard Money Lender Questionnaire", category: "financing-capital", file: "docs/FORGE-Hard-Money-Lender-Questionnaire.docx" },
+  { id: 76, title: "HOA Condo Doc Checklist", category: "checklists", file: "docs/FORGE-HOA-Condo-Doc-Checklist.docx" },
+  { id: 77, title: "HOA Condo Doc Review Checklist", category: "checklists", file: "docs/FORGE-HOA-Condo-Doc-Review-Checklist.docx" },
+  { id: 78, title: "Home Buying Dos and Donts Guide", category: "checklists", file: "docs/FORGE-Home-Buying-Dos-and-Donts-Guide.docx" },
+  { id: 79, title: "Home Selling Made Simple", category: "checklists", file: "docs/FORGE-Home-Selling-Made-Simple.docx" },
+  { id: 80, title: "HUD1 Settlement Statement Guide", category: "contracts-agreements", file: "docs/FORGE-HUD1-Settlement-Statement-Guide.docx" },
+  { id: 81, title: "Income Statement Template", category: "financing-capital", file: "docs/FORGE-Income-Statement-Template.xlsx" },
+  { id: 82, title: "Investor Accreditation Questionnaire", category: "financing-capital", file: "docs/FORGE-Investor-Accreditation-Questionnaire.docx" },
+  { id: 83, title: "Investor Information Sheet", category: "financing-capital", file: "docs/FORGE-Investor-Information-Sheet.docx" },
+  { id: 84, title: "Investor Short Sale Checklist", category: "checklists", file: "docs/FORGE-Investor-Short-Sale-Checklist.docx" },
+  { id: 85, title: "JV Deal Points Template", category: "contracts-agreements", file: "docs/FORGE-JV-Deal-Points-Template.docx" },
+  { id: 86, title: "JV Partnership Agreement Template", category: "contracts-agreements", file: "docs/FORGE-JV-Partnership-Agreement-Template.docx" },
+  { id: 87, title: "Lead Based Paint Disclosure", category: "contracts-agreements", file: "docs/FORGE-Lead-Based-Paint-Disclosure.docx" },
+  { id: 88, title: "Lease Abstract", category: "contracts-agreements", file: "docs/FORGE-Lease-Abstract.docx" },
+  { id: 89, title: "Lease Signing Checklist", category: "contracts-agreements", file: "docs/FORGE-Lease-Signing-Checklist.docx" },
+  { id: 90, title: "Lessee Responsibility Agreement", category: "contracts-agreements", file: "docs/FORGE-Lessee-Responsibility-Agreement.docx" },
+  { id: 91, title: "Letter of Intent Template", category: "contracts-agreements", file: "docs/FORGE-Letter-of-Intent-Template.docx" },
+  { id: 92, title: "Loan Modification Intro Letter", category: "financing-capital", file: "docs/FORGE-Loan-Modification-Intro-Letter.docx" },
+  { id: 93, title: "Loan Modification System Guide", category: "financing-capital", file: "docs/FORGE-Loan-Modification-System-Guide.docx" },
+  { id: 94, title: "Loss Mitigation Phone Scripts", category: "financing-capital", file: "docs/FORGE-Loss-Mitigation-Phone-Scripts.docx" },
+  { id: 95, title: "Luxury Vacation Buyer Email Sequence", category: "checklists", file: "docs/FORGE-Luxury-Vacation-Buyer-Email-Sequence.docx" },
+  { id: 96, title: "Market Conditions Chart", category: "analyzing-deals", file: "docs/FORGE-Market-Conditions-Chart.docx" },
+  { id: 97, title: "Marketing Director Interview Sheet", category: "team-building", file: "docs/FORGE-Marketing-Director-Interview-Sheet.docx" },
+  { id: 98, title: "Marketing Property For Sale Checklist", category: "checklists", file: "docs/FORGE-Marketing-Property-For-Sale-Checklist.docx" },
+  { id: 99, title: "Master Team Contact Database", category: "team-building", file: "docs/FORGE-Master-Team-Contact-Database.xlsx" },
+  { id: 100, title: "MLS Property Viewing Checklist", category: "analyzing-deals", file: "docs/FORGE-MLS-Property-Viewing-Checklist.docx" },
+  { id: 101, title: "MLS Search Criteria Cheat Sheet", category: "finding-deals", file: "docs/FORGE-MLS-Search-Criteria-Cheat-Sheet.docx" },
+  { id: 102, title: "Mold Disclosure", category: "contracts-agreements", file: "docs/FORGE-Mold-Disclosure.docx" },
+  { id: 103, title: "Mortgage Deed Template", category: "contracts-agreements", file: "docs/FORGE-Mortgage-Deed-Template.docx" },
+  { id: 104, title: "Mortgage Satisfaction Release", category: "checklists", file: "docs/FORGE-Mortgage-Satisfaction-Release.docx" },
+  { id: 105, title: "Move In Move Out Condition Report", category: "rentals-income", file: "docs/FORGE-Move-In-Move-Out-Condition-Report.docx" },
+  { id: 106, title: "Multifamily Business Plan Example", category: "getting-started", file: "docs/FORGE-Multifamily-Business-Plan-Example.docx" },
+  { id: 107, title: "Multifamily Due Diligence Checklist", category: "analyzing-deals", file: "docs/FORGE-Multifamily-Due-Diligence-Checklist.docx" },
+  { id: 108, title: "Negotiation Playbook", category: "analyzing-deals", file: "docs/FORGE-Negotiation-Playbook.docx" },
+  { id: 109, title: "New Investor Credibility Packet", category: "wholesaling", file: "docs/FORGE-New-Investor-Credibility-Packet.docx" },
+  { id: 110, title: "New Tenant Onboarding Checklist", category: "rentals-income", file: "docs/FORGE-New-Tenant-Onboarding-Checklist.docx" },
+  { id: 111, title: "Offers Contracts Guide", category: "analyzing-deals", file: "docs/FORGE-Offers-Contracts-Guide.docx" },
+  { id: 112, title: "Option for Purchase and Sale Contract", category: "contracts-agreements", file: "docs/FORGE-Option-for-Purchase-and-Sale-Contract.docx" },
+  { id: 113, title: "Partner Vetting Framework", category: "team-building", file: "docs/FORGE-Partner-Vetting-Framework.docx" },
+  { id: 114, title: "Personal Assistant Job Posting", category: "team-building", file: "docs/FORGE-Personal-Assistant-Job-Posting.docx" },
+  { id: 115, title: "Personal Financial Statement", category: "financing-capital", file: "docs/FORGE-Personal-Financial-Statement.docx" },
+  { id: 116, title: "Personal Monthly Budget", category: "financing-capital", file: "docs/FORGE-Personal-Monthly-Budget.xlsx" },
+  { id: 117, title: "PL Budget Analyzer", category: "financing-capital", file: "docs/FORGE-PL-Budget-Analyzer.xlsx" },
+  { id: 118, title: "Presenting Offers Guide", category: "analyzing-deals", file: "docs/FORGE-Presenting-Offers-Guide.docx" },
+  { id: 119, title: "Private Lender Cover Letter Template", category: "financing-capital", file: "docs/FORGE-Private-Lender-Cover-Letter-Template.docx" },
+  { id: 120, title: "Private Lender Networking Script", category: "finding-deals", file: "docs/FORGE-Private-Lender-Networking-Script.docx" },
+  { id: 121, title: "Private Lender Objections Scripts", category: "financing-capital", file: "docs/FORGE-Private-Lender-Objections-Scripts.docx" },
+  { id: 122, title: "Private Lender Outreach Email", category: "financing-capital", file: "docs/FORGE-Private-Lender-Outreach-Email.docx" },
+  { id: 123, title: "Private Lender Presentation Guide", category: "financing-capital", file: "docs/FORGE-Private-Lender-Presentation-Guide.docx" },
+  { id: 124, title: "Private Lender Prospect Brainstorm", category: "financing-capital", file: "docs/FORGE-Private-Lender-Prospect-Brainstorm.docx" },
+  { id: 125, title: "Private Lending FAQ", category: "financing-capital", file: "docs/FORGE-Private-Lending-FAQ.docx" },
+  { id: 126, title: "Private Money Bootcamp Workbook", category: "financing-capital", file: "docs/FORGE-Private-Money-Bootcamp-Workbook.docx" },
+  { id: 127, title: "Private Money Closing Process Guide", category: "contracts-agreements", file: "docs/FORGE-Private-Money-Closing-Process-Guide.docx" },
+  { id: 128, title: "Private Money Compliance FAQ", category: "financing-capital", file: "docs/FORGE-Private-Money-Compliance-FAQ.docx" },
+  { id: 129, title: "Private Money Investor Packet", category: "financing-capital", file: "docs/FORGE-Private-Money-Investor-Packet.docx" },
+  { id: 130, title: "Private Money Meeting Outline", category: "financing-capital", file: "docs/FORGE-Private-Money-Meeting-Outline.docx" },
+  { id: 131, title: "Private Money Meeting Script", category: "financing-capital", file: "docs/FORGE-Private-Money-Meeting-Script.docx" },
+  { id: 132, title: "Private Money Presentation Guide", category: "financing-capital", file: "docs/FORGE-Private-Money-Presentation-Guide.docx" },
+  { id: 133, title: "Project Manager Interview Sheet", category: "rehab", file: "docs/FORGE-Project-Manager-Interview-Sheet.docx" },
+  { id: 134, title: "Promissory Note Instructions Checklist", category: "contracts-agreements", file: "docs/FORGE-Promissory-Note-Instructions-Checklist.docx" },
+  { id: 135, title: "Promissory Note Release", category: "contracts-agreements", file: "docs/FORGE-Promissory-Note-Release.docx" },
+  { id: 136, title: "Promissory Note Template", category: "contracts-agreements", file: "docs/FORGE-Promissory-Note-Template.docx" },
+  { id: 137, title: "Property Accounting Sale Entries", category: "financing-capital", file: "docs/FORGE-Property-Accounting-Sale-Entries.xlsx" },
+  { id: 138, title: "Property Coversheet Short Sale", category: "contracts-agreements", file: "docs/FORGE-Property-Coversheet-Short-Sale.docx" },
+  { id: 139, title: "Property Insurance Questionnaire", category: "rentals-income", file: "docs/FORGE-Property-Insurance-Questionnaire.docx" },
+  { id: 140, title: "Property Marketing Launch Checklist", category: "checklists", file: "docs/FORGE-Property-Marketing-Launch-Checklist.docx" },
+  { id: 141, title: "Property Offers Tracking Sheet", category: "wholesaling", file: "docs/FORGE-Property-Offers-Tracking-Sheet.xlsx" },
+  { id: 142, title: "Property Prep Pre Marketing Checklist", category: "checklists", file: "docs/FORGE-Property-Prep-Pre-Marketing-Checklist.docx" },
+  { id: 143, title: "Property Sale Closing Checklist", category: "checklists", file: "docs/FORGE-Property-Sale-Closing-Checklist.docx" },
+  { id: 144, title: "Property Situation Sheet", category: "checklists", file: "docs/FORGE-Property-Situation-Sheet.docx" },
+  { id: 145, title: "Real Estate Agent Vetting Guide", category: "checklists", file: "docs/FORGE-Real-Estate-Agent-Vetting-Guide.docx" },
+  { id: 146, title: "Real Estate Attorney Vetting Guide", category: "checklists", file: "docs/FORGE-Real-Estate-Attorney-Vetting-Guide.docx" },
+  { id: 147, title: "Real Estate Financial Formulas Cheat Sheet", category: "analyzing-deals", file: "docs/FORGE-Real-Estate-Financial-Formulas-Cheat-Sheet.docx" },
+  { id: 148, title: "Reference Check Script", category: "team-building", file: "docs/FORGE-Reference-Check-Script.docx" },
+  { id: 149, title: "Refinance Questionnaire", category: "contracts-agreements", file: "docs/FORGE-Refinance-Questionnaire.docx" },
+  { id: 150, title: "Rehab Project Management Checklist", category: "rehab", file: "docs/FORGE-Rehab-Project-Management-Checklist.docx" },
+  { id: 151, title: "Rehab Punch List Checklist", category: "rehab", file: "docs/FORGE-Rehab-Punch-List-Checklist.docx" },
+  { id: 152, title: "Rental Contract Addendum As Is", category: "contracts-agreements", file: "docs/FORGE-Rental-Contract-Addendum-As-Is.docx" },
+  { id: 153, title: "Rental Contract Addendum Method of Payment", category: "contracts-agreements", file: "docs/FORGE-Rental-Contract-Addendum-Method-of-Payment.docx" },
+  { id: 154, title: "Rental Contract Addendum Pets", category: "contracts-agreements", file: "docs/FORGE-Rental-Contract-Addendum-Pets.docx" },
+  { id: 155, title: "Rental Contract Addendum Property Damage Charges", category: "contracts-agreements", file: "docs/FORGE-Rental-Contract-Addendum-Property-Damage-Charges.docx" },
+  { id: 156, title: "Rental Deal Analyzer Guide", category: "analyzing-deals", file: "docs/FORGE-Rental-Deal-Analyzer-Guide.docx" },
+  { id: 157, title: "Rental Payment Schedule", category: "rentals-income", file: "docs/FORGE-Rental-Payment-Schedule.docx" },
+  { id: 158, title: "Rental Unit Cleaning Checklist", category: "rentals-income", file: "docs/FORGE-Rental-Unit-Cleaning-Checklist.docx" },
+  { id: 159, title: "Rental Unit Maintenance Checklist", category: "rentals-income", file: "docs/FORGE-Rental-Unit-Maintenance-Checklist.docx" },
+  { id: 160, title: "Rental Unit Paint Inspection Checklist", category: "rentals-income", file: "docs/FORGE-Rental-Unit-Paint-Inspection-Checklist.docx" },
+  { id: 161, title: "Residential Lease Agreement", category: "contracts-agreements", file: "docs/FORGE-Residential-Lease-Agreement.docx" },
+  { id: 162, title: "Retail Space Lease Agreement", category: "contracts-agreements", file: "docs/FORGE-Retail-Space-Lease-Agreement.docx" },
+  { id: 163, title: "Sample Property Descriptions", category: "checklists", file: "docs/FORGE-Sample-Property-Descriptions.xlsx" },
+  { id: 164, title: "Seller Credibility Packet Template", category: "wholesaling", file: "docs/FORGE-Seller-Credibility-Packet-Template.docx" },
+  { id: 165, title: "Seller Lead Sheet Question Verbiage", category: "finding-deals", file: "docs/FORGE-Seller-Lead-Sheet-Question-Verbiage.docx" },
+  { id: 166, title: "Seller Lead Sheet", category: "finding-deals", file: "docs/FORGE-Seller-Lead-Sheet.docx" },
+  { id: 167, title: "Seller Objections Scripts", category: "checklists", file: "docs/FORGE-Seller-Objections-Scripts.docx" },
+  { id: 168, title: "Seller Opening Script", category: "finding-deals", file: "docs/FORGE-Seller-Opening-Script.docx" },
+  { id: 169, title: "Short Form Lease Agreement", category: "contracts-agreements", file: "docs/FORGE-Short-Form-Lease-Agreement.docx" },
+  { id: 170, title: "Short Sale Appointment Checklist", category: "contracts-agreements", file: "docs/FORGE-Short-Sale-Appointment-Checklist.docx" },
+  { id: 171, title: "Short Sale Approval Template", category: "contracts-agreements", file: "docs/FORGE-Short-Sale-Approval-Template.docx" },
+  { id: 172, title: "Short Sale Cover Letter", category: "contracts-agreements", file: "docs/FORGE-Short-Sale-Cover-Letter.docx" },
+  { id: 173, title: "Short Sale Disclosure Agreement", category: "contracts-agreements", file: "docs/FORGE-Short-Sale-Disclosure-Agreement.docx" },
+  { id: 174, title: "Short Sale Document Checklist Hardship Letter", category: "contracts-agreements", file: "docs/FORGE-Short-Sale-Document-Checklist-Hardship-Letter.docx" },
+  { id: 175, title: "Short Sale Due Diligence Sheet", category: "contracts-agreements", file: "docs/FORGE-Short-Sale-Due-Diligence-Sheet.docx" },
+  { id: 176, title: "Short Sale Hardship Package", category: "contracts-agreements", file: "docs/FORGE-Short-Sale-Hardship-Package.docx" },
+  { id: 177, title: "Short Sale Package Checklist", category: "contracts-agreements", file: "docs/FORGE-Short-Sale-Package-Checklist.docx" },
+  { id: 178, title: "Smoke Detector Disclosure", category: "contracts-agreements", file: "docs/FORGE-Smoke-Detector-Disclosure.docx" },
+  { id: 179, title: "Standard Commercial Lease", category: "rentals-income", file: "docs/FORGE-Standard-Commercial-Lease.docx" },
+  { id: 180, title: "Subject To Acknowledgment", category: "contracts-agreements", file: "docs/FORGE-Subject-To-Acknowledgment.docx" },
+  { id: 181, title: "Talent Acquisition Playbook", category: "team-building", file: "docs/FORGE-Talent-Acquisition-Playbook.docx" },
+  { id: 182, title: "True Wealth Definition Handout", category: "getting-started", file: "docs/FORGE-True-Wealth-Definition-Handout.docx" },
+  { id: 183, title: "Two Person Business Blueprint", category: "team-building", file: "docs/FORGE-Two-Person-Business-Blueprint.docx" },
+  { id: 184, title: "Unit Painting Checklist", category: "rehab", file: "docs/FORGE-Unit-Painting-Checklist.docx" },
+  { id: 185, title: "Unit Repair Checklist", category: "rehab", file: "docs/FORGE-Unit-Repair-Checklist.docx" },
+  { id: 186, title: "Unit Turnover Master Guide", category: "rentals-income", file: "docs/FORGE-Unit-Turnover-Master-Guide.docx" },
+  { id: 187, title: "Useful Contacts", category: "wholesaling", file: "docs/FORGE-Useful-Contacts.docx" },
+  { id: 188, title: "Utility Property Info Checklist", category: "checklists", file: "docs/FORGE-Utility-Property-Info-Checklist.docx" },
+  { id: 189, title: "Utility Verification Form", category: "checklists", file: "docs/FORGE-Utility-Verification-Form.docx" },
+  { id: 190, title: "Warranty Deed Template", category: "contracts-agreements", file: "docs/FORGE-Warranty-Deed-Template.docx" },
+  { id: 191, title: "Warranty Deed to Trustee", category: "contracts-agreements", file: "docs/FORGE-Warranty-Deed-to-Trustee.docx" },
+  { id: 192, title: "Weekly Goal Tracking System", category: "wholesaling", file: "docs/FORGE-Weekly-Goal-Tracking-System.xlsx" },
+  { id: 193, title: "Weekly Team Meeting Tracker", category: "team-building", file: "docs/FORGE-Weekly-Team-Meeting-Tracker.xlsx" },
+  { id: 194, title: "Wholesale Assignment Checklist", category: "contracts-agreements", file: "docs/FORGE-Wholesale-Assignment-Checklist.docx" },
+  { id: 195, title: "Wholesale Buyer Prequalification Form", category: "wholesaling", file: "docs/FORGE-Wholesale-Buyer-Prequalification-Form.docx" },
+  { id: 196, title: "Wholesaler Lead Sheet with Opening Script", category: "finding-deals", file: "docs/FORGE-Wholesaler-Lead-Sheet-with-Opening-Script.docx" },
+  { id: 197, title: "Wholesaler Lead Sheet", category: "finding-deals", file: "docs/FORGE-Wholesaler-Lead-Sheet.docx" },
+  { id: 198, title: "Wholesaling Compliance and Best Practices", category: "wholesaling", file: "docs/FORGE-Wholesaling-Compliance-and-Best-Practices.docx" },
+  { id: 199, title: "Witness Statement", category: "contracts-agreements", file: "docs/FORGE-Witness-Statement.docx" },
+  { id: 200, title: "Work Order", category: "rehab", file: "docs/FORGE-Work-Order.docx" },
+];
+
+// ─────────────────────────────────────────────────────────
+// DEAL DOCUMENTS (saved from Deal Analyzer / Market Oracle / Capital Radar,
+// manual uploads, and Document Vault attachments)
 // ─────────────────────────────────────────────────────────
 const DOC_SOURCE_LABELS = {
   deal_analyzer: 'Deal Analyzer',
   market_oracle: 'Market Oracle',
   capital_radar: 'Capital Radar',
+  manual_upload: 'Uploaded',
+  document_vault: 'Document Vault',
 };
 const DOC_SOURCE_ICONS = {
   deal_analyzer: '🔍',
   market_oracle: '🔮',
   capital_radar: '🎯',
+  manual_upload: '⬆️',
+  document_vault: '📂',
 };
+const MANUAL_UPLOAD_MAX_BYTES = 4 * 1024 * 1024; // 4MB raw file size (base64 inflates ~33%, keeps well under Netlify's function payload limit)
 
 async function loadDealDocuments(dealId) {
   const list = document.getElementById('deal-documents-list');
@@ -786,6 +1032,16 @@ function renderDealDocuments(docs) {
     const when = new Date(d.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
     const row = document.createElement('div');
     row.className = 'doc-item';
+    // Reports/uploads are stored as base64 (file_data); Vault attachments store
+    // a pointer to the existing template file instead (file_url).
+    let href, downloadName;
+    if (d.file_data) {
+      href = d.file_data;
+      downloadName = escapeHtml(d.title) + '.pdf';
+    } else {
+      href = '/' + String(d.file_url || '').replace(/^\/+/, '');
+      downloadName = '';
+    }
     row.innerHTML = `
       <div class="doc-item-icon">${DOC_SOURCE_ICONS[d.source_tool] || '📄'}</div>
       <div class="doc-item-info">
@@ -793,7 +1049,7 @@ function renderDealDocuments(docs) {
         <div class="doc-item-meta"><span class="doc-source-badge">${DOC_SOURCE_LABELS[d.source_tool] || d.source_tool}</span>${when}</div>
       </div>
       <div class="doc-item-actions">
-        <a class="doc-action-link" href="${d.file_data}" download="${escapeHtml(d.title)}.pdf">Download</a>
+        <a class="doc-action-link" href="${href}" ${downloadName ? `download="${downloadName}"` : 'target="_blank" rel="noopener"'}>Download</a>
         <button class="doc-action-del" onclick="deleteDealDocument('${d.id}')">Remove</button>
       </div>
     `;
@@ -809,6 +1065,127 @@ async function deleteDealDocument(id) {
     loadDealDocuments(activeDealId);
   } catch (e) {
     showToast('Could not remove document: ' + e.message, true);
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+// MANUAL DOCUMENT UPLOAD (purchase agreements, agent-sent PDFs, etc.)
+// ─────────────────────────────────────────────────────────
+function handleManualDocSelected(event) {
+  const file = event.target.files && event.target.files[0];
+  event.target.value = ''; // allow re-selecting the same file later
+  if (!file || !activeDealId) return;
+  if (file.size > MANUAL_UPLOAD_MAX_BYTES) {
+    showToast('File is too large — max 4MB', true);
+    return;
+  }
+  const defaultTitle = file.name.replace(/\.[^/.]+$/, '');
+  const title = prompt('Title for this document:', defaultTitle);
+  if (title === null) return; // cancelled
+  const reader = new FileReader();
+  reader.onload = async () => {
+    try {
+      await apiCall('deal-documents', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'create',
+          deal_id: activeDealId,
+          source_tool: 'manual_upload',
+          title: title.trim() || defaultTitle,
+          file_data: reader.result,
+        }),
+      });
+      showToast('Document uploaded');
+      loadDealDocuments(activeDealId);
+    } catch (e) {
+      showToast('Could not upload document: ' + e.message, true);
+    }
+  };
+  reader.onerror = () => showToast('Could not read file', true);
+  reader.readAsDataURL(file);
+}
+
+// ─────────────────────────────────────────────────────────
+// DOCUMENT VAULT ATTACH (reference the existing 200-template catalog —
+// no bytes are copied, just a pointer to the template's file path)
+// ─────────────────────────────────────────────────────────
+const VAULT_CATEGORY_LABELS = {
+  'getting-started': 'Getting Started',
+  'finding-deals': 'Finding Deals',
+  'analyzing-deals': 'Analyzing Deals',
+  'contracts-agreements': 'Contracts & Agreements',
+  'financing-capital': 'Financing & Capital',
+  'rehab': 'Rehab',
+  'rentals-income': 'Rentals & Income',
+  'checklists': 'Checklists',
+  'team-building': 'Team Building',
+  'wholesaling': 'Wholesaling',
+};
+const VAULT_FILE_ICONS = { docx: '📄', xlsx: '📊', pdf: '📑' };
+
+function openVaultPicker() {
+  if (!activeDealId) return;
+  const sel = document.getElementById('vault-category-filter');
+  if (!sel.dataset.populated) {
+    sel.innerHTML = '<option value="">All Categories</option>' +
+      Object.keys(VAULT_CATEGORY_LABELS).map(c => `<option value="${c}">${VAULT_CATEGORY_LABELS[c]}</option>`).join('');
+    sel.dataset.populated = '1';
+  }
+  document.getElementById('vault-search-input').value = '';
+  renderVaultList();
+  document.getElementById('vault-overlay').classList.add('open');
+}
+
+function renderVaultList() {
+  const q = (document.getElementById('vault-search-input').value || '').trim().toLowerCase();
+  const cat = document.getElementById('vault-category-filter').value;
+  const list = document.getElementById('vault-list');
+  const results = FORGE_VAULT_DOCS.filter(d => {
+    const catOk = !cat || d.category === cat;
+    const qOk = !q || d.title.toLowerCase().includes(q);
+    return catOk && qOk;
+  }).slice(0, 60);
+  if (!results.length) {
+    list.innerHTML = '<div class="kanban-empty">No templates match</div>';
+    return;
+  }
+  list.innerHTML = '';
+  results.forEach(d => {
+    const ext = (d.file.split('.').pop() || '').toLowerCase();
+    const row = document.createElement('div');
+    row.className = 'vault-item';
+    row.onclick = () => selectVaultDoc(d.id);
+    row.innerHTML = `
+      <div class="vault-item-icon">${VAULT_FILE_ICONS[ext] || '📄'}</div>
+      <div class="vault-item-info">
+        <div class="vault-item-title">${escapeHtml(d.title)}</div>
+        <div class="vault-item-cat">${VAULT_CATEGORY_LABELS[d.category] || d.category}</div>
+      </div>
+    `;
+    list.appendChild(row);
+  });
+}
+
+async function selectVaultDoc(id) {
+  if (!activeDealId) return;
+  const doc = FORGE_VAULT_DOCS.find(d => d.id === id);
+  if (!doc) return;
+  try {
+    await apiCall('deal-documents', {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'create',
+        deal_id: activeDealId,
+        source_tool: 'document_vault',
+        title: doc.title,
+        file_url: doc.file,
+      }),
+    });
+    showToast('Attached from Document Vault');
+    closeModal('vault-overlay');
+    loadDealDocuments(activeDealId);
+  } catch (e) {
+    showToast('Could not attach document: ' + e.message, true);
   }
 }
 

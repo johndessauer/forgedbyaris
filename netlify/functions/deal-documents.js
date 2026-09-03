@@ -1,9 +1,12 @@
 // netlify/functions/deal-documents.js
 //
-// Classic Netlify function backing the new "Save to Deal" feature: stores
-// PDF reports generated from Deal Analyzer, Market Oracle, and Capital Radar
-// against a CRM deal, and lists/deletes them for the Documents panel on the
-// deal detail view in crm.html.
+// Classic Netlify function backing the "Save to Deal" / Documents feature:
+// stores PDF reports generated from Deal Analyzer, Market Oracle, and
+// Capital Radar (file_data, base64), member-uploaded files (file_data,
+// base64), and Document Vault attachments (file_url, a pointer to the
+// existing /docs/... template — no bytes duplicated) against a CRM deal.
+// Lists/deletes them for the Documents panel on the deal detail view in
+// crm.html.
 //
 // NOTE ON AUTH: this verifies the Memberstack Bearer token directly via
 // @memberstack/admin rather than importing a shared helper (e.g.
@@ -23,7 +26,7 @@ const memberstackAdmin = require('@memberstack/admin');
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 const memberstack = memberstackAdmin.init(process.env.MEMBERSTACK_SECRET_KEY);
 
-const VALID_SOURCE_TOOLS = ['deal_analyzer', 'market_oracle', 'capital_radar'];
+const VALID_SOURCE_TOOLS = ['deal_analyzer', 'market_oracle', 'capital_radar', 'manual_upload', 'document_vault'];
 
 async function verifyMemberstackId(event) {
   // ── AUTH BLOCK — swap this for your shared helper if you have one ──
@@ -68,7 +71,7 @@ exports.handler = async (event) => {
 
       const { data: documents, error } = await supabase
         .from('deal_documents')
-        .select('id, deal_id, source_tool, title, file_data, created_at')
+        .select('id, deal_id, source_tool, title, file_data, file_url, created_at')
         .eq('deal_id', dealId)
         .eq('memberstack_id', memberstackId)
         .order('created_at', { ascending: false });
@@ -82,9 +85,9 @@ exports.handler = async (event) => {
       const action = body.action;
 
       if (action === 'create') {
-        const { deal_id, source_tool, title, file_data } = body;
-        if (!deal_id || !source_tool || !title || !file_data) {
-          return { statusCode: 400, headers, body: JSON.stringify({ error: 'deal_id, source_tool, title, and file_data are all required' }) };
+        const { deal_id, source_tool, title, file_data, file_url } = body;
+        if (!deal_id || !source_tool || !title || (!file_data && !file_url)) {
+          return { statusCode: 400, headers, body: JSON.stringify({ error: 'deal_id, source_tool, title, and either file_data or file_url are required' }) };
         }
         if (!VALID_SOURCE_TOOLS.includes(source_tool)) {
           return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid source_tool' }) };
@@ -108,7 +111,8 @@ exports.handler = async (event) => {
             deal_id,
             source_tool,
             title,
-            file_data,
+            file_data: file_data || null,
+            file_url: file_url || null,
           })
           .select('id, deal_id, source_tool, title, created_at')
           .single();
