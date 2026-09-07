@@ -153,7 +153,9 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 .score-verdict { font-size: 12px; color: var(--grey-light); line-height: 1.5; }
 
 /* strategy scores */
-.strategy-scores { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.strategy-scores { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.strategy-card.locked { opacity: 0.55; cursor: pointer; }
+.strategy-card-lock-badge { display: inline-block; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--gold); border: 1px solid rgba(200,155,60,0.4); border-radius: 4px; padding: 2px 6px; margin-top: 4px; }
 .strategy-card { background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 10px; padding: 16px; transition: border-color 0.2s; }
 .strategy-card.highlighted { border-color: var(--orange); background: var(--navy-mid); }
 .strategy-card-icon { font-size: 20px; margin-bottom: 8px; }
@@ -354,6 +356,13 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
                   <div class="strategy-hint">Distressed assets · investor demand · velocity</div>
                 </div>
               </button>
+              <button class="strategy-btn" data-strategy="multifamily" id="multifamilyStrategyBtn" onclick="setStrategy(this, 'multifamily')">
+                <span class="strategy-icon">🏢</span>
+                <div class="strategy-info">
+                  <div class="strategy-name">Multifamily 5+</div>
+                  <div class="strategy-hint">Existing apartment supply · renter base · demand depth</div>
+                </div>
+              </button>
             </div>
           </div>
         </div>
@@ -402,11 +411,49 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 // ── STATE ──
 let currentStrategy = 'all';
 let memberToken = null;
+let hasEmpireAccess = false;
+const EMPIRE_PRICE_ID = 'prc_empire-plan--401c10a7h';
 
 function setStrategy(el, strategy) {
+  if (strategy === 'multifamily' && !hasEmpireAccess) {
+    showEmpireLockModal();
+    return;
+  }
   document.querySelectorAll('.strategy-btn').forEach(b => b.classList.remove('active'));
   el.classList.add('active');
   currentStrategy = strategy;
+}
+
+// ── EMPIRE UPGRADE MODAL (Multifamily 5+ is Empire-only) ──
+function showEmpireLockModal() {
+  let modal = document.getElementById('empire-lock-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'empire-lock-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    modal.innerHTML = `
+      <div style="background:var(--navy);border:1px solid var(--gold);border-radius:12px;padding:32px;max-width:400px;text-align:center;">
+        <div style="font-size:28px;margin-bottom:8px;">🔒</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:var(--gold);margin-bottom:10px;">Multifamily 5+ Requires Empire</div>
+        <div style="font-size:13px;color:var(--grey-light);line-height:1.6;margin-bottom:22px;">Unlock Empire to access Multifamily 5+ market intelligence, Commercial Deal Analyzer, Deal Network, and 9 more Education categories — one-time $997.</div>
+        <button onclick="handleUnlockEmpireModal()" id="empire-modal-unlock-btn" style="width:100%;background:var(--orange);border:none;color:white;font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:2px;padding:13px;border-radius:8px;cursor:pointer;margin-bottom:10px;">Unlock Empire →</button>
+        <button onclick="document.getElementById('empire-lock-modal').style.display='none'" style="width:100%;background:transparent;border:1px solid var(--border-sub);color:var(--grey-light);font-size:12px;padding:10px;border-radius:8px;cursor:pointer;">Maybe later</button>
+      </div>`;
+    document.body.appendChild(modal);
+  }
+  modal.style.display = 'flex';
+}
+
+async function handleUnlockEmpireModal() {
+  const btn = document.getElementById('empire-modal-unlock-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Loading checkout...'; }
+  try {
+    const memberstack = window.$memberstackDom;
+    await memberstack.purchasePlansWithCheckout({ priceId: EMPIRE_PRICE_ID });
+  } catch (err) {
+    console.error('Empire checkout failed:', err);
+    if (btn) { btn.disabled = false; btn.textContent = 'Unlock Empire →'; }
+  }
 }
 
 function fillAndSearch(val) {
@@ -437,16 +484,18 @@ Return this exact JSON structure with realistic estimated values based on your k
   "vacancyRate": 7.2,
   "ownershipRate": 62.5,
   "totalUnits": 45000,
+  "pctUnits5Plus": 12.5,
   "marketNotes": "one sentence describing this market's defining characteristic"
 }
 
 Rules:
 - medianHomeValue: median home sale price in dollars (integer)
-- medianRent: median monthly gross rent in dollars (integer)  
+- medianRent: median monthly gross rent in dollars (integer)
 - medianIncome: median household income in dollars (integer)
 - vacancyRate: housing vacancy rate as a percentage (float, e.g. 7.2)
 - ownershipRate: owner-occupied housing percentage (float, e.g. 62.5)
 - totalUnits: approximate total housing units (integer)
+- pctUnits5Plus: percentage of housing units that are in structures of 5+ units (apartment buildings), as a float, e.g. 12.5
 - geoLabel: clean display name like "Cedar Lake, Indiana" or "ZIP 46303 (Cedar Lake, IN)" or "Memphis, Tennessee"
 - If the location is not a valid US market, set geoLabel to "INVALID" and all numbers to 0
 
@@ -487,11 +536,11 @@ Return ONLY the JSON object. No other text.`;
   }
 
   // Derive calculated fields
-  const { medianHomeValue, medianRent, medianIncome, vacancyRate, ownershipRate, totalUnits, geoLabel, marketNotes } = parsed;
+  const { medianHomeValue, medianRent, medianIncome, vacancyRate, ownershipRate, totalUnits, pctUnits5Plus, geoLabel, marketNotes } = parsed;
   const grossRentMultiplier = medianHomeValue > 0 && medianRent > 0 ? medianHomeValue / (medianRent * 12) : 0;
   const rentToPrice         = medianHomeValue > 0 && medianRent > 0 ? (medianRent / medianHomeValue) * 100 : 0;
 
-  return { geoLabel, medianHomeValue, medianRent, medianIncome, vacancyRate, ownershipRate, grossRentMultiplier, rentToPrice, totalUnits, marketNotes, dataSource: 'estimate' };
+  return { geoLabel, medianHomeValue, medianRent, medianIncome, vacancyRate, ownershipRate, grossRentMultiplier, rentToPrice, totalUnits, pctUnits5Plus: pctUnits5Plus || 0, marketNotes, dataSource: 'estimate' };
 }
 
 // ── LIVE MARKET DATA FETCH (Phase II — Census ACS + FRED, free tier) ──
@@ -524,7 +573,7 @@ async function fetchMarketData(query) {
 
 // ── SCORING ENGINE ──
 function scoreMarket(data) {
-  const { medianHomeValue, medianRent, medianIncome, vacancyRate, ownershipRate, rentToPrice, grossRentMultiplier } = data;
+  const { medianHomeValue, medianRent, medianIncome, vacancyRate, ownershipRate, rentToPrice, grossRentMultiplier, pctUnits5Plus } = data;
 
   // ── AREA CLASS (A/B/C) ──
   // Based on median home value and income relative to national benchmarks
@@ -610,13 +659,49 @@ function scoreMarket(data) {
   else if (ownershipRate < 65) wholesaleScore += 9;
   else wholesaleScore += 3;
 
+  // ── MULTIFAMILY 5+ SCORE (Empire-only strategy) ──
+  // Want: real, established 5+ unit apartment supply (renter demand depth)
+  // + healthy occupancy + a renter-dominant market. Reuses the rental
+  // score's area-class and ownership-rate weighting since apartment
+  // fundamentals track the same demand signals as SFR rentals — but the
+  // deciding factor is pctUnits5Plus, a genuine multifamily-specific
+  // signal (Census B25024) with no SFR-rental equivalent. This score is
+  // independent of the overall blended score below — it never touches it.
+  let multifamilyScore = 0;
+  // B area is still the sweet spot for cash-flowing apartment buys
+  if (areaClass === 'B') multifamilyScore += 35;
+  else if (areaClass === 'A') multifamilyScore += 22;
+  else multifamilyScore += 14;
+  // Share of housing stock that's 5+ unit multifamily: the core signal.
+  // Very low = little existing supply/renter infrastructure to underwrite
+  // against. 15-40% = established apartment market with real comps and
+  // demand depth. >40% = dense urban core — still investable, but more
+  // institutional competition and thinner margins.
+  const pct5Plus = pctUnits5Plus || 0;
+  if (pct5Plus >= 15 && pct5Plus <= 40) multifamilyScore += 35;
+  else if (pct5Plus > 40) multifamilyScore += 22;
+  else if (pct5Plus >= 5) multifamilyScore += 14;
+  else multifamilyScore += 4;
+  // Low vacancy = healthy occupancy across the rental stock
+  if (vacancyRate < 6) multifamilyScore += 20;
+  else if (vacancyRate < 10) multifamilyScore += 12;
+  else multifamilyScore += 4;
+  // Renter-dominant market = deeper tenant pool
+  if (ownershipRate < 60) multifamilyScore += 10;
+  else if (ownershipRate < 70) multifamilyScore += 6;
+  else multifamilyScore += 2;
+
   // Normalize all scores to 100
   const normalize = (s, max) => Math.min(100, Math.round((s / max) * 100));
-  const flipFinal      = normalize(flipScore, 100);
-  const rentalFinal    = normalize(rentalScore, 100);
-  const wholesaleFinal = normalize(wholesaleScore, 100);
+  const flipFinal        = normalize(flipScore, 100);
+  const rentalFinal      = normalize(rentalScore, 100);
+  const wholesaleFinal   = normalize(wholesaleScore, 100);
+  const multifamilyFinal = normalize(multifamilyScore, 100);
 
   // Overall = weighted average by strategy filter
+  // NOTE: multifamily is deliberately excluded from this blend — it's an
+  // Empire-only add-on, and Foundation-tier members' overall score must
+  // stay exactly as it was before this feature existed.
   const overall = Math.round((flipFinal * 0.33) + (rentalFinal * 0.33) + (wholesaleFinal * 0.34));
 
   const gradeFromScore = (s) => {
@@ -633,7 +718,8 @@ function scoreMarket(data) {
     overall,
     flip: { score: flipFinal, grade: gradeFromScore(flipFinal) },
     rental: { score: rentalFinal, grade: gradeFromScore(rentalFinal) },
-    wholesale: { score: wholesaleFinal, grade: gradeFromScore(wholesaleFinal) }
+    wholesale: { score: wholesaleFinal, grade: gradeFromScore(wholesaleFinal) },
+    multifamily: { score: multifamilyFinal, grade: gradeFromScore(multifamilyFinal) }
   };
 }
 
@@ -685,7 +771,8 @@ async function callARIS(marketData, scores, location, strategy) {
     all: 'all three strategies (fix & flip, rentals, and wholesaling)',
     flip: 'fix and flip investing',
     rental: 'buy-and-hold rental investing',
-    wholesale: 'wholesaling'
+    wholesale: 'wholesaling',
+    multifamily: 'multifamily 5+ unit apartment investing (Empire-tier strategy)'
   }[strategy];
 
   const prompt = `You are ARIS — the AI coach inside FORGE, a real estate investor platform. FORGE members follow the "worst house on the best block" philosophy and use FORGE Class scoring (Class A = high income/values, Class B = middle market, Class C = distressed).
@@ -696,6 +783,7 @@ Overall FORGE Score: ${scores.overall}/100
 Fix & Flip Score: ${scores.flip.score}/100 (${scores.flip.grade})
 Rental Score: ${scores.rental.score}/100 (${scores.rental.grade})
 Wholesale Score: ${scores.wholesale.score}/100 (${scores.wholesale.grade})
+${scores.multifamily ? `Multifamily 5+ Score: ${scores.multifamily.score}/100 (${scores.multifamily.grade})` : ''}
 
 Key Data:
 - Median Home Value: ${fmt(marketData.medianHomeValue)}
@@ -705,6 +793,7 @@ Key Data:
 - Ownership Rate: ${fmtPct(marketData.ownershipRate)}
 - Rent-to-Price Ratio: ${fmtPct(marketData.rentToPrice)} monthly
 - Gross Rent Multiplier: ${marketData.grossRentMultiplier > 0 ? marketData.grossRentMultiplier.toFixed(1) + 'x' : 'N/A'}
+${marketData.pctUnits5Plus !== undefined ? '- Share of Housing Stock in 5+ Unit Buildings: ' + fmtPct(marketData.pctUnits5Plus) : ''}
 ${marketData.marketNotes ? '- Market Notes: ' + marketData.marketNotes : ''}
 - Data Source: ${marketData.dataSource === 'census' ? `Live U.S. Census ACS ${marketData.acsVintage} 5-Year data (real government data, 1-3 year rolling average, not live listing prices)` : 'ARIS estimate — live government data was unavailable for this location'}
 ${marketData.mortgageRate ? `- Current 30-Year Mortgage Rate: ${marketData.mortgageRate.toFixed(2)}% (live via FRED, as of ${marketData.mortgageRateAsOf})` : ''}
@@ -810,6 +899,17 @@ function renderResults(data, scores, location) {
           <div class="strategy-score-num" style="color:${scoreColor(scores.wholesale.score)}">${scores.wholesale.score}</div>
           <div class="strategy-score-grade">Grade: <strong style="color:${scoreColor(scores.wholesale.score)}">${scores.wholesale.grade}</strong></div>
         </div>
+        <div class="strategy-card ${hasEmpireAccess ? (highlightStrategy === 'multifamily' || highlightStrategy === 'all' ? 'highlighted' : '') : 'locked'}" ${hasEmpireAccess ? '' : `onclick="showEmpireLockModal()"`}>
+          <div class="strategy-card-icon">🏢</div>
+          <div class="strategy-card-name">Multifamily 5+</div>
+          ${hasEmpireAccess ? `
+          <div class="strategy-score-bar"><div class="strategy-score-fill ${scoreFillClass(scores.multifamily.score)}" style="width:${scores.multifamily.score}%"></div></div>
+          <div class="strategy-score-num" style="color:${scoreColor(scores.multifamily.score)}">${scores.multifamily.score}</div>
+          <div class="strategy-score-grade">Grade: <strong style="color:${scoreColor(scores.multifamily.score)}">${scores.multifamily.grade}</strong></div>
+          ` : `
+          <div class="strategy-card-lock-badge">🔒 Empire</div>
+          `}
+        </div>
       </div>
     </div>
 
@@ -862,6 +962,12 @@ function renderResults(data, scores, location) {
           <div class="data-cell-value">${data.totalUnits > 0 ? data.totalUnits.toLocaleString() : 'N/A'}</div>
           <div class="data-cell-sub">Market size</div>
         </div>
+        ${data.pctUnits5Plus !== undefined ? `
+        <div class="data-cell">
+          <div class="data-cell-label">Multifamily Housing Stock</div>
+          <div class="data-cell-value">${fmtPct(data.pctUnits5Plus)}</div>
+          <div class="data-cell-sub">${data.dataSource === 'census' ? `Units in 5+ unit buildings · Census ACS ${data.acsVintage}` : 'Units in 5+ unit buildings · ARIS estimate'}</div>
+        </div>` : ''}
         ${data.mortgageRate ? `
         <div class="data-cell">
           <div class="data-cell-label">30-Yr Mortgage Rate</div>
@@ -1032,6 +1138,19 @@ window.addEventListener('load', async () => {
     if (nameEl) nameEl.textContent = fullName;
     const tierEl = document.getElementById('sidebar-tier');
     if (tierEl) tierEl.textContent = planName;
+
+    // Multifamily 5+ is Empire-only — same gating pattern as deal-analyzer.html's
+    // Commercial category lock.
+    hasEmpireAccess = !!(baseConnHasEmpireBuiltIn || hasSeparateEmpireConn);
+    if (!hasEmpireAccess) {
+      const multifamilyBtn = document.getElementById('multifamilyStrategyBtn');
+      if (multifamilyBtn) {
+        multifamilyBtn.classList.add('locked');
+        const infoEl = multifamilyBtn.querySelector('.strategy-name');
+        if (infoEl) infoEl.innerHTML = 'Multifamily 5+ <span class="strategy-card-lock-badge">🔒 Empire</span>';
+      }
+    }
+
     memberToken = await memberstack.getMemberCookie();
   } catch(e) {}
 });

@@ -36,7 +36,16 @@ const ACS_VARS = [
   'B25001_001E', // total housing units
   'B25002_003E', // vacant housing units
   'B25003_001E', // total occupied housing units
-  'B25003_002E'  // owner-occupied units
+  'B25003_002E', // owner-occupied units
+  // Units in Structure (B25024) — added for Market Oracle's Multifamily 5+
+  // strategy (Empire-gated). Summing the 5-9/10-19/20-49/50+ buckets gives
+  // a real Census-sourced measure of how much 5+ unit multifamily housing
+  // stock exists in this market — a genuine multifamily-specific signal,
+  // not a residential proxy like the fields above.
+  'B25024_006E', // 5 to 9 units
+  'B25024_007E', // 10 to 19 units
+  'B25024_008E', // 20 to 49 units
+  'B25024_009E'  // 50 or more units
 ].join(',');
 
 // Resolves a ZIP code to "City, ST" via Zippopotam.us. Non-fatal — returns
@@ -141,9 +150,18 @@ exports.handler = async function (event, context) {
     const vacantUnits     = parseInt(rec.B25002_003E, 10) || 0;
     const occupiedUnits   = parseInt(rec.B25003_001E, 10) || 0;
     const ownerUnits      = parseInt(rec.B25003_002E, 10) || 0;
+    const units5to9       = parseInt(rec.B25024_006E, 10) || 0;
+    const units10to19     = parseInt(rec.B25024_007E, 10) || 0;
+    const units20to49     = parseInt(rec.B25024_008E, 10) || 0;
+    const units50plus     = parseInt(rec.B25024_009E, 10) || 0;
 
     const vacancyRate   = totalUnits > 0 ? (vacantUnits / totalUnits) * 100 : 0;
     const ownershipRate = occupiedUnits > 0 ? (ownerUnits / occupiedUnits) * 100 : 0;
+    // Share of the market's housing stock that's 5+ unit multifamily —
+    // the Market Oracle Multifamily 5+ strategy's key differentiating
+    // signal (see market-oracle.html scoreMarket()).
+    const units5Plus    = units5to9 + units10to19 + units20to49 + units50plus;
+    const pctUnits5Plus = totalUnits > 0 ? (units5Plus / totalUnits) * 100 : 0;
 
     // ACS occasionally returns negative sentinel codes (e.g. -666666666) for
     // suppressed/unavailable small-geography data — treat those as invalid.
@@ -189,6 +207,7 @@ exports.handler = async function (event, context) {
         grossRentMultiplier,
         rentToPrice,
         totalUnits,
+        pctUnits5Plus,
         marketNotes: '',
         dataSource: 'census',
         acsVintage: ACS_YEAR,
