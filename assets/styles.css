@@ -329,6 +329,9 @@ img { max-width: 100%; display: block; }
   position: relative;
   padding-bottom: 60px;
 }
+.screenshot-stack--second {
+  margin-top: 44px;
+}
 .browser-frame {
   border-radius: 10px;
   overflow: hidden;
