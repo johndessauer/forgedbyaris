@@ -15,7 +15,7 @@
 // or pronunciation dictionary ever changes; only the API key is an env var.
 const VOICE_ID = 'fpZxp1OFT98sOBCOCmuM';
 const PRONUNCIATION_DICTIONARY_ID = 'xnEmPYZk1ReyZxXJB0I4';
-const PRONUNCIATION_DICTIONARY_VERSION_ID = 'H5j6yzxGjOqVPWfU0ZT9';
+const PRONUNCIATION_DICTIONARY_VERSION_ID = 'K4NSU6bIVNNrQHZl1PDT';
 const MODEL_ID = 'eleven_flash_v2_5'; // low-latency model for production playback
 
 // Voice settings dialed in during the ElevenLabs Voice Design session —
