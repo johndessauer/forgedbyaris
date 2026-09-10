@@ -71,12 +71,14 @@ fbq('track', 'PageView');
         <div class="aris-panel__dot"></div><div class="aris-panel__dot"></div><div class="aris-panel__dot"></div>
         <div class="aris-panel__label">ARIS AI COACH</div>
       </div>
-      <div class="aris-bubble">Is this triplex a good BRRRR candidate at $214K?</div>
-      <div class="aris-bubble aris-bubble--reply">Ran the numbers &mdash; 78% ARV, rents support a 1.31 DSCR post-refi. Comps and rehab estimate below.</div>
-      <div class="aris-stats">
-        <div class="aris-stat"><div class="aris-stat__num">78%</div><div class="aris-stat__label">ARV RATIO</div></div>
-        <div class="aris-stat"><div class="aris-stat__num">1.31</div><div class="aris-stat__label">DSCR</div></div>
-        <div class="aris-stat"><div class="aris-stat__num">$41K</div><div class="aris-stat__label">REHAB EST.</div></div>
+           <div class="aris-bubble" id="arisQuestion"><span class="aris-type-text">Is this triplex a good BRRRR candidate at $214K?</span><span class="aris-cursor"></span></div>
+      <div class="aris-bubble aris-bubble--reply" id="arisReply">
+        <span class="aris-typing-dots"><span></span><span></span><span></span></span><span class="aris-type-text">Ran the numbers &mdash; 78% ARV, rents support a 1.31 DSCR post-refi. Comps and rehab estimate below.</span><span class="aris-cursor"></span>
+      </div>
+      <div class="aris-stats" id="arisStats">
+        <div class="aris-stat"><div class="aris-stat__num" data-value="78" data-suffix="%">78%</div><div class="aris-stat__label">ARV RATIO</div></div>
+        <div class="aris-stat"><div class="aris-stat__num" data-value="1.31" data-decimals="2">1.31</div><div class="aris-stat__label">DSCR</div></div>
+        <div class="aris-stat"><div class="aris-stat__num" data-value="41" data-prefix="$" data-suffix="K">$41K</div><div class="aris-stat__label">REHAB EST.</div></div>
       </div>
       <div class="aris-disclaimer">Illustrative example for demonstration only — not an actual deal, and not a guarantee of results. Individual outcomes vary.</div>
     </div>
