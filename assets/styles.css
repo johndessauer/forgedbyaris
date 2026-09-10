@@ -339,6 +339,10 @@ img { max-width: 100%; display: block; }
 @media (prefers-reduced-motion: reduce) {
   .aris-cursor, .aris-typing-dots span { animation: none !important; }
 }
+/* ---------------- Hear From ARIS panel (About ARIS page) ---------------- */
+.aris-intro-caption { font-size: 15px; line-height: 1.75; color: var(--light-grey); }
+.aris-intro-ask { transition: opacity 0.4s ease; }
+.aris-intro-ask.aris-anim-hidden { opacity: 0; }
 /* ---------------- Grids ---------------- */
 .grid-5 {
   display: grid;

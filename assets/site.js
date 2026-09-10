@@ -38,7 +38,56 @@ document.addEventListener('DOMContentLoaded', function () {
   }
  
   initArisDemo();
+  initArisIntro();
 });
+
+// ===================================================================
+// "Hear From ARIS" intro panel (About ARIS page) — plays a pre-recorded
+// ARIS voice clip introducing himself, then reveals a Yes/No prompt to
+// route into the demo booking CTA. Caption text is real, final copy in
+// the base HTML (not injected by JS), so it reads fine even if the audio
+// fails to load or JS never runs the reveal step.
+// ===================================================================
+function initArisIntro() {
+  var btn = document.getElementById('arisIntroBtn');
+  var panel = document.getElementById('arisIntroPanel');
+  if (!btn || !panel) return;
+
+  var audio = document.getElementById('arisIntroAudio');
+  var ask = document.getElementById('arisIntroAsk');
+  var noBtn = document.getElementById('arisIntroNo');
+  var decline = document.getElementById('arisIntroDecline');
+
+  function revealAsk() {
+    if (ask) ask.classList.remove('aris-anim-hidden');
+  }
+
+  btn.addEventListener('click', function () {
+    panel.hidden = false;
+    btn.hidden = true;
+    if (audio && audio.getAttribute('src')) {
+      audio.play().catch(function () {
+        // Playback blocked/failed for any reason — don't leave the visitor
+        // stuck reading a panel with no next step.
+        revealAsk();
+      });
+    } else {
+      revealAsk();
+    }
+  });
+
+  if (audio) {
+    audio.addEventListener('ended', revealAsk);
+    audio.addEventListener('error', revealAsk);
+  }
+
+  if (noBtn) {
+    noBtn.addEventListener('click', function () {
+      if (ask) ask.classList.add('aris-anim-hidden');
+      if (decline) decline.hidden = false;
+    });
+  }
+}
  
 // ===================================================================
 // Animated ARIS demo panel (homepage hero) — types the question and
