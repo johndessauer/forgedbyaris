@@ -453,7 +453,7 @@ img { max-width: 100%; display: block; }
   padding: 40px 20px;
   border-top: 1px solid rgba(255,255,255,0.05);
 }
-.site-footer__mark { font-size: 20px; letter-spacing: 3px; }
+.site-footer__mark { display: inline-flex; align-items: center; gap: 10px; text-align: left; }
 .site-footer__legal { color: var(--grey); font-size: 13px; margin-top: 10px; line-height: 1.8; }
 .site-footer__links { font-size: 12px; margin-top: 14px; }
 
