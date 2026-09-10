@@ -2,13 +2,11 @@
 // FORGE — shared site script
 // ===================================================================
  
-// TODO(tomorrow): replace these two placeholders with the real URLs.
+// TODO(tomorrow): replace this placeholder with the real URL.
 // WEBINAR_URL  -> John will send the GHL webinar-registration link.
-// DEMO_URL     -> "Book a 1:1 Demo" routes to a GHL calendar appointment
-//                 with Chris. Replace with that calendar's booking link.
 window.FORGE_LINKS = {
   WEBINAR_URL: '#webinar-link-pending',
-  DEMO_URL: '#demo-link-pending'
+  DEMO_URL: 'https://api.leadconnectorhq.com/widget/bookings/chris-ciampa-personal-calendar-lyxn1ck2j'
 };
  
 document.addEventListener('DOMContentLoaded', function () {
