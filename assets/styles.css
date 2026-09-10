@@ -294,7 +294,51 @@ img { max-width: 100%; display: block; }
   padding-top: 12px;
   border-top: 1px solid var(--border);
 }
-
+/* ---------------- ARIS demo panel animation (homepage hero) ---------------- */
+/* Base HTML already contains the real, final copy — .aris-anim-hidden is only
+   ever added by JS once it's confirmed it can run the loop, so a no-JS or
+   reduced-motion visitor always sees the complete, correct panel. */
+.aris-bubble, .aris-stat {
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+.aris-bubble.aris-anim-hidden, .aris-stat.aris-anim-hidden {
+  opacity: 0;
+  transform: translateY(6px);
+}
+.aris-stat:nth-child(2) { transition-delay: 0.08s; }
+.aris-stat:nth-child(3) { transition-delay: 0.16s; }
+.aris-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background: currentColor;
+  margin-left: 2px;
+  vertical-align: -2px;
+  opacity: 0;
+}
+.aris-cursor.is-active { animation: aris-blink 1s steps(1) infinite; }
+@keyframes aris-blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+.aris-typing-dots {
+  display: none;
+  align-items: center;
+  gap: 4px;
+  height: 1em;
+}
+.aris-typing-dots.is-active { display: inline-flex; }
+.aris-typing-dots span {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--grey);
+  animation: aris-dot-bounce 1.1s infinite ease-in-out;
+}
+.aris-typing-dots span:nth-child(2) { animation-delay: 0.15s; }
+.aris-typing-dots span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes aris-dot-bounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-3px); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .aris-cursor, .aris-typing-dots span { animation: none !important; }
+}
 /* ---------------- Grids ---------------- */
 .grid-5 {
   display: grid;
