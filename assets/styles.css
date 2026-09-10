@@ -78,7 +78,34 @@ img { max-width: 100%; display: block; }
   position: relative;
   z-index: 20;
 }
-.site-nav__logo img { height: 30px; width: auto; }
+.site-nav__logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.site-nav__logo-icon { height: 34px; width: auto; }
+.site-nav__logo-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1;
+}
+.site-nav__wordmark {
+  font-family: 'Inter', sans-serif;
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: 0.5px;
+  color: var(--white);
+}
+.site-nav__wordmark .gold-o { color: var(--gold); }
+.site-nav__wordmark sup { font-size: 10px; }
+.site-nav__tagline {
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.3px;
+  text-transform: none;
+  color: var(--light-grey);
+  margin-top: 3px;
+}
 .site-nav__links {
   display: flex;
   align-items: center;
@@ -145,6 +172,13 @@ img { max-width: 100%; display: block; }
 }
 .btn-primary { background: var(--orange); color: var(--black); }
 .btn-secondary { background: transparent; color: var(--white); border-color: var(--gold); padding: 15px 30px; }
+.btn--disabled {
+  background: var(--navy-card);
+  color: var(--light-grey);
+  cursor: not-allowed;
+  border-color: var(--border);
+  pointer-events: none;
+}
 .btn-row {
   display: flex;
   gap: 16px;
