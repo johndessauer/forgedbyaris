@@ -435,6 +435,26 @@ img { max-width: 100%; display: block; }
   color: var(--grey);
   margin-top: 14px;
 }
+.tools-screenshot__cta {
+  margin-top: 32px;
+  padding-top: 28px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+.tools-screenshot__cta-quote {
+  font-size: 14px;
+  font-style: italic;
+  color: var(--grey);
+  line-height: 1.6;
+  margin-bottom: 18px;
+}
+.tools-screenshot__cta-label {
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 12px;
+}
 .tools-layout .grid-5 { grid-template-columns: repeat(2, minmax(0,1fr)); }
 @media (max-width: 1020px) {
   .tools-layout { grid-template-columns: 1fr; }
