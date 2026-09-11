@@ -552,7 +552,10 @@ img { max-width: 100%; display: block; }
 .level-card__desc { font-size: 13px; color: var(--light-grey); line-height: 1.7; margin-bottom: 18px; }
 .level-card__divider { height: 1px; background: var(--border); margin-bottom: 18px; }
 .level-card__unlocks-label { font-size: 11px; letter-spacing: 0.5px; text-transform: uppercase; color: var(--orange); margin-bottom: 8px; }
-.level-card__unlocks { font-size: 12.5px; color: var(--light-grey); line-height: 1.8; }
+.level-card__unlocks { font-size: 12.5px; color: var(--light-grey); line-height: 1.8; list-style: none; margin: 0; padding: 0; }
+.level-card__unlocks li { position: relative; padding-left: 14px; margin-bottom: 6px; }
+.level-card__unlocks li:last-child { margin-bottom: 0; }
+.level-card__unlocks li::before { content: "\2022"; position: absolute; left: 0; color: var(--orange); }
 .level-card--featured { border-color: var(--gold); box-shadow: 0 20px 50px rgba(200,155,60,0.1); }
 
 /* ---------------- Facts panel ---------------- */
