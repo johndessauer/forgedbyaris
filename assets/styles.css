@@ -61,6 +61,30 @@ img { max-width: 100%; display: block; }
 .section.bg-navy { background: var(--navy); }
 .section.center { text-align: center; }
 
+/* Light section variant -- flips the shared color tokens to dark-on-light
+   for that section's subtree, so cards/text/icons using var(--white),
+   var(--light-grey), var(--grey), var(--navy-card), var(--border) all
+   read correctly without per-element overrides. Gold/orange accents are
+   unaffected on purpose -- they're what carries brand identity through. */
+.section.bg-light {
+     background: #F7F5F0;
+     color: #0D1B2A;
+     --white: #0D1B2A;
+     --light-grey: #4A5568;
+     --grey: #6B7280;
+     --navy-card: #FFFFFF;
+     --border: rgba(13,27,42,0.10);
+}
+.section.bg-light .card {
+     box-shadow: 0 4px 16px rgba(13,27,42,0.06);
+}
+.section.bg-light .browser-frame__bar {
+     background: rgba(13,27,42,0.04);
+}
+.section.bg-light .browser-frame__bar span {
+     background: rgba(13,27,42,0.15);
+}
+
 .card {
   background: var(--navy-card);
   border: 1px solid var(--border);
