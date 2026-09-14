@@ -234,6 +234,14 @@ img { max-width: 100%; display: block; }
   letter-spacing: 0.5px;
   margin-top: 16px;
 }
+.hero__tagline {
+     font-size: 15px;
+     font-weight: 500;
+     color: var(--light-grey);
+     line-height: 1.5;
+     max-width: 520px;
+     margin-top: 20px;
+}
 .hero__panel {
   flex: 0 0 420px;
   max-width: 100%;
