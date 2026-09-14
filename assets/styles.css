@@ -195,17 +195,32 @@ img { max-width: 100%; display: block; }
 
 /* ---------------- Buttons ---------------- */
 .btn {
-  cursor: pointer;
-  display: inline-block;
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 16px;
-  letter-spacing: 1.5px;
-  padding: 16px 30px;
-  border-radius: 2px;
-  border: 1px solid transparent;
+     cursor: pointer;
+     display: inline-block;
+     font-family: 'Bebas Neue', sans-serif;
+     font-size: 16px;
+     letter-spacing: 1.5px;
+     padding: 16px 30px;
+     border-radius: 2px;
+     border: 1px solid transparent;
+     transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 .btn-primary { background: var(--orange); color: var(--black); }
+.btn-primary:hover { background: #FF7F47; box-shadow: 0 6px 20px rgba(255,107,43,0.35); transform: translateY(-1px); }
 .btn-secondary { background: transparent; color: var(--white); border-color: var(--gold); padding: 15px 30px; }
+.btn-secondary:hover { background: rgba(200,155,60,0.12); transform: translateY(-1px); }
+
+.section.bg-light .btn-secondary {
+     background: var(--gold);
+     color: #1A1A1A;
+     border-color: var(--gold);
+     box-shadow: 0 4px 14px rgba(200,155,60,0.25);
+}
+.section.bg-light .btn-secondary:hover {
+     background: #B78A2F;
+     box-shadow: 0 6px 20px rgba(200,155,60,0.35);
+     transform: translateY(-1px);
+}
 .btn--disabled {
   background: var(--navy-card);
   color: var(--light-grey);
