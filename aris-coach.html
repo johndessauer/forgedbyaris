@@ -855,6 +855,7 @@
   // the assignment in the other script block (it's not a ReferenceError --
   // it just never reaches this variable), which is what caused every CRM
   // tool call to send no Authorization header and fail with 401.
+  var currentMemberInitials = 'You';
 
   function saveHistory() {
     try {
@@ -1165,7 +1166,7 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
     const row = document.createElement('div');
     row.className = `msg-row ${role}`;
 
-    const avatarContent = role === 'aris' ? 'ARIS' : 'JD';
+    const avatarContent = role === 'aris' ? 'ARIS' : currentMemberInitials;
     const metaName = role === 'aris' ? 'ARIS' : 'You';
 
     row.innerHTML = `
@@ -1249,7 +1250,7 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
     const row = document.createElement('div');
     row.className = 'msg-row user';
     row.innerHTML = `
-      <div class="msg-avatar">JD</div>
+      <div class="msg-avatar">${currentMemberInitials}</div>
       <div class="msg-content">
         <div class="msg-meta">You &nbsp;·&nbsp; ${getTime()}</div>
         <div class="doc-card">
@@ -1987,6 +1988,7 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
     const tierEl = document.getElementById('sidebar-tier-coach');
     if (el) el.textContent = fullName;
     if (av) av.textContent = initials;
+    currentMemberInitials = initials;
     if (tierEl) tierEl.textContent = planName;
   } catch(e) { console.error('Auth gate error:', e); }
 })();
