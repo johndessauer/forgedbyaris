@@ -39,6 +39,7 @@ document.addEventListener('DOMContentLoaded', function () {
  
   initArisDemo();
   initArisIntro();
+  initSalesChat();
 });
 
 // ===================================================================
@@ -185,3 +186,214 @@ function initArisDemo() {
   runCycle();
 }
  
+// ===================================================================
+// Public sales chat widget (homepage) — ARIS acting as a knowledgeable
+// frontline sales rep. Streams from /api/aris-stream with promptKey
+// 'sales' and renders an inline webinar/demo CTA button when ARIS
+// suggests one via the <<<CTA_SUGGEST{...}CTA_SUGGEST>>> marker.
+// ===================================================================
+function initSalesChat() {
+  var root = document.getElementById('salesChat');
+  var toggle = document.getElementById('salesChatToggle');
+  var panel = document.getElementById('salesChatPanel');
+  var closeBtn = document.getElementById('salesChatClose');
+  var messagesEl = document.getElementById('salesChatMessages');
+  var input = document.getElementById('salesChatInput');
+  var sendBtn = document.getElementById('salesChatSend');
+  if (!root || !toggle || !panel || !closeBtn || !messagesEl || !input || !sendBtn) return;
+
+  var history = [];
+  var sending = false;
+  var opened = false;
+
+  function escapeHtml(text) {
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  function formatMini(text) {
+    return escapeHtml(text)
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\n\n/g, '<br><br>')
+      .replace(/\n/g, '<br>');
+  }
+
+  function scrollToBottom() {
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function appendMsg(role, text) {
+    var div = document.createElement('div');
+    div.className = 'sales-chat__msg ' + role;
+    div.innerHTML = formatMini(text);
+    messagesEl.appendChild(div);
+    scrollToBottom();
+    return div;
+  }
+
+  function appendCta(cta) {
+    var wrap = document.createElement('div');
+    wrap.className = 'sales-chat__cta';
+    var a = document.createElement('a');
+    a.className = 'sales-chat__cta-btn';
+    a.target = '_blank';
+    a.rel = 'noopener';
+    if (cta === 'demo') {
+      a.href = window.FORGE_LINKS.DEMO_URL;
+      a.textContent = 'Book a 1:1 Demo';
+      a.addEventListener('click', function () {
+        if (window.fbq) fbq('track', 'Schedule', { content_name: 'demo_booking' });
+      });
+    } else {
+      a.href = window.FORGE_LINKS.WEBINAR_URL;
+      a.textContent = 'Register for the Webinar';
+      a.addEventListener('click', function () {
+        if (window.fbq) fbq('track', 'Lead', { content_name: 'webinar_registration' });
+      });
+    }
+    wrap.appendChild(a);
+    messagesEl.appendChild(wrap);
+    scrollToBottom();
+  }
+
+  function showTyping() {
+    var div = document.createElement('div');
+    div.className = 'sales-chat__typing';
+    div.id = 'salesChatTyping';
+    div.innerHTML = '<span></span><span></span><span></span>';
+    messagesEl.appendChild(div);
+    scrollToBottom();
+  }
+
+  function hideTyping() {
+    var t = document.getElementById('salesChatTyping');
+    if (t) t.remove();
+  }
+
+  function openPanel() {
+    panel.hidden = false;
+    root.classList.add('is-open');
+    if (!opened) {
+      opened = true;
+      appendMsg('aris', "Hey — I'm ARIS, the AI behind FORGE. Ask me anything about the platform, or how it stacks up against a coaching program.");
+    }
+    input.focus();
+  }
+
+  function closePanel() {
+    panel.hidden = true;
+    root.classList.remove('is-open');
+  }
+
+  toggle.addEventListener('click', openPanel);
+  closeBtn.addEventListener('click', closePanel);
+
+  function setSending(state) {
+    sending = state;
+    input.disabled = state;
+    sendBtn.disabled = state;
+  }
+
+  async function sendMessage() {
+    var text = input.value.trim();
+    if (!text || sending) return;
+    input.value = '';
+    appendMsg('user', text);
+    history.push({ role: 'user', content: text });
+    setSending(true);
+    showTyping();
+
+    try {
+      var res = await fetch('/api/aris-stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 700,
+          promptKey: 'sales',
+          messages: history
+        })
+      });
+
+      if (!res.ok) {
+        hideTyping();
+        appendMsg('aris', "Something went wrong on my end — try that again in a moment.");
+        setSending(false);
+        return;
+      }
+
+      var reader = res.body.getReader();
+      var decoder = new TextDecoder();
+      var buffer = '';
+      var accumulatedText = '';
+      var bubble = null;
+
+      while (true) {
+        var chunk = await reader.read();
+        if (chunk.done) break;
+        buffer += decoder.decode(chunk.value, { stream: true });
+        var events = buffer.split('\n\n');
+        buffer = events.pop();
+
+        for (var i = 0; i < events.length; i++) {
+          var evt = events[i];
+          var dataLine = evt.split('\n').find(function (l) { return l.startsWith('data:'); });
+          if (!dataLine) continue;
+          var jsonStr = dataLine.slice(5).trim();
+          if (!jsonStr) continue;
+          var parsed;
+          try { parsed = JSON.parse(jsonStr); } catch (e) { continue; }
+
+          if (parsed.type === 'content_block_delta' && parsed.delta && parsed.delta.type === 'text_delta') {
+            if (!bubble) {
+              hideTyping();
+              bubble = appendMsg('aris', '');
+            }
+            accumulatedText += parsed.delta.text;
+            var displayText = accumulatedText;
+            var markerIdx = displayText.indexOf('<<<CTA_SUGGEST');
+            if (markerIdx !== -1) displayText = displayText.slice(0, markerIdx);
+            bubble.innerHTML = formatMini(displayText);
+            scrollToBottom();
+          }
+        }
+      }
+
+      hideTyping();
+      var reply = accumulatedText || "I didn't catch that — could you try again?";
+      var cta = null;
+      var ctaMatch = reply.match(/<<<CTA_SUGGEST\s*([\s\S]*?)\s*CTA_SUGGEST>>>/);
+      if (ctaMatch) {
+        try { cta = JSON.parse(ctaMatch[1]).cta; } catch (e) { cta = null; }
+        reply = reply.replace(/<<<CTA_SUGGEST[\s\S]*?CTA_SUGGEST>>>/g, '').trim();
+      }
+
+      if (bubble) {
+        bubble.innerHTML = formatMini(reply);
+      } else {
+        appendMsg('aris', reply);
+      }
+      history.push({ role: 'assistant', content: reply });
+
+      if (cta === 'webinar' || cta === 'demo') {
+        appendCta(cta);
+      }
+    } catch (err) {
+      hideTyping();
+      appendMsg('aris', "Something went wrong on my end — try that again in a moment.");
+    }
+
+    setSending(false);
+    input.focus();
+  }
+
+  sendBtn.addEventListener('click', sendMessage);
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+}
