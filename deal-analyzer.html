@@ -3415,6 +3415,7 @@ async function confirmSave() {
         dealData: lastDealData.data,
         photos: pendingPhotos,
         docs: pendingDocs,
+        chatHistory: conversationHistory,
       }),
     });
     if (!res.ok) throw new Error('Save failed');
@@ -3487,6 +3488,7 @@ async function renderDrawer() {
         ${docLinks ? `<div class="deal-card-doc-row">${docLinks}</div>` : ''}
         <div class="saved-deal-actions">
           <button class="deal-action-btn" onclick="openDetail('${d.id}')">View</button>
+          ${(d.chat_history && d.chat_history.length) ? `<button class="deal-action-btn" onclick="resumeConversation('${d.id}')">Resume Chat</button>` : ''}
           ${pipelineBtn}
           <button class="deal-action-btn del" onclick="deleteDeal('${d.id}')">Delete</button>
         </div>
@@ -3494,6 +3496,8 @@ async function renderDrawer() {
     `;
   }).join('');
 }
+
+function resumeConversation(id) { const d = savedDealsCache.find(x => x.id === id); if (!d) return; const history = d.chat_history || []; if (!history.length) { alert('No saved conversation for this deal.'); return; } closeDrawer(); document.getElementById('messages').innerHTML = ''; history.forEach(m => appendMsg(m.role === 'assistant' ? 'aris' : 'user', m.content)); conversationHistory = history.map(m => ({ role: m.role, content: m.content })); lastDealData = { tab: d.tab, data: d.deal_data, timestamp: d.created_at }; showToast('Resumed conversation — ' + (d.display_name || 'saved deal')); }
 
 async function addToPipeline(id) {
   try {
