@@ -421,7 +421,7 @@ function initGhlWidgetOverride() {
 
   function hideLauncher(host) {
     if (!host || !host.shadowRoot) return false;
-    var bubbleWrap = host.shadowRoot.querySelector('.lc_text-widget');
+    var bubbleWrap = host.shadowRoot.querySelector('.lc_text-widget--bubble');
     if (!bubbleWrap) return false;
     bubbleWrap.style.setProperty('display', 'none', 'important');
     return true;
