@@ -515,7 +515,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
     </div>
     <div class="sidebar-footer">
       <div class="user-chip" onclick="window.location.href='profile.html'" style="cursor:pointer;">
-        <div class="user-avatar">JD</div>
+        <div class="user-avatar" id="sidebar-avatar">JD</div>
         <div class="user-info">
           <div class="user-name" id="sidebar-name">Member</div>
           <div class="user-tier" id="sidebar-tier">Member</div>
@@ -1530,6 +1530,7 @@ let isLoading = false;
 let lastDealData = null;
 let formIsDirty = false;
 let memberToken = null;
+let currentMemberInitials = 'You';
 let hasEmpireAccess = false;
 const EMPIRE_PRICE_ID = 'prc_empire-plan--401c10a7h';
 let savedDealsCache = [];
@@ -3244,7 +3245,7 @@ function appendMsg(role, text) {
   const messages = document.getElementById('messages');
   const row = document.createElement('div');
   row.className = `msg-row ${role}`;
-  const av = role === 'aris' ? 'ARIS' : 'JD';
+  const av = role === 'aris' ? 'ARIS' : currentMemberInitials;
   const name = role === 'aris' ? 'ARIS' : 'You';
   row.innerHTML = `
     <div class="msg-av">${av}</div>
@@ -3704,6 +3705,10 @@ window.addEventListener('load', async () => {
     const fullName = customFields['full-name'] || (customFields['first-name'] ? customFields['first-name'] + ' ' + (customFields['last-name'] || '') : null) || member.auth?.email || 'Member';
     const nameEl = document.getElementById('sidebar-name');
     if (nameEl) nameEl.textContent = fullName;
+    const initials = fullName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+    const avEl = document.getElementById('sidebar-avatar');
+    if (avEl) avEl.textContent = initials;
+    currentMemberInitials = initials;
     const tierEl = document.getElementById('sidebar-tier');
     if (tierEl) tierEl.textContent = planName;
     memberToken = await memberstack.getMemberCookie();
