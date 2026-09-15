@@ -40,6 +40,7 @@ document.addEventListener('DOMContentLoaded', function () {
   initArisDemo();
   initArisIntro();
   initSalesChat();
+  initGhlWidgetOverride();
 });
 
 // ===================================================================
@@ -397,3 +398,54 @@ function initSalesChat() {
     }
   });
 }
+
+// ===================================================================
+// GHL chat widget - hide the default floating launcher (it collided
+// visually with the ARIS sales chat button) and let a nav "Contact"
+// link open the same widget instead. GHL's launcher lives inside a
+// closed-off web component's shadow DOM (<chat-widget> -> .lc_text-widget
+// -> button.lc_text-widget--bubble), so plain CSS from our stylesheet
+// can't reach it - this has to run in JS. Opening the widget is done
+// via GHL's own window.leadConnector.chatWidget.openWidget() call.
+// ===================================================================
+function initGhlWidgetOverride() {
+  var contactLink = document.getElementById('navContactChat');
+  if (contactLink) {
+    contactLink.addEventListener('click', function (e) {
+      e.preventDefault();
+      if (window.leadConnector && window.leadConnector.chatWidget && typeof window.leadConnector.chatWidget.openWidget === 'function') {
+        window.leadConnector.chatWidget.openWidget();
+      }
+    });
+  }
+
+  function hideLauncher(host) {
+    if (!host || !host.shadowRoot) return false;
+    var bubbleWrap = host.shadowRoot.querySelector('.lc_text-widget');
+    if (!bubbleWrap) return false;
+    bubbleWrap.style.setProperty('display', 'none', 'important');
+    return true;
+  }
+
+  function watch(host) {
+    hideLauncher(host);
+    if (host.shadowRoot) {
+      new MutationObserver(function () { hideLauncher(host); })
+        .observe(host.shadowRoot, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
+    }
+  }
+
+  var existing = document.querySelector('chat-widget');
+  if (existing) {
+    watch(existing);
+  } else {
+    var bodyWatcher = new MutationObserver(function () {
+      var host = document.querySelector('chat-widget');
+      if (host) {
+        bodyWatcher.disconnect();
+        watch(host);
+      }
+    });
+    bodyWatcher.observe(document.body, { childList: true, subtree: true });
+  }
+                                   }
