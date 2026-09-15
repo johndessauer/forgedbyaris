@@ -137,6 +137,7 @@ img { max-width: 100%; display: block; }
 }
 .site-nav__links a {
   font-size: 13px;
+  font-weight: 700;
   color: var(--light-grey);
   letter-spacing: 0.3px;
   white-space: nowrap;
