@@ -308,6 +308,28 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 .tier-badge.membership-chip { border-color: rgba(200,155,60,0.5); background: rgba(200,155,60,0.12); color: var(--gold); }
 .tier-badges-divider { color: var(--grey); font-size: 13px; opacity: 0.6; }
 
+/* ── MASTERY TIER EXPLAINER (banner above the module grid, Lessons view) ── */
+.tier-explainer { background: var(--navy-light); border: 1px solid var(--border); border-radius: 12px; padding: 24px 28px; margin-bottom: 24px; }
+.tier-explainer-eyebrow { font-size: 10px; letter-spacing: 2.5px; text-transform: uppercase; color: var(--gold); margin-bottom: 6px; }
+.tier-explainer-title { font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 2px; color: var(--white); margin-bottom: 8px; }
+.tier-explainer-intro { font-size: 13px; color: var(--grey-light); line-height: 1.6; max-width: 640px; margin-bottom: 20px; }
+.tier-explainer-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 16px; }
+.tier-explainer-card { background: var(--navy-mid); border: 1px solid var(--border-sub); border-radius: 10px; padding: 18px; transition: border-color 0.15s; }
+.tier-explainer-card:hover { border-color: var(--gold); }
+.tier-explainer-card.rookie { border-top: 3px solid var(--grey-light); }
+.tier-explainer-card.investor { border-top: 3px solid var(--gold); }
+.tier-explainer-card.mogul { border-top: 3px solid var(--orange); }
+.tier-explainer-icon { font-size: 22px; margin-bottom: 8px; }
+.tier-explainer-name { font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 2px; color: var(--white); margin-bottom: 8px; }
+.tier-explainer-req { font-size: 12px; color: var(--grey-light); line-height: 1.5; margin-bottom: 10px; }
+.tier-explainer-tease { font-size: 11.5px; font-style: italic; color: var(--gold); line-height: 1.5; }
+.tier-explainer-card.mogul .tier-explainer-tease { color: var(--orange); }
+.tier-explainer-footer { font-size: 12px; color: var(--grey); line-height: 1.6; border-top: 1px solid var(--border-sub); padding-top: 14px; }
+@media (max-width: 768px) {
+  .tier-explainer-grid { grid-template-columns: 1fr; }
+  .tier-explainer { padding: 18px 16px; }
+}
+
 /* ── INCOME TYPE FILTER (Active / Passive / Legacy / Other) ── */
 .income-filter-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
 .income-filter-tab {
@@ -438,6 +460,32 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 
       <!-- LIST VIEW -->
       <div id="view-list">
+        <div class="tier-explainer">
+          <div class="tier-explainer-eyebrow">YOUR RANK AT FORGE</div>
+          <div class="tier-explainer-title">ROOKIE. INVESTOR. MOGUL.</div>
+          <div class="tier-explainer-intro">This isn’t a video library — it’s a gauntlet. Every quiz below counts toward one platform-wide rank, and that rank follows you everywhere on FORGE. Clear the whole curriculum at a tier, and you don’t just finish it — you outrank everyone who hasn’t.</div>
+          <div class="tier-explainer-grid">
+            <div class="tier-explainer-card rookie">
+              <div class="tier-explainer-icon">🔰</div>
+              <div class="tier-explainer-name">ROOKIE</div>
+              <div class="tier-explainer-req">Pass every topic’s quiz at 12/12 — the full curriculum, no partial credit.</div>
+              <div class="tier-explainer-tease">Where every member starts. You won’t stay here long.</div>
+            </div>
+            <div class="tier-explainer-card investor">
+              <div class="tier-explainer-icon">🥈</div>
+              <div class="tier-explainer-name">INVESTOR</div>
+              <div class="tier-explainer-req">Clear the Investor-level quiz on all 22 topics — 11/12 or better, every time.</div>
+              <div class="tier-explainer-tease">Quietly opens doors most members don’t even know are there.</div>
+            </div>
+            <div class="tier-explainer-card mogul">
+              <div class="tier-explainer-icon">🥇</div>
+              <div class="tier-explainer-name">MOGUL</div>
+              <div class="tier-explainer-req">Master every tier, every topic — the entire curriculum, cover to cover.</div>
+              <div class="tier-explainer-tease">Very few members ever hold this rank. What’s waiting here stays between the ones who make it.</div>
+            </div>
+          </div>
+          <div class="tier-explainer-footer">Your rank is visible across FORGE. Wear it. Race the members next to you at Rookie. Chase down the Investors. This curriculum was built to be finished — not browsed.</div>
+        </div>
         <div class="income-filter-row" id="income-filter-row"></div>
         <div id="module-list-container">
           <div style="color:var(--grey);font-size:13px;">Loading modules...</div>
