@@ -698,4 +698,60 @@ p.body-copy { font-size: 15px; color: var(--light-grey); line-height: 1.85; marg
 .blog-post-body a { color: var(--gold); }
 .blog-post-body blockquote { border-left: 3px solid var(--gold); margin: 28px 0; padding: 4px 0 4px 20px; font-style: italic; color: var(--light-grey); }
 
+/* ===================================================================
+   ANNOUNCEMENT BAR (site-wide component, currently on index.html only)
+   Dismissible strip above the nav. Content is driven by
+   window.FORGE_ANNOUNCEMENT in assets/site.js — hidden by default;
+   site.js reveals it once content is set, unless the visitor already
+   dismissed this same message (tracked by cfg.id in localStorage).
+   =================================================================== */
+.announcement-bar {
+  position: relative;
+  display: none;
+  background: var(--navy);
+  border-bottom: 1px solid var(--border);
+}
+.announcement-bar.announcement-bar--visible { display: block; }
+.announcement-bar__inner {
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: 10px 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  text-align: center;
+}
+.announcement-bar__text { font-size: 13px; color: var(--white); font-weight: 500; }
+.announcement-bar__cta {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--gold);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 4px 14px;
+  white-space: nowrap;
+}
+.announcement-bar__cta:hover { color: var(--orange); border-color: var(--orange); }
+.announcement-bar__close {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--light-grey);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+.announcement-bar__close:hover { color: var(--white); }
+@media (max-width: 640px) {
+  .announcement-bar__inner { padding: 10px 36px; }
+  .announcement-bar__text { font-size: 12px; }
+}
+
 .blog-related { max-width: 900px; margin: 0 auto; }
