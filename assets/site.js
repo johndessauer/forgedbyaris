@@ -8,6 +8,40 @@ window.FORGE_LINKS = {
   WEBINAR_URL: '#webinar-link-pending',
   DEMO_URL: 'https://api.leadconnectorhq.com/widget/bookings/chris-ciampa-personal-calendar-lyxn1ck2j'
 };
+
+// Public announcement bar (index.html only). Edit this object to change
+// the message shown above the nav — bump `id` whenever the text changes
+// so a visitor who dismissed an earlier banner sees the new one. The CTA
+// itself is a static data-cta="demo" element in the HTML (reuses the
+// same FORGE_LINKS href + Meta Pixel event as every other CTA on the
+// site) — this object only controls the wording and whether it shows.
+window.FORGE_ANNOUNCEMENT = {
+  enabled: true,
+  id: 'group-coaching-oct15',
+  text: 'LIVE Group Coaching starts October 15, 2026.',
+  ctaLabel: 'Reserve Your Spot'
+};
+
+function initAnnouncementBar() {
+  var cfg = window.FORGE_ANNOUNCEMENT;
+  var bar = document.getElementById('announcement-bar');
+  if (!bar || !cfg || !cfg.enabled) return;
+  try {
+    if (window.localStorage && localStorage.getItem('forge_announcement_dismissed') === cfg.id) return;
+  } catch (e) {}
+  var textEl = document.getElementById('announcementText');
+  var ctaEl = document.getElementById('announcementCta');
+  if (textEl) textEl.textContent = cfg.text;
+  if (ctaEl) ctaEl.textContent = cfg.ctaLabel + ' \u2192';
+  bar.classList.add('announcement-bar--visible');
+  var closeBtn = document.getElementById('announcementClose');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', function () {
+      bar.classList.remove('announcement-bar--visible');
+      try { if (window.localStorage) localStorage.setItem('forge_announcement_dismissed', cfg.id); } catch (e) {}
+    });
+  }
+}
  
 document.addEventListener('DOMContentLoaded', function () {
   // Wire every CTA marked data-cta to the right placeholder link + pixel event.
@@ -38,6 +72,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
  
   initArisDemo();
+  initAnnouncementBar();
   initArisIntro();
   initSalesChat();
   initGhlWidgetOverride();
