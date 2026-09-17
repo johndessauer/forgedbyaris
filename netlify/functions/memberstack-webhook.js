@@ -37,6 +37,13 @@ const { json, preflight } = require('./_Lib/http');
 
 const memberstack = memberstackAdmin.init(process.env.MEMBERSTACK_SECRET_KEY);
 
+// Friendly tag names for GHL, mirroring the site-wide PLAN_NAME_OVERRIDES
+// map used across the dashboard pages (e.g. aris-coach.html) so this tag
+// matches what members are called on the site itself, not a raw plan ID.
+const PLAN_TAG_OVERRIDES = {
+  'pln_-97-direct--jx9b09ut': 'Beta Member',
+};
+
 function upsertGhlContact({ email, firstName, lastName, planName }) {
   const API_KEY = process.env.GHL_API_KEY;
   const LOCATION_ID = process.env.GHL_LOCATION_ID;
@@ -47,7 +54,10 @@ function upsertGhlContact({ email, firstName, lastName, planName }) {
   }
 
   const tags = ['member', 'paying-member'];
-  if (planName) tags.push(planName);
+  if (planName) {
+    tags.push(planName);
+    if (PLAN_TAG_OVERRIDES[planName]) tags.push(PLAN_TAG_OVERRIDES[planName]);
+  }
 
   const payload = JSON.stringify({
     email,
