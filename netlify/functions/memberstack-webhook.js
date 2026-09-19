@@ -44,7 +44,7 @@ const PLAN_TAG_OVERRIDES = {
   'pln_-97-direct--jx9b09ut': 'Beta Member',
 };
 
-function upsertGhlContact({ email, firstName, lastName, planName }) {
+function upsertGhlContact({ email, firstName, lastName, planName, referralSource }) {
   const API_KEY = process.env.GHL_API_KEY;
   const LOCATION_ID = process.env.GHL_LOCATION_ID;
 
@@ -59,12 +59,16 @@ function upsertGhlContact({ email, firstName, lastName, planName }) {
     if (PLAN_TAG_OVERRIDES[planName]) tags.push(PLAN_TAG_OVERRIDES[planName]);
   }
 
+    // Referral tracking for partner links (e.g. ?ref=fortiva on the signup pages). Sent to GHL only when present, so this never disturbs the payload shape for ordinary signups.
+    const customFields = referralSource ? [{ key: 'referral_source', field_value: referralSource }] : [];
+
   const payload = JSON.stringify({
     email,
     firstName: firstName || undefined,
     lastName: lastName || undefined,
     locationId: LOCATION_ID,
     tags,
+        ...(customFields.length ? { customFields } : {}),
   });
 
   return new Promise((resolve) => {
@@ -176,8 +180,9 @@ exports.handler = async function (event, context) {
   const firstName = metaData['first-name'] || metaData.firstName || undefined;
   const lastName = metaData['last-name'] || metaData.lastName || undefined;
   const planName = payload?.planConnection?.planId || undefined;
+    const referralSource = metaData['referral-source'] || undefined;
 
-  const ghlResult = await upsertGhlContact({ email, firstName, lastName, planName });
+  const ghlResult = await upsertGhlContact({ email, firstName, lastName, planName, referralSource });
 
   return json(200, { received: true, synced: true, ghlResult });
 };
