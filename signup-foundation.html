@@ -208,6 +208,7 @@ html, body { min-height: 100vh; background: var(--black); color: var(--white); f
     const password  = document.getElementById('password').value;
     const btn       = document.getElementById('signup-btn');
     const errEl     = document.getElementById('error-msg');
+    const referralSource = new URLSearchParams(window.location.search).get('ref') || undefined;
 
     errEl.style.display = 'none';
 
@@ -225,12 +226,7 @@ html, body { min-height: 100vh; background: var(--black); color: var(--white); f
       const { data: signupData, error: signupError } = await memberstack.signupMemberEmailPassword({
         email: email,
         password: password,
-        customFields: {
-          'first-name': firstName,
-          'last-name': lastName,
-          'full-name': firstName + ' ' + lastName,
-          'plan-type': 'Foundation'
-        }
+        customFields: Object.assign({ 'first-name': firstName, 'last-name': lastName, 'full-name': firstName + ' ' + lastName, 'plan-type': 'Foundation' }, referralSource ? { 'referral-source': referralSource } : {})
       });
 
       if (signupError) {
