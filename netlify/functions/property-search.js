@@ -60,17 +60,17 @@ function isLiveModeEnabled() {
 // high-equity, or a vacant property that's also pre-foreclosure), and the
 // UI now surfaces every matching tag instead of forcing one bucket per lead.
 const DEMO_POINTS = [
-  { addr: '412 W Joliet St', lat: 41.4235, lng: -87.3711, plays: ['prefore'], owner: 'M. Delgado', equity: 89 },
-  { addr: '2107 Delaware Pkwy', lat: 41.4102, lng: -87.3599, plays: ['taxdelinquent'], owner: 'R. Nowak', equity: 34 },
-  { addr: '9541 Randolph St', lat: 41.4310, lng: -87.3480, plays: ['prefore', 'vacant'], owner: 'Unknown', equity: 21 },
-  { addr: '1188 S Court St', lat: 41.4050, lng: -87.3820, plays: ['absentee'], owner: 'J. Whitfield', equity: 58 },
-  { addr: '733 N Main St', lat: 41.4278, lng: -87.3602, plays: ['prefore', 'highequity'], owner: 'T. Alvarez', equity: 112 },
-  { addr: '5502 Broadway', lat: 41.4155, lng: -87.3455, plays: ['taxdelinquent'], owner: 'S. Krueger', equity: 27 },
-  { addr: '861 E 93rd Ave', lat: 41.4330, lng: -87.3750, plays: ['absentee'], owner: 'D. Okafor', equity: 45 },
-  { addr: '3390 Ross Township Rd', lat: 41.4400, lng: -87.3450, plays: ['highequity'], owner: 'L. Chen', equity: 158 },
-  { addr: '2214 Franciscan Dr', lat: 41.4290, lng: -87.3550, plays: ['highequity'], owner: 'P. Osei', equity: 141 },
-  { addr: '77 N Court St', lat: 41.4120, lng: -87.3900, plays: ['probate'], owner: 'Estate of R. Hayes', equity: 16 },
-  { addr: '990 E 101st Ave', lat: 41.4060, lng: -87.3400, plays: ['absentee', 'taxdelinquent'], owner: 'K. Bianchi', equity: 52 },
+  { addr: '412 W Joliet St, Crown Point, IN 46307', lat: 41.4235, lng: -87.3711, plays: ['prefore'], owner: 'M. Delgado', equity: 89 },
+  { addr: '2107 Delaware Pkwy, Crown Point, IN 46307', lat: 41.4102, lng: -87.3599, plays: ['taxdelinquent'], owner: 'R. Nowak', equity: 34 },
+  { addr: '9541 Randolph St, Crown Point, IN 46307', lat: 41.4310, lng: -87.3480, plays: ['prefore', 'vacant'], owner: 'Unknown', equity: 21 },
+  { addr: '1188 S Court St, Crown Point, IN 46307', lat: 41.4050, lng: -87.3820, plays: ['absentee'], owner: 'J. Whitfield', equity: 58 },
+  { addr: '733 N Main St, Crown Point, IN 46307', lat: 41.4278, lng: -87.3602, plays: ['prefore', 'highequity'], owner: 'T. Alvarez', equity: 112 },
+  { addr: '5502 Broadway, Crown Point, IN 46307', lat: 41.4155, lng: -87.3455, plays: ['taxdelinquent'], owner: 'S. Krueger', equity: 27 },
+  { addr: '861 E 93rd Ave, Crown Point, IN 46307', lat: 41.4330, lng: -87.3750, plays: ['absentee'], owner: 'D. Okafor', equity: 45 },
+  { addr: '3390 Ross Township Rd, Crown Point, IN 46307', lat: 41.4400, lng: -87.3450, plays: ['highequity'], owner: 'L. Chen', equity: 158 },
+  { addr: '2214 Franciscan Dr, Crown Point, IN 46307', lat: 41.4290, lng: -87.3550, plays: ['highequity'], owner: 'P. Osei', equity: 141 },
+  { addr: '77 N Court St, Crown Point, IN 46307', lat: 41.4120, lng: -87.3900, plays: ['probate'], owner: 'Estate of R. Hayes', equity: 16 },
+  { addr: '990 E 101st Ave, Crown Point, IN 46307', lat: 41.4060, lng: -87.3400, plays: ['absentee', 'taxdelinquent'], owner: 'K. Bianchi', equity: 52 },
 ];
 
 function buildDemoResults(playIds) {
