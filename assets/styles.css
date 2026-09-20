@@ -120,10 +120,20 @@ img { max-width: 100%; display: block; }
 .site-nav__links a.active,
 .site-nav__links a:hover { color: var(--white); }
 .site-nav__login {
-  color: var(--white) !important;
-  border: 1px solid rgba(255,255,255,0.18);
-  padding: 9px 16px;
-  border-radius: 2px;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 14px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--gold) !important;
+  background: transparent;
+  border: 1px solid var(--gold);
+  padding: 9px 20px;
+  border-radius: 999px;
+  transition: background 0.15s, color 0.15s;
+}
+.site-nav__login:hover {
+  background: var(--gold);
+  color: var(--navy) !important;
 }
 .site-nav__toggle {
   display: none;
@@ -377,6 +387,26 @@ img { max-width: 100%; display: block; }
   color: var(--grey);
   margin-top: 14px;
 }
+.tools-screenshot__cta {
+  margin-top: 32px;
+  padding-top: 28px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+.tools-screenshot__cta-quote {
+  font-size: 14px;
+  font-style: italic;
+  color: var(--grey);
+  line-height: 1.6;
+  margin-bottom: 18px;
+}
+.tools-screenshot__cta-label {
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 12px;
+}
 .tools-layout .grid-5 { grid-template-columns: repeat(2, minmax(0,1fr)); }
 @media (max-width: 1020px) {
   .tools-layout { grid-template-columns: 1fr; }
@@ -425,6 +455,7 @@ img { max-width: 100%; display: block; }
 }
 .testimonial__name { font-size: 13.5px; font-weight: 600; }
 .testimonial__loc { font-size: 10.5px; color: var(--grey); }
+.testimonial__badge { font-size: 9px; letter-spacing: 0.6px; text-transform: uppercase; color: var(--gold); font-weight: 700; margin: 1px 0; }
 .testimonial__quote { font-size: 12.5px; color: var(--light-grey); line-height: 1.6; font-style: italic; }
 .testimonial__tag { font-size: 9.5px; letter-spacing: 0.5px; text-transform: uppercase; color: var(--orange); }
 
@@ -503,7 +534,10 @@ img { max-width: 100%; display: block; }
 .level-card__desc { font-size: 13px; color: var(--light-grey); line-height: 1.7; margin-bottom: 18px; }
 .level-card__divider { height: 1px; background: var(--border); margin-bottom: 18px; }
 .level-card__unlocks-label { font-size: 11px; letter-spacing: 0.5px; text-transform: uppercase; color: var(--orange); margin-bottom: 8px; }
-.level-card__unlocks { font-size: 12.5px; color: var(--light-grey); line-height: 1.8; }
+.level-card__unlocks { font-size: 12.5px; color: var(--light-grey); line-height: 1.8; list-style: none; margin: 0; padding: 0; }
+.level-card__unlocks li { position: relative; padding-left: 14px; margin-bottom: 6px; }
+.level-card__unlocks li:last-child { margin-bottom: 0; }
+.level-card__unlocks li::before { content: "\2022"; position: absolute; left: 0; color: var(--orange); }
 .level-card--featured { border-color: var(--gold); box-shadow: 0 20px 50px rgba(200,155,60,0.1); }
 
 /* ---------------- Facts panel ---------------- */
@@ -533,3 +567,10 @@ p.body-copy { font-size: 15px; color: var(--light-grey); line-height: 1.85; marg
   max-width: 880px;
   margin: 0 auto;
 }
+
+.leadership-row { display: flex; gap: 40px; justify-content: center; flex-wrap: wrap; }
+.leadership-card { text-align: center; max-width: 200px; }
+.leadership-card img { width: 180px; height: 226px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 16px; }
+.leadership-card__name { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 1px; color: var(--gold); }
+.leadership-card__title { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--grey); margin: 4px 0 10px; }
+.leadership-card__desc { font-size: 13px; color: var(--light-grey); line-height: 1.6; margin: 0; }

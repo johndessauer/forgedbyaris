@@ -199,6 +199,12 @@ html, body { min-height: 100vh; background: var(--black); color: var(--white); f
   // other incomplete/inconsistent prices also on this plan) 8/30/2026.
   const currentPhase = { priceId: 'prc_founding-member-vip-97-mo-497-setup-r51w20aeh', label: '$497' };
 
+  // Partner referral tracking — captures ?ref=<source> from the URL (e.g.
+  // ?ref=fortiva) and passes it through as a Memberstack custom field so it
+  // rides the existing plan.added -> GHL webhook sync. Absent on plain links;
+  // GHL applies partner tags only when this field is present.
+  const referralSource = new URLSearchParams(window.location.search).get('ref') || '';
+
   async function handleSignup() {
     const firstName = document.getElementById('first-name').value.trim();
     const lastName  = document.getElementById('last-name').value.trim();
@@ -227,7 +233,8 @@ html, body { min-height: 100vh; background: var(--black); color: var(--white); f
           'first-name': firstName,
           'last-name': lastName,
           'full-name': firstName + ' ' + lastName,
-          'plan-type': 'Founding Member $497'
+          'plan-type': 'Founding Member $497',
+          ...(referralSource && { 'referral-source': referralSource })
         }
       });
 
