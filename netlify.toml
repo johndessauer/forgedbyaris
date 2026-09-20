@@ -93,3 +93,8 @@
   from = "/api/deal-documents"
   to = "/.netlify/functions/deal-documents"
   status = 200
+
+[[redirects]]
+  from = "/api/property-search"
+  to = "/.netlify/functions/property-search"
+  status = 200

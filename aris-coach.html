@@ -727,10 +727,10 @@
         <span class="nav-icon">🔍</span>
         Deal Analyzer
       </a>
-      <div class="nav-item">
+      <a class="nav-item" href="property-search.html">
         <span class="nav-icon">📍</span>
-        Property Search<span class="nav-badge">Coming Soon</span>
-      </div>
+        Property Search
+      </a>
       <a class="nav-item" href="crm.html"><span class="nav-icon">📋</span>Deal CRM</a>
       <a class="nav-item" href="deal-network.html">
         <span class="nav-icon">🤝</span>
@@ -855,6 +855,7 @@
   // the assignment in the other script block (it's not a ReferenceError --
   // it just never reaches this variable), which is what caused every CRM
   // tool call to send no Authorization header and fail with 401.
+  var currentMemberInitials = 'You';
 
   function saveHistory() {
     try {
@@ -898,7 +899,7 @@ Here's what I have access to on your behalf:
 - **Capital Radar** — find private lenders actively deploying in your market
 - **Deal Network** — move deals, find buyers, connect with investors
 - **Document Vault** — every contract, script, SOP, checklist, and credibility packet you'll ever need
-- **Property Search** — motivated sellers, cash buyers, private lenders nationwide
+- **Property Search** — motivated-seller leads nationwide: pre-foreclosure, absentee owners, high-equity, vacant, and tax-delinquent properties
 - **Education** — every strategy from wholesaling to commercial, when you need the foundation
 
 When you need one of those tools, I'll tell you. I'll send you there with a reason and bring you back with a plan.
@@ -1165,7 +1166,7 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
     const row = document.createElement('div');
     row.className = `msg-row ${role}`;
 
-    const avatarContent = role === 'aris' ? 'ARIS' : 'JD';
+    const avatarContent = role === 'aris' ? 'ARIS' : currentMemberInitials;
     const metaName = role === 'aris' ? 'ARIS' : 'You';
 
     row.innerHTML = `
@@ -1249,7 +1250,7 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
     const row = document.createElement('div');
     row.className = 'msg-row user';
     row.innerHTML = `
-      <div class="msg-avatar">JD</div>
+      <div class="msg-avatar">${currentMemberInitials}</div>
       <div class="msg-content">
         <div class="msg-meta">You &nbsp;·&nbsp; ${getTime()}</div>
         <div class="doc-card">
@@ -1987,6 +1988,7 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
     const tierEl = document.getElementById('sidebar-tier-coach');
     if (el) el.textContent = fullName;
     if (av) av.textContent = initials;
+    currentMemberInitials = initials;
     if (tierEl) tierEl.textContent = planName;
   } catch(e) { console.error('Auth gate error:', e); }
 })();

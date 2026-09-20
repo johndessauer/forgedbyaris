@@ -504,7 +504,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
       <a class="nav-item" href="dashboard.html"><span class="nav-icon">🏠</span>Dashboard</a>
       <a class="nav-item" href="aris-coach.html"><span class="nav-icon">⚡</span>ARIS AI Coach</a>
       <div class="nav-item active"><span class="nav-icon">🔍</span>Deal Analyzer</div>
-      <div class="nav-item"><span class="nav-icon">📍</span>Property Search<span class="nav-badge">Coming Soon</span></div>
+      <a class="nav-item" href="property-search.html"><span class="nav-icon">📍</span>Property Search</a>
       <a class="nav-item" href="crm.html"><span class="nav-icon">📋</span>Deal CRM</a>
       <a class="nav-item" href="deal-network.html"><span class="nav-icon">🤝</span>Deal Network</a>
       <a class="nav-item" href="capital-radar.html"><span class="nav-icon">🎯</span>Capital Radar</a>
@@ -515,7 +515,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
     </div>
     <div class="sidebar-footer">
       <div class="user-chip" onclick="window.location.href='profile.html'" style="cursor:pointer;">
-        <div class="user-avatar">JD</div>
+        <div class="user-avatar" id="sidebar-avatar">JD</div>
         <div class="user-info">
           <div class="user-name" id="sidebar-name">Member</div>
           <div class="user-tier" id="sidebar-tier">Member</div>
@@ -1530,6 +1530,7 @@ let isLoading = false;
 let lastDealData = null;
 let formIsDirty = false;
 let memberToken = null;
+let currentMemberInitials = 'You';
 let hasEmpireAccess = false;
 const EMPIRE_PRICE_ID = 'prc_empire-plan--401c10a7h';
 let savedDealsCache = [];
@@ -3244,7 +3245,7 @@ function appendMsg(role, text) {
   const messages = document.getElementById('messages');
   const row = document.createElement('div');
   row.className = `msg-row ${role}`;
-  const av = role === 'aris' ? 'ARIS' : 'JD';
+  const av = role === 'aris' ? 'ARIS' : currentMemberInitials;
   const name = role === 'aris' ? 'ARIS' : 'You';
   row.innerHTML = `
     <div class="msg-av">${av}</div>
@@ -3414,6 +3415,7 @@ async function confirmSave() {
         dealData: lastDealData.data,
         photos: pendingPhotos,
         docs: pendingDocs,
+        chatHistory: conversationHistory,
       }),
     });
     if (!res.ok) throw new Error('Save failed');
@@ -3486,6 +3488,7 @@ async function renderDrawer() {
         ${docLinks ? `<div class="deal-card-doc-row">${docLinks}</div>` : ''}
         <div class="saved-deal-actions">
           <button class="deal-action-btn" onclick="openDetail('${d.id}')">View</button>
+          ${(d.chat_history && d.chat_history.length) ? `<button class="deal-action-btn" onclick="resumeConversation('${d.id}')">Resume Chat</button>` : ''}
           ${pipelineBtn}
           <button class="deal-action-btn del" onclick="deleteDeal('${d.id}')">Delete</button>
         </div>
@@ -3493,6 +3496,8 @@ async function renderDrawer() {
     `;
   }).join('');
 }
+
+function resumeConversation(id) { const d = savedDealsCache.find(x => x.id === id); if (!d) return; const history = d.chat_history || []; if (!history.length) { alert('No saved conversation for this deal.'); return; } closeDrawer(); document.getElementById('messages').innerHTML = ''; history.forEach(m => appendMsg(m.role === 'assistant' ? 'aris' : 'user', m.content)); conversationHistory = history.map(m => ({ role: m.role, content: m.content })); lastDealData = { tab: d.tab, data: d.deal_data, timestamp: d.created_at }; showToast('Resumed conversation — ' + (d.display_name || 'saved deal')); }
 
 async function addToPipeline(id) {
   try {
@@ -3704,6 +3709,10 @@ window.addEventListener('load', async () => {
     const fullName = customFields['full-name'] || (customFields['first-name'] ? customFields['first-name'] + ' ' + (customFields['last-name'] || '') : null) || member.auth?.email || 'Member';
     const nameEl = document.getElementById('sidebar-name');
     if (nameEl) nameEl.textContent = fullName;
+    const initials = fullName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+    const avEl = document.getElementById('sidebar-avatar');
+    if (avEl) avEl.textContent = initials;
+    currentMemberInitials = initials;
     const tierEl = document.getElementById('sidebar-tier');
     if (tierEl) tierEl.textContent = planName;
     memberToken = await memberstack.getMemberCookie();

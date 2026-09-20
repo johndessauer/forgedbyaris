@@ -198,6 +198,13 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 .module-arrow { position: absolute; top: 16px; right: 16px; font-size: 14px; color: var(--grey); opacity: 0; transition: opacity 0.15s; }
 .module-card.live:hover .module-arrow { opacity: 1; color: var(--orange); }
 
+/* ── WHAT'S NEW ── */
+.whats-new-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.whats-new-card { background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 12px; padding: 16px; }
+.whats-new-date { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--grey); margin-bottom: 6px; }
+.whats-new-title { font-family: 'Bebas Neue', sans-serif; font-size: 14px; letter-spacing: 1px; color: var(--white); margin-bottom: 6px; }
+.whats-new-body { font-size: 12px; color: var(--grey-light); line-height: 1.5; margin-bottom: 10px; }
+
 /* ── RECENT DEALS ── */
 .recent-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .recent-card { background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 10px; padding: 14px 16px; cursor: pointer; transition: all 0.15s; text-decoration: none; display: block; }
@@ -411,7 +418,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
       <div class="nav-item active"><span class="nav-icon">🏠</span>Dashboard</div>
       <a class="nav-item" href="aris-coach.html"><span class="nav-icon">⚡</span>ARIS AI Coach</a>
       <a class="nav-item" href="deal-analyzer.html"><span class="nav-icon">🔍</span>Deal Analyzer</a>
-      <div class="nav-item"><span class="nav-icon">📍</span>Property Search<span class="nav-badge">Coming Soon</span></div>
+      <a class="nav-item" href="property-search.html"><span class="nav-icon">📍</span>Property Search</a>
       <a class="nav-item" href="crm.html"><span class="nav-icon">📋</span>Deal CRM</a>
       <a class="nav-item" href="deal-network.html"><span class="nav-icon">🤝</span>Deal Network</a>
       <a class="nav-item" href="capital-radar.html"><span class="nav-icon">🎯</span>Capital Radar</a>
@@ -543,6 +550,15 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
         </div>
       </div>
 
+      <!-- WHAT'S NEW -->
+      <div id="whats-new-section" style="display:none;">
+        <div class="section-header">
+          <div class="section-title">What's New</div>
+          <div class="section-sub" id="whats-new-sub"></div>
+        </div>
+        <div class="whats-new-grid" id="whats-new-grid"></div>
+      </div>
+
       <!-- MODULE GRID -->
       <div>
         <div class="section-header">
@@ -571,12 +587,13 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
             <div class="module-desc">Track every deal and contact in one pipeline. ARIS reads and updates it for you.</div>
             <div class="module-status live">● Live</div>
           </a>
-          <div class="module-card coming">
+          <a class="module-card live" href="property-search.html">
+            <div class="module-arrow">→</div>
             <div class="module-icon">📍</div>
             <div class="module-name">Property Search</div>
-            <div class="module-desc">Motivated seller leads, cash buyers, private lenders. Nationwide data.</div>
-            <div class="module-status soon">Coming Soon</div>
-          </div>
+            <div class="module-desc">Pre-foreclosure, absentee, high-equity, vacant, and tax-delinquent leads. Nationwide data.</div>
+            <div class="module-status live">● Live</div>
+          </a>
           <a class="module-card live" href="deal-network.html">
             <div class="module-icon">🤝</div>
             <div class="module-name">Deal Network</div>
@@ -885,6 +902,7 @@ window.onload = async () => {
   setGreeting();
   setDate();
   loadStats();
+  loadWhatsNew();
   loadRecentDeals();
   loadAvatar();
   loadWhyCard();
@@ -979,6 +997,40 @@ async function handleUnlockEmpireDashboard(priceId) {
     console.error('Empire checkout failed:', err);
     if (btn) { btn.disabled = false; btn.textContent = 'Unlock Empire →'; }
   }
+}
+
+// ── WHAT'S NEW ──
+async function loadWhatsNew() {
+  try {
+    const res = await fetch('assets/whats-new.json');
+    if (!res.ok) throw new Error('Failed to load what\'s new feed');
+    const items = await res.json();
+    renderWhatsNew(items);
+  } catch (e) {
+    console.error('Failed to load What\'s New:', e);
+    // Non-critical widget — leave the section hidden rather than showing an error.
+  }
+}
+
+function renderWhatsNew(items) {
+  const section = document.getElementById('whats-new-section');
+  const grid = document.getElementById('whats-new-grid');
+  const sub = document.getElementById('whats-new-sub');
+  if (!section || !grid || !Array.isArray(items) || items.length === 0) return;
+  grid.innerHTML = items.map(item => {
+    const tag = item.tag === 'soon' ? 'soon' : 'live';
+    const label = tag === 'soon' ? 'Coming Soon' : '\u25cf Live';
+    const dateLabel = item.date ? new Date(item.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+    return `
+      <div class="whats-new-card">
+        <div class="whats-new-date">${dateLabel}</div>
+        <div class="whats-new-title">${item.title}</div>
+        <div class="whats-new-body">${item.body}</div>
+        <div class="module-status ${tag}">${label}</div>
+      </div>`;
+  }).join('');
+  sub.textContent = items.length + (items.length === 1 ? ' update' : ' updates');
+  section.style.display = '';
 }
 
 async function loadEducationBadges() {
