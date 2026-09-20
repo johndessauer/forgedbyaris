@@ -175,7 +175,7 @@ exports.handler = async function (event, context) {
           return json(200, { results, demo: false });
         } catch (err) {
           console.error('PropertyRadar live search failed, falling back to demo data:', err);
-          return json(200, { results: buildDemoResults(playIds), demo: true, liveError: String(err.message || err) });
+          return json(200, { results: buildDemoResults(playIds), demo: true, liveError: 'Live data temporarily unavailable.' });
         }
       }
 
