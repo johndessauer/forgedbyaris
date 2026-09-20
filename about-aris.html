@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>About ARIS</title>
+<link rel="icon" type="image/png" href="assets/favicon.png">
 <meta name="description" content="ARIS is short for Aristotle — the tutor who shaped how history's most consequential builder thought. Meet FORGE's AI coach.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -41,6 +42,7 @@ fbq('track', 'PageView');
     <a href="index.html#tools">Tools</a>
     <a href="why-forge.html">Why FORGE</a>
     <a href="about-aris.html" class="active">About ARIS</a>
+    <a href="blog.html">Blog</a>
     <a href="about.html">Company</a>
     <a href="#" class="site-nav__login">Member Log-In &rarr;</a>
   </div>
@@ -86,7 +88,7 @@ fbq('track', 'PageView');
 </div>
 
 <!-- ================= WHAT ARIS ACTUALLY DOES ================= -->
-<div class="section bg-navy">
+<div class="section bg-light">
   <div class="wrap">
     <div class="section-head">
       <div class="eyebrow">In Practice</div>
@@ -112,6 +114,37 @@ fbq('track', 'PageView');
   </div>
 </div>
 
+<!-- ================= HEAR FROM ARIS ================= -->
+<div class="section center">
+  <div class="wrap">
+    <div class="eyebrow">In His Own Voice</div>
+    <h2 class="display" style="font-size:clamp(24px,4vw,34px); letter-spacing:1px; margin-bottom:24px;">LET ARIS INTRODUCE HIMSELF</h2>
+    <button type="button" class="btn btn-primary" id="arisIntroBtn">HEAR FROM ARIS</button>
+
+    <div class="card" id="arisIntroPanel" hidden style="max-width:620px; margin:32px auto 0; text-align:left;">
+      <div class="aris-intro-caption" id="arisIntroCaption">
+        &ldquo;Hi, I&rsquo;m ARIS. Aristotle mentored the mind that built an empire &mdash; not by giving him answers, but by sharpening how he thought. That&rsquo;s my job here.
+        <br><br>
+        Inside FORGE, I run the numbers on your deals with you, pull real market data city by city, find real, live real estate leads through our property search tool, help you track down capital and lenders, and keep your whole pipeline in my head &mdash; so nothing resets every time you log back in.
+        <br><br>
+        But there&rsquo;s only so much talking about a mentor can do. Want me to send you to the calendar so we can talk about how we get you started with a one-on-one meeting?&rdquo;
+      </div>
+      <audio id="arisIntroAudio" src="assets/aris-intro.mp3" preload="none"></audio>
+
+      <div class="aris-intro-ask aris-anim-hidden" id="arisIntroAsk" style="margin-top:24px; padding-top:20px; border-top:1px solid var(--border);">
+        <div style="font-size:14px; font-weight:600; margin-bottom:14px;">Want me to send you to the calendar?</div>
+        <div class="btn-row">
+          <a href="#" class="btn btn-primary" data-cta="demo" id="arisIntroYes">YES &mdash; BOOK MY 1:1</a>
+          <button type="button" class="btn btn-secondary" id="arisIntroNo">NOT YET</button>
+        </div>
+        <div class="aris-intro-decline" id="arisIntroDecline" hidden style="margin-top:14px; font-size:13px; color:var(--light-grey);">No rush &mdash; explore FORGE at your own pace. I&rsquo;ll be here when you&rsquo;re ready.</div>
+      </div>
+
+      <a href="#" class="aris-intro-skip" data-cta="demo" style="display:block; margin-top:18px; font-size:12.5px; color:var(--grey);">Skip the pitch &mdash; take me straight to booking &rarr;</a>
+    </div>
+  </div>
+</div>
+
 <!-- ================= FINAL CTA ================= -->
 <div class="section center">
   <div class="wrap">
@@ -124,7 +157,13 @@ fbq('track', 'PageView');
 </div>
 
 <footer class="site-footer">
-  <div class="display site-footer__mark">F<span style="color:var(--gold)">O</span>RGE</div>
+  <div class="site-footer__mark">
+    <img src="assets/logo-icon.png" alt="" class="site-nav__logo-icon">
+    <span class="site-nav__logo-text">
+      <span class="site-nav__wordmark">F<span class="gold-o">O</span>RGE<sup>&trade;</sup></span>
+      <span class="site-nav__tagline">Powered by ARIS</span>
+    </span>
+  </div>
   <div class="site-footer__legal">
     &copy; 2026 FORGE &mdash; Powered by ARIS. All rights reserved. &nbsp;|&nbsp;
     ForgedByAris.com &nbsp;|&nbsp;

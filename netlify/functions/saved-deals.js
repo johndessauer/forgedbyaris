@@ -70,7 +70,7 @@ exports.handler = async function (event, context) {
       if (payload.action === 'create') {
         const {
           displayName, nickname, address, street, city, state, zip,
-          tab, verdict, verdictText, dealData, photos, docs,
+          tab, verdict, verdictText, dealData, photos, docs, chatHistory
         } = payload;
         if (!displayName || !tab) return json(400, { error: 'displayName and tab are required' });
 
@@ -91,6 +91,7 @@ exports.handler = async function (event, context) {
             deal_data: dealData || null,
             photos: photos || [],
             docs: docs || [],
+            chat_history: chatHistory || [],
           })
           .select()
           .single();

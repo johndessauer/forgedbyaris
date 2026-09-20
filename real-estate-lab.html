@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>Real Estate Lab | FORGE</title>
+<link rel="icon" type="image/png" href="assets/favicon.png">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Bebas+Neue&display=swap" rel="stylesheet">
 <style>
@@ -180,7 +181,7 @@ html { height: 100%; }
     </div>
     <div class="sidebar-footer">
       <div class="user-chip" onclick="window.location.href='profile.html'" style="cursor:pointer;">
-        <div class="user-avatar">JD</div>
+        <div class="user-avatar" id="sidebar-avatar">JD</div>
         <div class="user-info">
           <div class="user-name" id="sidebar-name">Member</div>
           <div class="user-tier" id="sidebar-tier">Member</div>
@@ -369,6 +370,9 @@ async function initLabPage() {
     const fullName = customFields['full-name'] || member.auth?.email || 'Member';
     const nameEl = document.getElementById('sidebar-name');
     if (nameEl) nameEl.textContent = fullName;
+    const initials = fullName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+    const avEl = document.getElementById('sidebar-avatar');
+    if (avEl) avEl.textContent = initials;
     const tierEl = document.getElementById('sidebar-tier');
     if (tierEl) tierEl.textContent = currentPlanName;
 

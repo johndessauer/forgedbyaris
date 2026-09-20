@@ -1,0 +1,25 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard.html
+Disallow: /admin.html
+Disallow: /login.html
+Disallow: /signup.html
+Disallow: /signup-97.html
+Disallow: /signup-497.html
+Disallow: /signup-foundation.html
+Disallow: /founding-member.html
+Disallow: /profile.html
+Disallow: /logged-in-elsewhere.html
+Disallow: /aris-coach.html
+Disallow: /capital-radar.html
+Disallow: /crm.html
+Disallow: /deal-analyzer.html
+Disallow: /deal-network.html
+Disallow: /document-vault.html
+Disallow: /education.html
+Disallow: /education-admin.html
+Disallow: /lab-admin.html
+Disallow: /market-oracle.html
+Disallow: /real-estate-lab.html
+
+Sitemap: https://forgedbyaris.com/sitemap.xml

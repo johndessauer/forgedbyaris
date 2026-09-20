@@ -4,10 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>FORGE — Where Empires Are Forged</title>
+<link rel="icon" type="image/png" href="assets/favicon.png">
 <meta name="description" content="The AI platform that delivers everything a $30,000 real estate coaching program sells — available 24/7, for a fraction of the cost.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/styles.css">
+<link rel="stylesheet" href="assets/sales-chat.css">
 <!-- Meta Pixel Code -->
 <script>
 !function(f,b,e,v,n,t,s)
@@ -31,6 +33,14 @@ fbq('track', 'PageView');
 </head>
 <body>
 
+<div id="announcement-bar" class="announcement-bar">
+  <div class="announcement-bar__inner">
+    <span class="announcement-bar__text" id="announcementText"></span>
+    <a href="#" class="announcement-bar__cta" id="announcementCta" data-cta="demo"></a>
+  </div>
+  <button class="announcement-bar__close" id="announcementClose" aria-label="Dismiss">&times;</button>
+</div>
+
 <nav class="site-nav">
   <a href="index.html" class="site-nav__logo">
     <img src="assets/logo-icon.png" alt="" class="site-nav__logo-icon">
@@ -46,7 +56,9 @@ fbq('track', 'PageView');
     <a href="#tools">Tools</a>
     <a href="why-forge.html">Why FORGE</a>
     <a href="about-aris.html">About ARIS</a>
+    <a href="blog.html">Blog</a>
     <a href="about.html">Company</a>
+    <a href="#" id="navContactChat">Contact</a>
     <a href="#" class="site-nav__login">Member Log-In &rarr;</a>
   </div>
 </nav>
@@ -63,20 +75,23 @@ fbq('track', 'PageView');
       <a href="#" class="btn btn-secondary" data-cta="demo">BOOK A 1:1 DEMO</a>
     </div>
     <div class="hero__note">Live product. Real tools. No sales pitch.</div>
+       <div class="hero__tagline">FORGE is the AI operating system for real estate investors &mdash; coaching, underwriting, negotiation, and capital, all built to execute.</div>
   </div>
 
   <div class="hero__panel">
-    <div class="aris-panel">
+        <div class="aris-panel" id="arisDemo">
       <div class="aris-panel__head">
         <div class="aris-panel__dot"></div><div class="aris-panel__dot"></div><div class="aris-panel__dot"></div>
         <div class="aris-panel__label">ARIS AI COACH</div>
       </div>
-      <div class="aris-bubble">Is this triplex a good BRRRR candidate at $214K?</div>
-      <div class="aris-bubble aris-bubble--reply">Ran the numbers &mdash; 78% ARV, rents support a 1.31 DSCR post-refi. Comps and rehab estimate below.</div>
-      <div class="aris-stats">
-        <div class="aris-stat"><div class="aris-stat__num">78%</div><div class="aris-stat__label">ARV RATIO</div></div>
-        <div class="aris-stat"><div class="aris-stat__num">1.31</div><div class="aris-stat__label">DSCR</div></div>
-        <div class="aris-stat"><div class="aris-stat__num">$41K</div><div class="aris-stat__label">REHAB EST.</div></div>
+           <div class="aris-bubble" id="arisQuestion"><span class="aris-type-text">Is this triplex a good BRRRR candidate at $214K?</span><span class="aris-cursor"></span></div>
+      <div class="aris-bubble aris-bubble--reply" id="arisReply">
+        <span class="aris-typing-dots"><span></span><span></span><span></span></span><span class="aris-type-text">Ran the numbers &mdash; 78% ARV, rents support a 1.31 DSCR post-refi. Comps and rehab estimate below.</span><span class="aris-cursor"></span>
+      </div>
+      <div class="aris-stats" id="arisStats">
+        <div class="aris-stat"><div class="aris-stat__num" data-value="78" data-suffix="%">78%</div><div class="aris-stat__label">ARV RATIO</div></div>
+        <div class="aris-stat"><div class="aris-stat__num" data-value="1.31" data-decimals="2">1.31</div><div class="aris-stat__label">DSCR</div></div>
+        <div class="aris-stat"><div class="aris-stat__num" data-value="41" data-prefix="$" data-suffix="K">$41K</div><div class="aris-stat__label">REHAB EST.</div></div>
       </div>
       <div class="aris-disclaimer">Illustrative example for demonstration only — not an actual deal, and not a guarantee of results. Individual outcomes vary.</div>
     </div>
@@ -84,11 +99,12 @@ fbq('track', 'PageView');
 </div>
 
 <!-- ================= TOOLS GRID ================= -->
-<div id="tools" class="section bg-navy">
+<div id="tools" class="section bg-light">
   <div class="wrap">
     <div class="section-head">
       <div class="eyebrow">The Platform</div>
       <h2 class="display">TEN TOOLS. ONE AI PARTNER.</h2>
+      <p>And this is just some of what FORGE can do.</p>
     </div>
     <div class="tools-layout">
     <div class="tools-screenshot">
@@ -115,58 +131,64 @@ fbq('track', 'PageView');
         </div>
       </div>
       <div class="tools-screenshot__caption">Property Search &amp; Market Oracle</div>
+
+      <div class="tools-screenshot__cta">
+        <div class="tools-screenshot__cta-quote">Ten tools. One login. Every one built natively into FORGE &mdash; not bolted on from a dozen different subscriptions.</div>
+        <div class="tools-screenshot__cta-label">See It Running Live</div>
+        <a href="#" class="btn btn-secondary" data-cta="demo">BOOK A 1:1 DEMO</a>
+      </div>
     </div>
     <div class="grid-5">
       <div class="card tool-card">
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#C89B3C" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/><path d="M9 10l1.5 1.5L15 8"/></svg>
         <div class="tool-card__name">ARIS AI Coach</div>
-        <div class="tool-card__desc">24/7 AI coaching across every real estate strategy, voice-enabled.</div>
+        <div class="tool-card__desc">A 24/7 conversational AI advisor across every strategy — wholesaling, flipping, rentals, STR/MTR, multifamily, commercial, and tax. No scheduling, no waiting on a callback.</div>
       </div>
       <div class="card tool-card">
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#C89B3C" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M20 20l-4.8-4.8"/><path d="M8 11l1.8 1.8L13.5 9"/></svg>
         <div class="tool-card__name">Deal Analyzer</div>
-        <div class="tool-card__desc">Residential and commercial deals, AI-scored in seconds.</div>
+        <div class="tool-card__desc">Two underwriting engines in one tool — comps-based analysis for 2-4 unit residential, and real income-cap math (NOI, cap rate, DSCR) for 5+ unit commercial. Upload a document and ARIS pulls the numbers, then exports a lender-ready PDF.</div>
       </div>
       <div class="card tool-card">
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#C89B3C" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 3 3 7-8"/><path d="M14 7h4v4"/></svg>
         <div class="tool-card__name">Market Oracle</div>
-        <div class="tool-card__desc">Live market data via Census and FRED, down to the ZIP code.</div>
+        <div class="tool-card__desc">Type in any market and get a scored verdict — Buy, Watch, or Avoid — based on income, home values, rents, vacancy, and mortgage rates.</div>
       </div>
       <div class="card tool-card">
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#C89B3C" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>
         <div class="tool-card__name">Capital Radar</div>
-        <div class="tool-card__desc">Find private lenders actively deploying capital in your market.</div>
+        <div class="tool-card__desc">ARIS matches your specific deal to private lenders actively deploying capital in your target market — not a generic list, the money that’s already moving.</div>
       </div>
       <div class="card tool-card">
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#C89B3C" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="1.5"/><path d="M9 3.5h6v2H9z"/><path d="M8.5 11h7M8.5 14.5h7M8.5 18h4"/></svg>
         <div class="tool-card__name">Deal CRM</div>
-        <div class="tool-card__desc">Pipeline, contacts, and deal documents in one place.</div>
+        <div class="tool-card__desc">Built natively into FORGE, not a bolt-on — ARIS can see your pipeline directly, flags deals gone stale after 30 days, and links every contact to the deal it belongs to.</div>
       </div>
       <div class="card tool-card">
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#C89B3C" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M8 7.5L11 16M16 7.5L13 16M8.5 6h7"/></svg>
         <div class="tool-card__name">Deal Network</div>
-        <div class="tool-card__desc">Post deals, raise capital, connect with investors.</div>
+        <div class="tool-card__desc">A built-in marketplace where members post deals, raise capital, and connect directly with other investors in the FORGE community.</div>
       </div>
       <div class="card tool-card">
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#C89B3C" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5a2 2 0 0 1 2-2h7l4 4v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M13 3.5V8h4"/><circle cx="12" cy="14" r="2"/><path d="M12 16v2.5"/></svg>
         <div class="tool-card__name">Document Vault</div>
-        <div class="tool-card__desc">Contracts and templates ready for every deal type.</div>
+        <div class="tool-card__desc">Every contract, script, SOP, and credibility packet you’d otherwise have to source or draft yourself — ready to use, professionally built.</div>
       </div>
       <div class="card tool-card">
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#C89B3C" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6.5L12 3l9 3.5-9 3.5z"/><path d="M6.5 8.7v6c0 1.4 2.5 3 5.5 3s5.5-1.6 5.5-3v-6"/><path d="M21 6.5v6"/></svg>
         <div class="tool-card__name">Education</div>
-        <div class="tool-card__desc">22 categories of on-demand real estate training.</div>
+        <div class="tool-card__desc">22 topics from wholesaling to raising capital, each with three mastery tiers and a graded quiz to prove you’ve learned it. A curriculum, not a video library.</div>
       </div>
       <div class="card tool-card">
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#C89B3C" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h8v6H4z"/><path d="M12 13h8v6h-8z"/><path d="M8 11v3M16 8v5"/></svg>
         <div class="tool-card__name">Real Estate Lab</div>
-        <div class="tool-card__desc">Practice negotiations against AI across 9 roleplay scenarios.</div>
+        <div class="tool-card__desc">Negotiate live against ARIS in character — a motivated seller, a hard money lender, a JV partner, a contractor, and more — then get a scored debrief.</div>
       </div>
       <div class="card tool-card tool-card--soon">
         <div class="tool-card__badge">COMING SOON</div>
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.3-7-11.5A7 7 0 0 1 19 9.5C19 14.7 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>
         <div class="tool-card__name" style="color:var(--light-grey)">Property Search</div>
-        <div class="tool-card__desc" style="color:var(--grey)">Nationwide motivated-seller and lender data.</div>
+        <div class="tool-card__desc" style="color:var(--grey)">Pre-foreclosures, absentee owners, high-equity and vacant properties, skip-traced and call-ready, plus nationwide cash buyer and lender lists.</div>
       </div>
     </div>
     </div>
@@ -184,7 +206,7 @@ fbq('track', 'PageView');
 </div>
 
 <!-- ================= WHY NOT CHATGPT ================= -->
-<div class="section bg-navy">
+<div class="section bg-light">
   <div class="wrap">
     <div class="section-head">
       <div class="eyebrow">The Objection</div>
@@ -198,7 +220,7 @@ fbq('track', 'PageView');
       </div>
       <div class="card">
         <div class="compare-label compare-label--accent">ARIS Inside FORGE</div>
-        <div style="font-size:14px; color:var(--light-grey); line-height:1.8;">Reasons through your specific numbers using live market data feeds (Census, FRED), remembers your deals and contacts through the CRM, and is built specifically for real estate decisions &mdash; not a generalist trying to sound like a specialist.</div>
+        <div style="font-size:14px; color:var(--light-grey); line-height:1.8;">Reasons through your specific numbers, remembers your deals and contacts through the CRM, and is built specifically for real estate decisions &mdash; not a generalist trying to sound like a specialist.</div>
       </div>
     </div>
   </div>
@@ -236,7 +258,7 @@ fbq('track', 'PageView');
 </div>
 
 <!-- ================= TESTIMONIALS ================= -->
-<div class="section bg-navy">
+<div class="section bg-light">
   <div class="wrap">
     <div class="section-head">
       <div class="eyebrow">Founding Members</div>
@@ -247,7 +269,7 @@ fbq('track', 'PageView');
       <div class="card testimonial">
         <div class="testimonial__head">
           <div class="testimonial__avatar">MT</div>
-          <div><div class="testimonial__name">Marcus T.</div><div class="testimonial__loc">Dallas, TX</div></div>
+          <div><div class="testimonial__name">Marcus T.</div><div class="testimonial__badge">FOUNDING BETA MEMBER</div><div class="testimonial__loc">Dallas, TX</div></div>
         </div>
         <div class="testimonial__quote">&ldquo;When John asked for a testimonial I sat there for a minute because I like too much of it to pick one thing. The short version: I spent two years in a high-ticket coaching program and still waited days for a deal review. I dropped a wholesale contract into the Deal Analyzer on a Sunday night and had numbers, risk flags, and a walk-away price in under two minutes. ARIS updated the CRM without me typing a thing.&rdquo;</div>
         <div class="testimonial__tag">Deal Analyzer &middot; Deal CRM</div>
@@ -256,7 +278,7 @@ fbq('track', 'PageView');
       <div class="card testimonial">
         <div class="testimonial__head">
           <div class="testimonial__avatar">SK</div>
-          <div><div class="testimonial__name">Sarah K.</div><div class="testimonial__loc">Phoenix, AZ</div></div>
+          <div><div class="testimonial__name">Sarah K.</div><div class="testimonial__badge">FOUNDING BETA MEMBER</div><div class="testimonial__loc">Phoenix, AZ</div></div>
         </div>
         <div class="testimonial__quote">&ldquo;The hardest part of this whole thing was picking a picture. I had never flipped a house. The modules made me finish the quiz before I could move on, so I didn&rsquo;t skip the parts I usually skip. I ran the seller conversation in the Real Estate Lab three times before I made a real offer. I still pull the assignment contract from the Document Vault.&rdquo;</div>
         <div class="testimonial__tag">Education &middot; Real Estate Lab</div>
@@ -265,7 +287,7 @@ fbq('track', 'PageView');
       <div class="card testimonial">
         <div class="testimonial__head">
           <div class="testimonial__avatar">DR</div>
-          <div><div class="testimonial__name">David R.</div><div class="testimonial__loc">Atlanta, GA</div></div>
+          <div><div class="testimonial__name">David R.</div><div class="testimonial__badge">FOUNDING BETA MEMBER</div><div class="testimonial__loc">Atlanta, GA</div></div>
         </div>
         <div class="testimonial__quote">&ldquo;I find myself talking to ARIS every day and have to remind myself he is not a real person, lol. Raising private money used to be a week of spreadsheets and follow-up. Capital Radar showed two lenders already deploying in my zip code. I sent the packet from the Document Vault that afternoon. One funded. Market Oracle also told me to watch a submarket instead of buying &mdash; kept me off a bad 8-unit.&rdquo;</div>
         <div class="testimonial__tag">Capital Radar &middot; Market Oracle</div>
@@ -274,7 +296,7 @@ fbq('track', 'PageView');
       <div class="card testimonial">
         <div class="testimonial__head">
           <div class="testimonial__avatar">JL</div>
-          <div><div class="testimonial__name">Jennifer L.</div><div class="testimonial__loc">Tampa, FL</div></div>
+          <div><div class="testimonial__name">Jennifer L.</div><div class="testimonial__badge">FOUNDING BETA MEMBER</div><div class="testimonial__loc">Tampa, FL</div></div>
         </div>
         <div class="testimonial__quote">&ldquo;I almost didn&rsquo;t send this because I didn&rsquo;t want it to sound like an ad. I run a small rental portfolio and don&rsquo;t have time for another mastermind. I type the address, ARIS pulls rent, vacancy, and taxes, and gives me Buy, Watch, or Avoid. The CRM holds every contractor and tenant thread. The monthly fee is less than one coaching call I used to book.&rdquo;</div>
         <div class="testimonial__tag">ARIS AI Coach &middot; Deal CRM</div>
@@ -283,7 +305,7 @@ fbq('track', 'PageView');
       <div class="card testimonial">
         <div class="testimonial__head">
           <div class="testimonial__avatar">JP</div>
-          <div><div class="testimonial__name">James P.</div><div class="testimonial__loc">Columbus, OH</div></div>
+          <div><div class="testimonial__name">James P.</div><div class="testimonial__badge">FOUNDING BETA MEMBER</div><div class="testimonial__loc">Columbus, OH</div></div>
         </div>
         <div class="testimonial__quote">&ldquo;John asked me to write something and I kept starting over because every feature I use leads to another one. I&rsquo;ve been to the big events. FORGE is the first thing that sits in my pocket and answers &lsquo;Should I take this subject-to deal?&rsquo; at 10 p.m. The AI Coach doesn&rsquo;t soften the numbers. That&rsquo;s why I stayed.&rdquo;</div>
         <div class="testimonial__tag">ARIS AI Coach</div>
@@ -292,7 +314,7 @@ fbq('track', 'PageView');
       <div class="card testimonial">
         <div class="testimonial__head">
           <div class="testimonial__avatar">EM</div>
-          <div><div class="testimonial__name">Elena M.</div><div class="testimonial__loc">Charlotte, NC</div></div>
+          <div><div class="testimonial__name">Elena M.</div><div class="testimonial__badge">FOUNDING BETA MEMBER</div><div class="testimonial__loc">Charlotte, NC</div></div>
         </div>
         <div class="testimonial__quote">&ldquo;My kids walked in last week and asked who I was arguing with. It was ARIS. I work a full-time job and only underwrite at night. I used to lose deals because my spreadsheet was a day behind the listing. I ran a 12-unit through the Deal Analyzer, checked the market on Market Oracle, and had a clean packet in the Document Vault before I went to bed. I made the offer on my lunch break.&rdquo;</div>
         <div class="testimonial__tag">Deal Analyzer &middot; Market Oracle</div>
@@ -314,7 +336,13 @@ fbq('track', 'PageView');
 </div>
 
 <footer class="site-footer">
-  <div class="display site-footer__mark">F<span style="color:var(--gold)">O</span>RGE</div>
+  <div class="site-footer__mark">
+    <img src="assets/logo-icon.png" alt="" class="site-nav__logo-icon">
+    <span class="site-nav__logo-text">
+      <span class="site-nav__wordmark">F<span class="gold-o">O</span>RGE<sup>&trade;</sup></span>
+      <span class="site-nav__tagline">Powered by ARIS</span>
+    </span>
+  </div>
   <div class="site-footer__legal">
     &copy; 2026 FORGE &mdash; Powered by ARIS. All rights reserved. &nbsp;|&nbsp;
     ForgedByAris.com &nbsp;|&nbsp;
@@ -326,6 +354,31 @@ fbq('track', 'PageView');
     <a href="earnings-disclaimer.html">Earnings Disclaimer</a>
   </div>
 </footer>
+
+<!-- ================= SALES CHAT WIDGET (homepage only) ================= -->
+<div id="salesChat" class="sales-chat">
+  <button id="salesChatToggle" class="sales-chat__toggle" aria-label="Chat with ARIS">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+    <span class="sales-chat__toggle-label">Ask ARIS</span>
+  </button>
+  <div id="salesChatPanel" class="sales-chat__panel" hidden>
+    <div class="sales-chat__header">
+      <div class="sales-chat__header-info">
+        <div class="sales-chat__avatar">AI</div>
+        <div>
+          <div class="sales-chat__title">ARIS</div>
+          <div class="sales-chat__subtitle">FORGE AI &middot; ask me anything</div>
+        </div>
+      </div>
+      <button id="salesChatClose" class="sales-chat__close" aria-label="Close chat">&times;</button>
+    </div>
+    <div id="salesChatMessages" class="sales-chat__messages"></div>
+    <div class="sales-chat__input-row">
+      <input id="salesChatInput" class="sales-chat__input" type="text" placeholder="Ask about FORGE..." autocomplete="off">
+      <button id="salesChatSend" class="sales-chat__send" aria-label="Send">&rarr;</button>
+    </div>
+  </div>
+</div>
 
 <script src="assets/site.js"></script>
 </body>
