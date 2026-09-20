@@ -236,13 +236,85 @@ exports.handler = async function (event, context) {
         return json(200, { deleted: true });
       }
 
-      // NOT implemented yet — fast-follow, per the phased build plan
-      // (Property Search Stage 2: CRM handoff). Mirrors saved-deals.js's
-      // add_to_pipeline pattern once it's built — same shape, same
-      // memberstack_id scoping, writing into the existing contacts/deals
-      // tables from schema.sql.
+      // Stage 2 CRM handoff — mirrors saved-deals.js's add_to_pipeline: a
+      // saved lead means "I want to keep this," sending it to the CRM means
+      // "I'm actively working this deal." Creates a real deal, links a
+      // seller contact when we know the owner's name, and leaves a note so
+      // the lead-type tags and equity estimate aren't lost once it's just
+      // another CRM deal.
       if (payload.action === 'send_to_crm') {
-        return json(501, { error: 'CRM handoff is not implemented yet — Stage 2 fast-follow.' });
+        const { id } = payload;
+        if (!id) return json(400, { error: 'id is required' });
+
+        const { data: saved, error: fetchError } = await supabase
+          .from('property_search_saves')
+          .select('*')
+          .eq('id', id)
+          .eq('memberstack_id', memberId)
+          .maybeSingle();
+        if (fetchError) throw fetchError;
+        if (!saved) return json(404, { error: 'Saved lead not found' });
+
+        if (saved.crm_deal_id) {
+          return json(400, { error: 'This lead has already been sent to the CRM' });
+        }
+
+        // Property Search leads (pre-foreclosure, absentee, tax delinquent,
+        // probate, etc.) are motivated-seller leads — 'wholesale' is the
+        // right default deal_type; the member can change it in the CRM
+        // once they know how they actually want to work the deal.
+        const { data: crmDeal, error: crmError } = await supabase
+          .from('deals')
+          .insert({
+            memberstack_id: memberId,
+            property_address: saved.address,
+            deal_type: 'wholesale',
+            stage: 'New Lead',
+          })
+          .select()
+          .single();
+        if (crmError) throw crmError;
+
+        // Link a seller contact when we actually have a name — PropertyRadar
+        // (and the demo fallback) sometimes returns 'Unknown' for skip-traced
+        // owners, which isn't a real contact worth creating.
+        if (saved.owner && saved.owner.trim() && saved.owner.trim().toLowerCase() !== 'unknown') {
+          const { data: contact, error: contactError } = await supabase
+            .from('contacts')
+            .insert({
+              memberstack_id: memberId,
+              name: saved.owner.trim(),
+              type: 'seller',
+            })
+            .select()
+            .single();
+          if (contactError) throw contactError;
+
+          const { error: linkError } = await supabase
+            .from('deal_contacts')
+            .insert({ deal_id: crmDeal.id, contact_id: contact.id, role: 'seller' });
+          if (linkError) throw linkError;
+        }
+
+        const tagLabels = {
+          prefore: 'Pre-Foreclosure', absentee: 'Absentee Owners', highequity: 'High-Equity',
+          vacant: 'Vacant', taxdelinquent: 'Tax Delinquent', probate: 'Probate', divorce: 'Divorce',
+        };
+        const tags = (saved.play_id || '').split(',').filter(Boolean).map(t => tagLabels[t] || t).join(', ');
+        const noteBody = `Sent from Property Search.${tags ? ` Lead type: ${tags}.` : ''}${saved.equity ? ` Est. equity: $${saved.equity}K.` : ''}`;
+        const { error: noteError } = await supabase
+          .from('notes')
+          .insert({ memberstack_id: memberId, deal_id: crmDeal.id, body: noteBody, created_by: 'student' });
+        if (noteError) throw noteError;
+
+        const { error: updateError } = await supabase
+          .from('property_search_saves')
+          .update({ crm_deal_id: crmDeal.id })
+          .eq('id', id)
+          .eq('memberstack_id', memberId);
+        if (updateError) throw updateError;
+
+        return json(200, { crmDeal });
       }
 
       return json(400, { error: 'Unknown action' });

@@ -450,6 +450,31 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 .ps-phase2-badge { display:inline-block; font-size:9px; letter-spacing:1.5px; text-transform:uppercase; background:var(--gold-dim); border:1px solid var(--border); color:var(--gold); padding:3px 8px; border-radius:4px; margin-bottom:10px; }
 .ps-phase2-card h3 { font-size:13px; color:#E5E7EB; margin-bottom:6px; }
 .ps-phase2-card .sub { font-size:11.5px; color:var(--light-grey); line-height:1.5; }
+
+/* Saved Leads drawer — same slide-out pattern as Deal Analyzer's Saved Deals */
+.ps-saved-btn { background:transparent; border:1px solid var(--border); color:#E5E7EB; border-radius:6px; padding:9px 16px; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap; }
+.ps-saved-btn:hover { border-color:var(--gold); color:var(--gold); }
+.ps-drawer-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:100; opacity:0; pointer-events:none; transition:opacity 0.2s ease; }
+.ps-drawer-overlay.open { opacity:1; pointer-events:auto; }
+.ps-drawer { position:fixed; right:0; top:0; bottom:0; width:380px; max-width:90vw; background:var(--navy-card); border-left:1px solid var(--border); z-index:101; display:flex; flex-direction:column; transform:translateX(100%); transition:transform 0.25s ease; }
+.ps-drawer.open { transform:translateX(0); }
+.ps-drawer-header { display:flex; align-items:center; justify-content:space-between; padding:18px 20px; border-bottom:1px solid var(--border); flex-shrink:0; }
+.ps-drawer-title { font-family:'Bebas Neue',sans-serif; font-size:18px; letter-spacing:1.5px; color:var(--white); }
+.ps-drawer-close { background:none; border:none; color:var(--light-grey); font-size:16px; cursor:pointer; }
+.ps-drawer-close:hover { color:#fff; }
+.ps-drawer-body { flex:1; overflow-y:auto; padding:16px 20px; }
+.ps-drawer-empty { color:var(--light-grey); font-size:13px; text-align:center; padding:40px 10px; line-height:1.6; }
+.ps-saved-lead-card { background:var(--black); border:1px solid var(--border); border-radius:8px; padding:12px 14px; margin-bottom:10px; }
+.ps-saved-lead-card .addr { font-size:13px; font-weight:700; color:#fff; margin-bottom:4px; }
+.ps-saved-lead-card .meta { font-size:11.5px; color:var(--light-grey); margin-bottom:3px; }
+.ps-saved-lead-card .meta strong { color:#E5E7EB; }
+.ps-saved-lead-card .tags { margin:6px 0; }
+.ps-saved-lead-card .tag { display:inline-block; font-size:9px; letter-spacing:0.4px; text-transform:uppercase; padding:2px 7px; border-radius:8px; margin-right:5px; margin-bottom:4px; background:rgba(200,155,60,0.15); color:var(--gold); }
+.ps-saved-lead-card .actions { display:flex; gap:8px; margin-top:10px; }
+.ps-lead-action-btn { flex:1; font-size:11px; font-family:'Inter',sans-serif; padding:7px 10px; border-radius:5px; border:1px solid var(--border); background:none; color:#E5E7EB; cursor:pointer; transition:all 0.15s; }
+.ps-lead-action-btn:hover { border-color:var(--gold); color:var(--gold); }
+.ps-lead-action-btn.in-crm { border-color:rgba(34,197,94,0.4); color:#22c55e; cursor:default; opacity:0.85; }
+.ps-lead-action-btn.del:hover { border-color:#E5484D; color:#E5484D; }
 </style>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -500,6 +525,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
           <div class="sub">Find motivated sellers by city, state, ZIP, or address — pick a lead type, get a map and a working list.</div>
         </div>
       </div>
+      <button class="ps-saved-btn" onclick="openSavedDrawer()">📁 Saved Leads</button>
     </div>
     <div id="empire-banner"></div>
     <div id="ps-demo-banner" class="ps-demo-banner" style="display:none;">
@@ -825,7 +851,114 @@ function initPropertySearch() {
   initMap();
   runPropertySearch();
 }
+
+// ===== Saved Leads drawer =====
+let savedLeadsCache = [];
+const PLAY_TAG_LABELS = {
+  prefore: 'Pre-Foreclosure', absentee: 'Absentee Owners', highequity: 'High-Equity',
+  vacant: 'Vacant', taxdelinquent: 'Tax Delinquent', probate: 'Probate', divorce: 'Divorce',
+};
+
+function openSavedDrawer() {
+  document.getElementById('ps-drawer-overlay').classList.add('open');
+  document.getElementById('ps-drawer').classList.add('open');
+  renderSavedDrawer();
+}
+
+function closeSavedDrawer() {
+  document.getElementById('ps-drawer-overlay').classList.remove('open');
+  document.getElementById('ps-drawer').classList.remove('open');
+}
+
+async function renderSavedDrawer() {
+  const body = document.getElementById('ps-drawer-body');
+  body.innerHTML = '<div class="ps-drawer-empty">Loading saved leads...</div>';
+
+  try {
+    const resp = await fetch('/api/property-search?action=list', {
+      headers: memberToken ? { Authorization: 'Bearer ' + memberToken } : {}
+    });
+    if (!resp.ok) throw new Error('Failed to load saved leads');
+    const data = await resp.json();
+    savedLeadsCache = data.leads || [];
+  } catch (err) {
+    console.error('Load saved leads failed:', err);
+    body.innerHTML = '<div class="ps-drawer-empty">Couldn\'t load your saved leads — check your connection and try reopening this.</div>';
+    return;
+  }
+
+  if (!savedLeadsCache.length) {
+    body.innerHTML = '<div class="ps-drawer-empty">No saved leads yet.<br>Run a search and hit <strong>Save Lead</strong> to store it here.</div>';
+    return;
+  }
+
+  body.innerHTML = savedLeadsCache.map(lead => {
+    const tags = (lead.play_id || '').split(',').filter(Boolean).map(t =>
+      `<span class="tag">${PLAY_TAG_LABELS[t] || t}</span>`
+    ).join('');
+    const crmBtn = lead.crm_deal_id
+      ? '<button class="ps-lead-action-btn in-crm" disabled>&#10003; In CRM</button>'
+      : `<button class="ps-lead-action-btn" onclick="sendLeadToCrm('${lead.id}', this)">Send to CRM</button>`;
+    return `
+      <div class="ps-saved-lead-card" id="ps-saved-${lead.id}">
+        <div class="addr">${lead.address || 'Unknown address'}</div>
+        ${tags ? `<div class="tags">${tags}</div>` : ''}
+        <div class="meta">Owner: <strong>${lead.owner || 'Unknown'}</strong></div>
+        <div class="meta">Est. Equity: <strong>${lead.equity ? '$' + lead.equity + 'K' : '—'}</strong></div>
+        <div class="meta">Saved ${new Date(lead.created_at).toLocaleDateString()}</div>
+        <div class="actions">
+          ${crmBtn}
+          <button class="ps-lead-action-btn del" onclick="deleteSavedLead('${lead.id}')">Delete</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function sendLeadToCrm(id, btn) {
+  btn.disabled = true;
+  btn.textContent = 'Sending...';
+  try {
+    const resp = await fetch('/api/property-search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: memberToken ? 'Bearer ' + memberToken : '' },
+      body: JSON.stringify({ action: 'send_to_crm', id })
+    });
+    const result = await resp.json();
+    if (!resp.ok) throw new Error(result.error || 'Failed to send to CRM');
+    renderSavedDrawer();
+  } catch (err) {
+    console.error('Send to CRM failed:', err);
+    alert(err.message || 'Could not send this lead to the CRM.');
+    btn.disabled = false;
+    btn.textContent = 'Send to CRM';
+  }
+}
+
+async function deleteSavedLead(id) {
+  try {
+    const resp = await fetch('/api/property-search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: memberToken ? 'Bearer ' + memberToken : '' },
+      body: JSON.stringify({ action: 'delete', id })
+    });
+    if (!resp.ok) throw new Error('Failed to delete');
+    renderSavedDrawer();
+  } catch (err) {
+    console.error('Delete saved lead failed:', err);
+    alert('Could not delete this saved lead.');
+  }
+}
 </script>
+
+<!-- SAVED LEADS DRAWER -->
+<div class="ps-drawer-overlay" id="ps-drawer-overlay" onclick="closeSavedDrawer()"></div>
+<div class="ps-drawer" id="ps-drawer">
+  <div class="ps-drawer-header">
+    <div class="ps-drawer-title">Saved Leads</div>
+    <button class="ps-drawer-close" onclick="closeSavedDrawer()">&#10005;</button>
+  </div>
+  <div class="ps-drawer-body" id="ps-drawer-body"></div>
+</div>
 
 </body>
 </html>
