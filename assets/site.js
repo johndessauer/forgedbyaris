@@ -456,10 +456,22 @@ function initGhlWidgetOverride() {
 
   function hideLauncher(host) {
     if (!host || !host.shadowRoot) return false;
+    var hidAny = false;
     var bubbleWrap = host.shadowRoot.querySelector('.lc_text-widget--bubble');
-    if (!bubbleWrap) return false;
-    bubbleWrap.style.setProperty('display', 'none', 'important');
-    return true;
+    if (bubbleWrap) {
+      bubbleWrap.style.setProperty('display', 'none', 'important');
+      hidAny = true;
+    }
+    // GHL's automatic proactive greeting card (the "Hi there! Have a
+    // question?" popup) is a separate element from the bubble launcher
+    // above and shows itself a few seconds after load - it was colliding
+    // with the ARIS sales chat button the same way the bubble used to.
+    var promptCard = host.shadowRoot.querySelector('.lc_text-widget--prompt');
+    if (promptCard) {
+      promptCard.style.setProperty('display', 'none', 'important');
+      hidAny = true;
+    }
+    return hidAny;
   }
 
   function watch(host) {
