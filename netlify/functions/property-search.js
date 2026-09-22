@@ -153,12 +153,23 @@ async function searchPropertyRadar(location, playIds) {
   });
 
   // CONFIRMED live (Sept 22, 2026 real API response): PropertyRadar rejects
-  // Purchase/Fields as JSON body fields with a 400 ("Missing required param:
-  // Purchase" + "Unexpected payload field: Purchase"/"Fields") — they must
-  // be URL query params instead. Criteria stays in the JSON body. Testing
-  // Purchase-as-query-param alone first, with Fields temporarily omitted, to
-  // isolate what actually fixes the request before reintroducing Fields.
-  const qs = new URLSearchParams({ Purchase: '0', Fields: PROPERTYRADAR_FIELDS.join(',') });
+  // Purchase/Fields as JSON body fields — they must be URL query params.
+  // Criteria stays in the JSON body.
+  //
+  // CONFIRMED live (Sept 22, 2026): Purchase=0 returns totalResultCount (a
+  // real match count, e.g. 22363 for a High-Equity search) but resultCount
+  // is always 0 and totalCost is always 0 — it's a count/cost preview only,
+  // it never returns actual property records. Getting real data requires
+  // Purchase=1, which PropertyRadar bills per record returned
+  // (non-refundable). TEMPORARY: Limit=1 caps this to a single record for
+  // controlled verification — remove/raise this once the field mapping is
+  // confirmed against a real record and John has decided on a production
+  // limit. Do not remove the Limit cap without explicit sign-off.
+  const qs = new URLSearchParams({
+    Purchase: '1',
+    Limit: '1',
+    Fields: PROPERTYRADAR_FIELDS.join(','),
+  });
 
   const resp = await fetch(`${PROPERTYRADAR_API_BASE}/properties?${qs.toString()}`, {
     method: 'POST',
