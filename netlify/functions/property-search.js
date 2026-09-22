@@ -181,6 +181,13 @@ async function searchPropertyRadar(location, playIds) {
   // and first result so we can confirm real PropertyRadar field names
   // against what this code expects.
   console.log('PROPERTYRADAR_DEBUG top-level keys:', Object.keys(data));
+  console.log('PROPERTYRADAR_DEBUG counts:', JSON.stringify({
+    resultCount: data.resultCount,
+    totalResultCount: data.totalResultCount,
+    totalCost: data.totalCost,
+    quantityFreeRemaining: data.quantityFreeRemaining,
+    resultsArrayLength: Array.isArray(data.results) ? data.results.length : 'not an array',
+  }));
   console.log('PROPERTYRADAR_DEBUG first raw result:', JSON.stringify((data.results || [])[0] || null));
   const rawResults = data.results || [];
 
