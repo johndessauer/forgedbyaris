@@ -104,12 +104,21 @@ function buildDemoResults(playIds) {
 }
 
 // Turns FORGE's free-text location input into PropertyRadar Criteria.
-// UNVERIFIED for non-zip input: ZipFive is a confirmed PropertyRadar
-// criteria name for 5-digit zip filtering. City/State as criteria names are
-// a reasonable guess based on PropertyRadar's documented response field
-// names, but were not directly confirmed as valid Criteria inputs — check
-// that a live City/State search actually narrows results before relying on
-// it in production.
+// CONFIRMED live (Sept 22, 2026): ZipFive works cleanly (zero-error test
+// calls). The state criteria name is confirmed 'DefaultState' (not 'State'
+// as originally guessed) from a live 400 error: "[DefaultState] must be one
+// of [AL|AK|AZ|...]" — it requires a clean 2-letter USPS code, so we now
+// validate against a known list and strip any trailing zip text before
+// using it, instead of passing whatever followed the comma. 'City' as a
+// criteria name has not errored in testing but is still not independently
+// confirmed as effective (it could be silently ignored).
+const US_STATE_CODES = new Set([
+  'AL','AK','AZ','AR','CA','CO','CT','DE','DC','FL','GA','HI','ID','IL','IN',
+  'IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH',
+  'NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT',
+  'VT','VA','WA','WV','WI','WY',
+]);
+
 function buildLocationCriteria(location) {
   const trimmed = (location || '').trim();
   if (!trimmed) return [];
@@ -119,12 +128,18 @@ function buildLocationCriteria(location) {
     return [{ name: 'ZipFive', value: [Number(zipMatch[0])] }];
   }
 
-  const parts = trimmed.split(',').map(s => s.trim()).filter(Boolean);
+  const withoutZip = trimmed.replace(/\b\d{5}(-\d{4})?\b/, '').trim();
+  const parts = withoutZip.split(',').map(s => s.trim()).filter(Boolean);
   if (parts.length >= 2) {
-    return [
-      { name: 'City', value: [parts[0]] },
-      { name: 'State', value: [parts[1].toUpperCase()] },
-    ];
+    const city = parts[0];
+    const stateToken = parts[1].split(/\s+/)[0].toUpperCase();
+    if (US_STATE_CODES.has(stateToken)) {
+      return [
+        { name: 'City', value: [city] },
+        { name: 'DefaultState', value: [stateToken] },
+      ];
+    }
+    return [{ name: 'City', value: [city] }];
   }
   return [{ name: 'City', value: [parts[0]] }];
 }
@@ -143,7 +158,7 @@ async function searchPropertyRadar(location, playIds) {
   // be URL query params instead. Criteria stays in the JSON body. Testing
   // Purchase-as-query-param alone first, with Fields temporarily omitted, to
   // isolate what actually fixes the request before reintroducing Fields.
-  const qs = new URLSearchParams({ Purchase: '0' });
+  const qs = new URLSearchParams({ Purchase: '0', Fields: PROPERTYRADAR_FIELDS.join(',') });
 
   const resp = await fetch(`${PROPERTYRADAR_API_BASE}/properties?${qs.toString()}`, {
     method: 'POST',
