@@ -443,6 +443,8 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 .ps-lead-card .tag { display:inline-block; font-size:9.5px; letter-spacing:0.5px; text-transform:uppercase; padding:3px 8px; border-radius:10px; margin-bottom:10px; margin-right:6px; }
 .ps-lead-card .meta { font-size:12px; color:var(--light-grey); margin-bottom:4px; }
 .ps-lead-card .meta strong { color:#E5E7EB; }
+.ps-pic-link { font-size:12px; color:var(--gold); text-decoration:none; }
+.ps-pic-link:hover { text-decoration:underline; }
 .ps-lead-card .actions { display:flex; gap:8px; margin-top:12px; }
 .ps-lead-card .btn-save { flex:1; background:transparent; border:1px solid var(--gold); color:var(--gold); border-radius:6px; padding:8px; font-size:12px; font-weight:600; cursor:pointer; }
 .ps-lead-card .btn-save:hover { background:rgba(200,155,60,0.12); }
@@ -761,6 +763,32 @@ function clearResults() {
 
 let lastResults = [];
 
+// Characteristics are unverified field names (see property-search.js) so
+// this renders whatever came back and quietly skips what didn't, rather
+// than showing a row of dashes.
+function propertyCharsLine(details) {
+  const d = details || {};
+  const parts = [];
+  if (d.beds != null) parts.push(d.beds + ' bd');
+  if (d.baths != null) parts.push(d.baths + ' ba');
+  if (d.sqft != null) parts.push(d.sqft + ' sqft');
+  if (d.yearBuilt != null) parts.push('built ' + d.yearBuilt);
+  if (d.propertyType) parts.push(d.propertyType);
+  if (!parts.length) return '';
+  return `<div class="meta">${parts.join(' &middot; ')}</div>`;
+}
+
+// "Pics" — simplest no-credential option: link out to Google Maps / Zillow
+// using data we already have (see buildMapUrl/buildZillowUrl in
+// property-search.js) instead of a new Street View API key.
+function propertyLinksLine(mapUrl, zillowUrl) {
+  const links = [];
+  if (mapUrl) links.push(`<a href="${mapUrl}" target="_blank" rel="noopener" class="ps-pic-link">Map</a>`);
+  if (zillowUrl) links.push(`<a href="${zillowUrl}" target="_blank" rel="noopener" class="ps-pic-link">Zillow</a>`);
+  if (!links.length) return '';
+  return `<div class="meta">${links.join(' &middot; ')}</div>`;
+}
+
 function renderResults(results) {
   clearResults();
   lastResults = results;
@@ -794,6 +822,8 @@ function renderResults(results) {
       <div>${tags}</div>
       <div class="meta">Owner: <strong>${r.owner || 'Unknown'}</strong></div>
       <div class="meta">Est. Equity: <strong>${r.equity ? '$' + r.equity + 'K' : '—'}</strong></div>
+      ${propertyCharsLine(r.details)}
+      ${propertyLinksLine(r.mapUrl, r.zillowUrl)}
       <div class="actions">
         <button class="btn-save" id="ps-save-${r.id}" onclick="saveLead('${r.id}', this)">Save Lead</button>
       </div>
@@ -845,6 +875,9 @@ async function saveLead(id, btn) {
         lng: lead.lng,
         owner: lead.owner,
         equity: lead.equity,
+        // Characteristics + map/Zillow links bundled into one JSON blob so
+        // they survive into the CRM note on send_to_crm.
+        details: { ...(lead.details || {}), mapUrl: lead.mapUrl || null, zillowUrl: lead.zillowUrl || null },
       })
     });
     if (!resp.ok) throw new Error('save failed');
@@ -910,12 +943,15 @@ async function renderSavedDrawer() {
     const crmBtn = lead.crm_deal_id
       ? '<button class="ps-lead-action-btn in-crm" disabled>&#10003; In CRM</button>'
       : `<button class="ps-lead-action-btn" onclick="sendLeadToCrm('${lead.id}', this)">Send to CRM</button>`;
+    const details = lead.details || {};
     return `
       <div class="ps-saved-lead-card" id="ps-saved-${lead.id}">
         <div class="addr">${lead.address || 'Unknown address'}</div>
         ${tags ? `<div class="tags">${tags}</div>` : ''}
         <div class="meta">Owner: <strong>${lead.owner || 'Unknown'}</strong></div>
         <div class="meta">Est. Equity: <strong>${lead.equity ? '$' + lead.equity + 'K' : '—'}</strong></div>
+        ${propertyCharsLine(details)}
+        ${propertyLinksLine(details.mapUrl, details.zillowUrl)}
         <div class="meta">Saved ${new Date(lead.created_at).toLocaleDateString()}</div>
         <div class="actions">
           ${crmBtn}

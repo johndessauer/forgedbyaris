@@ -65,6 +65,12 @@ const PROPERTYRADAR_FIELDS = [
   'Latitude', 'Longitude',
   'Owner', 'OwnerFirstName', 'OwnerLastName',
   'EquityPercent', 'AvailableEquity', 'AVM',
+  // Property characteristics added Sept 22, 2026. Field names below are
+  // NOT yet confirmed against a real payload (everything above this line
+  // was speculative too, until it was tested) — treat the first live
+  // search after this ships as the verification step, same as before.
+  'PType', 'Beds', 'Baths', 'SqFt', 'YearBuilt', 'LotSizeAcres', 'Stories',
+  'Pool', 'GarageSize',
 ];
 
 const PROPERTYRADAR_API_BASE = 'https://api.propertyradar.com/v1'; // Confirmed correct: PropertyRadar's endpoint reference documents POST /v1/properties off base https://api.propertyradar.com
@@ -104,6 +110,9 @@ function buildDemoResults(playIds) {
       playIds: p.plays,
       owner: p.owner,
       equity: p.equity,
+      details: {},
+      mapUrl: buildMapUrl(p.lat, p.lng),
+      zillowUrl: buildZillowUrl(p.addr),
     }));
 }
 
@@ -147,6 +156,22 @@ function buildLocationCriteria(location) {
     return [{ name: 'City', value: [city] }];
   }
   return [{ name: 'City', value: [parts[0]] }];
+}
+
+// "Pics" — PropertyRadar has no photo/image data in its API or product
+// (confirmed against its own docs), and a Google Street View Static API
+// integration would require a brand-new user-provided credential. Simplest
+// no-new-credential option: plain link-outs built from data we already
+// have. No extra API call, no extra cost, no double-billing risk.
+function buildMapUrl(lat, lng) {
+  if (lat == null || lng == null) return null;
+  return `https://www.google.com/maps?q=${lat},${lng}`;
+}
+
+function buildZillowUrl(addressFull) {
+  if (!addressFull || !addressFull.trim()) return null;
+  const slug = addressFull.trim().replace(/,/g, '').replace(/\s+/g, '-');
+  return `https://www.zillow.com/homes/${encodeURIComponent(slug)}_rb/`;
 }
 
 // --- Real PropertyRadar call ---
@@ -203,15 +228,36 @@ async function searchPropertyRadar(location, playIds) {
   // with the full requested play list is a placeholder for the single-play
   // case; for multi-play search, issue one call per play and merge results
   // by RadarID so a property matching two plays picks up both tags.
-  return rawResults.map((r, i) => ({
-    id: r.RadarID || `pr-${i}`,
-    address: r.Address || 'Unknown address',
-    lat: r.Latitude ?? null,
-    lng: r.Longitude ?? null,
-    playIds: playIds.length ? playIds : ['prefore'],
-    owner: r.Owner || [r.OwnerFirstName, r.OwnerLastName].filter(Boolean).join(' ') || null,
-    equity: r.AvailableEquity != null ? Math.round(r.AvailableEquity / 1000) : null,
-  }));
+  return rawResults.map((r, i) => {
+    const lat = r.Latitude ?? null;
+    const lng = r.Longitude ?? null;
+    const addressFull = [r.Address, r.City, r.State, r.ZipFive].filter(Boolean).join(', ');
+    return {
+      id: r.RadarID || `pr-${i}`,
+      address: r.Address || 'Unknown address',
+      lat,
+      lng,
+      playIds: playIds.length ? playIds : ['prefore'],
+      owner: r.Owner || [r.OwnerFirstName, r.OwnerLastName].filter(Boolean).join(' ') || null,
+      equity: r.AvailableEquity != null ? Math.round(r.AvailableEquity / 1000) : null,
+      // Characteristics below are UNVERIFIED (see PROPERTYRADAR_FIELDS
+      // comment) — null-safe so an unrecognized/renamed field just shows
+      // as missing in the UI instead of breaking the response.
+      details: {
+        propertyType: r.PType || null,
+        beds: r.Beds ?? null,
+        baths: r.Baths ?? null,
+        sqft: r.SqFt ?? null,
+        yearBuilt: r.YearBuilt ?? null,
+        lotSizeAcres: r.LotSizeAcres ?? null,
+        stories: r.Stories ?? null,
+        pool: r.Pool === true || r.Pool === 1 ? true : (r.Pool === false || r.Pool === 0 ? false : null),
+        garageSize: r.GarageSize ?? null,
+      },
+      mapUrl: buildMapUrl(lat, lng),
+      zillowUrl: buildZillowUrl(addressFull),
+    };
+  });
 }
 
 exports.handler = async function (event, context) {
@@ -264,7 +310,7 @@ exports.handler = async function (event, context) {
       const payload = JSON.parse(event.body || '{}');
 
       if (payload.action === 'save') {
-        const { leadId, address, playIds, lat, lng, owner, equity } = payload;
+        const { leadId, address, playIds, lat, lng, owner, equity, details } = payload;
         if (!leadId) return json(400, { error: 'leadId is required' });
 
         // play_id is a single text column (see add-property-search-saves-table.sql)
@@ -285,6 +331,11 @@ exports.handler = async function (event, context) {
             lng: lng || null,
             owner: owner || null,
             equity: equity || null,
+            // Characteristics + map/Zillow links, bundled as one JSON blob
+            // (details jsonb — see add-property-search-details-column.sql)
+            // rather than one column per field, since the field set is
+            // still unverified and likely to change.
+            details: details || null,
           })
           .select()
           .single();
@@ -369,7 +420,24 @@ exports.handler = async function (event, context) {
           vacant: 'Vacant', taxdelinquent: 'Tax Delinquent', probate: 'Probate', divorce: 'Divorce',
         };
         const tags = (saved.play_id || '').split(',').filter(Boolean).map(t => tagLabels[t] || t).join(', ');
-        const noteBody = `Sent from Property Search.${tags ? ` Lead type: ${tags}.` : ''}${saved.equity ? ` Est. equity: $${saved.equity}K.` : ''}`;
+
+        // Property characteristics + map/Zillow links, when present, so
+        // "transfer the property info (including pics) to the CRM" lands
+        // somewhere real — the deal's note — not just in Property Search.
+        const d = saved.details || {};
+        const charParts = [];
+        if (d.beds != null) charParts.push(`${d.beds} bd`);
+        if (d.baths != null) charParts.push(`${d.baths} ba`);
+        if (d.sqft != null) charParts.push(`${d.sqft} sqft`);
+        if (d.yearBuilt != null) charParts.push(`built ${d.yearBuilt}`);
+        if (d.propertyType) charParts.push(d.propertyType);
+        const charsLine = charParts.length ? ` ${charParts.join(', ')}.` : '';
+        const linkParts = [];
+        if (d.mapUrl) linkParts.push(`Map: ${d.mapUrl}`);
+        if (d.zillowUrl) linkParts.push(`Zillow: ${d.zillowUrl}`);
+        const linksLine = linkParts.length ? ` ${linkParts.join(' | ')}` : '';
+
+        const noteBody = `Sent from Property Search.${tags ? ` Lead type: ${tags}.` : ''}${saved.equity ? ` Est. equity: $${saved.equity}K.` : ''}${charsLine}${linksLine}`;
         const { error: noteError } = await supabase
           .from('notes')
           .insert({ memberstack_id: memberId, deal_id: crmDeal.id, body: noteBody, created_by: 'student' });
