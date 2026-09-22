@@ -3,19 +3,25 @@
 // Property Search backend — PropertyRadar-backed motivated-seller lead finder.
 //
 // Real-data mode requires PROPERTYRADAR_API_KEY as a Netlify environment
-// variable, plus PROPERTYRADAR_PLAN_TIER (informational only, not required
-// by the API itself) once the trial account is confirmed. Until that key
-// is set, every search request falls back to a small, clearly-labeled demo
-// dataset (`demo: true` in the response) so the page renders and is
-// clickable end-to-end before the vendor account exists.
+// variable (set on the paid-tier account). Until that key is set, every
+// search request falls back to a small, clearly-labeled demo dataset
+// (`demo: true` in the response) so the page renders and is clickable
+// end-to-end before the key is configured.
 //
-// IMPORTANT: the exact PropertyRadar endpoint path, request shape, and
-// response field names below are built from their public pricing/API
-// marketing pages and help-center articles, NOT from their live API
-// reference docs (no account access existed at the time this was written).
-// Everything under buildPropertyRadarRequest() and normalizePropertyRadarResult()
-// is marked TODO-VERIFY and must be checked against a real API response
-// during the free trial before this is trusted for production traffic.
+// Verified against PropertyRadar's public developer docs and help center
+// (Sept 2026): base URL, endpoint path, auth scheme, the Criteria array
+// format, Purchase semantics, and the response field names used below are
+// all confirmed. Two things remain unverified and are flagged inline:
+//   1. The exact Criteria field name(s) for free-text location search
+//      (ZipFive is confirmed; City/State are a reasonable but unconfirmed
+//      guess for non-zip input).
+//   2. Whether Purchase=0 returns full preview data or a count only —
+//      PropertyRadar's own docs disagree with each other on this. Test
+//      first with Fields limited to ["RadarID"], which is confirmed free
+//      regardless of Purchase, before trusting a wider field list.
+//   3. Whether multiple Criteria entries are ANDed or ORed together when
+//      more than one play is selected at once — assumed AND (narrowing)
+//      below, not confirmed.
 //
 // Routes:
 //   GET  ?action=search&location=<free text>&plays=<comma-separated play ids>
@@ -31,24 +37,33 @@ const { verifyMember, AuthError } = require('./_Lib/verify-member');
 const { supabase } = require('./_Lib/supabase-client');
 const { json, preflight } = require('./_Lib/http');
 
-// Maps FORGE's Play ids to PropertyRadar filter criteria.
-// TODO-VERIFY: confirm exact PropertyRadar Criteria API field names/values
-// during the trial — these are best-guess mappings from their public
-// "Lead Gen Plays" naming, not confirmed API parameter names.
+// Maps FORGE's Play ids to PropertyRadar Criteria entries. PropertyRadar's
+// Criteria parameter is an ARRAY of { name, value } objects, not a flat
+// object — confirmed against PropertyRadar's Criteria Reference docs
+// (Sept 2026). Field names below are confirmed real PropertyRadar criteria.
 const PLAY_DEFINITIONS = {
-  prefore:       { label: 'Pre-Foreclosure', radarCriteria: { TransferType: 'PreForeclosure' } },
-  absentee:      { label: 'Absentee Owners', radarCriteria: { OwnerOccupied: false } },
-  highequity:    { label: 'High-Equity', radarCriteria: { EquityPercent: { min: 50 } } },
-  vacant:        { label: 'Vacant', radarCriteria: { Vacant: true } },
-  taxdelinquent: { label: 'Tax Delinquent', radarCriteria: { TaxDelinquent: true } },
-  probate:       { label: 'Probate', radarCriteria: { Probate: true } },
+  prefore:       { label: 'Pre-Foreclosure', radarCriteria: [{ name: 'inForeclosure', value: [1] }] },
+  absentee:      { label: 'Absentee Owners', radarCriteria: [{ name: 'isSameMailingOrExempt', value: [0] }] },
+  highequity:    { label: 'High-Equity', radarCriteria: [{ name: 'EquityPercent', value: [[50, null]] }] },
+  vacant:        { label: 'Vacant', radarCriteria: [{ name: 'isSiteVacant', value: [1] }] },
+  taxdelinquent: { label: 'Tax Delinquent', radarCriteria: [{ name: 'inTaxDelinquency', value: [1] }] },
+  probate:       { label: 'Probate', radarCriteria: [{ name: 'inProbateProperty', value: [1] }] },
   // Divorce is a real PropertyRadar play but its data quality/coverage has
   // NOT been verified for FORGE's use case (flagged Sept 2026) — ships in
   // the UI as an explicit "verify data" item, not a fully trusted category.
-  divorce:       { label: 'Divorce', radarCriteria: { Divorce: true } },
+  divorce:       { label: 'Divorce', radarCriteria: [{ name: 'inDivorce', value: [1] }] },
 };
 
-const PROPERTYRADAR_API_BASE = 'https://api.propertyradar.com/v1'; // TODO-VERIFY exact base URL against real API docs
+// Fields requested from PropertyRadar on every live search. Names confirmed
+// against PropertyRadar's Properties response schema (Sept 2026).
+const PROPERTYRADAR_FIELDS = [
+  'RadarID', 'Address', 'City', 'State', 'ZipFive',
+  'Latitude', 'Longitude',
+  'Owner', 'OwnerFirstName', 'OwnerLastName',
+  'EquityPercent', 'AvailableEquity', 'AVM',
+];
+
+const PROPERTYRADAR_API_BASE = 'https://api.propertyradar.com/v1'; // Confirmed correct: PropertyRadar's endpoint reference documents POST /v1/properties off base https://api.propertyradar.com
 
 function isLiveModeEnabled() {
   return !!process.env.PROPERTYRADAR_API_KEY;
@@ -88,17 +103,40 @@ function buildDemoResults(playIds) {
     }));
 }
 
-// --- Real PropertyRadar call (structured, untested against a live account) ---
+// Turns FORGE's free-text location input into PropertyRadar Criteria.
+// UNVERIFIED for non-zip input: ZipFive is a confirmed PropertyRadar
+// criteria name for 5-digit zip filtering. City/State as criteria names are
+// a reasonable guess based on PropertyRadar's documented response field
+// names, but were not directly confirmed as valid Criteria inputs — check
+// that a live City/State search actually narrows results before relying on
+// it in production.
+function buildLocationCriteria(location) {
+  const trimmed = (location || '').trim();
+  if (!trimmed) return [];
+
+  const zipMatch = trimmed.match(/\b\d{5}\b/);
+  if (zipMatch) {
+    return [{ name: 'ZipFive', value: [Number(zipMatch[0])] }];
+  }
+
+  const parts = trimmed.split(',').map(s => s.trim()).filter(Boolean);
+  if (parts.length >= 2) {
+    return [
+      { name: 'City', value: [parts[0]] },
+      { name: 'State', value: [parts[1].toUpperCase()] },
+    ];
+  }
+  return [{ name: 'City', value: [parts[0]] }];
+}
+
+// --- Real PropertyRadar call ---
 async function searchPropertyRadar(location, playIds) {
-  const criteria = [];
+  const criteria = buildLocationCriteria(location);
   playIds.forEach(id => {
     const def = PLAY_DEFINITIONS[id];
-    if (def) criteria.push(def.radarCriteria);
+    if (def) criteria.push(...def.radarCriteria);
   });
 
-  // TODO-VERIFY: confirm exact endpoint path, auth header format
-  // (PropertyRadar docs reference API-key auth but the header name/scheme
-  // was not visible without an account), and request body shape.
   const resp = await fetch(`${PROPERTYRADAR_API_BASE}/properties`, {
     method: 'POST',
     headers: {
@@ -106,9 +144,9 @@ async function searchPropertyRadar(location, playIds) {
       Authorization: `Bearer ${process.env.PROPERTYRADAR_API_KEY}`,
     },
     body: JSON.stringify({
-      Location: location,
       Criteria: criteria,
-      Purchase: 0, // preview/count-only pass first — see cost-control note below
+      Fields: PROPERTYRADAR_FIELDS,
+      Purchase: 0, // preview pass — see the Purchase note at the top of this file before ever changing this to 1
     }),
   });
 
@@ -118,31 +156,29 @@ async function searchPropertyRadar(location, playIds) {
   }
 
   const data = await resp.json();
+  // TEMP DEBUG (remove after verification pass): log the raw response shape
+  // and first result so we can confirm real PropertyRadar field names
+  // against what this code expects.
+  console.log('PROPERTYRADAR_DEBUG top-level keys:', Object.keys(data));
+  console.log('PROPERTYRADAR_DEBUG first raw result:', JSON.stringify((data.results || [])[0] || null));
+  const rawResults = data.results || [];
 
-  // TODO-VERIFY: confirm the real response field names (this normalization
-  // is a best guess — Address/Latitude/Longitude/Owner/EquityPercent are
-  // plausible PropertyRadar field names based on their public docs, not
-  // confirmed from an actual response payload).
-  const rawResults = data.results || data.Results || [];
-  // TODO-VERIFY: this single combined call can't currently tell us which of
-  // the *requested* plays a given returned property actually satisfies (that
-  // depends on whether PropertyRadar ANDs or ORs multiple criteria objects
-  // together, which is itself unverified — see the criteria-building comment
-  // above). Tagging every result with the full requested play list is the
-  // honest placeholder until a live account confirms the real behavior;
-  // don't read this as "this property matches all of these." Proper fix once
-  // there's account access: either issue one PropertyRadar call per selected
-  // play and merge results by RadarID (so a property returned under two
-  // separate play calls picks up both tags), or use whatever field in a real
-  // response actually indicates which criteria matched.
+  // NOTE: a single combined call can't tell us which of the *requested*
+  // plays a given returned property actually satisfies when more than one
+  // play is selected at once — multiple Criteria entries are assumed to be
+  // ANDed together (narrowing to properties matching ALL selected plays),
+  // which is NOT confirmed against a live response. Tagging every result
+  // with the full requested play list is a placeholder for the single-play
+  // case; for multi-play search, issue one call per play and merge results
+  // by RadarID so a property matching two plays picks up both tags.
   return rawResults.map((r, i) => ({
-    id: r.RadarID || r.id || `pr-${i}`,
-    address: r.Address || r.SitusAddress || 'Unknown address',
-    lat: r.Latitude ?? r.lat ?? null,
-    lng: r.Longitude ?? r.lng ?? null,
+    id: r.RadarID || `pr-${i}`,
+    address: r.Address || 'Unknown address',
+    lat: r.Latitude ?? null,
+    lng: r.Longitude ?? null,
     playIds: playIds.length ? playIds : ['prefore'],
-    owner: r.OwnerName || r.Owner || null,
-    equity: r.EquityPercent ? Math.round((r.EquityPercent / 100) * (r.EstimatedValue || 0) / 1000) : null,
+    owner: r.Owner || [r.OwnerFirstName, r.OwnerLastName].filter(Boolean).join(' ') || null,
+    equity: r.AvailableEquity != null ? Math.round(r.AvailableEquity / 1000) : null,
   }));
 }
 
