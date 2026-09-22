@@ -8,20 +8,24 @@
 // (`demo: true` in the response) so the page renders and is clickable
 // end-to-end before the key is configured.
 //
-// Verified against PropertyRadar's public developer docs and help center
-// (Sept 2026): base URL, endpoint path, auth scheme, the Criteria array
-// format, Purchase semantics, and the response field names used below are
-// all confirmed. Two things remain unverified and are flagged inline:
-//   1. The exact Criteria field name(s) for free-text location search
-//      (ZipFive is confirmed; City/State are a reasonable but unconfirmed
-//      guess for non-zip input).
-//   2. Whether Purchase=0 returns full preview data or a count only —
-//      PropertyRadar's own docs disagree with each other on this. Test
-//      first with Fields limited to ["RadarID"], which is confirmed free
-//      regardless of Purchase, before trusting a wider field list.
-//   3. Whether multiple Criteria entries are ANDed or ORed together when
-//      more than one play is selected at once — assumed AND (narrowing)
-//      below, not confirmed.
+// CONFIRMED against a real live PropertyRadar account and a real returned
+// record (Sept 22, 2026): base URL, endpoint path, auth scheme, the
+// Criteria array format, Purchase/Fields as query params (not JSON body
+// fields), the DefaultState/ZipFive criteria names, and every response
+// field mapped below (RadarID, Address, City, State, ZipFive, Latitude,
+// Longitude, Owner/OwnerFirstName/OwnerLastName, EquityPercent,
+// AvailableEquity, AVM). Purchase=0 is confirmed to return totalResultCount
+// (a real match count) but never actual records (resultCount/results are
+// always 0/empty) — real data requires Purchase=1, which bills per record
+// but this account carries a free allotment (quantityFreeRemaining) that
+// has absorbed every test so far at $0 cost.
+//
+// Two things remain genuinely unverified, both low-risk:
+//   1. Whether 'City' alone (no state) as a Criteria name actually narrows
+//      results — never independently proven, since every real-data test
+//      so far used a zip-bearing location and took the ZipFive branch.
+//   2. Whether multiple Criteria entries (e.g. two plays selected at once)
+//      are ANDed or ORed together — assumed AND (narrowing), not tested.
 //
 // Routes:
 //   GET  ?action=search&location=<free text>&plays=<comma-separated play ids>
@@ -104,14 +108,15 @@ function buildDemoResults(playIds) {
 }
 
 // Turns FORGE's free-text location input into PropertyRadar Criteria.
-// CONFIRMED live (Sept 22, 2026): ZipFive works cleanly (zero-error test
-// calls). The state criteria name is confirmed 'DefaultState' (not 'State'
-// as originally guessed) from a live 400 error: "[DefaultState] must be one
-// of [AL|AK|AZ|...]" — it requires a clean 2-letter USPS code, so we now
-// validate against a known list and strip any trailing zip text before
-// using it, instead of passing whatever followed the comma. 'City' as a
-// criteria name has not errored in testing but is still not independently
-// confirmed as effective (it could be silently ignored).
+// CONFIRMED live (Sept 22, 2026): ZipFive works end-to-end, including
+// against a real Purchase=1 record. The state criteria name is confirmed
+// 'DefaultState' (not 'State' as originally guessed) from a live 400 error:
+// "[DefaultState] must be one of [AL|AK|AZ|...]" — it requires a clean
+// 2-letter USPS code, so we validate against a known list and strip any
+// trailing zip text before using it. 'City' as a criteria name has never
+// errored, but whether it actually narrows results (vs. being silently
+// ignored) has not been independently proven — every real-data test so far
+// took the ZipFive branch.
 const US_STATE_CODES = new Set([
   'AL','AK','AZ','AR','CA','CO','CT','DE','DC','FL','GA','HI','ID','IL','IN',
   'IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH',
@@ -156,18 +161,18 @@ async function searchPropertyRadar(location, playIds) {
   // Purchase/Fields as JSON body fields — they must be URL query params.
   // Criteria stays in the JSON body.
   //
-  // CONFIRMED live (Sept 22, 2026): Purchase=0 returns totalResultCount (a
-  // real match count, e.g. 22363 for a High-Equity search) but resultCount
-  // is always 0 and totalCost is always 0 — it's a count/cost preview only,
-  // it never returns actual property records. Getting real data requires
-  // Purchase=1, which PropertyRadar bills per record returned
-  // (non-refundable). TEMPORARY: Limit=1 caps this to a single record for
-  // controlled verification — remove/raise this once the field mapping is
-  // confirmed against a real record and John has decided on a production
-  // limit. Do not remove the Limit cap without explicit sign-off.
+  // Purchase=1 is required to get actual property records back (Purchase=0
+  // only ever returns a count/cost preview — confirmed via a live test that
+  // showed totalResultCount:22363 with resultCount/totalCost stuck at 0).
+  // PropertyRadar bills per record returned and it's non-refundable, though
+  // this account has a free allotment (quantityFreeRemaining) that has
+  // covered every record returned so far at $0 cost. Limit=25 is the
+  // production cap John set (Sept 22, 2026) — raise only with his
+  // sign-off, since every additional record is a real (if currently free)
+  // charge against that allotment.
   const qs = new URLSearchParams({
     Purchase: '1',
-    Limit: '1',
+    Limit: '25',
     Fields: PROPERTYRADAR_FIELDS.join(','),
   });
 
@@ -188,18 +193,6 @@ async function searchPropertyRadar(location, playIds) {
   }
 
   const data = await resp.json();
-  // TEMP DEBUG (remove after verification pass): log the raw response shape
-  // and first result so we can confirm real PropertyRadar field names
-  // against what this code expects.
-  console.log('PROPERTYRADAR_DEBUG top-level keys:', Object.keys(data));
-  console.log('PROPERTYRADAR_DEBUG counts:', JSON.stringify({
-    resultCount: data.resultCount,
-    totalResultCount: data.totalResultCount,
-    totalCost: data.totalCost,
-    quantityFreeRemaining: data.quantityFreeRemaining,
-    resultsArrayLength: Array.isArray(data.results) ? data.results.length : 'not an array',
-  }));
-  console.log('PROPERTYRADAR_DEBUG first raw result:', JSON.stringify((data.results || [])[0] || null));
   const rawResults = data.results || [];
 
   // NOTE: a single combined call can't tell us which of the *requested*

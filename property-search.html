@@ -419,10 +419,12 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 .ps-search-box button:hover { background:#e85a1f; }
 .ps-play-card { background:var(--navy-card); border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:16px; }
 .ps-play-card h3 { font-size:11px; letter-spacing:1.5px; color:var(--gold); text-transform:uppercase; margin-bottom:12px; }
-.ps-play-row { display:flex; align-items:center; gap:10px; padding:9px 6px; font-size:13px; color:#E5E7EB; border-radius:6px; cursor:pointer; }
+.ps-play-row { display:flex; align-items:center; gap:10px; padding:9px 10px; font-size:13px; color:#E5E7EB; border-radius:6px; cursor:pointer; border:1px solid transparent; transition:background 0.12s, border-color 0.12s; }
 .ps-play-row:hover { background:rgba(255,255,255,0.04); }
-.ps-play-row.selected { background:rgba(255,107,43,0.12); }
-.ps-play-dot { width:11px; height:11px; border-radius:50%; flex-shrink:0; }
+.ps-play-row.selected { font-weight:600; color:#fff; }
+.ps-play-dot { width:11px; height:11px; border-radius:50%; flex-shrink:0; transition:box-shadow 0.12s; }
+.ps-play-row.selected .ps-play-dot { box-shadow:0 0 0 3px var(--row-glow, rgba(255,255,255,0.15)); }
+.ps-play-check { margin-left:auto; font-weight:700; font-size:13px; flex-shrink:0; }
 .ps-play-row .ps-note { margin-left:auto; font-size:9px; color:var(--grey); letter-spacing:0.5px; }
 .ps-main { flex:1; min-width:0; display:flex; flex-direction:column; gap:18px; }
 .ps-map-wrap { position:relative; border-radius:12px; overflow:hidden; border:1px solid var(--border); }
@@ -709,12 +711,21 @@ const gradeColor = { A: '#22c55e', B: '#C89B3C', C: '#E5484D' };
 
 function renderPlayList() {
   const el = document.getElementById('ps-play-list');
-  el.innerHTML = PLAYS.map(p => `
-    <div class="ps-play-row ${selectedPlays.has(p.id) ? 'selected' : ''}" onclick="togglePlay('${p.id}')">
+  el.innerHTML = PLAYS.map(p => {
+    const isSelected = selectedPlays.has(p.id);
+    // Selected state is color-coded per play (using the play's own dot
+    // color) rather than one flat generic tint, so each active filter is
+    // clearly distinguishable at a glance instead of all looking alike.
+    const rowStyle = isSelected
+      ? `background:${p.color}24; border-color:${p.color}80; --row-glow:${p.color}55;`
+      : '';
+    return `
+    <div class="ps-play-row ${isSelected ? 'selected' : ''}" style="${rowStyle}" onclick="togglePlay('${p.id}')">
       <span class="ps-play-dot" style="background:${p.color}"></span>${p.label}
-      ${p.note === 'verify' ? '<span class="ps-note">verify data</span>' : ''}
+      ${isSelected ? `<span class="ps-play-check" style="color:${p.color}">&#10003;</span>` : (p.note === 'verify' ? '<span class="ps-note">verify data</span>' : '')}
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 function togglePlay(id) {
