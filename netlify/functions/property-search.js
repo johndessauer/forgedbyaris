@@ -137,7 +137,15 @@ async function searchPropertyRadar(location, playIds) {
     if (def) criteria.push(...def.radarCriteria);
   });
 
-  const resp = await fetch(`${PROPERTYRADAR_API_BASE}/properties`, {
+  // CONFIRMED live (Sept 22, 2026 real API response): PropertyRadar rejects
+  // Purchase/Fields as JSON body fields with a 400 ("Missing required param:
+  // Purchase" + "Unexpected payload field: Purchase"/"Fields") — they must
+  // be URL query params instead. Criteria stays in the JSON body. Testing
+  // Purchase-as-query-param alone first, with Fields temporarily omitted, to
+  // isolate what actually fixes the request before reintroducing Fields.
+  const qs = new URLSearchParams({ Purchase: '0' });
+
+  const resp = await fetch(`${PROPERTYRADAR_API_BASE}/properties?${qs.toString()}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -145,8 +153,6 @@ async function searchPropertyRadar(location, playIds) {
     },
     body: JSON.stringify({
       Criteria: criteria,
-      Fields: PROPERTYRADAR_FIELDS,
-      Purchase: 0, // preview pass — see the Purchase note at the top of this file before ever changing this to 1
     }),
   });
 
