@@ -175,7 +175,7 @@ function buildZillowUrl(addressFull) {
 }
 
 // --- Real PropertyRadar call ---
-async function searchPropertyRadar(location, playIds) {
+async function searchPropertyRadar(location, playIds, start = 0) {
   const criteria = buildLocationCriteria(location);
   playIds.forEach(id => {
     const def = PLAY_DEFINITIONS[id];
@@ -195,9 +195,16 @@ async function searchPropertyRadar(location, playIds) {
   // production cap John set (Sept 22, 2026) — raise only with his
   // sign-off, since every additional record is a real (if currently free)
   // charge against that allotment.
+  //
+  // Start is CONFIRMED against PropertyRadar's own live API reference docs
+  // (developers.propertyradar.com, Sept 22, 2026): "Offset from which to
+  // begin returning records. Used for paging." Powers the "Load 25 more"
+  // button — each additional page is its own Purchase=1 batch (same
+  // per-record billing as the first page, no separate cap yet).
   const qs = new URLSearchParams({
     Purchase: '1',
     Limit: '25',
+    Start: String(start),
     Fields: PROPERTYRADAR_FIELDS.join(','),
   });
 
@@ -228,7 +235,7 @@ async function searchPropertyRadar(location, playIds) {
   // with the full requested play list is a placeholder for the single-play
   // case; for multi-play search, issue one call per play and merge results
   // by RadarID so a property matching two plays picks up both tags.
-  return rawResults.map((r, i) => {
+  const mapped = rawResults.map((r, i) => {
     const lat = r.Latitude ?? null;
     const lng = r.Longitude ?? null;
     const addressFull = [r.Address, r.City, r.State, r.ZipFive].filter(Boolean).join(', ');
@@ -258,6 +265,16 @@ async function searchPropertyRadar(location, playIds) {
       zillowUrl: buildZillowUrl(addressFull),
     };
   });
+
+  return {
+    results: mapped,
+    // totalResultCount is PropertyRadar's real total match count for this
+    // Criteria — independent of how many records were actually purchased
+    // in this call. Falls back to what we got back if the field is ever
+    // missing, so "Load more" just quietly has nothing further to offer
+    // instead of erroring.
+    total: data.totalResultCount ?? mapped.length,
+  };
 }
 
 exports.handler = async function (event, context) {
@@ -279,17 +296,21 @@ exports.handler = async function (event, context) {
       if (action === 'search') {
         const location = (params.location || '').trim();
         const playIds = (params.plays || '').split(',').filter(Boolean);
+        // Offset for "Load 25 more" — 0 on the first page of a search.
+        const start = Math.max(0, parseInt(params.start, 10) || 0);
 
         if (!isLiveModeEnabled()) {
-          return json(200, { results: buildDemoResults(playIds), demo: true });
+          const demoResults = buildDemoResults(playIds);
+          return json(200, { results: demoResults, total: demoResults.length, demo: true });
         }
 
         try {
-          const results = await searchPropertyRadar(location, playIds);
-          return json(200, { results, demo: false });
+          const { results, total } = await searchPropertyRadar(location, playIds, start);
+          return json(200, { results, total, demo: false });
         } catch (err) {
           console.error('PropertyRadar live search failed, falling back to demo data:', err);
-          return json(200, { results: buildDemoResults(playIds), demo: true, liveError: 'Live data temporarily unavailable.' });
+          const demoResults = buildDemoResults(playIds);
+          return json(200, { results: demoResults, total: demoResults.length, demo: true, liveError: 'Live data temporarily unavailable.' });
         }
       }
 

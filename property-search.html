@@ -415,8 +415,11 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 .ps-search-box { background:var(--navy-card); border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:16px; }
 .ps-search-box label { font-size:10px; letter-spacing:1.5px; color:var(--gold); text-transform:uppercase; }
 .ps-search-box input { width:100%; margin-top:10px; background:var(--black); border:1px solid rgba(255,255,255,0.1); border-radius:6px; padding:10px 12px; color:var(--white); font-size:13px; }
-.ps-search-box button { width:100%; margin-top:12px; background:var(--orange); border:none; border-radius:6px; padding:10px; color:#fff; font-weight:700; font-size:13px; letter-spacing:0.5px; cursor:pointer; }
+.ps-search-actions { display:flex; gap:8px; margin-top:12px; }
+.ps-search-box button { flex:1; width:auto; margin-top:0; background:var(--orange); border:none; border-radius:6px; padding:10px; color:#fff; font-weight:700; font-size:13px; letter-spacing:0.5px; cursor:pointer; }
 .ps-search-box button:hover { background:#e85a1f; }
+.ps-search-box .ps-clear-btn { background:transparent; border:1px solid var(--border); color:var(--light-grey); }
+.ps-search-box .ps-clear-btn:hover { background:rgba(255,255,255,0.06); }
 .ps-play-card { background:var(--navy-card); border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:16px; }
 .ps-play-card h3 { font-size:11px; letter-spacing:1.5px; color:var(--gold); text-transform:uppercase; margin-bottom:12px; }
 .ps-play-row { display:flex; align-items:center; gap:10px; padding:9px 10px; font-size:13px; color:#E5E7EB; border-radius:6px; cursor:pointer; border:1px solid transparent; transition:background 0.12s, border-color 0.12s; }
@@ -437,6 +440,10 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 .ps-results-label h2 { font-family:'Bebas Neue',sans-serif; font-size:16px; letter-spacing:1.5px; color:var(--white); }
 .ps-results-label .count { font-size:12px; color:var(--light-grey); }
 .ps-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px,1fr)); gap:14px; }
+.ps-load-more-wrap { display:flex; justify-content:center; margin-top:18px; }
+.ps-load-more-btn { background:transparent; border:1px solid var(--gold); color:var(--gold); border-radius:6px; padding:10px 22px; font-size:13px; font-weight:600; cursor:pointer; }
+.ps-load-more-btn:hover { background:rgba(200,155,60,0.12); }
+.ps-load-more-btn:disabled { opacity:0.6; cursor:default; }
 .ps-lead-card { background:var(--navy-card); border:1px solid var(--border); border-radius:10px; padding:16px; transition:border-color 0.15s; }
 .ps-lead-card.highlighted { border-color:var(--gold); }
 .ps-lead-card .addr { font-size:14px; font-weight:700; color:#fff; margin-bottom:4px; }
@@ -541,7 +548,10 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
         <div class="ps-search-box">
           <label>Search Any Market</label>
           <input type="text" id="ps-location-input" placeholder="City, State, ZIP, or Address" value="Crown Point, IN 46307">
-          <button id="ps-search-btn" onclick="runPropertySearch()">Search</button>
+          <div class="ps-search-actions">
+            <button id="ps-search-btn" onclick="runPropertySearch()">Search</button>
+            <button id="ps-clear-btn" class="ps-clear-btn" onclick="clearSearch()">Clear Search</button>
+          </div>
         </div>
         <div class="ps-play-card">
           <h3>Lead Type</h3>
@@ -564,6 +574,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
           <div class="count" id="ps-results-count">—</div>
         </div>
         <div class="ps-grid" id="ps-grid"></div>
+        <div id="ps-load-more-wrap" class="ps-load-more-wrap"></div>
       </div>
     </div>
 
@@ -762,6 +773,11 @@ function clearResults() {
 }
 
 let lastResults = [];
+// Tracks the in-progress search so Load More can ask for the next page and
+// Clear Search can reset it. total/start come from PropertyRadar's own
+// totalResultCount (see property-search.js) — start is the offset already
+// fetched, not a page number.
+let searchState = { location: '', plays: [], start: 0, total: 0 };
 
 // Characteristics are unverified field names (see property-search.js) so
 // this renders whatever came back and quietly skips what didn't, rather
@@ -789,34 +805,10 @@ function propertyLinksLine(mapUrl, zillowUrl) {
   return `<div class="meta">${links.join(' &middot; ')}</div>`;
 }
 
-function renderResults(results) {
-  clearResults();
-  lastResults = results;
-  document.getElementById('ps-results-count').textContent = results.length + ' properties';
-  if (!results.length) {
-    document.getElementById('ps-grid').innerHTML = '<div class="ps-empty-state">No properties matched this search. Try a different lead type or location.</div>';
-    return;
-  }
-  const bounds = [];
-  results.forEach(r => {
-    const metas = playMetas(r.playIds);
-    if (r.lat && r.lng) {
-      // Pin color uses the first matching tag; the popup lists every tag
-      // this property actually matches, so a double-hit (e.g. Pre-Foreclosure
-      // + High-Equity) is visible even though the pin can only show one color.
-      const marker = L.marker([r.lat, r.lng], { icon: pinIcon(metas[0].color) }).addTo(map);
-      marker.bindPopup(`<div style="min-width:180px;"><div style="font-weight:700;margin-bottom:4px;">${r.address}</div><div style="font-size:11px;color:#9CA3AF;">${metas.map(m => m.label).join(' + ')}</div></div>`, { closeButton:false, className:'ps-leaflet-popup' });
-      marker.on('click', () => highlightCard(r.id));
-      markers.push(marker);
-      bounds.push([r.lat, r.lng]);
-    }
-  });
-  if (bounds.length) map.fitBounds(bounds, { padding: [30,30], maxZoom: 14 });
-
-  document.getElementById('ps-grid').innerHTML = results.map(r => {
-    const metas = playMetas(r.playIds);
-    const tags = metas.map(m => `<span class="tag" style="background:${m.color}22; color:${m.color}">${m.label}</span>`).join('');
-    return `
+function leadCardHtml(r) {
+  const metas = playMetas(r.playIds);
+  const tags = metas.map(m => `<span class="tag" style="background:${m.color}22; color:${m.color}">${m.label}</span>`).join('');
+  return `
     <div class="ps-lead-card" id="ps-card-${r.id}">
       <div class="addr">${r.address}</div>
       <div>${tags}</div>
@@ -828,7 +820,63 @@ function renderResults(results) {
         <button class="btn-save" id="ps-save-${r.id}" onclick="saveLead('${r.id}', this)">Save Lead</button>
       </div>
     </div>`;
-  }).join('');
+}
+
+function addMarkersForResults(results) {
+  results.forEach(r => {
+    const metas = playMetas(r.playIds);
+    if (r.lat && r.lng) {
+      // Pin color uses the first matching tag; the popup lists every tag
+      // this property actually matches, so a double-hit (e.g. Pre-Foreclosure
+      // + High-Equity) is visible even though the pin can only show one color.
+      const marker = L.marker([r.lat, r.lng], { icon: pinIcon(metas[0].color) }).addTo(map);
+      marker.bindPopup(`<div style="min-width:180px;"><div style="font-weight:700;margin-bottom:4px;">${r.address}</div><div style="font-size:11px;color:#9CA3AF;">${metas.map(m => m.label).join(' + ')}</div></div>`, { closeButton:false, className:'ps-leaflet-popup' });
+      marker.on('click', () => highlightCard(r.id));
+      markers.push(marker);
+    }
+  });
+}
+
+function updateResultsCount() {
+  const shown = lastResults.length;
+  const label = searchState.total > shown
+    ? `Showing ${shown} of ${searchState.total}`
+    : `${shown} propert${shown === 1 ? 'y' : 'ies'}`;
+  document.getElementById('ps-results-count').textContent = shown ? label : '—';
+}
+
+function updateLoadMoreButton() {
+  const wrap = document.getElementById('ps-load-more-wrap');
+  if (searchState.total > lastResults.length) {
+    wrap.innerHTML = `<button class="ps-load-more-btn" id="ps-load-more-btn" onclick="loadMoreResults()">Load 25 More (${lastResults.length} of ${searchState.total})</button>`;
+  } else {
+    wrap.innerHTML = '';
+  }
+}
+
+// Renders a brand-new search from scratch (Search button, or the first
+// page after Clear Search). Load More calls appendResultsToUI() instead,
+// which adds to what's already on screen rather than wiping it.
+function renderResults(results) {
+  clearResults();
+  lastResults = [];
+  if (!results.length) {
+    document.getElementById('ps-grid').innerHTML = '<div class="ps-empty-state">No properties matched this search. Try a different lead type or location.</div>';
+    updateResultsCount();
+    updateLoadMoreButton();
+    return;
+  }
+  appendResultsToUI(results);
+}
+
+function appendResultsToUI(results) {
+  lastResults = lastResults.concat(results);
+  addMarkersForResults(results);
+  const bounds = lastResults.filter(r => r.lat && r.lng).map(r => [r.lat, r.lng]);
+  if (bounds.length) map.fitBounds(bounds, { padding: [30,30], maxZoom: 14 });
+  document.getElementById('ps-grid').insertAdjacentHTML('beforeend', results.map(leadCardHtml).join(''));
+  updateResultsCount();
+  updateLoadMoreButton();
 }
 
 function highlightCard(id) {
@@ -842,17 +890,63 @@ async function runPropertySearch() {
   document.getElementById('ps-map-badge').textContent = location || 'Search results';
   const plays = Array.from(selectedPlays);
   if (!plays.length) { alert('Pick at least one lead type.'); return; }
+  searchState = { location, plays, start: 0, total: 0 };
+  await performSearch({ append: false });
+}
+
+async function loadMoreResults() {
+  const btn = document.getElementById('ps-load-more-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Loading...'; }
+  await performSearch({ append: true });
+}
+
+// Shared by the initial search and Load More — the only difference is
+// whether the new page replaces the grid/map or is added to them, and
+// where in PropertyRadar's result set (searchState.start) we're asking for.
+async function performSearch({ append }) {
   try {
-    const resp = await fetch('/api/property-search?action=search&location=' + encodeURIComponent(location) + '&plays=' + plays.join(','), {
-      headers: memberToken ? { Authorization: 'Bearer ' + memberToken } : {}
-    });
+    const resp = await fetch(
+      '/api/property-search?action=search&location=' + encodeURIComponent(searchState.location) +
+      '&plays=' + searchState.plays.join(',') + '&start=' + searchState.start,
+      { headers: memberToken ? { Authorization: 'Bearer ' + memberToken } : {} }
+    );
     const data = await resp.json();
     document.getElementById('ps-demo-banner').style.display = data.demo ? 'flex' : 'none';
-    renderResults(data.results || []);
+    const results = data.results || [];
+    // Guard against a total that claims more exist than a page actually
+    // returned — treat that as "nothing further" instead of retrying
+    // Load More forever against the same offset.
+    searchState.total = results.length ? (data.total ?? results.length) : (append ? lastResults.length : 0);
+    searchState.start += results.length;
+    if (append) {
+      appendResultsToUI(results);
+    } else {
+      renderResults(results);
+    }
   } catch (err) {
     console.error('Property search failed:', err);
-    document.getElementById('ps-grid').innerHTML = '<div class="ps-empty-state">Search failed. Check your connection and try again.</div>';
+    if (append) {
+      const btn = document.getElementById('ps-load-more-btn');
+      if (btn) { btn.disabled = false; btn.textContent = `Load 25 More (${lastResults.length} of ${searchState.total})`; }
+    } else {
+      document.getElementById('ps-grid').innerHTML = '<div class="ps-empty-state">Search failed. Check your connection and try again.</div>';
+    }
   }
+}
+
+function clearSearch() {
+  document.getElementById('ps-location-input').value = '';
+  selectedPlays.clear();
+  renderPlayList();
+  clearResults();
+  lastResults = [];
+  searchState = { location: '', plays: [], start: 0, total: 0 };
+  document.getElementById('ps-map-badge').textContent = 'Search results';
+  document.getElementById('ps-demo-banner').style.display = 'none';
+  document.getElementById('ps-grid').innerHTML = '<div class="ps-empty-state">Pick a lead type and location, then hit Search.</div>';
+  updateResultsCount();
+  updateLoadMoreButton();
+  document.getElementById('ps-location-input').focus();
 }
 
 async function saveLead(id, btn) {
