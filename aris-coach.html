@@ -1933,7 +1933,7 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
     );
     if (!hasActiveMembership) { window.location.href = 'signup.html'; return; }
     const activeConn = (member.planConnections || []).find(
-      pc => (FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) || pc.planId === FORGE_ZERO_PLAN_ID || pc.planId === FOUNDATION_PLAN_ID) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
+            pc => (FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) || pc.planId === FORGE_ZERO_PLAN_ID || pc.planId === FOUNDATION_PLAN_ID || pc.planId === FOUNDING_MEMBER_PLAN_ID || pc.planId === FOUNDING_MEMBER_VIP_PLAN_ID) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
     );
     const PLAN_NAME_OVERRIDES = {
       [FORGE_ZERO_PLAN_ID]: 'FORGE Zero',
