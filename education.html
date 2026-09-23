@@ -668,7 +668,9 @@ async function initEducationPage() {
         pc.planId === EMPIRE_PLAN_ID ||
         pc.planId === FOUNDATION_EMPIRE_PLAN_ID ||
         pc.planId === FORGE_ZERO_PLAN_ID ||
-        FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId)
+        FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) ||
+                pc.planId === FOUNDING_MEMBER_PLAN_ID ||
+        pc.planId === FOUNDING_MEMBER_VIP_PLAN_ID
       )
     );
     const PLAN_NAME_OVERRIDES = {
