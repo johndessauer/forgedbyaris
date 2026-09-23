@@ -44,7 +44,11 @@ const PLAN_TAG_OVERRIDES = {
   'pln_-97-direct--jx9b09ut': 'Beta Member',
 };
 
-function upsertGhlContact({ email, firstName, lastName, planName }) {
+// GHL contact custom field "Referral Source" (key contact.referral_source).
+// The "FORGE - Fortiva Referral Tagging" workflow tags fortiva-7525 off this.
+const GHL_REFERRAL_SOURCE_FIELD_ID = '4UsHzTuolKkrrtBov1hM';
+
+function upsertGhlContact({ email, firstName, lastName, planName, referralSource }) {
   const API_KEY = process.env.GHL_API_KEY;
   const LOCATION_ID = process.env.GHL_LOCATION_ID;
 
@@ -65,6 +69,9 @@ function upsertGhlContact({ email, firstName, lastName, planName }) {
     lastName: lastName || undefined,
     locationId: LOCATION_ID,
     tags,
+    ...(referralSource && {
+      customFields: [{ id: GHL_REFERRAL_SOURCE_FIELD_ID, field_value: referralSource }],
+    }),
   });
 
   return new Promise((resolve) => {
@@ -172,12 +179,27 @@ exports.handler = async function (event, context) {
     return json(200, { received: true, skipped: true, reason: 'no email in payload' });
   }
 
+  // Signup pages save first-name / last-name / referral-source as Memberstack
+  // CUSTOM FIELDS, not metaData. The webhook payload isn't guaranteed to carry
+  // customFields, so fetch the full member record. Never let this lookup fail
+  // the webhook: fall back to whatever the payload itself has.
   const metaData = payload?.member?.metaData || {};
-  const firstName = metaData['first-name'] || metaData.firstName || undefined;
-  const lastName = metaData['last-name'] || metaData.lastName || undefined;
+  let customFields = payload?.member?.customFields || {};
+  const memberId = payload?.member?.id;
+  if (memberId) {
+    try {
+      const { data: fullMember } = await memberstack.members.retrieve({ id: memberId });
+      customFields = { ...customFields, ...(fullMember?.customFields || {}) };
+    } catch (err) {
+      console.error('Memberstack member lookup failed (continuing with payload data):', err?.message || err);
+    }
+  }
+  const firstName = customFields['first-name'] || metaData['first-name'] || metaData.firstName || undefined;
+  const lastName = customFields['last-name'] || metaData['last-name'] || metaData.lastName || undefined;
+  const referralSource = (customFields['referral-source'] || metaData['referral-source'] || '').trim().toLowerCase() || undefined;
   const planName = payload?.planConnection?.planId || undefined;
 
-  const ghlResult = await upsertGhlContact({ email, firstName, lastName, planName });
+  const ghlResult = await upsertGhlContact({ email, firstName, lastName, planName, referralSource });
 
   return json(200, { received: true, synced: true, ghlResult });
 };
