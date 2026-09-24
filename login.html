@@ -166,6 +166,7 @@ html, body { min-height: 100vh; background: var(--black); color: var(--white); f
       <div class="auth-sub">Sign in to your FORGE account</div>
 
       <div class="error-msg" id="error-msg"></div>
+      <div class="success-msg" id="login-success-msg"></div>
 
       <div class="field">
         <label>Email Address</label>
@@ -248,6 +249,7 @@ html, body { min-height: 100vh; background: var(--black); color: var(--white); f
     const errEl = document.getElementById('error-msg');
 
     errEl.style.display = 'none';
+    document.getElementById('login-success-msg').style.display = 'none';
 
     if (!email || !password) {
       showError('Please enter your email and password.');
@@ -275,7 +277,8 @@ html, body { min-height: 100vh; background: var(--black); color: var(--white); f
       window.location.href = 'dashboard.html';
 
     } catch (err) {
-      showError('Something went wrong. Please try again.');
+      console.error('Login failed:', err);
+      showError(msErrorText(err, 'We could not sign you in. Check your email and password, or use Forgot password below.'));
       btn.disabled = false;
       btn.innerHTML = 'Sign In to FORGE';
     }
@@ -353,13 +356,14 @@ html, body { min-height: 100vh; background: var(--black); color: var(--white); f
         return;
       }
 
-      showResetSuccess('Your password has been reset. You can now sign in.');
-      setTimeout(() => {
-        showLoginView(null, pendingResetEmail);
-      }, 1500);
+      showLoginView(null, pendingResetEmail);
+      const ok = document.getElementById('login-success-msg');
+      ok.textContent = 'Password updated. Sign in below with your NEW password.';
+      ok.style.display = 'block';
 
     } catch (err) {
-      showResetError('Something went wrong. Please try again.');
+      console.error('Password reset failed:', err);
+      showResetError(msErrorText(err, 'That code did not work. Tap "Resend it" below and use the code from the NEWEST email only.'));
       btn.disabled = false;
       btn.innerHTML = 'Set New Password';
     }
@@ -391,6 +395,14 @@ html, body { min-height: 100vh; background: var(--black); color: var(--white); f
       document.getElementById('password').value = '';
       document.getElementById('password').focus();
     }
+  }
+
+  // Memberstack's DOM SDK usually THROWS on failure (rather than returning
+  // { error }), so the catch blocks must surface its message instead of a
+  // generic one, or members can't tell a wrong password from an expired code.
+  function msErrorText(err, fallback) {
+    const m = err && (err.message || (err.data && err.data.message) || (typeof err === 'string' ? err : ''));
+    return (m && String(m).trim()) ? String(m).trim() : fallback;
   }
 
   function showError(msg) {
