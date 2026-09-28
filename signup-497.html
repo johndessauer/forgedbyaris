@@ -225,23 +225,63 @@ html, body { min-height: 100vh; background: var(--black); color: var(--white); f
     try {
       const memberstack = window.$memberstackDom;
 
-      // Step 1: Create the member account (no plans yet)
-      const { data: signupData, error: signupError } = await memberstack.signupMemberEmailPassword({
-        email: email,
-        password: password,
-        customFields: {
-          'first-name': firstName,
-          'last-name': lastName,
-          'full-name': firstName + ' ' + lastName,
-          'plan-type': 'Founding Member $497',
-          ...(referralSource && { 'referral-source': referralSource })
-        }
-      });
-
-      if (signupError) {
-        showError(signupError.message || 'Could not create account. Please try again.');
+      const resetBtn = () => {
         btn.disabled = false;
         btn.innerHTML = 'Create My Account →';
+      };
+
+      // Step 0: If someone is already logged in on this browser, reuse the
+      // session when it is the same email; otherwise log it out so this
+      // enrollment never lands on the wrong account.
+      let member = null;
+      const { data: existingMember } = await memberstack.getCurrentMember();
+      if (existingMember) {
+        const existingEmail = String((existingMember.auth && existingMember.auth.email) || existingMember.email || '').toLowerCase();
+        if (existingEmail && existingEmail === email.toLowerCase()) {
+          member = existingMember;
+        } else {
+          await memberstack.logout();
+        }
+      }
+
+      // Step 1: Create the member account (no plans yet).
+      if (!member) {
+        try {
+          const { data: signupData } = await memberstack.signupMemberEmailPassword({
+            email: email,
+            password: password,
+            customFields: {
+              'first-name': firstName,
+              'last-name': lastName,
+              'full-name': firstName + ' ' + lastName,
+              'plan-type': 'Founding Member $497',
+              ...(referralSource && { 'referral-source': referralSource })
+            }
+          });
+          member = (signupData && signupData.member) || signupData || null;
+        } catch (signupErr) {
+          if (!isEmailTakenError(signupErr)) throw signupErr;
+
+          // Recovery: the email already has an account — usually from an
+          // earlier attempt where checkout never finished. Log in with the
+          // password just entered and continue to checkout.
+          btn.innerHTML = '<span class="spinner"></span>Finding your account...';
+          try {
+            const { data: loginData } = await memberstack.loginMemberEmailPassword({ email: email, password: password });
+            member = (loginData && loginData.member) || loginData || null;
+          } catch (loginErr) {
+            console.error('FORGE signup: account exists, login failed:', loginErr);
+            showError('An account with this email already exists, but that password does not match it. Enter the password used when the account was first created, or reset it from the Sign In page.');
+            resetBtn();
+            return;
+          }
+        }
+      }
+
+      // Already enrolled on a paid plan? Send them to the dashboard instead of
+      // charging them a second time.
+      if (hasActivePaidPlan(member)) {
+        window.location.href = 'dashboard.html';
         return;
       }
 
@@ -249,24 +289,60 @@ html, body { min-height: 100vh; background: var(--black); color: var(--white); f
 
       // Step 2: Open Stripe Checkout for the single recurring price (setup fee
       // charged today, $97/mo begins automatically after the 30-day trial).
-      const { data: checkoutData, error: checkoutError } = await memberstack.purchasePlansWithCheckout({
-        priceId: currentPhase.priceId,
-        successURL: window.location.origin + '/dashboard.html',
-        cancelURL: window.location.href
-      });
-
-      if (checkoutError) {
-        showError(checkoutError.message || 'Payment setup failed. Please try again.');
-        btn.disabled = false;
-        btn.innerHTML = 'Create My Account →';
+      try {
+        const { error: checkoutError } = await memberstack.purchasePlansWithCheckout({
+          priceId: currentPhase.priceId,
+          successURL: window.location.origin + '/dashboard.html',
+          cancelURL: window.location.href
+        });
+        if (checkoutError) throw checkoutError;
+      } catch (checkoutErr) {
+        console.error('FORGE signup: checkout failed:', checkoutErr);
+        const retryNote = checkoutErr && checkoutErr.code === 'price-no-longer-available'
+          ? ''
+          : ' Your account is saved — clicking the button again with the same email and password will continue where you left off.';
+        showError(friendlySignupError(checkoutErr) + retryNote);
+        resetBtn();
         return;
       }
 
     } catch (err) {
-      showError('Something went wrong. Please try again.');
+      console.error('FORGE signup error:', err);
+      showError(friendlySignupError(err));
       btn.disabled = false;
       btn.innerHTML = 'Create My Account →';
     }
+  }
+
+  // ── SIGNUP ERROR HANDLING (Session 23) ─────────────────────────────
+  // Memberstack reports failures by THROWING, so every real error lands in
+  // the catch blocks below. These helpers turn Memberstack's error into a
+  // message the student can act on, instead of a generic failure.
+  function isEmailTakenError(err) {
+    const code = String((err && err.code) || '').toLowerCase();
+    const msg  = String((err && err.message) || '').toLowerCase();
+    return (code.includes('email') && /(exist|taken|in-use|use|registered)/.test(code)) ||
+           /already (exists|in use|taken|registered)|already has an account|email.*(taken|exists|in use)/.test(msg);
+  }
+
+  function friendlySignupError(err) {
+    const code = String((err && err.code) || '');
+    if (code === 'price-no-longer-available') {
+      return 'This enrollment link is out of date. Please contact your FORGE advisor for an updated link.';
+    }
+    if (isEmailTakenError(err)) {
+      return 'An account with this email already exists. Please sign in instead.';
+    }
+    return (err && err.message) ? err.message : 'Something went wrong. Please try again.';
+  }
+
+  // True if the member already holds an active or trialing PAID plan.
+  // The free FORGE ZERO plan has no Stripe priceId, so it does not count —
+  // a FORGE ZERO member can still enroll through this page.
+  function hasActivePaidPlan(member) {
+    return ((member && member.planConnections) || []).some(pc =>
+      (pc.status === 'ACTIVE' || pc.status === 'TRIALING') && pc.payment && pc.payment.priceId
+    );
   }
 
   function showError(msg) {
