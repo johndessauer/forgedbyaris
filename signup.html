@@ -191,12 +191,14 @@ html, body { min-height: 100vh; background: var(--black); color: var(--white); f
 
 <script>
   // ── STANDARD FOUNDING MEMBER PRICING ──────────────────────────────
-  // Single fixed plan: $997 one-time + $97/mo, first charge today.
-  // Date-based auto-switching (previously $497 -> $247 -> $997) removed
-  // 8/30/2026 per John — special/legacy prices are now handled by
-  // dedicated standalone links (signup-497.html, signup-247.html,
+  // Single fixed price: $997 today, then $97/mo starting after a 30-day
+  // trial. (The old price prc_997-97-5fmt0nr5 was retired in Stripe;
+  // switched to this price 9/28/2026.)
+  // Date-based auto-switching removed 8/30/2026 per John — special prices
+  // are handled by dedicated standalone links (signup-497.html,
   // signup-97.html) handed out directly, not by this page auto-switching.
-    const currentPhase = { priceId: 'prc_founding-member-997-due-today-97-mo-starts-in-30-days-hn1l0qov', label: '$997' };
+  // The $247 offer is retired (9/28/2026); signup-247.html was never built.
+  const currentPhase = { priceId: 'prc_founding-member-997-due-today-97-mo-starts-in-30-days-hn1l0qov', label: '$997' };
 
   // Update price note to reflect current phase pricing
   document.getElementById('price-note-text').innerHTML =
