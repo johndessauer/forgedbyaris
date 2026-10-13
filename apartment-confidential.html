@@ -5,9 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow">
 <title>Apartment Confidential | FORGE</title>
-<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-<link rel="shortcut icon" href="/favicon.ico" />
-<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+<link rel="icon" type="image/png" href="/assets/favicon.png" />
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
 <!-- Meta Pixel (same pixel as the public site) -->
@@ -67,6 +65,10 @@ h1 { font-family: 'Bebas Neue', sans-serif; font-weight: 400; font-size: 32px; l
 .inside li { position: relative; padding-left: 22px; font-size: 14px; line-height: 1.5; color: #D6DAE0; margin-bottom: 8px; }
 .inside li::before { content: ""; position: absolute; left: 2px; top: 7px; width: 9px; height: 9px; border-radius: 2px; background: var(--gold); transform: rotate(45deg); }
 
+.inside-hook { font-size: 14px; line-height: 1.5; color: var(--white); margin-bottom: 12px; }
+.inside li strong { color: var(--white); font-weight: 600; }
+.inside-quote { margin-top: 14px; padding: 10px 14px; border-left: 3px solid var(--orange); background: var(--navy-l); border-radius: 0 8px 8px 0; font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 1px; color: var(--gold); }
+
 /* ── NEXT STEP ─────────────────────────────── */
 .next { margin-top: 16px; background: var(--navy); border: 1px solid var(--border); border-radius: 16px; padding: 24px 20px; transition: border-color 0.3s, box-shadow 0.3s; }
 .next h2 { font-family: 'Bebas Neue', sans-serif; font-weight: 400; font-size: 28px; letter-spacing: 1.5px; line-height: 1.05; margin-bottom: 10px; }
@@ -109,6 +111,27 @@ h1 { font-family: 'Bebas Neue', sans-serif; font-weight: 400; font-size: 32px; l
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; scroll-behavior: auto !important; }
 }
+
+.btn-primary { background: var(--orange); color: var(--white); min-height: 62px; font-size: 23px; box-shadow: 0 18px 48px -24px rgba(255,107,43,0.7); }
+.btn-primary:hover { background: var(--orange-d); }
+.btn-secondary { background: transparent; color: var(--gold); border-color: rgba(200,155,60,0.45); font-size: 18px; min-height: 50px; margin-top: 12px; }
+.btn-secondary:hover { background: rgba(200,155,60,0.12); }
+.ctas { margin-top: 4px; }
+.lead-form { display: none; margin-top: 16px; padding: 18px; border: 1px solid var(--border); border-radius: 12px; background: var(--navy-l); }
+.lead-form.open { display: block; }
+.lead-form p.lf-intro { font-size: 13px; color: var(--grey-l); margin-bottom: 12px; }
+.lead-form label { display: block; font-size: 12px; font-weight: 600; color: var(--gold); margin: 10px 0 4px; }
+.lead-form input { width: 100%; min-height: 46px; padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15); background: var(--black); color: var(--white); font: 16px 'Inter', sans-serif; }
+.lead-form input:focus { outline: 2px solid var(--gold); border-color: transparent; }
+.lead-form .btn { margin-top: 14px; }
+.lf-error { display:none; color:#fca5a5; font-size:13px; margin-top:8px; }
+.lf-consent { font-size: 11px; color: var(--grey); margin-top: 10px; line-height: 1.5; }
+.thanks { display: none; margin-top: 16px; padding: 20px; border-radius: 12px; border: 1px solid rgba(255,107,43,0.55); background: var(--navy-l); }
+.thanks.open { display: block; }
+.thanks h3 { font-family: 'Bebas Neue', sans-serif; font-weight: 400; font-size: 26px; letter-spacing: 1.2px; margin-bottom: 6px; }
+.thanks p { font-size: 14px; color: #D6DAE0; line-height: 1.6; margin-bottom: 14px; }
+.thanks a.dl { color: var(--gold); font-weight: 600; }
+@media (min-width: 760px) { .ctas, .lead-form, .thanks { grid-column: 2; max-width: 420px; } .book-card .lead-form, .book-card .thanks { max-width: 480px; } }
 </style>
 </head>
 <body>
@@ -127,23 +150,50 @@ h1 { font-family: 'Bebas Neue', sans-serif; font-weight: 400; font-size: 32px; l
              alt="Apartment Confidential book cover" width="360" height="549">
       </div>
       <div class="book-text">
-        <h1 id="book-title">Your copy of Apartment Confidential</h1>
-        <p class="subhead">A plain-language guide to buying small apartment buildings, by John Dessauer.</p>
+        <h1 id="book-title">Apartment Confidential</h1>
+        <p class="subhead">A plain-language guide to buying small apartment buildings, by John Dessauer. Want help applying it to a real deal? A FORGE specialist will walk you through one, live.</p>
       </div>
     </div>
 
-    <a class="btn btn-download" id="download-btn"
-       href="/assets/apartment-confidential.pdf"
-       download="Apartment-Confidential-John-Dessauer.pdf"
-       target="_blank" rel="noopener">Download the book (PDF)</a>
+    <div class="ctas">
+      <a class="btn btn-primary book-link" href="#">Book my walkthrough</a>
+      <button type="button" class="btn btn-secondary" id="open-form" aria-expanded="false" aria-controls="lead-form">Get the free book</button>
+    </div>
+
+    <form class="lead-form" id="lead-form" novalidate>
+      <p class="lf-intro">Tell us where to send it. Your download starts right away.</p>
+      <label for="lf-first">First name</label>
+      <input id="lf-first" name="firstName" autocomplete="given-name" required>
+      <label for="lf-email">Email</label>
+      <input id="lf-email" name="email" type="email" autocomplete="email" inputmode="email" required>
+      <label for="lf-phone">Phone</label>
+      <input id="lf-phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" required>
+      <input type="text" name="company_website" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px" aria-hidden="true">
+      <button class="btn btn-primary" type="submit" id="lf-submit">Send me the book</button>
+      <p class="lf-error" id="lf-error" role="alert"></p>
+      <p class="lf-consent">By submitting, you agree FORGE may contact you by email, phone, or text about the book and FORGE. Msg &amp; data rates may apply. Reply STOP to opt out.</p>
+    </form>
+
+    <div class="thanks" id="thanks" role="status" tabindex="-1">
+      <h3>Your book is on its way</h3>
+      <p>Your download should open now. If not, <a class="dl" href="/assets/apartment-confidential.pdf" download="Apartment-Confidential-John-Dessauer.pdf" target="_blank" rel="noopener">download the PDF here</a>.</p>
+      <h3>Want help applying this?</h3>
+      <p>Book a walkthrough and a FORGE specialist will run a live deal with you.</p>
+      <a class="btn btn-primary book-link" href="#">Book your walkthrough</a>
+    </div>
 
     <div class="inside">
-      <h2>Inside</h2>
+      <h2>Inside: 18 chapters, 140 pages</h2>
+      <p class="inside-hook">What I learned from deals as small as $9,000 and as big as $14,000,000.</p>
       <ul>
-        <li>How small apartment buildings work as investments</li>
-        <li>How to size up a property before you make an offer</li>
-        <li>What to check during due diligence</li>
+        <li><strong>The 10-to-1 factor.</strong> How $40 more in rent and $60 less in expenses per unit made a $500,000 building worth $740,000 in a year.</li>
+        <li><strong>The number sellers hand you that you should never trust,</strong> and what to ask for instead.</li>
+        <li><strong>Where I open every offer,</strong> the one move I never make in a negotiation, and how walking away bought me a property six months later.</li>
+        <li><strong>The cable deal most owners never think to renegotiate.</strong> It paid me over $25,000 at two properties.</li>
+        <li><strong>How to control a deal without buying it.</strong> A $15,000 finder's fee on a duplex, explained step by step.</li>
+        <li><strong>Divide and Conquer.</strong> The technique I've made more money with than anything else in my career.</li>
       </ul>
+      <blockquote class="inside-quote">&ldquo;Never buy someone else&rsquo;s fantasy.&rdquo;</blockquote>
     </div>
   </section>
 
@@ -153,8 +203,7 @@ h1 { font-family: 'Bebas Neue', sans-serif; font-weight: 400; font-size: 32px; l
       <p>FORGE is an AI coaching platform for real estate investors: deal search, comps, rent, rehab, cash flow and the offer price on one screen, an AI coach available 24/7, residential and commercial. A FORGE specialist walks you through a live deal.</p>
     </div>
     <div>
-      <a class="btn btn-book" id="book-btn" href="#">Book my walkthrough</a>
-      <p class="book-note" id="book-note" role="status">Walkthrough booking opens soon.</p>
+      <a class="btn btn-book book-link" href="#">Book my walkthrough</a>
     </div>
   </section>
 
@@ -163,66 +212,51 @@ h1 { font-family: 'Bebas Neue', sans-serif; font-weight: 400; font-size: 32px; l
 </main>
 
 <script>
-  // ── BOOKING LINK — THE ONLY LINE TO CHANGE ─────────────────────────────
-  // Paste the walkthrough booking URL between the quotes, e.g.
-  // const BOOKING_URL = 'https://calendly.com/forge/walkthrough';
-  // While empty, the button shows "Walkthrough booking opens soon."
-  const BOOKING_URL = '';
+  const BOOKING_URL = 'https://api.leadconnectorhq.com/widget/booking/HXWJy3UWwRG08wDgiQXP';
+  const PDF_URL = '/assets/apartment-confidential.pdf';
+  const LEAD_ENDPOINT = '/api/book-lead';
 
-  // Incoming utm_* and ref values are passed through to the booking link.
   const incoming = new URLSearchParams(window.location.search);
   const passThrough = {};
-  incoming.forEach((value, key) => {
-    if (key === 'ref' || key.indexOf('utm_') === 0) passThrough[key] = value;
+  incoming.forEach((v, k) => { if (k === 'ref' || k.indexOf('utm_') === 0) passThrough[k] = v; });
+
+  function track(name) { try { if (window.fbq) fbq('trackCustom', name, Object.assign({ page_url: location.href }, passThrough)); } catch (e) {} }
+
+  const bookingUrl = (() => { const u = new URL(BOOKING_URL); Object.keys(passThrough).forEach(k => u.searchParams.set(k, passThrough[k])); return u.toString(); })();
+  document.querySelectorAll('.book-link').forEach(a => {
+    a.href = bookingUrl;
+    a.addEventListener('click', e => { e.preventDefault(); track('WalkthroughBookingClick'); setTimeout(() => { location.href = bookingUrl; }, 200); });
   });
 
-  function trackClick(eventName) {
-    try {
-      if (window.fbq) {
-        fbq('trackCustom', eventName, Object.assign({ page_url: window.location.href }, passThrough));
-      }
-    } catch (e) { /* tracking must never block the page */ }
-  }
-
-  function markDownloaded() {
-    document.getElementById('page').classList.add('downloaded');
-    try { localStorage.setItem('forge_ac_downloaded', '1'); } catch (e) {}
-  }
-
-  // Returning visitors who already downloaded see the walkthrough first.
-  try { if (localStorage.getItem('forge_ac_downloaded') === '1') markDownloaded(); } catch (e) {}
-
-  document.getElementById('download-btn').addEventListener('click', function () {
-    trackClick('ApartmentConfidentialDownload');
-    markDownloaded();
-    // The PDF opens in a new tab; bring the walkthrough into view on this one.
-    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    setTimeout(function () {
-      document.getElementById('next').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
-    }, 300);
+  const form = document.getElementById('lead-form');
+  const openBtn = document.getElementById('open-form');
+  openBtn.addEventListener('click', () => {
+    form.classList.add('open'); openBtn.setAttribute('aria-expanded', 'true');
+    openBtn.style.display = 'none'; document.getElementById('lf-first').focus();
   });
 
-  const bookBtn = document.getElementById('book-btn');
-  function bookingHref() {
-    if (!/^https?:\/\//.test(BOOKING_URL)) return null;
-    try {
-      const url = new URL(BOOKING_URL);
-      Object.keys(passThrough).forEach(k => url.searchParams.set(k, passThrough[k]));
-      return url.toString();
-    } catch (e) { return BOOKING_URL; }
+  function showThanks() {
+    form.classList.remove('open'); openBtn.style.display = 'none';
+    const t = document.getElementById('thanks'); t.classList.add('open'); t.focus();
   }
-  const finalBookingUrl = bookingHref();
-  if (finalBookingUrl) bookBtn.href = finalBookingUrl;
 
-  bookBtn.addEventListener('click', function (e) {
+  form.addEventListener('submit', async e => {
     e.preventDefault();
-    trackClick('WalkthroughBookingClick');
-    if (!finalBookingUrl) {
-      document.getElementById('book-note').style.display = 'block';
-      return;
+    const err = document.getElementById('lf-error'); err.style.display = 'none';
+    const data = Object.fromEntries(new FormData(form).entries());
+    data.firstName = (data.firstName || '').trim(); data.email = (data.email || '').trim(); data.phone = (data.phone || '').trim();
+    if (!data.firstName || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(data.email) || data.phone.replace(/\D/g, '').length < 10) {
+      err.textContent = 'Please enter your first name, a valid email, and a phone number.'; err.style.display = 'block'; return;
     }
-    // Short pause so the tracking event can send before the page changes.
-    setTimeout(function () { window.location.href = finalBookingUrl; }, 200);
+    const btn = document.getElementById('lf-submit'); btn.disabled = true; btn.textContent = 'Sending...';
+    Object.assign(data, passThrough);
+    // Open the PDF while still inside the click gesture, or Safari/iOS blocks the popup.
+    window.open(PDF_URL, '_blank', 'noopener');
+    try { await fetch(LEAD_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }); } catch (x) {}
+    track('ApartmentConfidentialDownload');
+    try { if (window.fbq) fbq('track', 'Lead'); } catch (x) {}
+    try { localStorage.setItem('forge_ac_downloaded', '1'); } catch (x) {}
+    showThanks();
   });
 </script>
 </body>

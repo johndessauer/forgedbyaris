@@ -13,6 +13,11 @@
   timeout = 26
 
 [[redirects]]
+  from = "/api/book-lead"
+  to = "/.netlify/functions/book-lead"
+  status = 200
+
+[[redirects]]
   from = "/api/aris-quote"
   to = "/.netlify/functions/aris-quote"
   status = 200
