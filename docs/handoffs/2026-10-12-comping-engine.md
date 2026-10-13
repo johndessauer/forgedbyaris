@@ -141,3 +141,54 @@ npm run test:ui   # 52 browser checks (needs Playwright + Chromium)
 ## Next steps
 1. Merge PR #3. As an admin, open Property Search → "Comp a Property" (or "Comp This Property" on a result) and click through.
 2. Phase 3: Rent, Market, Property tabs + ARIS best use.
+
+---
+
+# Phase 3 — Rent, Market, Property tabs + ARIS best use (Oct 13, 2026)
+
+**Branch:** `feature/comping-engine-phase3` (from `main` @ `4e139d6`, includes PRs #5–#7)
+**Live RentCast calls spent:** 0 · **Live Anthropic calls:** 0 (tests stub the API)
+
+## Decisions (John, Oct 13)
+- **PDF → CRM:** Phase 4, with Save to CRM, reusing the existing "Save to Deal" PDF flow (html2canvas + jsPDF → `/api/deal-documents`, as Deal Analyzer / Market Oracle / Capital Radar do).
+- **Active rentals:** behind a "Show active rentals (uses 1 lookup)" button.
+- **Best use:** automatic when a report opens; cached on `comp_reports.best_use`.
+
+## What was built
+| File | Purpose |
+|---|---|
+| `netlify/functions/_Lib/comps-best-use.js` | Summary builder (computed numbers only), ARIS prompt, strict-JSON parser/validator, Anthropic call. |
+| `netlify/functions/rentcast-comps.js` | `POST best-use` — 0 RentCast lookups, 1 Anthropic call on a cache miss; re-asks only when the summary hash changes (e.g. rent loaded). |
+| `netlify/edge-functions/aris-stream.js` | Comping-engine wording for member and public prompts, **off** unless `COMPS_ARIS_LIVE=1` (Brief §6.3). |
+| `assets/js/comp-panel.js` | Tabs (Comps / Rent / Market / Property, arrow-key navigation), lazy Rent + Market, free Property tab, Best Use card with "Update with rent & market data". |
+| `assets/css/comp-panel.css` | Tabs, SVG charts, property layout, best-use card; phone layouts. |
+| `tests/rentcast-comps.test.js` | +7 best-use / privacy tests. `tests/aris-comps-flag.test.js`: flag on/off. |
+| `tests/ui/comp-panel.ui.py` | Now 78 browser checks. |
+
+## Cost rules in the UI
+- **Rent tab:** 1 lookup on first open, cached 30 days. **Active rentals:** 1 lookup, only on click.
+- **Market tab:** 1 lookup on first open, cached 30 days.
+- **Property tab:** free — data came with the first pull.
+- **Best use:** no RentCast lookup. One Claude call (`claude-sonnet-4-6`, ≤900 output tokens) per distinct summary; repeat opens are served from the report.
+
+## Privacy
+- Best use sends **only** computed numbers (ARV, range, RentCast value, confidence, comp count, size, rent, rent-to-value, ZIP medians and 12-month trends, equity if the lead card had it). Tested: no owner name, mailing address, tax records, street address, or member id/email.
+- Property tab shows owner data only to the member who pulled it, with a lawful-outreach note. Shared reports strip owner, mailing address, tax, history and owner-occupied (tested).
+
+## New env var (optional, Phase 5)
+| `COMPS_ARIS_LIVE` | `1` | Turns on ARIS's comping-engine wording. Leave unset until the panel is public. |
+`ANTHROPIC_API_KEY` (already set) is used for best use.
+
+## Flagged, not changed here
+- **`netlify/functions/aris-quote.js` is an open proxy:** it forwards any POST body to Anthropic with FORGE's key and no auth check (only a CORS header, which doesn't stop server-to-server calls). Anyone who finds `/api/aris-quote` can spend on the Anthropic account. Recommend a follow-up PR adding `verifyMember()` and a fixed model/max_tokens.
+- The public ARIS prompt still lists **"Property Search (coming soon)"** though Property Search is live. Left as-is (copy change for John to approve).
+
+## Verify
+```
+npm run check     # 41 files/blocks, 0 failed
+npm test          # 62 pass
+npm run test:ui   # 78/78 browser checks
+```
+
+## Next
+Phase 4: Send to Deal Analyzer, Save to CRM (native default, GHL admin-only), comp-report PDF attached to the CRM deal, share links.

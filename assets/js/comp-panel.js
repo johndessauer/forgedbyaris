@@ -101,7 +101,8 @@
     } catch (e) { rec = null; }
     if (!rec || !rec.address) return;
     const d = rec.details || {};
-    open(rec.address, { beds: d.beds, baths: d.baths, sqft: d.sqft, propertyType: d.propertyType, yearBuilt: d.yearBuilt, lat: rec.lat, lng: rec.lng });
+    open(rec.address, { beds: d.beds, baths: d.baths, sqft: d.sqft, propertyType: d.propertyType, yearBuilt: d.yearBuilt, lat: rec.lat, lng: rec.lng },
+      { equity: rec.equity ? Number(rec.equity) * 1000 : null });   // lead cards store equity in $K
   }
 
   // ── lookup card (replaces the "Property Lookup by Address" teaser) ──
@@ -206,11 +207,12 @@
   }
 
   // ── open: one orchestrated pull (up to 3 lookups, or $0 when cached) ─
-  async function open(address, overrides) {
+  async function open(address, overrides, leadExtra) {
     if (!ctx.enabled) return;
     buildPanel();
     flushSave();
-    S = { address, overrides: overrides || {}, resp: null, filters: { ...E.DEFAULT_FILTERS }, ladder: [], manual: {}, adjustments: { adjRate: E.ADJ_RATE_DEFAULT, perBed: 0, perBath: 0 }, sort: { key: 'similarity', dir: 'desc' }, showExcluded: false, focusId: null, busy: false };
+    S = { address, overrides: overrides || {}, resp: null, filters: { ...E.DEFAULT_FILTERS }, ladder: [], manual: {}, adjustments: { adjRate: E.ADJ_RATE_DEFAULT, perBed: 0, perBath: 0 }, sort: { key: 'similarity', dir: 'desc' }, showExcluded: false, focusId: null, busy: false,
+      tab: 'comps', rent: null, market: null, rentals: null, bestUse: null, equity: (leadExtra && leadExtra.equity) || null };
     renderHead();
     renderLoading();
     show();
@@ -225,6 +227,7 @@
     S.pulled = body.pulled || { radius: 2, soldWithinDays: 365, listings: true };
     S.budget = body.budget || null;
     renderAll();
+    requestBestUse(false);   // automatic (John, Oct 13); cached on the report after the first run
   }
 
   // ── rendering ───────────────────────────────────────────────────────
@@ -302,7 +305,12 @@
     els.body.innerHTML = `
       ${resp.demo ? '<div class="ps-comp-notice warn"><strong>Demo data.</strong> These are sample Crown Point, IN comps, shown for every address until live property data is turned on.</div>' : ''}
       ${partial}
+      <div class="ps-comp-tabs" role="tablist" aria-label="Report sections">
+        ${TABS.map(t => `<button type="button" role="tab" class="ps-comp-tab" id="ps-comp-tabbtn-${t.id}" data-tab="${t.id}" aria-selected="${t.id === 'comps'}" aria-controls="ps-comp-tab-${t.id}" tabindex="${t.id === 'comps' ? 0 : -1}">${t.label}</button>`).join('')}
+      </div>
+      <div id="ps-comp-tab-comps" role="tabpanel" aria-labelledby="ps-comp-tabbtn-comps">
       <section class="ps-comp-section" aria-label="Value range"><div id="ps-comp-summary"></div></section>
+      <section class="ps-comp-section" aria-label="ARIS best use"><div id="ps-comp-bestuse"></div></section>
       <section class="ps-comp-section" aria-label="Comp filters">
         <div class="ps-comp-section-title"><span>Filters</span><span class="ps-comp-budget" id="ps-comp-budget"></span></div>
         <div class="ps-comp-filter-sheet" id="ps-comp-sheet"><div id="ps-comp-filters"></div></div>
@@ -318,10 +326,27 @@
         <div id="ps-comp-table"></div>
       </section>
       <section class="ps-comp-section"><div id="ps-comp-how"></div></section>
+      </div>
+      <div id="ps-comp-tab-rent" role="tabpanel" aria-labelledby="ps-comp-tabbtn-rent" hidden></div>
+      <div id="ps-comp-tab-market" role="tabpanel" aria-labelledby="ps-comp-tabbtn-market" hidden></div>
+      <div id="ps-comp-tab-property" role="tabpanel" aria-labelledby="ps-comp-tabbtn-property" hidden></div>
       <button type="button" class="ps-comp-filters-toggle" id="ps-comp-filters-toggle" aria-controls="ps-comp-sheet" aria-expanded="false">Adjust filters</button>`;
     renderFilters();
     setupMap();
     refresh({ initial: true });
+    renderBestUse();
+    els.body.querySelectorAll('.ps-comp-tab').forEach(btn => {
+      btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+      btn.addEventListener('keydown', ev => {
+        const ids = TABS.map(x => x.id);
+        const i = ids.indexOf(btn.dataset.tab);
+        if (ev.key === 'ArrowRight' || ev.key === 'ArrowLeft') {
+          ev.preventDefault();
+          const next = ids[(i + (ev.key === 'ArrowRight' ? 1 : ids.length - 1)) % ids.length];
+          switchTab(next); const nb = $('#ps-comp-tabbtn-' + next); if (nb) nb.focus();
+        }
+      });
+    });
     const t = $('#ps-comp-filters-toggle');
     t.addEventListener('click', () => {
       const sheet = $('#ps-comp-sheet');
@@ -710,10 +735,359 @@
   function flushSave() {
     clearTimeout(saveTimer);
     saveTimer = null;
-    if (!S || !S.resp || !S.resp.reportId || !S.dirty) return;
+    if (!S || !S.resp || !S.resp.reportId || !S.dirty) return Promise.resolve();
     S.dirty = false;
-    api('POST', { action: 'update', reportId: S.resp.reportId, selection: selection() }).catch(() => {});
+    return api('POST', { action: 'update', reportId: S.resp.reportId, selection: selection() }).catch(() => {});
   }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // Phase 3 — Rent, Market, Property tabs and ARIS best use
+  // Rent and Market are fetched only when their tab is first opened
+  // (1 lookup each, then cached 30 days). Property is free (it came with
+  // the first pull). Best use costs no lookup — one small ARIS call,
+  // cached on the report.
+  // ═══════════════════════════════════════════════════════════════════
+  const TABS = [
+    { id: 'comps', label: 'Comps' },
+    { id: 'rent', label: 'Rent' },
+    { id: 'market', label: 'Market' },
+    { id: 'property', label: 'Property' },
+  ];
+
+  function switchTab(id) {
+    if (!S || !TABS.some(t => t.id === id)) return;
+    S.tab = id;
+    TABS.forEach(t => {
+      const panel = $('#ps-comp-tab-' + t.id);
+      const btn = $('#ps-comp-tabbtn-' + t.id);
+      if (panel) panel.hidden = t.id !== id;
+      if (btn) { btn.setAttribute('aria-selected', String(t.id === id)); btn.tabIndex = t.id === id ? 0 : -1; }
+    });
+    const ft = $('#ps-comp-filters-toggle');
+    if (ft) ft.style.display = id === 'comps' ? '' : 'none';
+    if (id === 'comps' && compMap) setTimeout(() => compMap.invalidateSize(), 50);
+    if (id === 'rent') loadRent();
+    if (id === 'market') loadMarket();
+    if (id === 'property') renderProperty();
+  }
+
+  const skel = h => `<div class="ps-comp-skel" style="height:${h}px"></div>`;
+  const lookupNote = (cached, demo) => demo ? 'Demo data' : (cached ? 'Cached — no lookup used' : 'Used 1 lookup · cached for 30 days');
+
+  // ── Rent ─────────────────────────────────────────────────────────────
+  let rentMap = null;
+  async function loadRent() {
+    const panel = $('#ps-comp-tab-rent');
+    if (S.rent && S.rent.status === 'ok') { renderRent(); return; }
+    if (S.rent && S.rent.status === 'loading') return;
+    S.rent = { status: 'loading' };
+    panel.innerHTML = `<div class="ps-comp-step-text">Pulling the rent estimate and rental comps…</div>${skel(90)}${skel(200)}`;
+    const r = await api('POST', { action: 'rent', reportId: S.resp.reportId });
+    if (r.status !== 200 || !r.body.rent) { S.rent = { status: 'error', http: r }; panel.innerHTML = tabError(r, 'rent', 'the rent estimate'); bindRetry(panel, loadRent, 'rent'); return; }
+    S.rent = { status: 'ok', data: r.body.rent, cached: r.body.cached, demo: r.body.demo };
+    renderRent();
+    renderBestUse();
+  }
+
+  function renderRent() {
+    const panel = $('#ps-comp-tab-rent');
+    const d = S.rent.data || {};
+    const arv = S.report && S.report.arv;
+    const sqft = S.resp.subject && S.resp.subject.sqft;
+    const comps = (d.comparables || []).map(E.fromAvmComparable).sort((a, b) => (a.distance ?? 99) - (b.distance ?? 99));
+    const rtv = d.rent && arv ? (d.rent / arv * 100).toFixed(2) + '%' : '—';
+    panel.innerHTML = `
+      <section class="ps-comp-section">
+        <div class="ps-comp-section-title"><span>Rent estimate</span><span class="ps-comp-budget">${lookupNote(S.rent.cached, S.rent.demo)}</span></div>
+        <div class="ps-comp-stats">
+          <div class="ps-comp-stat arv"><div class="k">Monthly rent</div><div class="v">${money(d.rent)}</div><div class="s">Range ${money(d.rentRangeLow)}–${money(d.rentRangeHigh)}</div></div>
+          <div class="ps-comp-stat"><div class="k">Rent / sq ft</div><div class="v">${d.rent && sqft ? '$' + (d.rent / sqft).toFixed(2) : '—'}</div></div>
+          <div class="ps-comp-stat"><div class="k">Rent-to-ARV</div><div class="v">${rtv}</div><div class="s">Monthly rent ÷ FORGE ARV</div></div>
+          <div class="ps-comp-stat"><div class="k">Rental comps</div><div class="v">${comps.length}</div></div>
+        </div>
+        <div class="ps-comp-disclaim">RentCast rent estimate from nearby rental listings. Listings are asking rents, not signed leases.</div>
+      </section>
+      <section class="ps-comp-section">
+        <div class="ps-comp-section-title"><span>Rental comps map</span></div>
+        <div class="ps-comp-map-wrap"><div class="ps-comp-map" id="ps-comp-rentmap" role="img" aria-label="Map of rental comps"></div></div>
+      </section>
+      <section class="ps-comp-section">
+        <div class="ps-comp-section-title"><span>Rental comps</span></div>
+        ${listingTable(comps, true)}
+      </section>
+      <section class="ps-comp-section" id="ps-comp-rentals"></section>`;
+    drawPins('ps-comp-rentmap', comps, m => { rentMap = m; }, rentMap);
+    renderRentals();
+  }
+
+  function listingTable(rows, showMatch) {
+    if (!rows.length) return '<div class="ps-comp-notice">No rental listings found nearby.</div>';
+    return `<div class="ps-comp-table-wrap"><table class="ps-comp-table ps-comp-table-sm"><thead><tr>
+        <th scope="col">Address</th><th scope="col" class="num">Rent</th><th scope="col">Bd/Ba/Sqft</th><th scope="col" class="num">Mi</th><th scope="col">Status</th>${showMatch ? '<th scope="col" class="num">Match</th>' : ''}
+      </tr></thead><tbody>
+      ${rows.map((c, i) => `<tr>
+        <td data-label="Address"><span class="ps-comp-idx mid">${i + 1}</span><span class="addr" title="${esc(c.address)}">${esc(streetOnly(c.address))}</span></td>
+        <td class="num" data-label="Rent"><strong>${money(c.price)}</strong></td>
+        <td data-label="Bd/Ba/Sqft">${c.beds ?? '—'}/${c.baths ?? '—'}/${c.sqft ? Number(c.sqft).toLocaleString('en-US') : '—'}</td>
+        <td class="num" data-label="Distance">${c.distance === null || c.distance === undefined ? '—' : c.distance.toFixed(2)}</td>
+        <td data-label="Status">${esc(c.status || 'Active')}${c.date ? ' · ' + shortDate(c.date) : ''}</td>
+        ${showMatch ? `<td class="num" data-label="Match">${c.correlation ? Math.round(c.correlation * 100) + '%' : '—'}</td>` : ''}
+      </tr>`).join('')}
+      </tbody></table></div>`;
+  }
+
+  function renderRentals() {
+    const box = $('#ps-comp-rentals');
+    if (!box) return;
+    const st = S.rentals;
+    if (!st) {
+      box.innerHTML = `<div class="ps-comp-section-title"><span>Active rental listings</span></div>
+        <button type="button" class="ps-comp-btn-outline" id="ps-comp-rentals-btn">${S.resp.demo ? 'Show active rentals (demo)' : 'Show active rentals (uses 1 lookup)'}</button>`;
+      $('#ps-comp-rentals-btn').addEventListener('click', loadRentals);
+    } else if (st.status === 'loading') {
+      box.innerHTML = `<div class="ps-comp-section-title"><span>Active rental listings</span></div>${skel(120)}`;
+    } else if (st.status === 'error') {
+      box.innerHTML = `<div class="ps-comp-section-title"><span>Active rental listings</span></div>${tabError(st.http, 'rentals', 'active rentals')}`;
+      bindRetry(box, loadRentals, 'rentals');
+    } else {
+      const rows = (Array.isArray(st.data) ? st.data : []).map(l => {
+        const c = E.fromAvmComparable(l);
+        if (c.distance === null && S.resp.subject) c.distance = E.haversineMiles(S.resp.subject.lat, S.resp.subject.lng, c.lat, c.lng);
+        return c;
+      }).sort((a, b) => (a.distance ?? 99) - (b.distance ?? 99));
+      box.innerHTML = `<div class="ps-comp-section-title"><span>Active rental listings</span><span class="ps-comp-budget">${lookupNote(st.cached, st.demo)}</span></div>${listingTable(rows, false)}`;
+    }
+  }
+
+  async function loadRentals() {
+    S.rentals = { status: 'loading' };
+    renderRentals();
+    const r = await api('GET', { action: 'listings', type: 'rental', reportId: S.resp.reportId || '' });
+    S.rentals = r.status === 200 ? { status: 'ok', data: r.body.listings, cached: r.body.cached, demo: r.body.demo } : { status: 'error', http: r };
+    renderRentals();
+  }
+
+  // ── Market ───────────────────────────────────────────────────────────
+  async function loadMarket() {
+    const panel = $('#ps-comp-tab-market');
+    if (S.market && S.market.status === 'ok') { renderMarket(); return; }
+    if (S.market && S.market.status === 'loading') return;
+    S.market = { status: 'loading' };
+    panel.innerHTML = `<div class="ps-comp-step-text">Pulling 12 months of ZIP market data…</div>${skel(80)}${skel(160)}${skel(160)}`;
+    const r = await api('POST', { action: 'market', reportId: S.resp.reportId });
+    if (r.status !== 200 || !r.body.market) { S.market = { status: 'error', http: r }; panel.innerHTML = tabError(r, 'market', 'market data'); bindRetry(panel, loadMarket, 'market'); return; }
+    S.market = { status: 'ok', data: r.body.market, cached: r.body.cached, demo: r.body.demo };
+    renderMarket();
+    renderBestUse();
+  }
+
+  function series(history, field) {
+    return Object.keys(history || {}).sort().map(m => ({ month: m, v: num(history[m] && history[m][field]) })).filter(p => p.v !== null);
+  }
+
+  // Small inline SVG line chart — no chart library (Build Brief §3.2.8).
+  function sparkChart(points, fmt, label) {
+    if (points.length < 2) return '<div class="ps-comp-disclaim">Not enough history.</div>';
+    const W = 300, H = 92, P = 6;
+    const vals = points.map(p => p.v);
+    const min = Math.min(...vals), max = Math.max(...vals);
+    const span = (max - min) || Math.abs(max) || 1;
+    const x = i => P + i * (W - 2 * P) / (points.length - 1);
+    const y = v => H - P - (v - min) / span * (H - 2 * P - 14);
+    const d = points.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join(' ');
+    const area = `${d} L${x(points.length - 1).toFixed(1)},${H - P} L${x(0).toFixed(1)},${H - P} Z`;
+    const first = points[0], last = points[points.length - 1];
+    const mlabel = m => { const [yy, mm] = m.split('-'); return new Date(Date.UTC(+yy, +mm - 1, 1)).toLocaleDateString('en-US', { month: 'short', year: '2-digit', timeZone: 'UTC' }); };
+    return `<svg class="ps-comp-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${esc(label)}: ${fmt(first.v)} in ${mlabel(first.month)} to ${fmt(last.v)} in ${mlabel(last.month)}">
+        <path d="${area}" class="area"></path><path d="${d}" class="line"></path>
+        <circle cx="${x(points.length - 1).toFixed(1)}" cy="${y(last.v).toFixed(1)}" r="3.5" class="dot"></circle>
+      </svg>
+      <div class="ps-comp-chart-axis"><span>${mlabel(first.month)}</span><span>${mlabel(last.month)}</span></div>`;
+  }
+
+  function renderMarket() {
+    const panel = $('#ps-comp-tab-market');
+    const m = S.market.data || {};
+    const sale = m.saleData || {}, rent = m.rentalData || {};
+    const charts = [
+      { label: 'Median sale price', pts: series(sale.history, 'medianPrice'), fmt: v => moneyK(v) },
+      { label: 'Median rent', pts: series(rent.history, 'medianRent'), fmt: v => money(v) },
+      { label: 'Median $ / sq ft', pts: series(sale.history, 'medianPricePerSquareFoot'), fmt: v => '$' + Math.round(v) },
+      { label: 'Median days on market', pts: series(sale.history, 'medianDaysOnMarket'), fmt: v => Math.round(v) + ' days', invert: true },
+    ];
+    const change = c => {
+      if (c.pts.length < 2) return '';
+      const a = c.pts[0].v, b = c.pts[c.pts.length - 1].v;
+      const pct = a ? (b - a) / a * 100 : 0;
+      const good = c.invert ? pct < 0 : pct > 0;
+      return `<span class="ps-comp-chg ${Math.abs(pct) < 0.5 ? '' : (good ? 'up' : 'down')}">${pct >= 0 ? '▲' : '▼'} ${Math.abs(pct).toFixed(1)}% / 12 mo</span>`;
+    };
+    panel.innerHTML = `
+      <section class="ps-comp-section">
+        <div class="ps-comp-section-title"><span>ZIP ${esc(m.zipCode || '')} market</span><span class="ps-comp-budget">${lookupNote(S.market.cached, S.market.demo)}</span></div>
+        <div class="ps-comp-stats">
+          <div class="ps-comp-stat"><div class="k">Median price</div><div class="v">${moneyK(sale.medianPrice)}</div></div>
+          <div class="ps-comp-stat"><div class="k">Median rent</div><div class="v">${money(rent.medianRent)}</div></div>
+          <div class="ps-comp-stat"><div class="k">Days on market</div><div class="v">${sale.medianDaysOnMarket ?? '—'}</div></div>
+          <div class="ps-comp-stat"><div class="k">Active listings</div><div class="v">${sale.totalListings ?? '—'}</div><div class="s">${sale.newListings ?? '—'} new this month</div></div>
+        </div>
+      </section>
+      <div class="ps-comp-charts">
+        ${charts.map(c => `<div class="ps-comp-chart-card">
+          <div class="ps-comp-chart-head"><span>${esc(c.label)}</span><strong>${c.pts.length ? c.fmt(c.pts[c.pts.length - 1].v) : '—'}</strong></div>
+          ${change(c)}
+          ${sparkChart(c.pts, c.fmt, c.label)}
+        </div>`).join('')}
+      </div>
+      <div class="ps-comp-disclaim">ZIP-level medians from RentCast, all property types, last 12 months.</div>`;
+  }
+
+  // ── Property ─────────────────────────────────────────────────────────
+  const FEATURE_LABELS = { architectureType: 'Architecture', cooling: 'Cooling', coolingType: 'Cooling type', exteriorType: 'Exterior', fireplace: 'Fireplace', floorCount: 'Floors', foundationType: 'Foundation', garage: 'Garage', garageSpaces: 'Garage spaces', garageType: 'Garage type', heating: 'Heating', heatingType: 'Heating type', pool: 'Pool', roofType: 'Roof', roomCount: 'Rooms', unitCount: 'Units' };
+  function renderProperty() {
+    const panel = $('#ps-comp-tab-property');
+    const p = S.resp.property;
+    const subj = S.resp.subject || {};
+    if (!p) { panel.innerHTML = '<div class="ps-comp-notice">No public record details for this address.</div>'; return; }
+    const owner = p.owner || {};
+    const mail = owner.mailingAddress || {};
+    const mailLine = mail.formattedAddress || [mail.addressLine1, mail.city, mail.state, mail.zipCode].filter(Boolean).join(', ');
+    const history = Object.values(p.history || {}).sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    const years = Array.from(new Set([...Object.keys(p.taxAssessments || {}), ...Object.keys(p.propertyTaxes || {})])).sort().reverse();
+    const feats = Object.entries(p.features || {}).filter(([, v]) => v !== null && v !== undefined && v !== '');
+    const yn = v => v === true ? 'Yes' : v === false ? 'No' : esc(v);
+    panel.innerHTML = `
+      <section class="ps-comp-section">
+        <div class="ps-comp-section-title"><span>Owner</span><span class="ps-comp-budget">From the first pull — no lookup used</span></div>
+        <div class="ps-comp-kv">
+          <div><span>Owner</span><strong>${esc((owner.names || []).join(', ') || '—')}</strong></div>
+          <div><span>Owner type</span><strong>${esc(owner.type || '—')}</strong></div>
+          <div><span>Mailing address</span><strong>${esc(mailLine || '—')}</strong></div>
+          <div><span>Owner-occupied</span><strong>${p.ownerOccupied === null || p.ownerOccupied === undefined ? '—' : yn(p.ownerOccupied)}</strong></div>
+        </div>
+        <div class="ps-comp-disclaim ps-comp-lawful">Use owner information only for lawful outreach — follow TCPA, Do-Not-Call and your state's rules. Owner details are never included in shared reports.</div>
+      </section>
+      <section class="ps-comp-section">
+        <div class="ps-comp-section-title"><span>Sale history</span></div>
+        ${history.length ? `<ol class="ps-comp-timeline">${history.map(h => `<li><span class="when">${shortDate(h.date)}</span><span class="what">${esc(h.event || 'Sale')}</span><strong>${money(h.price)}</strong></li>`).join('')}</ol>` : '<div class="ps-comp-disclaim">No recorded sales on file.</div>'}
+      </section>
+      <section class="ps-comp-section">
+        <div class="ps-comp-section-title"><span>Tax assessments &amp; property taxes</span></div>
+        ${years.length ? `<div class="ps-comp-table-wrap"><table class="ps-comp-table ps-comp-table-sm"><thead><tr><th scope="col">Year</th><th scope="col" class="num">Assessed value</th><th scope="col" class="num">Land</th><th scope="col" class="num">Improvements</th><th scope="col" class="num">Property tax</th></tr></thead><tbody>
+          ${years.map(y => { const a = (p.taxAssessments || {})[y] || {}; const t = (p.propertyTaxes || {})[y] || {}; return `<tr><td data-label="Year">${esc(y)}</td><td class="num" data-label="Assessed">${money(a.value)}</td><td class="num" data-label="Land">${money(a.land)}</td><td class="num" data-label="Improvements">${money(a.improvements)}</td><td class="num" data-label="Tax">${money(t.total)}</td></tr>`; }).join('')}
+        </tbody></table></div>` : '<div class="ps-comp-disclaim">No tax records on file.</div>'}
+      </section>
+      <section class="ps-comp-section">
+        <div class="ps-comp-section-title"><span>Features</span></div>
+        <div class="ps-comp-kv">
+          ${subj.yearBuilt ? `<div><span>Year built</span><strong>${esc(subj.yearBuilt)}</strong></div>` : ''}
+          ${feats.map(([k, v]) => `<div><span>${esc(FEATURE_LABELS[k] || k)}</span><strong>${yn(v)}</strong></div>`).join('') || '<div><span>Features</span><strong>—</strong></div>'}
+        </div>
+      </section>`;
+  }
+
+  // ── ARIS best use ────────────────────────────────────────────────────
+  function demoSummary() {
+    const subj = S.resp.subject || {};
+    const r = S.report || {};
+    const avm = S.resp.avm || {};
+    const out = { propertyType: subj.propertyType, beds: subj.beds, baths: subj.baths, sqft: subj.sqft, yearBuilt: subj.yearBuilt,
+      arv: r.arv, arvLow: r.arvLow, arvHigh: r.arvHigh, rentcastValue: avm.price, confidence: r.confidence, compCount: r.compCount,
+      lastSalePrice: subj.lastSalePrice, estimatedEquity: S.equity };
+    if (S.rent && S.rent.status === 'ok') out.monthlyRent = S.rent.data.rent;
+    if (S.market && S.market.status === 'ok') {
+      const sale = S.market.data.saleData || {}, rent = S.market.data.rentalData || {};
+      out.zipMedianPrice = sale.medianPrice; out.zipMedianDaysOnMarket = sale.medianDaysOnMarket; out.zipMedianRent = rent.medianRent;
+    }
+    return out;
+  }
+
+  async function requestBestUse(refresh) {
+    if (!S || !S.resp) return;
+    await flushSave();   // so the server-side ARV matches what's on screen
+    S.bestUse = { status: 'loading', prev: S.bestUse && S.bestUse.data };
+    renderBestUse();
+    const payload = { action: 'best-use', equity: S.equity, refresh: !!refresh };
+    if (S.resp.reportId) payload.reportId = S.resp.reportId; else payload.summary = demoSummary();
+    const r = await api('POST', payload);
+    S.bestUse = r.status === 200 && r.body.result
+      ? { status: 'ok', data: r.body, hadRent: !!(S.rent && S.rent.status === 'ok'), hadMarket: !!(S.market && S.market.status === 'ok') }
+      : { status: 'error', http: r };
+    renderBestUse();
+  }
+
+  const STRAT_LABEL = { Wholesale: 'Wholesale', Flip: 'Fix & Flip', Rental: 'Buy & Hold Rental', STR: 'Short-Term Rental', Hold: 'Hold' };
+  function renderBestUse() {
+    const box = $('#ps-comp-bestuse');
+    if (!box || !S) return;
+    const st = S.bestUse;
+    const head = '<div class="ps-comp-section-title"><span>Best use · ARIS</span></div>';
+    if (!st || st.status === 'loading') {
+      box.innerHTML = `${head}<div class="ps-comp-bu"><div class="ps-comp-step-text" aria-live="polite">ARIS is ranking exit strategies for this property…</div>${skel(70)}</div>`;
+      return;
+    }
+    if (st.status === 'error') {
+      const msg = st.http && st.http.status === 503 ? 'ARIS isn\u2019t available right now.' : 'ARIS couldn\u2019t rank this property right now.';
+      box.innerHTML = `${head}<div class="ps-comp-notice">${msg} <button type="button" class="ps-comp-link" id="ps-comp-bu-retry">Try again</button></div>`;
+      $('#ps-comp-bu-retry').addEventListener('click', () => requestBestUse(false));
+      return;
+    }
+    const res = st.data.result;
+    const top = res.ranked[0];
+    const canUpdate = (!st.hadRent && S.rent && S.rent.status === 'ok') || (!st.hadMarket && S.market && S.market.status === 'ok');
+    box.innerHTML = `${head}
+      <div class="ps-comp-bu">
+        <div class="ps-comp-bu-top"><span class="k">Best fit</span><strong>${esc(STRAT_LABEL[top.strategy] || top.strategy)}</strong><span class="score">${top.score}/100</span></div>
+        <ol class="ps-comp-bu-list">
+          ${res.ranked.map((r, i) => `<li class="${i === 0 ? 'top' : ''}">
+            <div class="row"><span class="name">${esc(STRAT_LABEL[r.strategy] || r.strategy)}</span><span class="bar" aria-hidden="true"><i style="width:${r.score}%"></i></span><span class="score">${r.score}</span></div>
+            ${i === 0 ? `<ul class="why">${r.reasons.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : `<details><summary>Why</summary><ul class="why">${r.reasons.map(x => `<li>${esc(x)}</li>`).join('')}</ul></details>`}
+          </li>`).join('')}
+        </ol>
+        ${res.caveats.length ? `<div class="ps-comp-bu-cav"><strong>Caveats:</strong> ${res.caveats.map(esc).join(' ')}</div>` : ''}
+        <div class="ps-comp-disclaim">ARIS suggestion from the comp summary only — educational, not financial advice. ${st.data.cached ? 'Saved result.' : ''}
+          ${canUpdate ? '<button type="button" class="ps-comp-link" id="ps-comp-bu-update">Update with rent &amp; market data</button>' : ''}</div>
+      </div>`;
+    const up = $('#ps-comp-bu-update');
+    if (up) up.addEventListener('click', () => requestBestUse(false));
+  }
+
+  // ── shared tab helpers ───────────────────────────────────────────────
+  function tabError(r, kind, what) {
+    const e = (r && r.body && r.body.error) || '';
+    if (r && (r.status === 402 || e === 'budget_cap')) return `<div class="ps-comp-notice warn"><strong>Lookups are paused for this month.</strong> ${esc(what)} will load once lookups resume.</div>`;
+    if (r && r.status === 429 && e === 'member_limit') return `<div class="ps-comp-notice warn"><strong>You've reached this month's lookup limit.</strong></div>`;
+    if (r && r.status === 400 && e === 'no_zip') return `<div class="ps-comp-notice">This address has no ZIP code, so there's no ZIP market data.</div>`;
+    return `<div class="ps-comp-notice err">Couldn't load ${esc(what)}. No lookup was charged. <button type="button" class="ps-comp-link" data-retry="${kind}">Try again</button></div>`;
+  }
+  function bindRetry(root, fn, kind) {
+    const b = root.querySelector(`[data-retry="${kind}"]`);
+    if (b) b.addEventListener('click', () => { if (kind === 'rent') S.rent = null; if (kind === 'market') S.market = null; fn(); });
+  }
+
+  // Numbered pins for a list of comps on a fresh mini map.
+  function drawPins(elId, comps, keep, existing) {
+    if (typeof L === 'undefined') return;
+    if (existing) { existing.remove(); }
+    const subj = S.resp.subject || {};
+    const m = L.map(elId, { zoomControl: true, attributionControl: false, scrollWheelZoom: false });
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { subdomains: 'abc', maxZoom: 19 }).addTo(m);
+    const pts = [];
+    if (subj.lat && subj.lng) {
+      L.marker([subj.lat, subj.lng], { icon: L.divIcon({ className: '', html: '<div class="ps-comp-star" aria-hidden="true">★</div>', iconSize: [26, 26], iconAnchor: [13, 13] }), keyboard: false }).addTo(m).bindTooltip('Subject property');
+      pts.push([subj.lat, subj.lng]);
+    }
+    comps.forEach((c, i) => {
+      if (!c.lat || !c.lng) return;
+      L.marker([c.lat, c.lng], { icon: L.divIcon({ className: '', html: `<div class="ps-comp-pin mid">${i + 1}</div>`, iconSize: [24, 24], iconAnchor: [12, 12] }), title: c.address }).addTo(m)
+        .bindTooltip(`${streetOnly(c.address)} · ${money(c.price)}`);
+      pts.push([c.lat, c.lng]);
+    });
+    if (pts.length > 1) m.fitBounds(pts, { padding: [24, 24], maxZoom: 16 }); else if (pts.length) m.setView(pts[0], 14); else m.setView([41.4189, -87.3653], 12);
+    setTimeout(() => m.invalidateSize(), 60);
+    keep(m);
+  }
+
   // Buttons read their lead id from data attributes, so ids never pass
   // through an inline JS string. (A delegated document listener would miss
   // map-popup clicks: Leaflet stops click propagation inside popups.)

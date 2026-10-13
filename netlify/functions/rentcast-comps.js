@@ -39,6 +39,7 @@
 //   POST { action:'expand', reportId, radius, soldWithinDays }    1 call
 //   POST { action:'update', reportId, selection }                 0 calls
 //   POST { action:'share', reportId } / { action:'revoke', reportId }
+//   POST { action:'best-use', reportId, equity?, refresh? }        0 lookups (1 ARIS call, cached)
 //   POST { action:'save-crm', ... }                               Phase 4 (501)
 //   GET  ?action=listings&reportId=&type=sale|rental              1 call
 //   GET  ?action=report&token=        PUBLIC, read-only, never calls RentCast
@@ -58,6 +59,7 @@ const engine = require('../../assets/js/comp-engine');
 const { rentcastGet, isRetryable, loadFixture } = require('./_Lib/rentcast-client');
 const { sendAlert } = require('./_Lib/comps-alerts');
 const { hasCompsAccess } = require('./_Lib/plans');
+const bestUse = require('./_Lib/comps-best-use');
 
 // Same admin allowlist as education-admin.js / lab-admin.js, plus any
 // extra addresses in COMPS_ADMIN_EMAILS (e.g. Simon) for the usage view.
@@ -377,6 +379,7 @@ function createHandler(deps) {
       if (isPost && action === 'update') return await updateAction(ctx, body);
       if (isPost && action === 'share') return await shareAction(ctx, body);
       if (isPost && action === 'revoke') return await revokeAction(ctx, body);
+      if (isPost && action === 'best-use') return await bestUseAction(ctx, body);
       if (isPost && action === 'save-crm') return json(501, { error: 'not_implemented', message: 'Save to CRM ships in Phase 4.' });
 
       return json(400, { error: 'Unknown action' });
@@ -589,6 +592,44 @@ async function rebuildFromCache(ctx, row, selection) {
   ['lat', 'lng', 'sqft', 'beds', 'baths', 'yearBuilt', 'propertyType'].forEach(k => { if (row.subject && row.subject[k] !== undefined) overrides[k] = row.subject[k]; });
   const merged = { ...(row.selection || {}), ...(selection || {}) };
   return assemble({ subjectRec: firstRecord(subjectData), soldData, valueData, overrides, normAddress: row.norm_address, selection: merged, asOf: new Date(row.created_at || ctx.now()) });
+}
+
+// ── best-use: ARIS ranks Wholesale / Flip / Rental / STR / Hold ───────
+// Sends only the computed summary (see _Lib/comps-best-use.js). Cached on
+// comp_reports.best_use with a hash of the summary; `refresh: true` asks
+// again (e.g. once rent and market data have loaded). Costs no RentCast
+// lookup — one small Anthropic call, only on a cache miss.
+async function bestUseAction(ctx, body) {
+  const apiKey = ctx.env.ANTHROPIC_API_KEY;
+  let summary;
+  let row = null;
+  if (body.reportId) {
+    row = await loadOwnReport(ctx, body.reportId);
+    let market = null;
+    const marketKey = row.sources && row.sources.market;
+    if (marketKey) { const hit = await ctx.store.getCache(marketKey, ctx.now()); market = hit ? hit.response : null; }
+    summary = bestUse.buildSummary({ row, market, extra: { equity: body.equity } });
+  } else if (ctx.cfg.mode === 'demo') {
+    summary = bestUse.sanitizeSummary(body.summary);   // demo has no stored report
+  } else {
+    return json(400, { error: 'reportId is required' });
+  }
+  if (!summary.arv && !summary.rentcastValue) return json(409, { error: 'no_value', message: 'Best use needs an ARV or a RentCast value first.' });
+
+  const hash = bestUse.summaryHash(summary);
+  const cached = row && row.best_use;
+  if (cached && cached.hash === hash && !body.refresh) return json(200, { cached: true, ...cached });
+
+  if (!apiKey) return json(503, { error: 'aris_unavailable', message: 'ARIS is not configured.' });
+  const r = await bestUse.askAris(summary, { apiKey, fetchImpl: ctx.deps.fetch });
+  if (!r.ok) return json(502, { error: 'best_use_unavailable', message: 'ARIS could not rank this property right now. Try again in a minute.' });
+
+  const record = { hash, result: r.result, summary, model: bestUse.MODEL, createdAt: ctx.now().toISOString() };
+  if (row) {
+    try { await ctx.store.updateReport(row.id, ctx.memberId, { best_use: record }); }
+    catch (e) { console.error('rentcast-comps: best_use save failed', e && e.message); }
+  }
+  return json(200, { cached: false, ...record });
 }
 
 async function shareAction(ctx, body) {

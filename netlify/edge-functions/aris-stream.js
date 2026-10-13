@@ -256,6 +256,26 @@ Only include this block when you are actually suggesting a next step in your rep
 
 You are the same ARIS a member gets on day one. Prove it in this conversation.`;
 
+// ── Comping engine wording (Build Brief §6.3) ──────────────────────────
+// OFF until the comping engine is live for members (Phase 5). Turn on by
+// setting the Netlify env var COMPS_ARIS_LIVE=1 — no code change needed.
+// Until then ARIS keeps describing comps as not yet available.
+const COMPS_MEMBER_BLOCK = `
+
+COMPING ENGINE (Empire feature, live):
+FORGE's comping engine (Empire) pulls recorded sales within 1 mi / 90 days and RentCast valuations. Members open it from Property Search with "Comp This Property". It produces a FORGE ARV with a range and a confidence level, a rent estimate, a ZIP market trend, and a best-use ranking, and the member can include or exclude each comp. When a member needs an ARV for a specific property, point them there.
+Whenever you talk about comp results, be clear that: the ARV is an estimate, not an appraisal; listing comps are not verified sales; and coverage varies by market.`;
+
+const COMPS_SALES_BLOCK = `
+
+COMPING ENGINE:
+Empire members get a comping engine inside Property Search (recorded sales plus RentCast valuations). You may mention that it exists as an Empire feature. You must NOT run comps, estimate an ARV, or quote values for a visitor's property — the "do not become a deal analyzer" rule above still applies.`;
+
+function compsBlock(promptKey) {
+  if (Netlify.env.get('COMPS_ARIS_LIVE') !== '1') return '';
+  return promptKey === 'sales' ? COMPS_SALES_BLOCK : COMPS_MEMBER_BLOCK;
+}
+
 const SYSTEM_PROMPTS = {
   'coach': ARIS_SYSTEM_COACH,
   'deal-analyzer': ARIS_SYSTEM_DEAL_ANALYZER,
@@ -338,7 +358,7 @@ export default async (request, context) => {
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
     });
   }
-  const resolvedSystem = basePrompt + (body.promptKey === 'coach' ? buildWhyBlock(body.memberWhy) : '');
+  const resolvedSystem = basePrompt + compsBlock(body.promptKey) + (body.promptKey === 'coach' ? buildWhyBlock(body.memberWhy) : '');
 
   const requestBody = {
     model: body.model || 'claude-sonnet-4-6',

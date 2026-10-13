@@ -33,6 +33,10 @@ function setup(opts) {
         const isUpsert = String(url).endsWith('/contacts/upsert');
         return { ok: true, status: 200, json: async () => (isUpsert ? { contact: { id: 'c_' + JSON.parse(init.body).email } } : {}) };
       }
+      if (String(url).includes('api.anthropic.com')) {
+        if (!o.anthropic) throw new Error('unexpected Anthropic call');
+        return o.anthropic(url, init);
+      }
       if (o.fetch) return o.fetch(url, init);
       throw new Error('unexpected network call to ' + url);
     },
@@ -332,4 +336,110 @@ test('live mode: sends X-Api-Key, retries once on 429, never puts the key in a r
 
 test('save-crm is stubbed for Phase 4', async () => {
   assert.equal((await setup().call('POST', { action: 'save-crm' })).status, 501);
+});
+
+
+// ── Phase 3: ARIS best use ─────────────────────────────────────────────
+const GOOD_ARIS = JSON.stringify({ ranked: [
+  { strategy: 'Rental', score: 81, reasons: ['Rent-to-value near 0.7%', 'ARV within 1% of RentCast'] },
+  { strategy: 'Flip', score: 64, reasons: ['Thin spread to ARV without a purchase price', 'Steady 12-month price trend'] },
+  { strategy: 'Wholesale', score: 55, reasons: ['Needs a deep discount to leave room for a buyer'] },
+  { strategy: 'Hold', score: 50, reasons: ['Appreciation modest'] },
+  { strategy: 'STR', score: 30, reasons: ['No STR demand data provided'] },
+], caveats: ['No repair estimate or purchase price was provided.'] });
+
+function arisReply(text, calls) {
+  return async (url, init) => { calls.push(JSON.parse(init.body)); return { ok: true, status: 200, json: async () => ({ content: [{ type: 'text', text }] }) }; };
+}
+
+test('best use: strict JSON ranked, cached on the report, second request makes no ARIS call', async () => {
+  const calls = [];
+  const t = setup({ env: { ANTHROPIC_API_KEY: 'test-anthropic' }, anthropic: arisReply(GOOD_ARIS, calls) });
+  const c = await t.call('POST', { action: 'comp', address: ADDRESS });
+  const r1 = await t.call('POST', { action: 'best-use', reportId: c.body.reportId, equity: 112000 });
+  assert.equal(r1.status, 200);
+  assert.equal(r1.body.cached, false);
+  assert.deepEqual(r1.body.result.ranked.map(x => x.strategy), ['Rental', 'Flip', 'Wholesale', 'Hold', 'STR']);
+  assert.equal(r1.body.result.caveats.length, 1);
+  const r2 = await t.call('POST', { action: 'best-use', reportId: c.body.reportId, equity: 112000 });
+  assert.equal(r2.body.cached, true);
+  assert.equal(calls.length, 1);
+  assert.equal(t.mockCalls.length, 3);          // no RentCast lookup for best use
+  assert.ok(t.store.reports.get(c.body.reportId).best_use.hash);
+});
+
+test('best use sends only the computed summary — no owner, address or member data', async () => {
+  const calls = [];
+  const t = setup({ env: { ANTHROPIC_API_KEY: 'test-anthropic' }, anthropic: arisReply(GOOD_ARIS, calls) });
+  const c = await t.call('POST', { action: 'comp', address: ADDRESS });
+  await t.call('POST', { action: 'rent', reportId: c.body.reportId });
+  await t.call('POST', { action: 'market', reportId: c.body.reportId });
+  await t.call('POST', { action: 'best-use', reportId: c.body.reportId, equity: 112000 });
+  const sent = JSON.stringify(calls[0]);
+  ['Alvarez', '733 N Main', 'mem_test', 'member@example.com', 'mailingAddress', 'taxAssessments'].forEach(x => assert.ok(!sent.includes(x), 'leaked ' + x));
+  const summary = JSON.parse(calls[0].messages[0].content.split('\n').slice(1).join('\n'));
+  assert.equal(summary.arv, 261000);
+  assert.equal(summary.monthlyRent, 1850);
+  assert.equal(summary.estimatedEquity, 112000);
+  assert.equal(summary.zipMedianDaysOnMarket, 32);
+  assert.ok(summary.zipPriceTrend12moPct > 0);
+  assert.equal(calls[0].model, 'claude-sonnet-4-6');
+});
+
+test('best use re-asks when the summary changes (rent loaded later)', async () => {
+  const calls = [];
+  const t = setup({ env: { ANTHROPIC_API_KEY: 'k' }, anthropic: arisReply(GOOD_ARIS, calls) });
+  const c = await t.call('POST', { action: 'comp', address: ADDRESS });
+  await t.call('POST', { action: 'best-use', reportId: c.body.reportId });
+  await t.call('POST', { action: 'rent', reportId: c.body.reportId });
+  const again = await t.call('POST', { action: 'best-use', reportId: c.body.reportId });
+  assert.equal(again.body.cached, false);
+  assert.equal(calls.length, 2);
+});
+
+test('best use tolerates code fences, rejects junk, and needs an API key', async () => {
+  const fenced = setup({ env: { ANTHROPIC_API_KEY: 'k' }, anthropic: arisReply('Here you go:\n```json\n' + GOOD_ARIS + '\n```', []) });
+  const c1 = await fenced.call('POST', { action: 'comp', address: ADDRESS });
+  assert.equal((await fenced.call('POST', { action: 'best-use', reportId: c1.body.reportId })).status, 200);
+  const junk = setup({ env: { ANTHROPIC_API_KEY: 'k' }, anthropic: arisReply('I think a rental is best!', []) });
+  const c2 = await junk.call('POST', { action: 'comp', address: ADDRESS });
+  const r = await junk.call('POST', { action: 'best-use', reportId: c2.body.reportId });
+  assert.equal(r.status, 502); assert.equal(r.body.error, 'best_use_unavailable');
+  const nokey = setup();
+  const c3 = await nokey.call('POST', { action: 'comp', address: ADDRESS });
+  assert.equal((await nokey.call('POST', { action: 'best-use', reportId: c3.body.reportId })).status, 503);
+});
+
+test('best use in demo mode uses a sanitized client summary', async () => {
+  const calls = [];
+  const t = setup({ env: { RENTCAST_MOCK: undefined, RENTCAST_API_KEY: undefined, ANTHROPIC_API_KEY: 'k' }, anthropic: arisReply(GOOD_ARIS, calls) });
+  const r = await t.call('POST', { action: 'best-use', summary: { arv: 261000, sqft: 1650, propertyType: 'Single Family', ownerName: 'T. Alvarez', evil: '<script>' } });
+  assert.equal(r.status, 200);
+  const sent = calls[0].messages[0].content;
+  assert.ok(!sent.includes('Alvarez') && !sent.includes('script'));
+});
+
+test('parseResult: drops unknown strategies and duplicates, clamps scores, caps reasons', () => {
+  const { parseResult } = require('../netlify/functions/_Lib/comps-best-use');
+  const out = parseResult(JSON.stringify({ ranked: [
+    { strategy: 'flip', score: 140, reasons: ['a', 'b', 'c', 'd'] },
+    { strategy: 'Flip', score: 10, reasons: ['dup'] },
+    { strategy: 'Timeshare', score: 90, reasons: ['x'] },
+    { strategy: 'Hold', score: -5, reasons: [] },
+    { strategy: 'Rental', score: 70, reasons: ['r'] },
+  ], caveats: 'not an array' }));
+  assert.deepEqual(out.ranked.map(r => [r.strategy, r.score, r.reasons.length]), [['Flip', 100, 3], ['Rental', 70, 1]]);
+  assert.deepEqual(out.caveats, []);
+  assert.equal(parseResult('no json here'), null);
+});
+
+test('shared reports never include owner data, even after rent/market/best use', async () => {
+  const t = setup({ env: { ANTHROPIC_API_KEY: 'k' }, anthropic: arisReply(GOOD_ARIS, []) });
+  const c = await t.call('POST', { action: 'comp', address: ADDRESS });
+  await t.call('POST', { action: 'rent', reportId: c.body.reportId });
+  await t.call('POST', { action: 'best-use', reportId: c.body.reportId });
+  const s = await t.call('POST', { action: 'share', reportId: c.body.reportId });
+  const pub = await setup({ store: t.store, unauth: true }).call('GET', { action: 'report', token: s.body.token });
+  const text = JSON.stringify(pub.body);
+  ['Alvarez', 'mailingAddress', 'taxAssessments', 'propertyTaxes', 'ownerOccupied'].forEach(x => assert.ok(!text.includes(x), x));
 });
