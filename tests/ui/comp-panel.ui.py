@@ -40,8 +40,10 @@ BASE = 'http://127.0.0.1:8766'
 SEARCH = {"results": [
   {"id": "demo-4", "address": "733 N Main St, Crown Point, IN 46307", "lat": 41.4278, "lng": -87.3602, "playIds": ["prefore"], "owner": "T. Alvarez", "equity": 112,
    "details": {"beds": 3, "baths": 2, "sqft": 1650, "yearBuilt": 1978, "propertyType": "Single Family"}},
-  {"id": "demo-1", "address": "2107 Delaware Pkwy, Crown Point, IN 46307", "lat": 41.4102, "lng": -87.3599, "playIds": ["taxdelinquent"], "owner": "R. Nowak", "equity": 34, "details": {}}],
-  "total": 2, "demo": True}
+  {"id": "demo-1", "address": "2107 Delaware Pkwy, Crown Point, IN 46307", "lat": 41.4102, "lng": -87.3599, "playIds": ["taxdelinquent"], "owner": "R. Nowak", "equity": 34, "details": {}},
+  {"id": "R100", "address": "1930 SILVER CREEK CT", "lat": 41.40, "lng": -87.33, "playIds": ["prefore"], "owner": "S. Fiori", "equity": 133,
+   "details": {"city": "Crown Point", "state": "IN", "zip": "46307", "beds": 2, "baths": 2, "sqft": 1684}}],
+  "total": 3, "demo": True}
 
 def member_script(email):
     return """
@@ -124,7 +126,7 @@ async def main():
         ctx, page, calls, errors = await make_page(b, (1440, 900))
         check('lookup card replaces the address teaser', await page.is_visible('#ps-comp-lookup') and not await page.is_visible('#ps-teaser-lookup'))
         check('comps teaser hidden for admins', not await page.is_visible('#ps-teaser-comps'))
-        check('result cards get a Comp button', await page.locator('.ps-lead-card .ps-comp-lead-btn').count() == 2)
+        check('result cards get a Comp button', await page.locator('.ps-lead-card .ps-comp-lead-btn').count() == 3)
         await page.click('#ps-comp-go')
         check('lookup form validates empty street', await page.is_visible('#ps-comp-form-error'))
         await open_by_lookup(page)
@@ -195,6 +197,34 @@ async def main():
         await page.wait_for_selector('.ps-comp-panel.open .ps-comp-stat.arv .v')
         p2 = [c for c in calls[before:] if c['action'] == 'comp'][0]['payload']
         check('lead card passes beds/baths/sqft', p2['overrides'].get('sqft') == 1650 and p2['overrides'].get('beds') == 3, p2['overrides'])
+        # Street-only live lead: the full address goes to RentCast.
+        await page.keyboard.press('Escape'); await page.wait_for_timeout(300)
+        before = len(calls)
+        await page.click('#ps-card-R100 .ps-comp-lead-btn')
+        await page.wait_for_selector('.ps-comp-panel.open .ps-comp-stat.arv .v')
+        p3 = [c for c in calls[before:] if c['action'] == 'comp'][0]['payload']
+        check('street-only lead sends the full address', p3['address'] == '1930 SILVER CREEK CT, Crown Point, IN 46307', p3['address'])
+        lines = await page.locator('.ps-comp-table .ps-comp-cityline').all_inner_texts()
+        check('comp rows show city, state, ZIP', len(lines) >= 5 and all(l == 'Crown Point, IN 46307' for l in lines), lines[:3])
+        await page.click('#ps-comp-tabbtn-rent'); await page.wait_for_selector('#ps-comp-tab-rent tbody tr')
+        rl = await page.locator('#ps-comp-tab-rent .ps-comp-cityline').all_inner_texts()
+        check('rental comps show city, state, ZIP', len(rl) == 4 and rl[0] == 'Crown Point, IN 46307', rl)
+        await page.keyboard.press('Escape'); await page.wait_for_timeout(300)
+        # Old saved lead with no city/state/ZIP: ask instead of guessing.
+        before = len(calls)
+        await page.evaluate("savedLeadsCache = [{ id: 'old1', address: '55 OLD MILL RD', details: {} }]; ForgeComps.openLead('saved', 'old1')")
+        await page.wait_for_timeout(500)
+        check('incomplete saved lead makes no comp call', not any(c['action'] == 'comp' for c in calls[before:]))
+        check('lookup card prefilled with the street', await page.input_value('#ps-comp-street') == '55 OLD MILL RD')
+        msg = await page.inner_text('#ps-comp-form-error')
+        check('member is asked for city, state and ZIP', 'city, state and ZIP' in msg, msg)
+        check('city field focused', await page.evaluate("document.activeElement && document.activeElement.id") == 'ps-comp-city')
+        await page.fill('#ps-comp-city', 'Hobart'); await page.fill('#ps-comp-state', 'IN'); await page.fill('#ps-comp-zip', '46342')
+        await page.click('#ps-comp-go'); await page.wait_for_selector('.ps-comp-panel.open .ps-comp-stat.arv .v')
+        p4 = [c for c in calls[before:] if c['action'] == 'comp'][0]['payload']
+        check('completed address is used', p4['address'] == '55 OLD MILL RD, Hobart, IN 46342', p4['address'])
+        await page.keyboard.press('Escape')
+        await page.screenshot(path=f'{W}/shot-1440-cityline.png')
         await ctx.close()
 
         # ── Phase 3: best use, tabs, lazy loading ──

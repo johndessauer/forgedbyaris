@@ -193,3 +193,13 @@ npm run test:ui   # 78/78 browser checks
 
 ## Next
 Phase 4: Send to Deal Analyzer, Save to CRM (native default, GHL admin-only), comp-report PDF attached to the CRM deal, share links.
+
+---
+
+# Fix — full addresses for comps (Oct 13, 2026)
+
+**Branch:** `fix/comps-full-address`. Found while John was checking rent comps.
+- **Bug:** live lead-search results carried only the street ("1930 SILVER CREEK CT"); PropertyRadar's City/State/ZipFive were fetched but used only for the Zillow link. "Comp This Property" therefore sent RentCast a street-only address — fine in demo, wrong-property risk once live.
+- **Fix:** `property-search.js` puts `city`, `state`, `zip` in each result's `details` (so saved leads keep them; no SQL). `comp-panel.js` builds the full address for RentCast; for older saved leads without city/state/ZIP it prefills the lookup card and asks instead of guessing.
+- **Display:** city, state and ZIP shown under the street on every sales comp, rental comp and active rental. Table dates compacted to `9/11/26` so the table still fits.
+- **Tests:** `tests/property-search-address.test.js`; UI suite now 86 checks.

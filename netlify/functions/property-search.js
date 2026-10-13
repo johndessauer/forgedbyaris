@@ -251,6 +251,12 @@ async function searchPropertyRadar(location, playIds, start = 0) {
       // comment) — null-safe so an unrecognized/renamed field just shows
       // as missing in the UI instead of breaking the response.
       details: {
+        // City / state / ZIP travel with the lead (and into saved leads via
+        // the details blob) so "Comp This Property" can send RentCast the
+        // full address — the street alone can match the wrong property.
+        city: r.City || null,
+        state: r.State || null,
+        zip: r.ZipFive || null,
         propertyType: r.PType || null,
         beds: r.Beds ?? null,
         baths: r.Baths ?? null,
