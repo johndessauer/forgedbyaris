@@ -503,7 +503,7 @@ Return ONLY the JSON object. No other text.`;
 
   const res = await fetch('/api/aris-quote', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + memberToken },
     body: JSON.stringify({
       model: 'claude-sonnet-4-6',
       max_tokens: 400,
@@ -805,7 +805,7 @@ Give a direct 3–4 sentence ARIS market verdict. Lead with the area class and w
   const fullPrompt = prompt + getWhyContext();
   const res = await fetch('/api/aris-quote', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + memberToken },
     body: JSON.stringify({
       model: 'claude-sonnet-4-6',
       max_tokens: 600,

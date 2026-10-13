@@ -1132,7 +1132,7 @@ async function loadDailyQuote(force = false) {
       : '';
     const res = await fetch('/api/aris-quote', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + memberToken },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 1000,
