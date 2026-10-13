@@ -196,6 +196,12 @@ html, body { min-height: 100vh; background: var(--black); color: var(--white); f
   // directly by John — not linked from the main site nav.
   const currentPhase = { priceId: 'prc_-97-direct-ka9b0lq3', label: '$97/mo' };
 
+  // Partner referral tracking — captures ?ref=<source> from the URL (e.g.
+  // ?ref=fortiva) and passes it through as a Memberstack custom field so it
+  // rides the existing plan.added -> GHL webhook sync. Absent on plain links;
+  // GHL applies partner tags only when this field is present.
+  const referralSource = new URLSearchParams(window.location.search).get('ref') || '';
+
   async function handleSignup() {
     const firstName = document.getElementById('first-name').value.trim();
     const lastName  = document.getElementById('last-name').value.trim();
@@ -245,7 +251,8 @@ html, body { min-height: 100vh; background: var(--black); color: var(--white); f
               'first-name': firstName,
               'last-name': lastName,
               'full-name': firstName + ' ' + lastName,
-              'plan-type': 'Direct $97'
+              'plan-type': 'Direct $97',
+              ...(referralSource && { 'referral-source': referralSource })
             }
           });
           member = (signupData && signupData.member) || signupData || null;
