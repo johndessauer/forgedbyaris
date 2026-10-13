@@ -703,12 +703,15 @@ window.onload = async () => {
     // Comping engine panel — shows only for admins until it goes live.
     try { if (window.ForgeComps) window.ForgeComps.init({ email: member.auth && member.auth.email, getToken: () => memberToken }); }
     catch (e) { console.error('Comps panel failed to start', e); }
-    loadEducationBadges();
+    // These two helpers live on the dashboard, not on this page. Calling
+    // them unguarded threw a ReferenceError that skipped the sidebar name /
+    // plan below, so Property Search always showed "Member" (fixed Oct 12, 2026).
+    if (typeof loadEducationBadges === 'function') loadEducationBadges();
     // Pull Why answers from the server before deciding whether to show
     // the onboarding prompt — without this, a member who already answered
     // on another device would incorrectly see the prompt again here, since
     // it previously only ever checked localStorage.
-    await syncWhyFromServer();
+    if (typeof syncWhyFromServer === 'function') await syncWhyFromServer();
     // Populate member name dynamically
     const customFields = member.customFields || {};
     const fullName = customFields['full-name'] || (customFields['first-name'] ? customFields['first-name'] + ' ' + (customFields['last-name'] || '') : null) || member.auth?.email || 'Member';
