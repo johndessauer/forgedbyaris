@@ -296,7 +296,9 @@
     const sectionErrs = Object.keys(resp.sectionErrors || {});
     const partial = sectionErrs.length
       ? `<div class="ps-comp-notice warn">Some data couldn't load (${sectionErrs.map(s => ({ subject: 'property record', sold: 'recorded sales', value: 'RentCast valuation' }[s] || s)).join(', ')}). What's shown below uses the data that did load.</div>`
-      : '';
+      : (resp.noPublicRecord
+        ? `<div class="ps-comp-notice">No public property record on file for this address (common for new construction). Valuation and comps below still use RentCast data.</div>`
+        : '');
     els.body.innerHTML = `
       ${resp.demo ? '<div class="ps-comp-notice warn"><strong>Demo data.</strong> These are sample Crown Point, IN comps, shown for every address until live property data is turned on.</div>' : ''}
       ${partial}
@@ -443,12 +445,23 @@
     $('#ps-comp-sheet-done').addEventListener('click', () => { $('#ps-comp-sheet').classList.remove('open'); const t = $('#ps-comp-filters-toggle'); if (t) t.setAttribute('aria-expanded', 'false'); });
   }
 
+  function budgetText(b, left) {
+    if (!b) return '';
+    if (b.paused) return 'Lookups paused for this month (cap reached)';
+    if (b.freeLookupsLeft !== undefined && b.freeLookupsLeft !== null) {
+      if (b.freeLookupsLeft > 0) return `${b.freeLookupsLeft} of ${b.included} free lookups left this month`;
+      const cents = b.overage ? `$${Number(b.overage).toFixed(2)}` : '';
+      return `Free lookups used — ${cents} each, $${Math.max(0, Math.round((b.cap - b.spend) * 100) / 100)} left of $${b.cap} cap`;
+    }
+    return left !== null ? `${left} lookups left this month` : '';
+  }
+
   function renderBudget() {
     const slot = $('#ps-comp-expand-slot');
     const b = S.budget;
     const left = b && b.remainingLookups !== null && b.remainingLookups !== undefined ? b.remainingLookups : null;
     const budgetEl = $('#ps-comp-budget');
-    if (budgetEl) budgetEl.textContent = S.resp.demo ? 'Demo — no lookups used' : (left !== null ? `${left} lookups left this month` : '');
+    if (budgetEl) budgetEl.textContent = S.resp.demo ? 'Demo — no lookups used' : budgetText(b, left);
     // Expand button only when the filters reach past what was pulled.
     const effective = E.applyLadder(S.filters, S.ladder);
     const needs = E.requiresNewPull(effective, S.pulled);
