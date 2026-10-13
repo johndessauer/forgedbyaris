@@ -35,6 +35,7 @@
 | `RENTCAST_MOCK` | `1` on a deploy preview only | Fixtures through the full cache/budget/log pipeline. Never on production. |
 | `COMPS_MONTHLY_CAP_USD` | `100` | All-in, plan base fee included. Default 100. |
 | `COMPS_PLAN` | `developer` | `developer` / `foundation` / `growth` / `scale`. Drives cost per call. |
+| `COMPS_BASE_FEE_USD` / `COMPS_INCLUDED_REQUESTS` / `COMPS_OVERAGE_USD` | (from plan) | Optional per-field overrides of the plan pricing. |
 | `COMPS_CACHE_DAYS` | `30` | Default 30. |
 | `COMPS_MEMBER_MONTHLY_LIMIT` | *(blank)* | Blank = no per-member limit (John, Oct 12). Set a number later to turn it on. |
 | `COMPS_ALERT_EMAILS` | John's and Simon's emails, comma-separated | Must match (or will create) their GHL contacts. |

@@ -73,6 +73,19 @@ class HttpError extends Error {
   constructor(statusCode, body) { super(body && body.error); this.statusCode = statusCode; this.body = body; }
 }
 
+// Plan pricing comes from COMPS_PLAN; any of COMPS_BASE_FEE_USD,
+// COMPS_INCLUDED_REQUESTS, COMPS_OVERAGE_USD override one field, so a plan
+// upgrade (or a RentCast price change) is a Netlify env change, not a deploy.
+function pricingFromEnv(plan, env) {
+  const base = { ...core.planPricing(plan) };
+  const num = (v) => (v === undefined || v === null || String(v).trim() === '' ? NaN : Number(v));
+  const fee = num(env.COMPS_BASE_FEE_USD), inc = num(env.COMPS_INCLUDED_REQUESTS), ovg = num(env.COMPS_OVERAGE_USD);
+  if (Number.isFinite(fee) && fee >= 0) base.baseFee = fee;
+  if (Number.isFinite(inc) && inc >= 0) base.included = Math.floor(inc);
+  if (Number.isFinite(ovg) && ovg >= 0) base.overage = ovg;
+  return base;
+}
+
 function config(env) {
   const plan = String(env.COMPS_PLAN || 'developer').toLowerCase();
   const cap = Number(env.COMPS_MONTHLY_CAP_USD);
@@ -82,7 +95,7 @@ function config(env) {
   return {
     mode,
     plan,
-    pricing: core.planPricing(plan),
+    pricing: pricingFromEnv(plan, env),
     cap: Number.isFinite(cap) && env.COMPS_MONTHLY_CAP_USD !== '' && env.COMPS_MONTHLY_CAP_USD !== undefined ? cap : 100,
     cacheDays: Number.isFinite(days) && days > 0 ? days : 30,
     memberLimit: Number.isFinite(limit) && limit > 0 ? limit : null,   // blank/0 = no per-member limit
@@ -398,11 +411,17 @@ async function compAction(ctx, fetchSection, body) {
   const settled = await Promise.allSettled(specs.map(fetchSection));
   const results = {};
   const sectionErrors = {};
+  const noRecord = {};
   settled.forEach((s, i) => {
     const name = specs[i].section;
     if (s.status === 'rejected') {
       if (s.reason instanceof HttpError) throw s.reason;
       sectionErrors[name] = { status: 500, error: 'server_error' };
+    } else if (!s.value.ok && name === 'subject' && s.value.status === 404) {
+      // RentCast has no public-record entry for this address (common for new
+      // construction / unrecorded parcels). Not a failure: AVM + sold comps
+      // still work, and the UI says "no public record on file".
+      noRecord.subject = true;
     } else if (!s.value.ok) {
       sectionErrors[name] = { status: s.value.status, error: s.value.error };
     } else {
@@ -412,6 +431,7 @@ async function compAction(ctx, fetchSection, body) {
 
   if (!results.subject && !results.sold && !results.value) {
     const errs = Object.values(sectionErrors);
+    if (noRecord.subject && !errs.length) return json(404, { error: 'address_not_found' });
     if (errs.some(e => e.error === 'budget_cap')) return json(402, { error: 'budget_cap', message: 'Comp lookups are paused for this month; cached reports still work.' });
     if (errs.some(e => e.error === 'member_limit')) return json(429, { error: 'member_limit', message: `Monthly comp lookup limit reached (${ctx.cfg.memberLimit}). Cached reports still work.` });
     if (errs.some(e => e.error === 'budget_check_failed')) return json(503, { error: 'budget_check_failed', message: 'Comp lookups are temporarily unavailable.' });
@@ -449,6 +469,7 @@ async function compAction(ctx, fetchSection, body) {
     comps: built.comps,
     report: built.report,
     sectionErrors,
+    noPublicRecord: !!noRecord.subject,
     budget: ctx.cfg.mode === 'demo' ? null : await budgetView(ctx.store, ctx.cfg, ctx.now()).catch(() => null),
   });
 }
@@ -600,12 +621,19 @@ async function budgetView(store, cfg, now) {
   const b = await store.getBudget(month);
   const calls = b ? Number(b.calls) : 0;
   const spend = b ? Number(b.spend_usd) : cfg.pricing.baseFee;
-  // Remaining lookups before the cap, given the plan's free allowance.
+  // Free lookups are the plan's included requests; paid lookups are what the
+  // remaining cap dollars buy at the overage rate. Reported separately so the
+  // UI doesn't show e.g. "548 left" on a 50-request plan.
   const freeLeft = Math.max(0, cfg.pricing.included - calls);
   const dollarsLeft = Math.max(0, cfg.cap - spend);
-  const paidLeft = cfg.pricing.overage > 0 ? Math.floor(dollarsLeft / cfg.pricing.overage + 1e-9) : Infinity;
-  const remaining = spend > cfg.cap ? 0 : freeLeft + paidLeft;
-  return { month, plan: cfg.plan, calls, spend: Math.round(spend * 100) / 100, cap: cfg.cap, remainingLookups: Number.isFinite(remaining) ? remaining : null, paused: remaining === 0 };
+  const paidLeft = cfg.pricing.overage > 0 ? Math.floor(dollarsLeft / cfg.pricing.overage + 1e-9) : null;
+  const remaining = spend >= cfg.cap && freeLeft === 0 ? 0 : (paidLeft === null ? null : freeLeft + paidLeft);
+  return {
+    month, plan: cfg.plan, calls, spend: Math.round(spend * 100) / 100, cap: cfg.cap,
+    included: cfg.pricing.included, overage: cfg.pricing.overage,
+    freeLookupsLeft: freeLeft, paidLookupsLeft: paidLeft,
+    remainingLookups: remaining, paused: remaining === 0,
+  };
 }
 
 async function usage(store, cfg, now) {
