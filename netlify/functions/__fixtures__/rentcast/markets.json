@@ -1,0 +1,316 @@
+{
+  "id": "46307",
+  "zipCode": "46307",
+  "saleData": {
+    "lastUpdatedDate": "2026-10-11T00:00:00.000Z",
+    "averagePrice": 284500,
+    "medianPrice": 262200,
+    "averagePricePerSquareFoot": 164.79999999999998,
+    "medianPricePerSquareFoot": 158.45000000000002,
+    "averageDaysOnMarket": 41,
+    "medianDaysOnMarket": 32,
+    "newListings": 47,
+    "totalListings": 126,
+    "minPrice": 42000,
+    "maxPrice": 1150000,
+    "dataByPropertyType": [
+      {
+        "propertyType": "Single Family",
+        "medianPrice": 255000,
+        "medianPricePerSquareFoot": 154.1,
+        "medianDaysOnMarket": 31,
+        "totalListings": 104
+      }
+    ],
+    "history": {
+      "2025-11": {
+        "date": "2025-11-01T00:00:00.000Z",
+        "averagePrice": 268000,
+        "medianPrice": 249000,
+        "averagePricePerSquareFoot": 158.2,
+        "medianPricePerSquareFoot": 152.4,
+        "averageDaysOnMarket": 52,
+        "medianDaysOnMarket": 41,
+        "newListings": 38,
+        "totalListings": 120
+      },
+      "2025-12": {
+        "date": "2025-12-01T00:00:00.000Z",
+        "averagePrice": 269500,
+        "medianPrice": 250200,
+        "averagePricePerSquareFoot": 158.79999999999998,
+        "medianPricePerSquareFoot": 152.95000000000002,
+        "averageDaysOnMarket": 51,
+        "medianDaysOnMarket": 40,
+        "newListings": 41,
+        "totalListings": 126
+      },
+      "2026-01": {
+        "date": "2026-01-01T00:00:00.000Z",
+        "averagePrice": 271000,
+        "medianPrice": 251400,
+        "averagePricePerSquareFoot": 159.39999999999998,
+        "medianPricePerSquareFoot": 153.5,
+        "averageDaysOnMarket": 50,
+        "medianDaysOnMarket": 39,
+        "newListings": 44,
+        "totalListings": 132
+      },
+      "2026-02": {
+        "date": "2026-02-01T00:00:00.000Z",
+        "averagePrice": 272500,
+        "medianPrice": 252600,
+        "averagePricePerSquareFoot": 160.0,
+        "medianPricePerSquareFoot": 154.05,
+        "averageDaysOnMarket": 49,
+        "medianDaysOnMarket": 39,
+        "newListings": 47,
+        "totalListings": 138
+      },
+      "2026-03": {
+        "date": "2026-03-01T00:00:00.000Z",
+        "averagePrice": 274000,
+        "medianPrice": 253800,
+        "averagePricePerSquareFoot": 160.6,
+        "medianPricePerSquareFoot": 154.6,
+        "averageDaysOnMarket": 48,
+        "medianDaysOnMarket": 38,
+        "newListings": 38,
+        "totalListings": 144
+      },
+      "2026-04": {
+        "date": "2026-04-01T00:00:00.000Z",
+        "averagePrice": 275500,
+        "medianPrice": 255000,
+        "averagePricePerSquareFoot": 161.2,
+        "medianPricePerSquareFoot": 155.15,
+        "averageDaysOnMarket": 47,
+        "medianDaysOnMarket": 37,
+        "newListings": 41,
+        "totalListings": 120
+      },
+      "2026-05": {
+        "date": "2026-05-01T00:00:00.000Z",
+        "averagePrice": 277000,
+        "medianPrice": 256200,
+        "averagePricePerSquareFoot": 161.79999999999998,
+        "medianPricePerSquareFoot": 155.70000000000002,
+        "averageDaysOnMarket": 46,
+        "medianDaysOnMarket": 36,
+        "newListings": 44,
+        "totalListings": 126
+      },
+      "2026-06": {
+        "date": "2026-06-01T00:00:00.000Z",
+        "averagePrice": 278500,
+        "medianPrice": 257400,
+        "averagePricePerSquareFoot": 162.39999999999998,
+        "medianPricePerSquareFoot": 156.25,
+        "averageDaysOnMarket": 45,
+        "medianDaysOnMarket": 35,
+        "newListings": 47,
+        "totalListings": 132
+      },
+      "2026-07": {
+        "date": "2026-07-01T00:00:00.000Z",
+        "averagePrice": 280000,
+        "medianPrice": 258600,
+        "averagePricePerSquareFoot": 163.0,
+        "medianPricePerSquareFoot": 156.8,
+        "averageDaysOnMarket": 44,
+        "medianDaysOnMarket": 35,
+        "newListings": 38,
+        "totalListings": 138
+      },
+      "2026-08": {
+        "date": "2026-08-01T00:00:00.000Z",
+        "averagePrice": 281500,
+        "medianPrice": 259800,
+        "averagePricePerSquareFoot": 163.6,
+        "medianPricePerSquareFoot": 157.35,
+        "averageDaysOnMarket": 43,
+        "medianDaysOnMarket": 34,
+        "newListings": 41,
+        "totalListings": 144
+      },
+      "2026-09": {
+        "date": "2026-09-01T00:00:00.000Z",
+        "averagePrice": 283000,
+        "medianPrice": 261000,
+        "averagePricePerSquareFoot": 164.2,
+        "medianPricePerSquareFoot": 157.9,
+        "averageDaysOnMarket": 42,
+        "medianDaysOnMarket": 33,
+        "newListings": 44,
+        "totalListings": 120
+      },
+      "2026-10": {
+        "date": "2026-10-01T00:00:00.000Z",
+        "averagePrice": 284500,
+        "medianPrice": 262200,
+        "averagePricePerSquareFoot": 164.79999999999998,
+        "medianPricePerSquareFoot": 158.45000000000002,
+        "averageDaysOnMarket": 41,
+        "medianDaysOnMarket": 32,
+        "newListings": 47,
+        "totalListings": 126
+      }
+    }
+  },
+  "rentalData": {
+    "lastUpdatedDate": "2026-10-11T00:00:00.000Z",
+    "averageRent": 1868,
+    "medianRent": 1802,
+    "averageRentPerSquareFoot": 1.1640000000000001,
+    "medianRentPerSquareFoot": 1.1340000000000001,
+    "averageDaysOnMarket": 24,
+    "medianDaysOnMarket": 14,
+    "newListings": 22,
+    "totalListings": 61,
+    "minRent": 875,
+    "maxRent": 3400,
+    "dataByPropertyType": [
+      {
+        "propertyType": "Single Family",
+        "medianRent": 1850,
+        "medianRentPerSquareFoot": 1.08,
+        "medianDaysOnMarket": 13,
+        "totalListings": 34
+      }
+    ],
+    "history": {
+      "2025-11": {
+        "date": "2025-11-01T00:00:00.000Z",
+        "averageRent": 1780,
+        "medianRent": 1725,
+        "averageRentPerSquareFoot": 1.12,
+        "medianRentPerSquareFoot": 1.09,
+        "averageDaysOnMarket": 24,
+        "medianDaysOnMarket": 14,
+        "newListings": 22,
+        "totalListings": 61
+      },
+      "2025-12": {
+        "date": "2025-12-01T00:00:00.000Z",
+        "averageRent": 1788,
+        "medianRent": 1732,
+        "averageRentPerSquareFoot": 1.124,
+        "medianRentPerSquareFoot": 1.094,
+        "averageDaysOnMarket": 24,
+        "medianDaysOnMarket": 14,
+        "newListings": 22,
+        "totalListings": 61
+      },
+      "2026-01": {
+        "date": "2026-01-01T00:00:00.000Z",
+        "averageRent": 1796,
+        "medianRent": 1739,
+        "averageRentPerSquareFoot": 1.1280000000000001,
+        "medianRentPerSquareFoot": 1.098,
+        "averageDaysOnMarket": 24,
+        "medianDaysOnMarket": 14,
+        "newListings": 22,
+        "totalListings": 61
+      },
+      "2026-02": {
+        "date": "2026-02-01T00:00:00.000Z",
+        "averageRent": 1804,
+        "medianRent": 1746,
+        "averageRentPerSquareFoot": 1.1320000000000001,
+        "medianRentPerSquareFoot": 1.102,
+        "averageDaysOnMarket": 24,
+        "medianDaysOnMarket": 14,
+        "newListings": 22,
+        "totalListings": 61
+      },
+      "2026-03": {
+        "date": "2026-03-01T00:00:00.000Z",
+        "averageRent": 1812,
+        "medianRent": 1753,
+        "averageRentPerSquareFoot": 1.1360000000000001,
+        "medianRentPerSquareFoot": 1.106,
+        "averageDaysOnMarket": 24,
+        "medianDaysOnMarket": 14,
+        "newListings": 22,
+        "totalListings": 61
+      },
+      "2026-04": {
+        "date": "2026-04-01T00:00:00.000Z",
+        "averageRent": 1820,
+        "medianRent": 1760,
+        "averageRentPerSquareFoot": 1.1400000000000001,
+        "medianRentPerSquareFoot": 1.11,
+        "averageDaysOnMarket": 24,
+        "medianDaysOnMarket": 14,
+        "newListings": 22,
+        "totalListings": 61
+      },
+      "2026-05": {
+        "date": "2026-05-01T00:00:00.000Z",
+        "averageRent": 1828,
+        "medianRent": 1767,
+        "averageRentPerSquareFoot": 1.1440000000000001,
+        "medianRentPerSquareFoot": 1.114,
+        "averageDaysOnMarket": 24,
+        "medianDaysOnMarket": 14,
+        "newListings": 22,
+        "totalListings": 61
+      },
+      "2026-06": {
+        "date": "2026-06-01T00:00:00.000Z",
+        "averageRent": 1836,
+        "medianRent": 1774,
+        "averageRentPerSquareFoot": 1.1480000000000001,
+        "medianRentPerSquareFoot": 1.118,
+        "averageDaysOnMarket": 24,
+        "medianDaysOnMarket": 14,
+        "newListings": 22,
+        "totalListings": 61
+      },
+      "2026-07": {
+        "date": "2026-07-01T00:00:00.000Z",
+        "averageRent": 1844,
+        "medianRent": 1781,
+        "averageRentPerSquareFoot": 1.1520000000000001,
+        "medianRentPerSquareFoot": 1.122,
+        "averageDaysOnMarket": 24,
+        "medianDaysOnMarket": 14,
+        "newListings": 22,
+        "totalListings": 61
+      },
+      "2026-08": {
+        "date": "2026-08-01T00:00:00.000Z",
+        "averageRent": 1852,
+        "medianRent": 1788,
+        "averageRentPerSquareFoot": 1.1560000000000001,
+        "medianRentPerSquareFoot": 1.1260000000000001,
+        "averageDaysOnMarket": 24,
+        "medianDaysOnMarket": 14,
+        "newListings": 22,
+        "totalListings": 61
+      },
+      "2026-09": {
+        "date": "2026-09-01T00:00:00.000Z",
+        "averageRent": 1860,
+        "medianRent": 1795,
+        "averageRentPerSquareFoot": 1.1600000000000001,
+        "medianRentPerSquareFoot": 1.1300000000000001,
+        "averageDaysOnMarket": 24,
+        "medianDaysOnMarket": 14,
+        "newListings": 22,
+        "totalListings": 61
+      },
+      "2026-10": {
+        "date": "2026-10-01T00:00:00.000Z",
+        "averageRent": 1868,
+        "medianRent": 1802,
+        "averageRentPerSquareFoot": 1.1640000000000001,
+        "medianRentPerSquareFoot": 1.1340000000000001,
+        "averageDaysOnMarket": 24,
+        "medianDaysOnMarket": 14,
+        "newListings": 22,
+        "totalListings": 61
+      }
+    }
+  }
+}
