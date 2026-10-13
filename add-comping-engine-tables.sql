@@ -171,6 +171,8 @@ $$;
 
 revoke all on function reserve_rentcast_call(text, numeric, numeric, integer, numeric) from public, anon, authenticated;
 revoke all on function release_rentcast_call(text, numeric) from public, anon, authenticated;
+grant execute on function reserve_rentcast_call(text, numeric, numeric, integer, numeric) to service_role;
+grant execute on function release_rentcast_call(text, numeric) to service_role;
 
 -- ---------------------------------------------------------------------
 -- comp_reports — a member's saved comp result (and share link)
