@@ -2,7 +2,8 @@
   "scripts": {
     "check": "node scripts/check-syntax.js",
     "test": "node --test tests/*.test.js",
-    "test:sql": "bash scripts/test-sql.sh"
+    "test:sql": "bash scripts/test-sql.sh",
+    "test:ui": "python3 tests/ui/comp-panel.ui.py"
   },
   "dependencies": {
     "@memberstack/admin": "^1.6.0",

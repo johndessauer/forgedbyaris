@@ -337,7 +337,9 @@ function createHandler(deps) {
         return json(200, await usage(deps.store, cfg, now()));
       }
 
-      if (!hasCompsAccess(member && member.planConnections)) {
+      // Admins pass the tier gate so John can test while the panel is
+      // admin-only (Phase 2–4) — his own account may be on FORGE Zero.
+      if (!isAdmin && !hasCompsAccess(member && member.planConnections)) {
         return json(403, { error: 'not_empire', message: 'Comp lookups are an Empire feature.' });
       }
 

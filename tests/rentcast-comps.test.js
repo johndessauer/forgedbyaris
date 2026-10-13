@@ -130,6 +130,16 @@ test('unauthenticated → 401; non-Empire → 403; FORGE Zero → 403', async ()
   assert.equal(z.status, 403);
 });
 
+test('admins pass the tier gate even on FORGE Zero (admin-only testing period)', async () => {
+  const adminOnZero = { auth: { email: 'john@thedessauergroup.com' }, planConnections: [{ planId: 'pln_forge-zero-psnx0aea', status: 'ACTIVE' }] };
+  assert.equal((await setup({ member: adminOnZero }).call('POST', { action: 'comp', address: ADDRESS })).status, 200);
+});
+
+test('Beta $97 members get comps (John, Oct 12)', async () => {
+  const beta = { auth: { email: 'b@example.com' }, planConnections: [{ planId: 'pln_-97-direct--jx9b09ut', status: 'ACTIVE', payment: { priceId: 'prc_-97-direct-ka9b0lq3' } }] };
+  assert.equal((await setup({ member: beta }).call('POST', { action: 'comp', address: ADDRESS })).status, 200);
+});
+
 test('cancelled or past-due Empire plans do not get lookups', async () => {
   const cancelled = { auth: { email: 'x@example.com' }, planConnections: [{ planId: 'pln_foundation-empire-eh1bv0h3e', status: 'CANCELED' }] };
   assert.equal((await setup({ member: cancelled }).call('POST', { action: 'comp', address: ADDRESS })).status, 403);

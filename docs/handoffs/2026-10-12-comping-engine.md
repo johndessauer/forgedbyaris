@@ -64,14 +64,14 @@ The 11 fields in Build Brief §7.3. Not needed for Phases 1–3.
 
 ## Decisions made and flags (also in the PR)
 
-- **Tier gate:** Empire only, FORGE Zero excluded (John, Oct 12). Note: under today's page rules, **Beta $97** (`prc_-97-direct`) counts as Empire, so Beta members get comps. Confirm that's intended.
+- **Tier gate:** Empire only, FORGE Zero excluded (John, Oct 12). **Beta $97** (`prc_-97-direct`) counts as Empire and gets comps — confirmed by John, Oct 12.
 - **Per-member limit:** off; env var ready.
 - **Alerts:** "both" delivered as GHL tag → workflow that emails + notifies.
 - **One wide pull:** sold comps are fetched once at 2 mi / 365 days (limit 500). RentCast bills per request, not per record, so ladder steps up to 2 mi and 365 days cost nothing. Only `expand` past that costs a lookup.
 - **Budget function:** the brief sketched `reserve_rentcast_call(month, est_cost, cap)`. The cost is computed inside the row lock instead (it depends on calls already made), so concurrent requests can't race. Proven by a 200-way parallel test.
 - **RLS enabled** on the new tables, stricter than the existing ones; service-role access is unchanged.
 - **Function timeout 26s** (as `aris-quote` already uses) so the one retry has room.
-- **Code over brief:** the page CSS uses `--light-grey`, not `--grey-light`.
+- **Correction (Phase 2):** `property-search.html` defines `--grey-light` but *uses* `--light-grey` and `--navy-card`, neither of which is defined — so cards there render with a transparent background. Left as-is by John's choice (Oct 12); the comps panel supplies its own fallbacks.
 
 ## Known issues / risks outside this PR
 
@@ -92,3 +92,51 @@ npm run test:sql  # needs a local Postgres; migration + budget + RLS + concurren
 1. John runs the SQL, sets the env vars (no `RENTCAST_API_KEY` yet), merges PR 1.
 2. Optional: on a deploy preview, set `RENTCAST_MOCK=1` and run one comp to see the cache, budget and log rows appear in Supabase.
 3. Phase 2: comps panel UI in `property-search.html`.
+
+
+---
+
+# Phase 2 — Comps panel UI (Oct 12, 2026)
+
+**Branch:** `feature/comping-engine-phase2` (from `main` @ `06f6521`) · **PR:** #3
+**Live RentCast calls spent:** 0
+
+## Decisions (John, Oct 12)
+- **Visibility:** the panel is **admin-only** until RentCast goes live (Phase 5) — demo mode shows Crown Point sample comps for any address, which members could mistake for real comps. Flag: `COMPS_PUBLIC` in `assets/js/comp-panel.js`. Non-admins see the page exactly as before (both teaser cards stay).
+- **Beta $97 gets comps:** yes. No code change needed.
+- **Save to CRM (Phase 4):** native FORGE CRM by default; GHL push admin-only.
+- **Missing page colors:** leave as-is.
+
+## What was built
+| File | Purpose |
+|---|---|
+| `assets/js/comp-panel.js` | The panel: lookup card, slide-over, gauge, filters, ladder, map, table, "How we got this", all states. Uses `comp-engine.js` for every number. |
+| `assets/css/comp-panel.css` | Styles, all `.ps-comp-`, page tokens with fallbacks. Desktop 640px slide-over; ≤768px full screen, stacked comp cards, filter bottom sheet. |
+| `property-search.html` | 12 lines: load the 3 files, ids on the two teasers, `ForgeComps.init()` after auth, a "Comp This Property" button on result cards, map popups and saved leads. |
+| `netlify/functions/rentcast-comps.js` | Admins pass the tier gate (John's account may be on FORGE Zero). |
+| `netlify.toml` | `/api/rentcast-comps` → function. |
+| `tests/ui/comp-panel.ui.py` | 52 browser checks at 1440 / 768 / 375 px (Playwright). `npm run test:ui`. |
+| `tests/rentcast-comps.test.js` | +2 tests: admin on FORGE Zero passes; Beta $97 passes. |
+
+## How the money rules show up in the UI
+- Opening a property = one `comp` call (3 lookups, or $0 when cached).
+- Toggling comps, every filter inside 2 mi / 365 days, the $30–$50 slider, line items, sorting, ladder steps 1–6: **no lookup**, recomputed in the browser in ~7 ms.
+- Only two buttons cost a lookup, and both say so: **Expand search (uses 1 lookup)** (radius > 2 mi or > 365 days) and **Refresh sales data (uses 1 lookup)** (shown only when the data came from cache).
+- The member's selection is saved with the free `update` action, 0.9 s after the last change.
+
+## Deviations / notes
+- **Similarity colors:** the brief's 0.95 / 0.90 thresholds fit RentCast's correlation scale; FORGE's own similarity score runs lower (typical good comps score 75–90%), so pins and badges use **≥85% green, 70–85% yellow, below grey**. Revisit after Phase 5 with real data.
+- **Pin numbers** follow the order included → eligible → excluded, so the comps in the ARV are always #1–#N on both map and table.
+- Rent / Market / Property tabs and Best Use are **Phase 3**; the action bar (Deal Analyzer, CRM, PDF, share) is **Phase 4** — not shown yet.
+- Map tiles are OpenStreetMap, same as the main map.
+
+## Verify
+```
+npm run check     # 40 files/blocks, 0 failed
+npm test          # 53 pass
+npm run test:ui   # 52 browser checks (needs Playwright + Chromium)
+```
+
+## Next steps
+1. Merge PR #3. As an admin, open Property Search → "Comp a Property" (or "Comp This Property" on a result) and click through.
+2. Phase 3: Rent, Market, Property tabs + ARIS best use.
