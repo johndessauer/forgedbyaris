@@ -1,4 +1,9 @@
 {
+  "scripts": {
+    "check": "node scripts/check-syntax.js",
+    "test": "node --test tests/*.test.js",
+    "test:sql": "bash scripts/test-sql.sh"
+  },
   "dependencies": {
     "@memberstack/admin": "^1.6.0",
     "@supabase/supabase-js": "^2.110.7"

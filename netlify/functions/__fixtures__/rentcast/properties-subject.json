@@ -1,0 +1,128 @@
+[
+  {
+    "id": "733-N-Main-St,-Crown-Point,-IN-46307",
+    "formattedAddress": "733 N Main St, Crown Point, IN 46307",
+    "addressLine1": "733 N Main St",
+    "addressLine2": null,
+    "city": "Crown Point",
+    "state": "IN",
+    "stateFips": "18",
+    "zipCode": "46307",
+    "county": "Lake",
+    "countyFips": "089",
+    "latitude": 41.4278,
+    "longitude": -87.3602,
+    "propertyType": "Single Family",
+    "bedrooms": 3,
+    "bathrooms": 2,
+    "squareFootage": 1650,
+    "lotSize": 9100,
+    "yearBuilt": 1978,
+    "lastSaleDate": "2016-05-20T00:00:00.000Z",
+    "lastSalePrice": 168000,
+    "assessorID": "45-16-04-226-011.000-042",
+    "subdivision": "ORIGINAL TOWN",
+    "zoning": "R2",
+    "features": {
+      "architectureType": "Ranch",
+      "cooling": true,
+      "coolingType": "Central",
+      "exteriorType": "Vinyl Siding",
+      "fireplace": false,
+      "floorCount": 1,
+      "foundationType": "Crawl",
+      "garage": true,
+      "garageSpaces": 2,
+      "garageType": "Detached",
+      "heating": true,
+      "heatingType": "Forced Air",
+      "pool": false,
+      "roofType": "Asphalt",
+      "roomCount": 6,
+      "unitCount": 1
+    },
+    "taxAssessments": {
+      "2021": {
+        "year": 2021,
+        "value": 162400,
+        "land": 28000,
+        "improvements": 134400
+      },
+      "2022": {
+        "year": 2022,
+        "value": 178900,
+        "land": 29500,
+        "improvements": 149400
+      },
+      "2023": {
+        "year": 2023,
+        "value": 196300,
+        "land": 31000,
+        "improvements": 165300
+      },
+      "2024": {
+        "year": 2024,
+        "value": 207800,
+        "land": 32500,
+        "improvements": 175300
+      },
+      "2025": {
+        "year": 2025,
+        "value": 214100,
+        "land": 34000,
+        "improvements": 180100
+      }
+    },
+    "propertyTaxes": {
+      "2021": {
+        "year": 2021,
+        "total": 1860
+      },
+      "2022": {
+        "year": 2022,
+        "total": 2010
+      },
+      "2023": {
+        "year": 2023,
+        "total": 2215
+      },
+      "2024": {
+        "year": 2024,
+        "total": 2330
+      },
+      "2025": {
+        "year": 2025,
+        "total": 2398
+      }
+    },
+    "history": {
+      "2004-08-13": {
+        "event": "Sale",
+        "date": "2004-08-13T00:00:00.000Z",
+        "price": 131500
+      },
+      "2016-05-20": {
+        "event": "Sale",
+        "date": "2016-05-20T00:00:00.000Z",
+        "price": 168000
+      }
+    },
+    "owner": {
+      "names": [
+        "T. Alvarez"
+      ],
+      "type": "Individual",
+      "mailingAddress": {
+        "id": "733-N-Main-St,-Crown-Point,-IN-46307",
+        "formattedAddress": "733 N Main St, Crown Point, IN 46307",
+        "addressLine1": "733 N Main St",
+        "addressLine2": null,
+        "city": "Crown Point",
+        "state": "IN",
+        "stateFips": "18",
+        "zipCode": "46307"
+      }
+    },
+    "ownerOccupied": true
+  }
+]

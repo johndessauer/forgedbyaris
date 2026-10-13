@@ -1,7 +1,15 @@
 [functions]
   directory = "netlify/functions"
+  # Comping engine fixtures are read with fs at runtime (mock/demo mode),
+  # so they must be shipped with the function bundle explicitly.
+  included_files = ["netlify/functions/__fixtures__/**"]
 
 [functions.aris-quote]
+  timeout = 26
+
+# Comping engine: three RentCast calls run in parallel (8s timeout each,
+# one retry). 26s, as aris-quote already uses, leaves room for a retry.
+[functions.rentcast-comps]
   timeout = 26
 
 [[redirects]]
@@ -98,3 +106,11 @@
   from = "/api/property-search"
   to = "/.netlify/functions/property-search"
   status = 200
+
+# Internal handoff notes live in docs/handoffs/ (Comping Engine Build Brief
+# §10). The site publishes the repo root, so block them from the web.
+[[redirects]]
+  from = "/docs/handoffs/*"
+  to = "/404.html"
+  status = 404
+  force = true
