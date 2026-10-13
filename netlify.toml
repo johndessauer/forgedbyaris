@@ -103,6 +103,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/rentcast-comps"
+  to = "/.netlify/functions/rentcast-comps"
+  status = 200
+
+[[redirects]]
   from = "/api/property-search"
   to = "/.netlify/functions/property-search"
   status = 200

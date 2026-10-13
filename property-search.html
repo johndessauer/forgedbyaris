@@ -489,6 +489,10 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 </style>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<!-- Comping engine (Phase 2). Admin-only until RentCast goes live; see assets/js/comp-panel.js -->
+<link rel="stylesheet" href="/assets/css/comp-panel.css">
+<script src="/assets/js/comp-engine.js"></script>
+<script src="/assets/js/comp-panel.js"></script>
 </head>
 <body>
 <div class="app">
@@ -557,12 +561,12 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
           <h3>Lead Type</h3>
           <div id="ps-play-list"></div>
         </div>
-        <div class="ps-phase2-card">
+        <div class="ps-phase2-card" id="ps-teaser-comps">
           <div class="ps-phase2-badge">Phase 2 — Coming Soon</div>
           <h3>Comping &amp; Best-Use Suggestions</h3>
           <div class="sub">Pull recent sale comps for each lead and suggest whether it's a stronger fit for wholesaling, flipping, or a rental. Ships once a comps data source is selected.</div>
         </div>
-        <div class="ps-phase2-card">
+        <div class="ps-phase2-card" id="ps-teaser-lookup">
           <div class="ps-phase2-badge">Phase 2 — Coming Soon</div>
           <h3>Property Lookup by Address</h3>
           <div class="sub">Type in a specific address and pull that property's full record directly, instead of only finding it through a lead-type search.</div>
@@ -696,6 +700,9 @@ window.onload = async () => {
     currentPlanName = (hasSeparateEmpireConn && !baseConnHasEmpireBuiltIn) ? (baseName + ' + Empire') : baseName;
     memberCreatedAt = member.createdAt || null;
     memberToken = await memberstack.getMemberCookie();
+    // Comping engine panel — shows only for admins until it goes live.
+    try { if (window.ForgeComps) window.ForgeComps.init({ email: member.auth && member.auth.email, getToken: () => memberToken }); }
+    catch (e) { console.error('Comps panel failed to start', e); }
     loadEducationBadges();
     // Pull Why answers from the server before deciding whether to show
     // the onboarding prompt — without this, a member who already answered
@@ -833,6 +840,7 @@ function leadCardHtml(r) {
       ${propertyLinksLine(r.mapUrl, r.zillowUrl)}
       <div class="actions">
         <button class="btn-save" id="ps-save-${r.id}" onclick="saveLead('${r.id}', this)">Save Lead</button>
+        ${window.ForgeComps ? window.ForgeComps.buttonFor('result', r.id) : ''}
       </div>
     </div>`;
 }
@@ -845,7 +853,7 @@ function addMarkersForResults(results) {
       // this property actually matches, so a double-hit (e.g. Pre-Foreclosure
       // + High-Equity) is visible even though the pin can only show one color.
       const marker = L.marker([r.lat, r.lng], { icon: pinIcon(metas[0].color) }).addTo(map);
-      marker.bindPopup(`<div style="min-width:180px;"><div style="font-weight:700;margin-bottom:4px;">${r.address}</div><div style="font-size:11px;color:#9CA3AF;">${metas.map(m => m.label).join(' + ')}</div></div>`, { closeButton:false, className:'ps-leaflet-popup' });
+      marker.bindPopup(`<div style="min-width:180px;"><div style="font-weight:700;margin-bottom:4px;">${r.address}</div><div style="font-size:11px;color:#9CA3AF;">${metas.map(m => m.label).join(' + ')}</div>${window.ForgeComps ? window.ForgeComps.popupButton(r.id) : ''}</div>`, { closeButton:false, className:'ps-leaflet-popup' });
       marker.on('click', () => highlightCard(r.id));
       markers.push(marker);
     }
@@ -1064,6 +1072,7 @@ async function renderSavedDrawer() {
         <div class="meta">Saved ${new Date(lead.created_at).toLocaleDateString()}</div>
         <div class="actions">
           ${crmBtn}
+          ${window.ForgeComps ? window.ForgeComps.buttonFor('saved', lead.id) : ''}
           <button class="ps-lead-action-btn del" onclick="deleteSavedLead('${lead.id}')">Delete</button>
         </div>
       </div>`;
