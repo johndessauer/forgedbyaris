@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Apartment Confidential | FORGE</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="shortcut icon" href="/favicon.ico" />
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<!-- Meta Pixel (same pixel as the public site) -->
+<script>
+!function(f,b,e,v,n,t,s)
+{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+n.queue=[];t=b.createElement(e);t.async=!0;
+t.src=v;s=b.getElementsByTagName(e)[0];
+s.parentNode.insertBefore(t,s)}(window, document,'script',
+'https://connect.facebook.net/en_US/fbevents.js');
+fbq('init', '485470295356699');
+fbq('track', 'PageView');
+</script>
+<noscript><img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=485470295356699&ev=PageView&noscript=1" /></noscript>
+
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --black:   #0D1B2A;
+  --navy:    #0f2035;
+  --navy-l:  #162840;
+  --orange:  #FF6B2B;
+  --orange-d:#e55a1c;
+  --gold:    #C89B3C;
+  --white:   #FFFFFF;
+  --grey:    #6B7280;
+  --grey-l:  #9CA3AF;
+  --border:  rgba(200,155,60,0.18);
+  --border-s:rgba(255,255,255,0.06);
+}
+html, body { min-height: 100%; background: var(--black); color: var(--white); font-family: 'Inter', sans-serif; -webkit-text-size-adjust: 100%; }
+body { min-height: 100vh; }
+.glow { position: fixed; width: 600px; height: 600px; border-radius: 50%; background: radial-gradient(circle, rgba(255,107,43,0.08) 0%, transparent 70%); top: -160px; right: -200px; pointer-events: none; z-index: 0; }
+.glow-2 { position: fixed; width: 400px; height: 400px; border-radius: 50%; background: radial-gradient(circle, rgba(200,155,60,0.06) 0%, transparent 70%); bottom: 60px; left: -160px; pointer-events: none; z-index: 0; }
+
+.page { position: relative; z-index: 1; max-width: 880px; margin: 0 auto; padding: 20px 18px 40px; }
+.logo { display: block; width: 150px; height: auto; margin: 0 auto 16px; }
+
+/* ── BOOK CARD ─────────────────────────────── */
+.book-card { background: var(--navy); border: 1px solid var(--border); border-radius: 16px; padding: 22px 20px; }
+.book-head { display: flex; gap: 16px; align-items: center; margin-bottom: 18px; }
+.cover { flex: 0 0 92px; background: #fff; border-radius: 6px; padding: 4px; }
+.cover img { display: block; width: 100%; height: auto; }
+h1 { font-family: 'Bebas Neue', sans-serif; font-weight: 400; font-size: 32px; line-height: 1.02; letter-spacing: 1.5px; color: var(--white); margin-bottom: 8px; }
+.subhead { font-size: 14px; line-height: 1.5; color: var(--grey-l); }
+
+.btn { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 56px; border-radius: 10px; padding: 14px 18px; font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 2.5px; text-decoration: none; cursor: pointer; border: 1px solid transparent; transition: background 0.15s, color 0.15s, border-color 0.15s; text-align: center; }
+.btn:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+.btn-download { background: var(--orange); color: var(--white); }
+.btn-download:hover { background: var(--orange-d); }
+
+.inside { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--border-s); }
+.inside h2 { font-size: 13px; font-weight: 600; color: var(--gold); margin-bottom: 10px; }
+.inside ul { list-style: none; }
+.inside li { position: relative; padding-left: 22px; font-size: 14px; line-height: 1.5; color: #D6DAE0; margin-bottom: 8px; }
+.inside li::before { content: ""; position: absolute; left: 2px; top: 7px; width: 9px; height: 9px; border-radius: 2px; background: var(--gold); transform: rotate(45deg); }
+
+/* ── NEXT STEP ─────────────────────────────── */
+.next { margin-top: 16px; background: var(--navy); border: 1px solid var(--border); border-radius: 16px; padding: 24px 20px; transition: border-color 0.3s, box-shadow 0.3s; }
+.next h2 { font-family: 'Bebas Neue', sans-serif; font-weight: 400; font-size: 28px; letter-spacing: 1.5px; line-height: 1.05; margin-bottom: 10px; }
+.next p { font-size: 14px; line-height: 1.6; color: #D6DAE0; margin-bottom: 18px; max-width: 62ch; }
+.btn-book { background: var(--gold); color: var(--black); }
+.btn-book:hover { background: #b88a2e; }
+.book-note { display: none; font-size: 13px; color: var(--grey-l); text-align: center; margin-top: 10px; }
+
+/* After the book is downloaded, the walkthrough becomes the main action. */
+.downloaded .btn-download { background: transparent; color: var(--gold); border-color: var(--border); font-size: 17px; min-height: 48px; }
+.downloaded .btn-download:hover { background: rgba(200,155,60,0.12); }
+.downloaded .next { border-color: rgba(255,107,43,0.55); box-shadow: 0 0 0 1px rgba(255,107,43,0.25), 0 18px 48px -24px rgba(255,107,43,0.55); }
+.downloaded .btn-book { background: var(--orange); color: var(--white); min-height: 60px; font-size: 22px; }
+.downloaded .btn-book:hover { background: var(--orange-d); }
+
+.fine { margin-top: 22px; font-size: 12px; line-height: 1.6; color: var(--grey); text-align: center; max-width: 60ch; margin-left: auto; margin-right: auto; }
+.footer { margin-top: 14px; font-size: 11px; color: var(--grey); text-align: center; line-height: 1.6; }
+
+/* ── DESKTOP ───────────────────────────────── */
+@media (min-width: 760px) {
+  .page { padding: 36px 28px 56px; }
+  .logo { width: 190px; margin-bottom: 26px; }
+  .book-card { display: grid; grid-template-columns: 220px 1fr; gap: 34px; padding: 34px; align-items: start; }
+  .book-head { display: contents; }
+  .cover { grid-row: 1 / span 3; flex: none; padding: 8px; border-radius: 8px; }
+  .book-text { grid-column: 2; }
+  h1 { font-size: 46px; }
+  .subhead { font-size: 16px; }
+  .book-card .btn-download { grid-column: 2; max-width: 360px; }
+  .inside { grid-column: 2; margin-top: 4px; }
+  .next { padding: 32px 34px; display: grid; grid-template-columns: 1fr 300px; gap: 28px; align-items: center; }
+  .next p { margin-bottom: 0; }
+  .next h2 { font-size: 34px; }
+}
+
+@media (max-width: 400px) {
+  .btn { font-size: 18px; letter-spacing: 1.5px; padding: 14px 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; scroll-behavior: auto !important; }
+}
+</style>
+</head>
+<body>
+<div class="glow"></div>
+<div class="glow-2"></div>
+
+<main class="page" id="page">
+  <img class="logo" src="/assets/forge-logo-wide.png" alt="FORGE" width="480" height="154">
+
+  <section class="book-card" aria-labelledby="book-title">
+    <div class="book-head">
+      <div class="cover">
+        <img src="/assets/apartment-confidential-cover.jpg"
+             srcset="/assets/apartment-confidential-cover.jpg 360w, /assets/apartment-confidential-cover@2x.jpg 720w"
+             sizes="(min-width: 760px) 220px, 92px"
+             alt="Apartment Confidential book cover" width="360" height="549">
+      </div>
+      <div class="book-text">
+        <h1 id="book-title">Your copy of Apartment Confidential</h1>
+        <p class="subhead">A plain-language guide to buying small apartment buildings, by John Dessauer.</p>
+      </div>
+    </div>
+
+    <a class="btn btn-download" id="download-btn"
+       href="/assets/apartment-confidential.pdf"
+       download="Apartment-Confidential-John-Dessauer.pdf"
+       target="_blank" rel="noopener">Download the book (PDF)</a>
+
+    <div class="inside">
+      <h2>Inside</h2>
+      <ul>
+        <li>How small apartment buildings work as investments</li>
+        <li>How to size up a property before you make an offer</li>
+        <li>What to check during due diligence</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="next" id="next" aria-labelledby="next-title">
+    <div>
+      <h2 id="next-title">Ready to see the platform?</h2>
+      <p>FORGE is an AI coaching platform for real estate investors: deal search, comps, rent, rehab, cash flow and the offer price on one screen, an AI coach available 24/7, residential and commercial. A FORGE specialist walks you through a live deal.</p>
+    </div>
+    <div>
+      <a class="btn btn-book" id="book-btn" href="#">Book my walkthrough</a>
+      <p class="book-note" id="book-note" role="status">Walkthrough booking opens soon.</p>
+    </div>
+  </section>
+
+  <p class="fine">Education and software access only. No credit pull. FORGE does not guarantee results. Real estate investing carries risk.</p>
+  <p class="footer">FORGE │ Dessauer Group II LLC │ P.O. Box 35, Cedar Lake, IN 46303</p>
+</main>
+
+<script>
+  // ── BOOKING LINK — THE ONLY LINE TO CHANGE ─────────────────────────────
+  // Paste the walkthrough booking URL between the quotes, e.g.
+  // const BOOKING_URL = 'https://calendly.com/forge/walkthrough';
+  // While empty, the button shows "Walkthrough booking opens soon."
+  const BOOKING_URL = '';
+
+  // Incoming utm_* and ref values are passed through to the booking link.
+  const incoming = new URLSearchParams(window.location.search);
+  const passThrough = {};
+  incoming.forEach((value, key) => {
+    if (key === 'ref' || key.indexOf('utm_') === 0) passThrough[key] = value;
+  });
+
+  function trackClick(eventName) {
+    try {
+      if (window.fbq) {
+        fbq('trackCustom', eventName, Object.assign({ page_url: window.location.href }, passThrough));
+      }
+    } catch (e) { /* tracking must never block the page */ }
+  }
+
+  function markDownloaded() {
+    document.getElementById('page').classList.add('downloaded');
+    try { localStorage.setItem('forge_ac_downloaded', '1'); } catch (e) {}
+  }
+
+  // Returning visitors who already downloaded see the walkthrough first.
+  try { if (localStorage.getItem('forge_ac_downloaded') === '1') markDownloaded(); } catch (e) {}
+
+  document.getElementById('download-btn').addEventListener('click', function () {
+    trackClick('ApartmentConfidentialDownload');
+    markDownloaded();
+    // The PDF opens in a new tab; bring the walkthrough into view on this one.
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    setTimeout(function () {
+      document.getElementById('next').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
+    }, 300);
+  });
+
+  const bookBtn = document.getElementById('book-btn');
+  function bookingHref() {
+    if (!/^https?:\/\//.test(BOOKING_URL)) return null;
+    try {
+      const url = new URL(BOOKING_URL);
+      Object.keys(passThrough).forEach(k => url.searchParams.set(k, passThrough[k]));
+      return url.toString();
+    } catch (e) { return BOOKING_URL; }
+  }
+  const finalBookingUrl = bookingHref();
+  if (finalBookingUrl) bookBtn.href = finalBookingUrl;
+
+  bookBtn.addEventListener('click', function (e) {
+    e.preventDefault();
+    trackClick('WalkthroughBookingClick');
+    if (!finalBookingUrl) {
+      document.getElementById('book-note').style.display = 'block';
+      return;
+    }
+    // Short pause so the tracking event can send before the page changes.
+    setTimeout(function () { window.location.href = finalBookingUrl; }, 200);
+  });
+</script>
+</body>
+</html>
