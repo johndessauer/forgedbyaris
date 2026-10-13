@@ -687,7 +687,7 @@ async function callARIS(prompt, maxTokens) {
   const fullPrompt = prompt + getWhyContext();
   const res = await fetch('/api/aris-quote', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + memberToken },
     body: JSON.stringify({
       model: 'claude-sonnet-4-6',
       max_tokens: maxTokens || 800,

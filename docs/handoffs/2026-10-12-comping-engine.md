@@ -180,7 +180,8 @@ npm run test:ui   # 52 browser checks (needs Playwright + Chromium)
 `ANTHROPIC_API_KEY` (already set) is used for best use.
 
 ## Flagged, not changed here
-- **`netlify/functions/aris-quote.js` is an open proxy:** it forwards any POST body to Anthropic with FORGE's key and no auth check (only a CORS header, which doesn't stop server-to-server calls). Anyone who finds `/api/aris-quote` can spend on the Anthropic account. Recommend a follow-up PR adding `verifyMember()` and a fixed model/max_tokens.
+- ~~`aris-quote.js` open proxy~~ **Fixed Oct 13** (branch `fix/aris-quote-auth`): member token required, model fixed to `claude-sonnet-4-6`, `max_tokens` capped at 2,000, only `system` + `messages` passed through. All 16 callers (Dashboard 1, Deal Analyzer 11, Market Oracle 2, Capital Radar 1, Deal Network 1) now send `Authorization: Bearer <memberToken>`. `tests/aris-quote.test.js` checks every call site.
+- **Still open:** `aris-stream.js` (ARIS Coach / Deal Analyzer chat) has no login check for the `coach` and `deal-analyzer` prompts. The public `sales` prompt must stay open for the website chat. Locking the two member prompts is a ~30-minute follow-up if John wants it.
 - The public ARIS prompt still lists **"Property Search (coming soon)"** though Property Search is live. Left as-is (copy change for John to approve).
 
 ## Verify

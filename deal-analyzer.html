@@ -1840,7 +1840,7 @@ async function handleWholesalePDF(event) {
 
     const res = await fetch('/api/aris-quote', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + memberToken },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 1024,
@@ -1916,7 +1916,7 @@ async function handleFlipPDF(event) {
 
     const res = await fetch('/api/aris-quote', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + memberToken },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 1024,
@@ -1992,7 +1992,7 @@ async function handleRentalPDF(event) {
 
     const res = await fetch('/api/aris-quote', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + memberToken },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 1024,
@@ -2069,7 +2069,7 @@ async function handleSTRPDF(event) {
 
     const res = await fetch('/api/aris-quote', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + memberToken },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 1024,
@@ -2147,7 +2147,7 @@ async function handleMultiPDF(event) {
 
     const res = await fetch('/api/aris-quote', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + memberToken },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 1024,
@@ -2487,7 +2487,7 @@ async function handleCommercialPDF(event) {
 
     const res = await fetch('/api/aris-quote', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + memberToken },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 1024,
@@ -2568,7 +2568,7 @@ async function handleStoragePDF(event) {
 
     const res = await fetch('/api/aris-quote', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + memberToken },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 1024,
@@ -2702,7 +2702,7 @@ async function handleMHPPDF(event) {
 
     const res = await fetch('/api/aris-quote', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + memberToken },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 1024,
@@ -2784,7 +2784,7 @@ async function handleOfficePDF(event) {
 
     const res = await fetch('/api/aris-quote', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + memberToken },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 1024,
@@ -2866,7 +2866,7 @@ async function handleMixedUsePDF(event) {
 
     const res = await fetch('/api/aris-quote', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + memberToken },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 1024,
@@ -2950,7 +2950,7 @@ async function handleHotelPDF(event) {
 
     const res = await fetch('/api/aris-quote', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + memberToken },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 1024,
