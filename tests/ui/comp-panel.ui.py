@@ -67,6 +67,16 @@ async def make_page(browser, vp, email='john@thedessauergroup.com', comp_overrid
                 payload = json.loads(body) if body else {}
                 action = payload.get('action') or ('budget' if 'action=budget' in url else '?')
                 calls.append({'action': action, 't': time.time(), 'payload': payload})
+                if action == 'rent':
+                    return await r.fulfill(body=json.dumps({'demo': True, 'cached': False, 'rent': FIX('avm-rent.json')}), content_type='application/json')
+                if action == 'market':
+                    return await r.fulfill(body=json.dumps({'demo': True, 'cached': False, 'market': FIX('markets.json')}), content_type='application/json')
+                if 'action=listings' in url:
+                    calls[-1]['action'] = 'listings'
+                    return await r.fulfill(body=json.dumps({'demo': True, 'cached': False, 'type': 'rental', 'listings': FIX('listings-rental.json')}), content_type='application/json')
+                if action == 'best-use':
+                    if BEST_USE_FAIL: return await r.fulfill(status=502, body=json.dumps({'error': 'best_use_unavailable'}), content_type='application/json')
+                    return await r.fulfill(body=json.dumps(BEST_USE), content_type='application/json')
                 if action == 'comp':
                     if comp_override: return await r.fulfill(status=comp_override[0], body=json.dumps(comp_override[1]), content_type='application/json')
                     return await r.fulfill(body=json.dumps(COMP), content_type='application/json')
@@ -92,6 +102,15 @@ async def open_by_lookup(page):
     await page.click('#ps-comp-go')
     await page.wait_for_selector('.ps-comp-stat.arv .v', timeout=5000)
     await page.wait_for_timeout(400)
+
+FIX = lambda name: json.load(open(os.path.join(REPO, 'netlify/functions/__fixtures__/rentcast', name)))
+BEST_USE = {'cached': False, 'hash': 'x', 'model': 'claude-sonnet-4-6', 'result': {'ranked': [
+  {'strategy': 'Rental', 'score': 81, 'reasons': ['Rent-to-value near 0.7%', 'ARV within 1% of RentCast']},
+  {'strategy': 'Flip', 'score': 64, 'reasons': ['Thin spread without a purchase price']},
+  {'strategy': 'Wholesale', 'score': 55, 'reasons': ['Needs a deep discount']},
+  {'strategy': 'Hold', 'score': 50, 'reasons': ['Modest appreciation']},
+  {'strategy': 'STR', 'score': 30, 'reasons': ['No STR demand data']}], 'caveats': ['No repair estimate was provided.']}}
+BEST_USE_FAIL = False
 
 results = []
 def check(name, ok, info=''):
@@ -178,6 +197,58 @@ async def main():
         check('lead card passes beds/baths/sqft', p2['overrides'].get('sqft') == 1650 and p2['overrides'].get('beds') == 3, p2['overrides'])
         await ctx.close()
 
+        # ── Phase 3: best use, tabs, lazy loading ──
+        ctx, page, calls, errors = await make_page(b, (1440, 900))
+        await page.evaluate("ForgeComps.open('733 N Main St, Crown Point, IN 46307', {})")
+        await page.wait_for_selector('.ps-comp-bu-top', timeout=5000)
+        acts = [c['action'] for c in calls]
+        check('best use requested automatically, once', acts.count('best-use') == 1, acts)
+        check('best use shows the top pick', 'Buy & Hold Rental' in await page.inner_text('.ps-comp-bu-top'))
+        check('best use lists all five strategies', await page.locator('.ps-comp-bu-list > li').count() == 5)
+        check('no rent/market lookups before tabs are opened', 'rent' not in acts and 'market' not in acts)
+        await page.click('#ps-comp-tabbtn-rent')
+        await page.wait_for_selector('#ps-comp-tab-rent .ps-comp-stat.arv .v')
+        check('rent tab loads once with the estimate', (await page.inner_text('#ps-comp-tab-rent .ps-comp-stat.arv .v')) == '$1,850')
+        check('rent tab: comps table + map pins', await page.locator('#ps-comp-tab-rent tbody tr').count() == 4 and await page.locator('#ps-comp-rentmap .ps-comp-pin').count() == 4)
+        check('comps tab hidden while on rent', await page.is_hidden('#ps-comp-tab-comps'))
+        check('active rentals not loaded until clicked', not any(c['action'] == 'listings' for c in calls))
+        await page.click('#ps-comp-rentals-btn')
+        await page.wait_for_selector('#ps-comp-rentals tbody tr')
+        check('active rentals load on click', [c['action'] for c in calls].count('listings') == 1 and await page.locator('#ps-comp-rentals tbody tr').count() == 2)
+        await page.click('#ps-comp-tabbtn-comps'); await page.click('#ps-comp-tabbtn-rent'); await page.wait_for_timeout(150)
+        check('re-opening rent makes no new call', [c['action'] for c in calls].count('rent') == 1)
+        await page.click('#ps-comp-tabbtn-market')
+        await page.wait_for_selector('#ps-comp-tab-market .ps-comp-chart')
+        check('market tab: one call, four charts', [c['action'] for c in calls].count('market') == 1 and await page.locator('#ps-comp-tab-market svg.ps-comp-chart').count() == 4)
+        await page.screenshot(path=f'{W}/shot-1440-market.png')
+        before = len(calls)
+        await page.click('#ps-comp-tabbtn-property'); await page.wait_for_timeout(150)
+        ptxt = await page.inner_text('#ps-comp-tab-property')
+        check('property tab: no call, owner + lawful note + history + taxes', len(calls) == before and 'T. Alvarez' in ptxt and 'lawful outreach' in ptxt and '2016' in ptxt and '2025' in ptxt, ptxt[:120])
+        await page.screenshot(path=f'{W}/shot-1440-property.png')
+        await page.click('#ps-comp-tabbtn-comps'); await page.wait_for_timeout(100)
+        check('update-best-use link appears after rent/market load', await page.is_visible('#ps-comp-bu-update'))
+        await page.click('#ps-comp-bu-update'); await page.wait_for_timeout(300)
+        bu = [c for c in calls if c['action'] == 'best-use']
+        check('update re-asks ARIS for the same report (server adds rent/market to the summary)', len(bu) == 2 and bu[1]['payload'].get('reportId') == 'rep_test', bu[-1]['payload'] if bu else None)
+        sent = json.dumps([c['payload'] for c in bu])
+        check('best-use request carries no owner data', 'Alvarez' not in sent and 'mailing' not in sent.lower())
+        await page.focus('#ps-comp-tabbtn-comps'); await page.keyboard.press('ArrowRight'); await page.wait_for_timeout(100)
+        check('arrow keys move between tabs', await page.get_attribute('#ps-comp-tabbtn-rent', 'aria-selected') == 'true')
+        await page.click('#ps-comp-tabbtn-comps'); await page.wait_for_timeout(100)
+        await page.screenshot(path=f'{W}/shot-1440-bestuse.png')
+        check('phase 3: no JS errors', not errors, errors)
+        await ctx.close()
+
+        BEST_USE_FAIL_PREV = globals()['BEST_USE_FAIL']
+        globals()['BEST_USE_FAIL'] = True
+        ctx, page, calls, errors = await make_page(b, (1440, 900))
+        await page.evaluate("ForgeComps.open('733 N Main St, Crown Point, IN 46307', {})")
+        await page.wait_for_selector('#ps-comp-bu-retry', timeout=5000)
+        check('best use failure shows retry, ARV still shown', (await page.inner_text('.ps-comp-stat.arv .v')) == '$261,000')
+        globals()['BEST_USE_FAIL'] = BEST_USE_FAIL_PREV
+        await ctx.close()
+
         # ── Non-admin: nothing changes on the page ──
         ctx, page, calls, errors = await make_page(b, (1440, 900), email='member@example.com')
         check('non-admin: teasers still visible', await page.is_visible('#ps-teaser-lookup') and await page.is_visible('#ps-teaser-comps'))
@@ -218,6 +289,17 @@ async def main():
             await page.click('#ps-comp-filters-toggle'); await page.wait_for_timeout(300)
             check(f'{vp[0]}px: filter bottom sheet opens', await page.evaluate("document.querySelector('#ps-comp-sheet').classList.contains('open')"))
             await page.screenshot(path=f'{W}/shot-{vp[0]}-filters.png', full_page=False)
+            await page.click('#ps-comp-sheet-done')   # close the sheet again
+            await page.click('#ps-comp-tabbtn-market'); await page.wait_for_selector('#ps-comp-tab-market .ps-comp-chart')
+            cols = await page.evaluate("getComputedStyle(document.querySelector('.ps-comp-charts')).gridTemplateColumns.split(' ').length")
+            check(f'{vp[0]}px: market charts stack in one column', cols == 1, cols)
+            check(f'{vp[0]}px: filters button hidden off the comps tab', not await page.is_visible('#ps-comp-filters-toggle'))
+            sw2 = await page.evaluate("document.querySelector('.ps-comp-body').scrollWidth <= document.querySelector('.ps-comp-body').clientWidth + 1")
+            check(f'{vp[0]}px: no sideways scroll on market tab', sw2)
+            await page.click('#ps-comp-tabbtn-property'); await page.wait_for_timeout(150)
+            sw3 = await page.evaluate("document.querySelector('.ps-comp-body').scrollWidth <= document.querySelector('.ps-comp-body').clientWidth + 1")
+            check(f'{vp[0]}px: no sideways scroll on property tab', sw3)
+            await page.screenshot(path=f'{W}/shot-{vp[0]}-property.png', full_page=False)
             check(f'{vp[0]}px: no JS errors', not errors, errors)
             await ctx.close()
         await b.close()
