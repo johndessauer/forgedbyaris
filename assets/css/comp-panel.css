@@ -165,12 +165,12 @@
 /* ── Comp table ────────────────────────────────────────────── */
 .ps-comp-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
 .ps-comp-table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 520px; }
-.ps-comp-table th { text-align: left; font-weight: 600; font-size: 10.5px; letter-spacing: 0.5px; color: var(--c-text-2); padding: 9px 7px; border-bottom: 1px solid var(--border); white-space: nowrap; background: var(--c-card); position: sticky; top: 0; }
+.ps-comp-table th { text-align: left; font-weight: 600; font-size: 10.5px; letter-spacing: 0.5px; color: var(--c-text-2); padding: 9px 6px; border-bottom: 1px solid var(--border); white-space: nowrap; background: var(--c-card); position: sticky; top: 0; }
 .ps-comp-table th button { background: none; border: none; color: inherit; font: inherit; cursor: pointer; padding: 0; letter-spacing: inherit; }
 .ps-comp-table th button[aria-sort]::after { content: ' ↕'; opacity: 0.4; }
 .ps-comp-table th button[aria-sort="ascending"]::after { content: ' ↑'; opacity: 1; color: var(--c-gold); }
 .ps-comp-table th button[aria-sort="descending"]::after { content: ' ↓'; opacity: 1; color: var(--c-gold); }
-.ps-comp-table td { padding: 9px 7px; border-bottom: 1px solid var(--c-line); color: #E5E7EB; vertical-align: top; }
+.ps-comp-table td { padding: 9px 6px; border-bottom: 1px solid var(--c-line); color: #E5E7EB; vertical-align: top; }
 .ps-comp-table tr.excluded td { color: var(--grey, #6B7280); }
 .ps-comp-table tr.focus td { background: rgba(200,155,60,0.1); }
 .ps-comp-table td.num { text-align: right; white-space: nowrap; }
@@ -310,3 +310,6 @@
   .ps-comp-table-sm { min-width: 0; }   /* small tables become stacked cards too */
   .ps-comp-table-sm td { padding-left: 0; }
 }
+
+/* City, state, ZIP under each comp's street */
+.ps-comp-cityline { display: block; font-size: 10.5px; color: var(--c-text-2); margin: 2px 0 3px; font-weight: 400; white-space: nowrap; }

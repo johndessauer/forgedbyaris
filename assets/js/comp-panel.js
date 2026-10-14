@@ -40,6 +40,7 @@
   const money = v => (v === null || v === undefined || !Number.isFinite(Number(v))) ? '—' : '$' + Math.round(Number(v)).toLocaleString('en-US');
   const moneyK = v => (v === null || v === undefined) ? '—' : '$' + Math.round(Number(v) / 1000).toLocaleString('en-US') + 'K';
   const num = v => (v === null || v === undefined || v === '' || !Number.isFinite(Number(v))) ? null : Number(v);
+  const tinyDate = iso => { const t = Date.parse(iso); return Number.isFinite(t) ? new Date(t).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' }) : '—'; };
   const shortDate = iso => { const t = Date.parse(iso); return Number.isFinite(t) ? new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'; };
   // "801 N Main St, Crown Point, IN 46307" → "801 N Main St" for the table;
   // the full address stays in the title attribute and the map tooltip.
@@ -101,9 +102,40 @@
     } catch (e) { rec = null; }
     if (!rec || !rec.address) return;
     const d = rec.details || {};
-    open(rec.address, { beds: d.beds, baths: d.baths, sqft: d.sqft, propertyType: d.propertyType, yearBuilt: d.yearBuilt, lat: rec.lat, lng: rec.lng },
+    const full = fullAddress(rec.address, d);
+    if (!full) { askForCityStateZip(rec.address); return; }
+    open(full, { beds: d.beds, baths: d.baths, sqft: d.sqft, propertyType: d.propertyType, yearBuilt: d.yearBuilt, lat: rec.lat, lng: rec.lng },
       { equity: rec.equity ? Number(rec.equity) * 1000 : null });   // lead cards store equity in $K
   }
+
+  // A lead's address is often the street only ("1930 SILVER CREEK CT").
+  // RentCast needs city, state and ZIP to find the right property, so build
+  // the full address from the lead's details — or return null and ask.
+  const HAS_STATE_ZIP = /,\s*[A-Za-z .'-]+,\s*[A-Z]{2}\s+\d{5}\b/i;
+  function fullAddress(address, d) {
+    const a = String(address || '').trim();
+    if (!a) return null;
+    if (HAS_STATE_ZIP.test(a)) return a;
+    const det = d || {};
+    if (det.city && det.state) return [a, det.city, [String(det.state).toUpperCase(), det.zip].filter(Boolean).join(' ')].join(', ');
+    return null;
+  }
+
+  // Older saved leads have no city/state/ZIP: prefill the lookup card with
+  // the street and ask the member to finish it, rather than guess.
+  function askForCityStateZip(street) {
+    const card = document.getElementById('ps-comp-lookup');
+    if (!card) return;
+    $('#ps-comp-street').value = street;
+    const err = $('#ps-comp-form-error');
+    err.textContent = 'Add the city, state and ZIP for this address so the comps match the right property.';
+    err.style.display = 'block';
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => $('#ps-comp-city').focus(), 300);
+  }
+
+  // "801 N Main St, Crown Point, IN 46307" → "Crown Point, IN 46307"
+  const cityLine = a => String(a || '').split(',').slice(1).map(x => x.trim()).filter(Boolean).join(', ');
 
   // ── lookup card (replaces the "Property Lookup by Address" teaser) ──
   function renderLookupCard() {
@@ -536,7 +568,7 @@
     { key: 'include', label: 'Use', sortable: false },
     { key: 'address', label: 'Address' },
     { key: 'distance', label: 'Mi', num: true },
-    { key: 'date', label: 'Sold / status' },
+    { key: 'date', label: 'Sold' },
     { key: 'price', label: 'Price', num: true },
     { key: 'ppsf', label: '$/sqft', num: true },
     { key: 'size', label: 'Bd/Ba/Sqft' },
@@ -575,13 +607,13 @@
       : `<th scope="col"><button type="button" data-sort="${c.key}" aria-sort="${S.sort.key === c.key ? (S.sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}">${c.label}</button></th>`).join('');
     const body = shownRows.map(row => {
       const sc = simClass(row.similarity);
-      const status = row.source === 'recorded' ? shortDate(row.date) : `${esc(row.status || 'Listing')} · ${shortDate(row.date)}`;
+      const status = row.source === 'recorded' ? tinyDate(row.date) : `${esc(row.status || 'Listing')} · ${tinyDate(row.date)}`;
       const reasons = !row.eligible ? `<span class="ps-comp-why">Out: ${row.reasons.map(x => REASON_TEXT[x] || x).join(', ')}</span>` : '';
       const adj = `<div class="ps-comp-adjcell">${row.totalAdjustment >= 0 ? '+' : '−'}$${Math.abs(row.totalAdjustment || 0).toLocaleString('en-US')} adj.</div>`;
       return `
         <tr data-id="${esc(row.id)}" class="${row.included ? '' : 'excluded'} ${S.focusId === row.id ? 'focus' : ''}" tabindex="-1">
           <td class="cell-toggle"><label class="ps-comp-hit"><input type="checkbox" class="ps-comp-toggle" data-toggle="${esc(row.id)}" ${row.included ? 'checked' : ''} aria-label="Include ${esc(row.address)}"></label></td>
-          <td data-label="Address"><span class="ps-comp-idx ${sc}">${rank[row.id]}</span><span class="addr" title="${esc(row.address)}">${esc(streetOnly(row.address))}</span><br>
+          <td data-label="Address"><span class="ps-comp-idx ${sc}">${rank[row.id]}</span><span class="addr" title="${esc(row.address)}">${esc(streetOnly(row.address))}</span>${cityLine(row.address) ? `<span class="ps-comp-cityline">${esc(cityLine(row.address))}</span>` : '<br>'}
             <span class="ps-comp-badge ${row.source === 'recorded' ? 'rec' : 'lst'}">${row.source === 'recorded' ? 'Recorded sale' : 'Listing (unverified sale)'}</span>${reasons}</td>
           <td class="num" data-label="Distance">${row.distance === null || row.distance === undefined ? '—' : row.distance.toFixed(2)}</td>
           <td data-label="${row.source === 'recorded' ? 'Sold' : 'Status'}">${status}</td>
@@ -826,7 +858,7 @@
         <th scope="col">Address</th><th scope="col" class="num">Rent</th><th scope="col">Bd/Ba/Sqft</th><th scope="col" class="num">Mi</th><th scope="col">Status</th>${showMatch ? '<th scope="col" class="num">Match</th>' : ''}
       </tr></thead><tbody>
       ${rows.map((c, i) => `<tr>
-        <td data-label="Address"><span class="ps-comp-idx mid">${i + 1}</span><span class="addr" title="${esc(c.address)}">${esc(streetOnly(c.address))}</span></td>
+        <td data-label="Address"><span class="ps-comp-idx mid">${i + 1}</span><span class="addr" title="${esc(c.address)}">${esc(streetOnly(c.address))}</span>${cityLine(c.address) ? `<span class="ps-comp-cityline">${esc(cityLine(c.address))}</span>` : ''}</td>
         <td class="num" data-label="Rent"><strong>${money(c.price)}</strong></td>
         <td data-label="Bd/Ba/Sqft">${c.beds ?? '—'}/${c.baths ?? '—'}/${c.sqft ? Number(c.sqft).toLocaleString('en-US') : '—'}</td>
         <td class="num" data-label="Distance">${c.distance === null || c.distance === undefined ? '—' : c.distance.toFixed(2)}</td>
