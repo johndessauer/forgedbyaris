@@ -203,3 +203,15 @@ Phase 4: Send to Deal Analyzer, Save to CRM (native default, GHL admin-only), co
 - **Fix:** `property-search.js` puts `city`, `state`, `zip` in each result's `details` (so saved leads keep them; no SQL). `comp-panel.js` builds the full address for RentCast; for older saved leads without city/state/ZIP it prefills the lookup card and asks instead of guessing.
 - **Display:** city, state and ZIP shown under the street on every sales comp, rental comp and active rental. Table dates compacted to `9/11/26` so the table still fits.
 - **Tests:** `tests/property-search-address.test.js`; UI suite now 86 checks.
+
+---
+
+# FORGE Cast rebrand + honest "no record" (Oct 13, 2026)
+
+**Branch:** `feature/forge-cast`. **Context:** `RENTCAST_API_KEY` is now set in Netlify (not by John; likely the other session). John chose to **keep it live** (Oct 13) — the panel is admin-only and the $100 cap applies.
+
+- **"FORGE Cast"** replaces "RentCast" everywhere a member reads it (John, Oct 13). RentCast's API terms require no attribution (rentcast.io/terms-api §3.1). Internal names (`RENTCAST_API_KEY`, `rentcast_*` tables, `/api/rentcast-comps`, error codes) are unchanged — never shown to members. The best-use summary key is now `forgeCastValue` and the ARIS prompt says "FORGE Cast value". UI test fails if "RentCast" appears in any member-readable text.
+- **No public record:** the "(common for new construction)" guess is gone. New notice states FORGE Cast has no record matching the exact address. If the valuation found the property under a different spelling, `suggestedAddress` is returned and the panel offers **Retry with FORGE Cast's address (uses 1 lookup)** → `POST retry-record` (one `/properties` call; sold comps + valuation reused from cache; report rebuilt and saved).
+- **Fact sources:** `subject.factSources` labels beds/baths/sqft/year/type as `lead` (PropertyRadar / typed), `record` (public record) or `forgecast`; `recordFacts` keeps the public-record numbers when a lead overrides them, and the header shows "Public record says …" on a mismatch. Lead overrides are stored on the report (`subject.leadOverrides`) so rebuilds keep them.
+- **Why 12323 Williams Ct showed 5 bd / 5 ba / 6,000 sqft:** those came from the PropertyRadar lead (lead facts override the record by design). The header now says so.
+- Tests: 72 backend, 95 browser checks.

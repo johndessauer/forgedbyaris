@@ -313,3 +313,7 @@
 
 /* City, state, ZIP under each comp's street */
 .ps-comp-cityline { display: block; font-size: 10.5px; color: var(--c-text-2); margin: 2px 0 3px; font-weight: 400; white-space: nowrap; }
+
+/* Where the property facts came from */
+.ps-comp-factsrc { font-size: 11px; color: var(--grey, #6B7280); margin-top: 3px; }
+.ps-comp-factdiff { color: var(--c-yellow); }

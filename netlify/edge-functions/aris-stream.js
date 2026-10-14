@@ -263,13 +263,13 @@ You are the same ARIS a member gets on day one. Prove it in this conversation.`;
 const COMPS_MEMBER_BLOCK = `
 
 COMPING ENGINE (Empire feature, live):
-FORGE's comping engine (Empire) pulls recorded sales within 1 mi / 90 days and RentCast valuations. Members open it from Property Search with "Comp This Property". It produces a FORGE ARV with a range and a confidence level, a rent estimate, a ZIP market trend, and a best-use ranking, and the member can include or exclude each comp. When a member needs an ARV for a specific property, point them there.
+FORGE's comping engine (Empire) pulls recorded sales within 1 mi / 90 days and FORGE Cast valuations. Members open it from Property Search with "Comp This Property". It produces a FORGE ARV with a range and a confidence level, a rent estimate, a ZIP market trend, and a best-use ranking, and the member can include or exclude each comp. When a member needs an ARV for a specific property, point them there.
 Whenever you talk about comp results, be clear that: the ARV is an estimate, not an appraisal; listing comps are not verified sales; and coverage varies by market.`;
 
 const COMPS_SALES_BLOCK = `
 
 COMPING ENGINE:
-Empire members get a comping engine inside Property Search (recorded sales plus RentCast valuations). You may mention that it exists as an Empire feature. You must NOT run comps, estimate an ARV, or quote values for a visitor's property — the "do not become a deal analyzer" rule above still applies.`;
+Empire members get a comping engine inside Property Search (recorded sales plus FORGE Cast valuations). You may mention that it exists as an Empire feature. You must NOT run comps, estimate an ARV, or quote values for a visitor's property — the "do not become a deal analyzer" rule above still applies.`;
 
 function compsBlock(promptKey) {
   if (Netlify.env.get('COMPS_ARIS_LIVE') !== '1') return '';

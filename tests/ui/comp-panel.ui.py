@@ -76,6 +76,8 @@ async def make_page(browser, vp, email='john@thedessauergroup.com', comp_overrid
                 if 'action=listings' in url:
                     calls[-1]['action'] = 'listings'
                     return await r.fulfill(body=json.dumps({'demo': True, 'cached': False, 'type': 'rental', 'listings': FIX('listings-rental.json')}), content_type='application/json')
+                if action == 'retry-record':
+                    return await r.fulfill(body=json.dumps({'reportId': 'rep_test', 'cached': False, 'subject': COMP['subject'], 'property': COMP['property'], 'comps': COMP['comps'], 'report': COMP['report']}), content_type='application/json')
                 if action == 'best-use':
                     if BEST_USE_FAIL: return await r.fulfill(status=502, body=json.dumps({'error': 'best_use_unavailable'}), content_type='application/json')
                     return await r.fulfill(body=json.dumps(BEST_USE), content_type='application/json')
@@ -107,7 +109,7 @@ async def open_by_lookup(page):
 
 FIX = lambda name: json.load(open(os.path.join(REPO, 'netlify/functions/__fixtures__/rentcast', name)))
 BEST_USE = {'cached': False, 'hash': 'x', 'model': 'claude-sonnet-4-6', 'result': {'ranked': [
-  {'strategy': 'Rental', 'score': 81, 'reasons': ['Rent-to-value near 0.7%', 'ARV within 1% of RentCast']},
+  {'strategy': 'Rental', 'score': 81, 'reasons': ['Rent-to-value near 0.7%', 'ARV within 1% of the FORGE Cast value']},
   {'strategy': 'Flip', 'score': 64, 'reasons': ['Thin spread without a purchase price']},
   {'strategy': 'Wholesale', 'score': 55, 'reasons': ['Needs a deep discount']},
   {'strategy': 'Hold', 'score': 50, 'reasons': ['Modest appreciation']},
@@ -225,6 +227,47 @@ async def main():
         check('completed address is used', p4['address'] == '55 OLD MILL RD, Hobart, IN 46342', p4['address'])
         await page.keyboard.press('Escape')
         await page.screenshot(path=f'{W}/shot-1440-cityline.png')
+        await ctx.close()
+
+        # ── FORGE Cast: no vendor name anywhere a member can read ──
+        ctx, page, calls, errors = await make_page(b, (1440, 900))
+        await page.evaluate("ForgeComps.open('733 N Main St, Crown Point, IN 46307', {})")
+        await page.wait_for_selector('.ps-comp-bu-top', timeout=5000)
+        seen_text = [await page.inner_text('body')]
+        for tab in ['rent', 'market', 'property']:
+            await page.click(f'#ps-comp-tabbtn-{tab}')
+            await page.wait_for_timeout(500)
+            seen_text.append(await page.inner_text('#ps-comp-tab-' + tab))
+        await page.click('#ps-comp-rentals-btn') if await page.is_visible('#ps-comp-rentals-btn') else None
+        await page.click('#ps-comp-tabbtn-rent'); await page.click('#ps-comp-rentals-btn'); await page.wait_for_timeout(300)
+        seen_text.append(await page.inner_text('#ps-comp-tab-rent'))
+        await page.click('#ps-comp-tabbtn-comps')
+        await page.evaluate("document.querySelector('.ps-comp-how').open = true")
+        seen_text.append(await page.inner_text('#ps-comp-body'))
+        alltext = '\n'.join(seen_text)
+        check('no "RentCast" anywhere members can read', 'rentcast' not in alltext.lower(), [l for l in alltext.splitlines() if 'rentcast' in l.lower()][:3])
+        check('FORGE Cast named on the gauge and stats', 'FORGE Cast' in await page.inner_text('#ps-comp-summary'))
+        fs = await page.inner_text('.ps-comp-factsrc')
+        check('fact source line shown', 'Facts from the public record' in fs, fs)
+        await ctx.close()
+
+        # No public record + FORGE Cast spelling → honest notice and 1-lookup retry
+        NR = dict(COMP); NR['noPublicRecord'] = True; NR['suggestedAddress'] = '733 N Main St, Crown Point, IN 46307'; NR['property'] = None
+        ctx, page, calls, errors = await make_page(b, (1440, 900), comp_override=(200, NR))
+        await page.evaluate("ForgeComps.open('733 North Main Street, Crown Pt, IN 46307', {})")
+        await page.wait_for_selector('#ps-comp-norecord', timeout=5000)
+        nt = await page.inner_text('#ps-comp-norecord')
+        check('honest no-record notice (no new-construction guess)', "doesn't have a public property record" in nt and 'construction' not in nt.lower(), nt[:120])
+        check('suggested spelling shown with a 1-lookup retry', '733 N Main St, Crown Point, IN 46307' in nt and 'uses 1 lookup' in nt)
+        before = len(calls)
+        await page.click('#ps-comp-retry-record')
+        await page.wait_for_timeout(600)
+        acts = [c['action'] for c in calls[before:]]
+        check('retry makes exactly one retry-record call', acts.count('retry-record') == 1 and 'comp' not in acts, acts)
+        check('notice cleared after a successful retry', await page.locator('#ps-comp-norecord').count() == 0)
+        await page.click('#ps-comp-tabbtn-property'); await page.wait_for_timeout(200)
+        check('property tab filled from the retried record', 'T. Alvarez' in await page.inner_text('#ps-comp-tab-property'))
+        check('no-record flow: no JS errors', not errors, errors)
         await ctx.close()
 
         # ── Phase 3: best use, tabs, lazy loading ──

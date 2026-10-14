@@ -18,6 +18,8 @@ const crypto = require('crypto');
 const STRATEGIES = ['Wholesale', 'Flip', 'Rental', 'STR', 'Hold'];
 const MODEL = 'claude-sonnet-4-6';   // same model the rest of ARIS uses
 
+// "FORGE Cast" is FORGE's name for its property-data valuation (John,
+// Oct 13, 2026). Never name the underlying data vendor to members.
 const SYSTEM = `You are ARIS, the AI advisor inside FORGE, a real estate investing platform.
 You are ranking exit strategies for ONE property from a computed comp summary.
 
@@ -25,11 +27,12 @@ Rules:
 - Consider exactly these strategies: Wholesale, Flip, Rental, STR, Hold.
 - Rank all five from best to worst fit. Score each 0-100 (fit, not profit).
 - Give 2 or 3 short, specific reasons per strategy, citing the numbers provided
-  (ARV, spread to the RentCast value, rent-to-value, $/sqft, days on market, trend).
+  (ARV, spread to the FORGE Cast value, rent-to-value, $/sqft, days on market, trend).
 - Do not invent numbers that are not in the summary. If something important is
   missing (repair costs, purchase price, STR rules, condition), say so in caveats.
 - The ARV is an estimate from recorded sales, not an appraisal. Listing comps are
   not verified sales. Mention low confidence in caveats when it applies.
+- "forgeCastValue" is the FORGE Cast automated valuation. Call it "the FORGE Cast value"; never name any other data provider.
 - This is educational analysis, not financial, legal, or tax advice.
 
 Respond with ONLY a JSON object, no prose and no code fences, in this shape:
@@ -46,7 +49,7 @@ function buildSummary({ row, market, extra }) {
     propertyType: subj.propertyType || null,
     beds: num(subj.beds), baths: num(subj.baths), sqft: num(subj.sqft), yearBuilt: num(subj.yearBuilt),
     arv: num(row && row.arv), arvLow: num(row && row.arv_low), arvHigh: num(row && row.arv_high),
-    rentcastValue: num(row && row.avm),
+    forgeCastValue: num(row && row.avm),
     confidence: (row && row.confidence) || null,
     compCount: num(row && row.comp_count),
     monthlyRent: num(row && row.rent),
@@ -71,7 +74,7 @@ function buildSummary({ row, market, extra }) {
 
 // Client-supplied summary (demo mode only, when there is no stored report):
 // keep known numeric/text fields and nothing else.
-const SUMMARY_KEYS = ['propertyType', 'beds', 'baths', 'sqft', 'yearBuilt', 'arv', 'arvLow', 'arvHigh', 'rentcastValue', 'confidence', 'compCount', 'monthlyRent', 'lastSalePrice', 'lastSaleYear', 'estimatedEquity', 'arvPerSqft', 'rentToValuePct', 'zipMedianPrice', 'zipMedianPricePerSqft', 'zipMedianDaysOnMarket', 'zipMedianRent', 'zipPriceTrend12moPct', 'zipRentTrend12moPct'];
+const SUMMARY_KEYS = ['propertyType', 'beds', 'baths', 'sqft', 'yearBuilt', 'arv', 'arvLow', 'arvHigh', 'forgeCastValue', 'confidence', 'compCount', 'monthlyRent', 'lastSalePrice', 'lastSaleYear', 'estimatedEquity', 'arvPerSqft', 'rentToValuePct', 'zipMedianPrice', 'zipMedianPricePerSqft', 'zipMedianDaysOnMarket', 'zipMedianRent', 'zipPriceTrend12moPct', 'zipRentTrend12moPct'];
 function sanitizeSummary(input) {
   const out = {};
   SUMMARY_KEYS.forEach(k => {
