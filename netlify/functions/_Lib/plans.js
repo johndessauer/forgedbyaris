@@ -16,6 +16,7 @@ const PLAN_IDS = Object.freeze({
   EMPIRE: 'pln_empire--871c00ah3',
   FOUNDATION_EMPIRE: 'pln_foundation-empire-eh1bv0h3e', // incl. $1,797 bundle and partner $250/$125 prices
   FOUNDATION: 'pln_foundation--s11cv0hs9',               // Foundation only — no Empire
+  FOUNDATION_180: 'pln_foundation-180-month-payment-plan--gy4q09u4', // Foundation $180/mo x12 payment plan — no Empire
   FOUNDING_MEMBER: 'pln_founding-member-a1p70rff',
   FOUNDING_MEMBER_VIP: 'pln_founding-member-vip--mzs707z3',
   FORTIVA_1997: 'pln_fortiva-foundation-1997-xt5g037j',  // Foundation only — no Empire
