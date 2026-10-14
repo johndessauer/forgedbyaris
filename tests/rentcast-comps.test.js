@@ -341,7 +341,7 @@ test('save-crm is stubbed for Phase 4', async () => {
 
 // ── Phase 3: ARIS best use ─────────────────────────────────────────────
 const GOOD_ARIS = JSON.stringify({ ranked: [
-  { strategy: 'Rental', score: 81, reasons: ['Rent-to-value near 0.7%', 'ARV within 1% of RentCast'] },
+  { strategy: 'Rental', score: 81, reasons: ['Rent-to-value near 0.7%', 'ARV within 1% of the FORGE Cast value'] },
   { strategy: 'Flip', score: 64, reasons: ['Thin spread to ARV without a purchase price', 'Steady 12-month price trend'] },
   { strategy: 'Wholesale', score: 55, reasons: ['Needs a deep discount to leave room for a buyer'] },
   { strategy: 'Hold', score: 50, reasons: ['Appreciation modest'] },
@@ -442,4 +442,61 @@ test('shared reports never include owner data, even after rent/market/best use',
   const pub = await setup({ store: t.store, unauth: true }).call('GET', { action: 'report', token: s.body.token });
   const text = JSON.stringify(pub.body);
   ['Alvarez', 'mailingAddress', 'taxAssessments', 'propertyTaxes', 'ownerOccupied'].forEach(x => assert.ok(!text.includes(x), x));
+});
+
+// ── FORGE Cast fix (Oct 13): fact sources, honest no-record, 1-lookup retry ──
+test('fact sources: lead numbers are labeled, and the public record is kept for comparison', async () => {
+  const t = setup();
+  const r = await t.call('POST', { action: 'comp', address: ADDRESS, overrides: { beds: 5, baths: 5, sqft: 6000 } });
+  const s = r.body.subject;
+  assert.equal(s.sqft, 6000);
+  assert.deepEqual(s.factSources, { beds: 'lead', baths: 'lead', sqft: 'lead', yearBuilt: 'record', propertyType: 'record' });
+  assert.deepEqual(s.recordFacts, { beds: 3, baths: 2, sqft: 1650, yearBuilt: 1978 });
+  const plain = await setup().call('POST', { action: 'comp', address: ADDRESS });
+  assert.equal(plain.body.subject.factSources.sqft, 'record');
+});
+
+test('no public record: FORGE Cast spelling is suggested, and retry-record costs exactly 1 lookup', async () => {
+  const subjectFix = loadFixture('properties:subject');
+  let subjectCalls = 0;
+  const t = setup({ mockResponse: (id, params) => {
+    if (id === 'properties:subject') {
+      subjectCalls += 1;
+      return params.address === '733 N Main St, Crown Point, IN 46307' ? { ok: true, status: 200, data: subjectFix } : { ok: false, status: 404, error: 'not found' };
+    }
+    return null;
+  } });
+  const r = await t.call('POST', { action: 'comp', address: '733 North Main Street, Crown Pt, IN 46307' });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.noPublicRecord, true);
+  assert.equal(r.body.suggestedAddress, '733 N Main St, Crown Point, IN 46307');
+  assert.equal(r.body.subject.factSources.sqft, 'forgecast');
+  const before = t.mockCalls.length;
+  const retry = await t.call('POST', { action: 'retry-record', reportId: r.body.reportId, address: r.body.suggestedAddress });
+  assert.equal(retry.status, 200);
+  assert.equal(t.mockCalls.length - before, 1);                 // only the record search
+  assert.equal(retry.body.property.owner.names[0], 'T. Alvarez');
+  assert.equal(retry.body.subject.factSources.sqft, 'record');
+  assert.equal(retry.body.report.arv, 261000);
+  assert.ok(t.store.reports.get(r.body.reportId).sources.subject);
+});
+
+test('no suggestion when FORGE Cast found the same address; retry 404 is explained', async () => {
+  const t = setup({ mockResponse: id => (id === 'properties:subject' ? { ok: false, status: 404, error: 'not found' } : null) });
+  const r = await t.call('POST', { action: 'comp', address: ADDRESS });
+  assert.equal(r.body.noPublicRecord, true);
+  assert.equal(r.body.suggestedAddress, null);
+  const retry = await t.call('POST', { action: 'retry-record', reportId: r.body.reportId, address: '733 N Main St, Crown Point, IN 46307' });
+  assert.equal(retry.status, 404);
+  assert.equal(retry.body.error, 'no_record');
+});
+
+test('best use calls the valuation "FORGE Cast" and never names the vendor', async () => {
+  const calls = [];
+  const t = setup({ env: { ANTHROPIC_API_KEY: 'k' }, anthropic: arisReply(GOOD_ARIS, calls) });
+  const c = await t.call('POST', { action: 'comp', address: ADDRESS });
+  await t.call('POST', { action: 'best-use', reportId: c.body.reportId });
+  const sent = JSON.stringify(calls[0]);
+  assert.ok(sent.includes('forgeCastValue') && sent.includes('FORGE Cast value'));
+  assert.ok(!/rentcast/i.test(sent.replace(/never name any other data provider/g, '')), 'vendor name sent to ARIS');
 });

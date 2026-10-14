@@ -258,6 +258,20 @@ function assemble({ subjectRec, soldData, valueData, overrides, normAddress, sel
   const avmSubject = valueData && valueData.subjectProperty;
   const subject = engine.subjectFromRecord(subjectRec || avmSubject || null, overrides);
   if (!subject.address) subject.address = (overrides && overrides.address) || null;
+  // Where each fact came from, so the member can tell a lead's number from
+  // the public record: 'lead' (PropertyRadar / typed in), 'record' (public
+  // record), 'forgecast' (FORGE Cast valuation's subject lookup).
+  const baseSource = subjectRec ? 'record' : (avmSubject ? 'forgecast' : null);
+  const o = overrides || {};
+  subject.factSources = {};
+  ['beds', 'baths', 'sqft', 'yearBuilt', 'propertyType'].forEach(k => {
+    const has = o[k] !== undefined && o[k] !== null && o[k] !== '';
+    subject.factSources[k] = has ? 'lead' : (subject[k] !== null && subject[k] !== undefined ? baseSource : null);
+  });
+  // Public-record facts kept separately when a lead's numbers override them.
+  if (subjectRec) {
+    subject.recordFacts = { beds: subjectRec.bedrooms ?? null, baths: subjectRec.bathrooms ?? null, sqft: subjectRec.squareFootage ?? null, yearBuilt: subjectRec.yearBuilt ?? null };
+  }
 
   const recorded = (Array.isArray(soldData) ? soldData : [])
     .filter(r => core.normalizeAddress(r.formattedAddress) !== normAddress)   // never comp the subject against itself
@@ -272,8 +286,11 @@ function assemble({ subjectRec, soldData, valueData, overrides, normAddress, sel
     asOf, pulled: sel.pulled || { radius: PULL.radius, soldWithinDays: PULL.soldWithinDays, listings: true },
   });
 
+  const leadOverrides = {};
+  ['beds', 'baths', 'sqft', 'yearBuilt', 'propertyType', 'lat', 'lng'].forEach(k => { if (o[k] !== undefined && o[k] !== null && o[k] !== '') leadOverrides[k] = o[k]; });
   return {
     subject,
+    leadOverrides,
     comps,
     avm: valueData ? { price: valueData.price ?? null, low: valueData.priceRangeLow ?? null, high: valueData.priceRangeHigh ?? null } : null,
     report,
@@ -284,7 +301,7 @@ function reportRow(memberId, normAddress, built, sources, selection, property) {
   return {
     memberstack_id: memberId,
     norm_address: normAddress,
-    subject: { ...built.subject, property },
+    subject: { ...built.subject, property, leadOverrides: built.leadOverrides || null },
     selection: selection || {},
     sources,
     arv: built.report.arv,
@@ -380,6 +397,7 @@ function createHandler(deps) {
       if (isPost && action === 'share') return await shareAction(ctx, body);
       if (isPost && action === 'revoke') return await revokeAction(ctx, body);
       if (isPost && action === 'best-use') return await bestUseAction(ctx, body);
+      if (isPost && action === 'retry-record') return await run(() => retryRecordAction(ctx, fetchSection, body));
       if (isPost && action === 'save-crm') return json(501, { error: 'not_implemented', message: 'Save to CRM ships in Phase 4.' });
 
       return json(400, { error: 'Unknown action' });
@@ -473,6 +491,9 @@ async function compAction(ctx, fetchSection, body) {
     report: built.report,
     sectionErrors,
     noPublicRecord: !!noRecord.subject,
+    // FORGE Cast found the property under a different spelling: offer a
+    // 1-lookup retry of the public-record search with that address.
+    suggestedAddress: suggestedAddressFor(noRecord.subject, results.value && results.value.data, normAddress),
     budget: ctx.cfg.mode === 'demo' ? null : await budgetView(ctx.store, ctx.cfg, ctx.now()).catch(() => null),
   });
 }
@@ -579,8 +600,8 @@ function sanitizeSelection(sel) {
   return out;
 }
 
-async function rebuildFromCache(ctx, row, selection) {
-  const src = row.sources || {};
+async function rebuildFromCache(ctx, row, selection, sourcesOverride) {
+  const src = { ...(row.sources || {}), ...(sourcesOverride || {}) };
   const get = async key => {
     if (!key) return null;
     const hit = await ctx.store.getCache(key, ctx.now());
@@ -589,7 +610,8 @@ async function rebuildFromCache(ctx, row, selection) {
   const [subjectData, soldData, valueData] = await Promise.all([get(src.subject), get(src.sold), get(src.value)]);
   if (subjectData === undefined || soldData === undefined || valueData === undefined) return null;
   const overrides = { address: row.subject && row.subject.address };
-  ['lat', 'lng', 'sqft', 'beds', 'baths', 'yearBuilt', 'propertyType'].forEach(k => { if (row.subject && row.subject[k] !== undefined) overrides[k] = row.subject[k]; });
+  if (row.subject && row.subject.leadOverrides) Object.assign(overrides, row.subject.leadOverrides);
+  else ['lat', 'lng', 'sqft', 'beds', 'baths', 'yearBuilt', 'propertyType'].forEach(k => { if (row.subject && row.subject[k] !== undefined) overrides[k] = row.subject[k]; });
   const merged = { ...(row.selection || {}), ...(selection || {}) };
   return assemble({ subjectRec: firstRecord(subjectData), soldData, valueData, overrides, normAddress: row.norm_address, selection: merged, asOf: new Date(row.created_at || ctx.now()) });
 }
@@ -614,7 +636,7 @@ async function bestUseAction(ctx, body) {
   } else {
     return json(400, { error: 'reportId is required' });
   }
-  if (!summary.arv && !summary.rentcastValue) return json(409, { error: 'no_value', message: 'Best use needs an ARV or a RentCast value first.' });
+  if (!summary.arv && !summary.forgeCastValue) return json(409, { error: 'no_value', message: 'Best use needs an ARV or a FORGE Cast value first.' });
 
   const hash = bestUse.summaryHash(summary);
   const cached = row && row.best_use;
@@ -630,6 +652,40 @@ async function bestUseAction(ctx, body) {
     catch (e) { console.error('rentcast-comps: best_use save failed', e && e.message); }
   }
   return json(200, { cached: false, ...record });
+}
+
+function suggestedAddressFor(noRecord, valueData, normAddress) {
+  const fa = noRecord && valueData && valueData.subjectProperty && valueData.subjectProperty.formattedAddress;
+  if (!fa) return null;
+  return core.normalizeAddress(fa) !== normAddress ? fa : null;
+}
+
+// ── retry-record: one public-record lookup with FORGE Cast's spelling ────
+// Used when the first record search missed but the valuation found the
+// property under a different address. 1 lookup. Rebuilds the report from
+// cache with the new record (sold comps and valuation are reused).
+async function retryRecordAction(ctx, fetchSection, body) {
+  const row = await loadOwnReport(ctx, body.reportId);
+  const address = String(body.address || '').trim();
+  if (!address) return json(400, { error: 'address is required' });
+  if (ctx.cfg.mode === 'demo') return json(400, { error: 'not_available_in_demo' });
+  const r = await fetchSection({ section: 'subject', endpoint: 'properties', fixtureId: 'properties:subject', params: { address }, normAddress: core.normalizeAddress(address), refresh: false });
+  if (!r.ok) {
+    if (r.status === 404) return json(404, { error: 'no_record', message: 'FORGE Cast has no public record under that spelling either.' });
+    return sectionErrorResponse(r);
+  }
+  const rec = firstRecord(r.data);
+  if (!rec) return json(404, { error: 'no_record', message: 'FORGE Cast has no public record under that spelling either.' });
+  const built = await rebuildFromCache(ctx, row, row.selection, { subject: r.key });
+  if (!built) return json(409, { error: 'cache_expired', message: 'The data behind this report has expired. Run the comp again to refresh it.' });
+  const property = propertySection(rec);
+  await ctx.store.updateReport(row.id, ctx.memberId, {
+    subject: { ...built.subject, property, leadOverrides: (row.subject && row.subject.leadOverrides) || built.leadOverrides || null },
+    sources: { ...(row.sources || {}), subject: r.key },
+    arv: built.report.arv, arv_low: built.report.arvLow, arv_high: built.report.arvHigh,
+    comp_count: built.report.compCount, confidence: built.report.confidence,
+  });
+  return json(200, { reportId: row.id, cached: r.cached, subject: built.subject, property, comps: built.comps, report: built.report });
 }
 
 async function shareAction(ctx, body) {

@@ -137,6 +137,65 @@
   // "801 N Main St, Crown Point, IN 46307" → "Crown Point, IN 46307"
   const cityLine = a => String(a || '').split(',').slice(1).map(x => x.trim()).filter(Boolean).join(', ');
 
+
+  // ── Where the property facts came from ─────────────────────────────
+  const SOURCE_TEXT = { lead: 'your lead (PropertyRadar)', record: 'the public record', forgecast: 'FORGE Cast' };
+  function factSourceNote(subj) {
+    const fs = subj.factSources || {};
+    const groups = {};
+    [['beds', 'beds'], ['baths', 'baths'], ['sqft', 'sq ft'], ['yearBuilt', 'year built'], ['propertyType', 'type']].forEach(([k, label]) => {
+      if (fs[k]) (groups[fs[k]] = groups[fs[k]] || []).push(label);
+    });
+    const keys = Object.keys(groups);
+    if (!keys.length) return '';
+    const text = keys.length === 1
+      ? `Facts from ${SOURCE_TEXT[keys[0]] || keys[0]}.`
+      : 'Facts from ' + keys.map(k => `${SOURCE_TEXT[k] || k} (${groups[k].join(', ')})`).join('; ') + '.';
+    // When a lead's numbers override the public record and they disagree, show the record too.
+    const rf = subj.recordFacts;
+    let diff = '';
+    if (rf && keys.includes('lead')) {
+      const parts = [];
+      if (fs.beds === 'lead' && rf.beds != null && rf.beds !== subj.beds) parts.push(rf.beds + ' bd');
+      if (fs.baths === 'lead' && rf.baths != null && rf.baths !== subj.baths) parts.push(rf.baths + ' ba');
+      if (fs.sqft === 'lead' && rf.sqft != null && rf.sqft !== subj.sqft) parts.push(Number(rf.sqft).toLocaleString('en-US') + ' sqft');
+      if (parts.length) diff = ` <span class="ps-comp-factdiff">Public record says ${parts.map(esc).join(' · ')}.</span>`;
+    }
+    return `<div class="ps-comp-factsrc">${esc(text)}${diff}</div>`;
+  }
+
+  // ── No public record: honest notice + optional 1-lookup retry ───────
+  function noRecordNotice(resp) {
+    const sug = resp.suggestedAddress;
+    return `<div class="ps-comp-notice" id="ps-comp-norecord">
+      FORGE Cast doesn't have a public property record matching this exact address. The valuation and comps below still come from FORGE Cast.
+      ${sug
+        ? `<br>FORGE Cast's valuation found this property as <strong>${esc(sug)}</strong>.
+           <br><button type="button" class="ps-comp-btn-outline" id="ps-comp-retry-record" style="margin-top:10px">Retry with FORGE Cast's address (uses 1 lookup)</button>`
+        : `<br>If county records spell the address differently (Court vs Ct, or a different city for this ZIP), try comping that version.`}
+    </div>`;
+  }
+
+  async function retryRecord() {
+    const btn = $('#ps-comp-retry-record');
+    if (!btn || !S || !S.resp || !S.resp.suggestedAddress) return;
+    btn.disabled = true; btn.textContent = 'Retrying…';
+    const r = await api('POST', { action: 'retry-record', reportId: S.resp.reportId, address: S.resp.suggestedAddress });
+    if (r.status !== 200) {
+      const box = $('#ps-comp-norecord');
+      if (box) box.insertAdjacentHTML('beforeend', `<div class="ps-comp-budget" role="status" style="margin-top:8px">${esc((r.body && r.body.message) || 'Retry failed. No lookup was charged.')}</div>`);
+      btn.remove();
+      return;
+    }
+    S.resp.subject = r.body.subject;
+    S.resp.property = r.body.property;
+    S.resp.comps = r.body.comps;
+    S.resp.noPublicRecord = false;
+    S.resp.suggestedAddress = null;
+    S.mapFitted = false;
+    renderAll();
+  }
+
   // ── lookup card (replaces the "Property Lookup by Address" teaser) ──
   function renderLookupCard() {
     const lookupTeaser = document.getElementById('ps-teaser-lookup');
@@ -147,7 +206,7 @@
     card.id = 'ps-comp-lookup';
     card.innerHTML = `
       <h3>Comp a Property</h3>
-      <div class="ps-comp-hint">Recorded sales within 1 mi / 90 days, plus a RentCast valuation. Admin preview — demo data until live.</div>
+      <div class="ps-comp-hint">Recorded sales within 1 mi / 90 days, plus a FORGE Cast valuation. Admin preview.</div>
       <form id="ps-comp-form" novalidate>
         <label class="ps-comp-field"><span>Street</span><input class="ps-comp-input" id="ps-comp-street" autocomplete="street-address" placeholder="733 N Main St" required></label>
         <div class="ps-comp-row2">
@@ -281,6 +340,7 @@
       if (subj.sqft) facts.push(Number(subj.sqft).toLocaleString('en-US') + ' sqft');
       if (subj.yearBuilt) facts.push('built ' + esc(subj.yearBuilt));
     }
+    const factNote = subj ? factSourceNote(subj) : '';
     const pills = [];
     if (resp && resp.demo) pills.push('<span class="ps-comp-pill demo" title="Sample data — not a real comp report">Demo data</span>');
     if (resp && resp.cached && Object.values(resp.cached).some(Boolean)) pills.push(`<span class="ps-comp-pill" title="Served from FORGE's cache — no lookup used">Data as of ${esc(shortDate(resp.dataAsOf))} · cached</span>`);
@@ -288,6 +348,7 @@
       <div class="ps-comp-kicker">Comp Report</div>
       <div class="ps-comp-title" id="ps-comp-title">${esc((subj && subj.address) || (S && S.address) || '')}</div>
       ${facts.length ? `<div class="ps-comp-facts">${facts.join(' · ')}</div>` : ''}
+      ${factNote}
       ${pills.length ? `<div class="ps-comp-pills">${pills.join('')}</div>` : ''}`;
   }
 
@@ -330,10 +391,8 @@
     const resp = S.resp;
     const sectionErrs = Object.keys(resp.sectionErrors || {});
     const partial = sectionErrs.length
-      ? `<div class="ps-comp-notice warn">Some data couldn't load (${sectionErrs.map(s => ({ subject: 'property record', sold: 'recorded sales', value: 'RentCast valuation' }[s] || s)).join(', ')}). What's shown below uses the data that did load.</div>`
-      : (resp.noPublicRecord
-        ? `<div class="ps-comp-notice">No public property record on file for this address (common for new construction). Valuation and comps below still use RentCast data.</div>`
-        : '');
+      ? `<div class="ps-comp-notice warn">Some data couldn't load (${sectionErrs.map(s => ({ subject: 'property record', sold: 'recorded sales', value: 'FORGE Cast valuation' }[s] || s)).join(', ')}). What's shown below uses the data that did load.</div>`
+      : (resp.noPublicRecord ? noRecordNotice(resp) : '');
     els.body.innerHTML = `
       ${resp.demo ? '<div class="ps-comp-notice warn"><strong>Demo data.</strong> These are sample Crown Point, IN comps, shown for every address until live property data is turned on.</div>' : ''}
       ${partial}
@@ -367,6 +426,8 @@
     setupMap();
     refresh({ initial: true });
     renderBestUse();
+    const rr = $('#ps-comp-retry-record');
+    if (rr) rr.addEventListener('click', retryRecord);
     els.body.querySelectorAll('.ps-comp-tab').forEach(btn => {
       btn.addEventListener('click', () => switchTab(btn.dataset.tab));
       btn.addEventListener('keydown', ev => {
@@ -420,10 +481,10 @@
           <div class="ps-comp-gauge-track">
             ${rangeLo && rangeHi ? `<div class="ps-comp-gauge-range" style="left:${pos(rangeLo)};width:calc(${pos(rangeHi)} - ${pos(rangeLo)})"></div>` : ''}
             ${last ? `<div class="ps-comp-mark last${edge(last)}" style="left:${pos(last)}"><div class="ps-comp-mark-dot"></div><div class="ps-comp-mark-label">Last sale ${moneyK(last)}</div></div>` : ''}
-            ${avm.price ? `<div class="ps-comp-mark avm${edge(avm.price)}" style="left:${pos(avm.price)}"><div class="ps-comp-mark-dot"></div><div class="ps-comp-mark-label">RentCast ${moneyK(avm.price)}</div></div>` : ''}
+            ${avm.price ? `<div class="ps-comp-mark avm${edge(avm.price)}" style="left:${pos(avm.price)}"><div class="ps-comp-mark-dot"></div><div class="ps-comp-mark-label">FORGE Cast ${moneyK(avm.price)}</div></div>` : ''}
             ${r.arv ? `<div class="ps-comp-mark arv${edge(r.arv)}" style="left:${pos(r.arv)}"><div class="ps-comp-mark-dot"></div><div class="ps-comp-mark-label">FORGE ARV ${moneyK(r.arv)}</div></div>` : ''}
           </div>
-          <div class="ps-comp-gauge-ends"><span>${avm.low ? 'RentCast low ' + moneyK(avm.low) : 'Low ' + moneyK(r.arvLow)}</span><span>${avm.high ? 'RentCast high ' + moneyK(avm.high) : 'High ' + moneyK(r.arvHigh)}</span></div>
+          <div class="ps-comp-gauge-ends"><span>${avm.low ? 'FORGE Cast low ' + moneyK(avm.low) : 'Low ' + moneyK(r.arvLow)}</span><span>${avm.high ? 'FORGE Cast high ' + moneyK(avm.high) : 'High ' + moneyK(r.arvHigh)}</span></div>
         </div>`;
     }
     $('#ps-comp-summary').innerHTML = `
@@ -432,7 +493,7 @@
         <div class="ps-comp-stat arv"><div class="k">FORGE ARV</div><div class="v">${r.arv ? money(r.arv) : '—'}</div><div class="s">${r.arv ? `Range ${moneyK(r.arvLow)}–${moneyK(r.arvHigh)}` : 'Needs at least 1 included comp'}</div></div>
         <div class="ps-comp-stat"><div class="k">$ / sq ft</div><div class="v">${r.pricePerSqft ? '$' + r.pricePerSqft.toFixed(0) : '—'}</div></div>
         <div class="ps-comp-stat"><div class="k">Confidence</div><div class="v"><span class="ps-comp-conf ${esc(r.confidence)}">${esc(r.confidence)}</span></div></div>
-        <div class="ps-comp-stat"><div class="k">Comps</div><div class="v">${r.compCount}</div><div class="s">RentCast ${avm.price ? moneyK(avm.price) : '—'}</div></div>
+        <div class="ps-comp-stat"><div class="k">Comps</div><div class="v">${r.compCount}</div><div class="s">FORGE Cast ${avm.price ? moneyK(avm.price) : '—'}</div></div>
       </div>
       ${r.relaxedRules.length ? `<div class="ps-comp-relaxed">Rules relaxed: ${r.relaxedRules.map(esc).join('; ')}. Confidence lowered.</div>` : ''}
       <div class="ps-comp-disclaim">FORGE ARV is an estimate from recorded sales, not an appraisal. Listing comps are not verified sales. Coverage varies by market.</div>`;
@@ -660,7 +721,7 @@
           ${inc.length ? `<ol>${lines}</ol>` : '<p>No comps are included yet.</p>'}
           <p>FORGE ARV = the <strong>${r.method === 'mean' ? 'average (3 or fewer comps)' : 'median'}</strong> of the adjusted prices${r.arv ? ` = <strong>${money(r.arv)}</strong>` : ''}. Range = lowest to highest adjusted price.</p>
           <p>Confidence is <strong>${esc(r.confidence)}</strong>: High needs 3+ recorded sales within 1 mi / 90 days, all within ±10% of the median, with no rules relaxed${r.maxDeviationPct !== null ? `. The widest comp here is ${r.maxDeviationPct}% from the median` : ''}.</p>
-          <p>Comps are ranked by similarity: 40% distance, 25% size, 15% beds/baths, 10% year built, 10% how recent, blended with RentCast's match score where it exists.</p>
+          <p>Comps are ranked by similarity: 40% distance, 25% size, 15% beds/baths, 10% year built, 10% how recent, blended with FORGE Cast's match score where it exists.</p>
         </div>
       </details>`;
   }
@@ -837,7 +898,7 @@
           <div class="ps-comp-stat"><div class="k">Rent-to-ARV</div><div class="v">${rtv}</div><div class="s">Monthly rent ÷ FORGE ARV</div></div>
           <div class="ps-comp-stat"><div class="k">Rental comps</div><div class="v">${comps.length}</div></div>
         </div>
-        <div class="ps-comp-disclaim">RentCast rent estimate from nearby rental listings. Listings are asking rents, not signed leases.</div>
+        <div class="ps-comp-disclaim">FORGE Cast rent estimate from nearby rental listings. Listings are asking rents, not signed leases.</div>
       </section>
       <section class="ps-comp-section">
         <div class="ps-comp-section-title"><span>Rental comps map</span></div>
@@ -971,7 +1032,7 @@
           ${sparkChart(c.pts, c.fmt, c.label)}
         </div>`).join('')}
       </div>
-      <div class="ps-comp-disclaim">ZIP-level medians from RentCast, all property types, last 12 months.</div>`;
+      <div class="ps-comp-disclaim">ZIP-level medians from FORGE Cast, all property types, last 12 months.</div>`;
   }
 
   // ── Property ─────────────────────────────────────────────────────────
@@ -1024,7 +1085,7 @@
     const r = S.report || {};
     const avm = S.resp.avm || {};
     const out = { propertyType: subj.propertyType, beds: subj.beds, baths: subj.baths, sqft: subj.sqft, yearBuilt: subj.yearBuilt,
-      arv: r.arv, arvLow: r.arvLow, arvHigh: r.arvHigh, rentcastValue: avm.price, confidence: r.confidence, compCount: r.compCount,
+      arv: r.arv, arvLow: r.arvLow, arvHigh: r.arvHigh, forgeCastValue: avm.price, confidence: r.confidence, compCount: r.compCount,
       lastSalePrice: subj.lastSalePrice, estimatedEquity: S.equity };
     if (S.rent && S.rent.status === 'ok') out.monthlyRent = S.rent.data.rent;
     if (S.market && S.market.status === 'ok') {

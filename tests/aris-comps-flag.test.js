@@ -32,7 +32,7 @@ test('flag off (default): no comping-engine claims in any ARIS prompt', async ()
 
 test('flag on: member prompts get the caveated description; the public widget may not run comps', async () => {
   const coach = await systemPromptFor('coach', '1');
-  assert.ok(coach.includes('recorded sales within 1 mi / 90 days and RentCast valuations'));
+  assert.ok(coach.includes('recorded sales within 1 mi / 90 days and FORGE Cast valuations'));
   assert.ok(coach.includes('estimate, not an appraisal') && coach.includes('not verified sales') && coach.includes('coverage varies by market'));
   const da = await systemPromptFor('deal-analyzer', '1');
   assert.ok(da.includes('COMPING ENGINE (Empire feature, live)'));
