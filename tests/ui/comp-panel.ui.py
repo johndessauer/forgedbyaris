@@ -86,7 +86,7 @@ async def make_page(browser, vp, email='john@thedessauergroup.com', comp_overrid
                     return await r.fulfill(body=json.dumps(COMP), content_type='application/json')
                 return await r.fulfill(body=json.dumps({'ok': True}), content_type='application/json')
             if '/api/property-search' in url:
-                return await r.fulfill(body=json.dumps(SEARCH if 'action=search' in url else {'leads': []}), content_type='application/json')
+                return await r.fulfill(body=json.dumps(SEARCH if 'action=search' in url else {'leads': SAVED_LEADS}), content_type='application/json')
             if '/api/' in url or '/.netlify/' in url:
                 return await r.fulfill(body='{}', content_type='application/json')
             return await r.continue_()
@@ -115,6 +115,10 @@ BEST_USE = {'cached': False, 'hash': 'x', 'model': 'claude-sonnet-4-6', 'result'
   {'strategy': 'Hold', 'score': 50, 'reasons': ['Modest appreciation']},
   {'strategy': 'STR', 'score': 30, 'reasons': ['No STR demand data']}], 'caveats': ['No repair estimate was provided.']}}
 BEST_USE_FAIL = False
+SAVED_LEADS = [
+  {'id': 's-new', 'address': '8583 WHEELER PL', 'owner': '<b>GRCEVICH</b>', 'equity': 198, 'play_id': 'prefore', 'details': {'city': 'Crown Point', 'state': 'IN', 'zip': '46307'}},
+  {'id': 's-old', 'address': '55 OLD MILL RD', 'owner': 'OLD OWNER', 'equity': 10, 'play_id': 'prefore', 'details': {}},
+]
 
 results = []
 def check(name, ok, info=''):
@@ -199,6 +203,18 @@ async def main():
         await page.wait_for_selector('.ps-comp-panel.open .ps-comp-stat.arv .v')
         p2 = [c for c in calls[before:] if c['action'] == 'comp'][0]['payload']
         check('lead card passes beds/baths/sqft', p2['overrides'].get('sqft') == 1650 and p2['overrides'].get('beds') == 3, p2['overrides'])
+        # Lead cards show city, state and ZIP under the street.
+        await page.keyboard.press('Escape'); await page.wait_for_timeout(300)
+        cl = await page.inner_text('#ps-card-R100 .addr-city')
+        check('lead card shows city, state, ZIP', cl == 'Crown Point, IN 46307', cl)
+        check('no extra line when the address already includes it', await page.locator('#ps-card-demo-4 .addr-city').count() == 0)
+        await page.evaluate("openSavedDrawer()"); await page.wait_for_timeout(500)
+        check('saved lead shows city, state, ZIP', (await page.inner_text('#ps-saved-s-new .addr-city')) == 'Crown Point, IN 46307')
+        check('older saved lead shows street only', await page.locator('#ps-saved-s-old .addr-city').count() == 0)
+        check('owner text is escaped, not rendered as HTML', '<b>GRCEVICH</b>' in await page.inner_text('#ps-saved-s-new') and await page.locator('#ps-saved-s-new strong b').count() == 0)
+        await page.evaluate("closeSavedDrawer && closeSavedDrawer()") if await page.evaluate("typeof closeSavedDrawer === 'function'") else None
+        await page.wait_for_timeout(200)
+
         # Street-only live lead: the full address goes to RentCast.
         await page.keyboard.press('Escape'); await page.wait_for_timeout(300)
         before = len(calls)

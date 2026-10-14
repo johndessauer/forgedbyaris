@@ -447,6 +447,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 .ps-lead-card { background:var(--navy-card); border:1px solid var(--border); border-radius:10px; padding:16px; transition:border-color 0.15s; }
 .ps-lead-card.highlighted { border-color:var(--gold); }
 .ps-lead-card .addr { font-size:14px; font-weight:700; color:#fff; margin-bottom:4px; }
+.ps-lead-card .addr-city, .ps-saved-lead-card .addr-city { font-size:12px; font-weight:500; color:#9CA3AF; margin:-2px 0 6px; }
 .ps-lead-card .tag { display:inline-block; font-size:9.5px; letter-spacing:0.5px; text-transform:uppercase; padding:3px 8px; border-radius:10px; margin-bottom:10px; margin-right:6px; }
 .ps-lead-card .meta { font-size:12px; color:var(--light-grey); margin-bottom:4px; }
 .ps-lead-card .meta strong { color:#E5E7EB; }
@@ -830,14 +831,28 @@ function propertyLinksLine(mapUrl, zillowUrl) {
   return `<div class="meta">${links.join(' &middot; ')}</div>`;
 }
 
+// Escape text from PropertyRadar / saved leads before it goes into the page.
+function escHtml(v) {
+  return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// "Crown Point, IN 46307" from a lead's details (live PropertyRadar results
+// carry city/state/zip since Oct 13, 2026). Older saved leads have none.
+function cityStateZip(details) {
+  const d = details || {};
+  const tail = [d.state, d.zip].filter(Boolean).join(' ');
+  return [d.city, tail].filter(Boolean).join(', ');
+}
+
 function leadCardHtml(r) {
   const metas = playMetas(r.playIds);
   const tags = metas.map(m => `<span class="tag" style="background:${m.color}22; color:${m.color}">${m.label}</span>`).join('');
   return `
     <div class="ps-lead-card" id="ps-card-${r.id}">
-      <div class="addr">${r.address}</div>
+      <div class="addr">${escHtml(r.address)}</div>
+      ${cityStateZip(r.details) ? `<div class="addr-city">${escHtml(cityStateZip(r.details))}</div>` : ''}
       <div>${tags}</div>
-      <div class="meta">Owner: <strong>${r.owner || 'Unknown'}</strong></div>
+      <div class="meta">Owner: <strong>${escHtml(r.owner || 'Unknown')}</strong></div>
       <div class="meta">Est. Equity: <strong>${r.equity ? '$' + r.equity + 'K' : '—'}</strong></div>
       ${propertyCharsLine(r.details)}
       ${propertyLinksLine(r.mapUrl, r.zillowUrl)}
@@ -856,7 +871,7 @@ function addMarkersForResults(results) {
       // this property actually matches, so a double-hit (e.g. Pre-Foreclosure
       // + High-Equity) is visible even though the pin can only show one color.
       const marker = L.marker([r.lat, r.lng], { icon: pinIcon(metas[0].color) }).addTo(map);
-      marker.bindPopup(`<div style="min-width:180px;"><div style="font-weight:700;margin-bottom:4px;">${r.address}</div><div style="font-size:11px;color:#9CA3AF;">${metas.map(m => m.label).join(' + ')}</div>${window.ForgeComps ? window.ForgeComps.popupButton(r.id) : ''}</div>`, { closeButton:false, className:'ps-leaflet-popup' });
+      marker.bindPopup(`<div style="min-width:180px;"><div style="font-weight:700;margin-bottom:${cityStateZip(r.details) ? '0' : '4px'};">${escHtml(r.address)}</div>${cityStateZip(r.details) ? `<div style="font-size:11px;color:#9CA3AF;margin-bottom:4px;">${escHtml(cityStateZip(r.details))}</div>` : ''}<div style="font-size:11px;color:#9CA3AF;">${metas.map(m => m.label).join(' + ')}</div>${window.ForgeComps ? window.ForgeComps.popupButton(r.id) : ''}</div>`, { closeButton:false, className:'ps-leaflet-popup' });
       marker.on('click', () => highlightCard(r.id));
       markers.push(marker);
     }
@@ -1066,9 +1081,10 @@ async function renderSavedDrawer() {
     const details = lead.details || {};
     return `
       <div class="ps-saved-lead-card" id="ps-saved-${lead.id}">
-        <div class="addr">${lead.address || 'Unknown address'}</div>
+        <div class="addr">${escHtml(lead.address || 'Unknown address')}</div>
+        ${cityStateZip(details) ? `<div class="addr-city">${escHtml(cityStateZip(details))}</div>` : ''}
         ${tags ? `<div class="tags">${tags}</div>` : ''}
-        <div class="meta">Owner: <strong>${lead.owner || 'Unknown'}</strong></div>
+        <div class="meta">Owner: <strong>${escHtml(lead.owner || 'Unknown')}</strong></div>
         <div class="meta">Est. Equity: <strong>${lead.equity ? '$' + lead.equity + 'K' : '—'}</strong></div>
         ${propertyCharsLine(details)}
         ${propertyLinksLine(details.mapUrl, details.zillowUrl)}
