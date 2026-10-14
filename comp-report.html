@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>FORGE Comp Report</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/css/comp-panel.css">
+<style>
+  /* Shared, read-only comp report (Comping Engine Phase 4). No login.
+     Renders the frozen snapshot saved when the member created the link —
+     never calls FORGE Cast, never shows owner, mailing or tax data. */
+  :root {
+    --black: #0D1B2A; --navy: #0f2035; --navy-mid: #1a3350; --navy-light: #162840;
+    --orange: #FF6B2B; --gold: #C89B3C; --white: #FFFFFF; --grey: #6B7280; --grey-light: #9CA3AF;
+    --border: rgba(200,155,60,0.18); --border-sub: rgba(255,255,255,0.06);
+    --green: #22c55e; --yellow: #f59e0b; --red: #ef4444;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--black); color: var(--white); font-family: 'Inter', sans-serif; min-height: 100vh; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 28px 20px 60px; }
+  .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .brand { font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 3px; color: var(--gold); text-decoration: none; }
+  .tag { font-size: 11px; color: var(--grey-light); letter-spacing: 1px; text-transform: uppercase; }
+  .card { background: var(--navy); border: 1px solid var(--border); border-radius: 14px; padding: 22px; }
+  .foot { margin-top: 18px; font-size: 11px; color: var(--grey); line-height: 1.6; text-align: center; }
+  .foot a { color: var(--gold); }
+</style>
+</head>
+<body>
+<div class="wrap ps-comp-scope">
+  <div class="top"><a class="brand" href="/">FORGE</a><span class="tag">Shared comp report · read-only</span></div>
+  <main class="card" id="report" aria-live="polite">
+    <div class="ps-comp-skel" style="height:60px"></div>
+    <div class="ps-comp-skel" style="height:90px"></div>
+    <div class="ps-comp-skel" style="height:220px"></div>
+  </main>
+  <div class="foot">FORGE ARV is an estimate from recorded sales, not an appraisal. Listing comps are not verified sales. Coverage varies by market. Educational use only — not financial, legal or tax advice.<br>Shared from <a href="/">FORGE</a>.</div>
+</div>
+<script>
+(function () {
+  'use strict';
+  const esc = v => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  const money = v => (v == null || !isFinite(Number(v))) ? '—' : '$' + Math.round(Number(v)).toLocaleString('en-US');
+  const moneyK = v => v == null ? '—' : '$' + Math.round(Number(v) / 1000).toLocaleString('en-US') + 'K';
+  const tinyDate = iso => { const t = Date.parse(iso); return isFinite(t) ? new Date(t).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' }) : '—'; };
+  const street = a => String(a || '').split(',')[0];
+  const cityLine = a => String(a || '').split(',').slice(1).map(x => x.trim()).filter(Boolean).join(', ');
+  const STRAT = { Wholesale: 'Wholesale', Flip: 'Fix & Flip', Rental: 'Buy & Hold Rental', STR: 'Short-Term Rental', Hold: 'Hold' };
+  const root = document.getElementById('report');
+
+  const token = new URLSearchParams(window.location.search).get('t');
+  if (!token) { root.innerHTML = '<div class="ps-comp-notice err">This link is missing its report code.</div>'; return; }
+
+  fetch('/api/rentcast-comps?action=report&token=' + encodeURIComponent(token))
+    .then(r => r.json().then(b => ({ ok: r.ok, status: r.status, b })))
+    .then(({ ok, status, b }) => {
+      if (!ok || !b.report) {
+        root.innerHTML = status === 404
+          ? '<div class="ps-comp-notice">This shared report is no longer available. The link may have been turned off.</div>'
+          : '<div class="ps-comp-notice err">Could not load this report. Try again in a moment.</div>';
+        return;
+      }
+      render(b.report);
+    })
+    .catch(() => { root.innerHTML = '<div class="ps-comp-notice err">Could not load this report. Try again in a moment.</div>'; });
+
+  function render(snap) {
+    const s = snap.subject || {}; const r = snap.report || {}; const avm = snap.avm || {};
+    document.title = 'FORGE Comp Report — ' + (snap.address || s.address || '');
+    const facts = [s.propertyType, s.beds != null ? s.beds + ' bd' : null, s.baths != null ? s.baths + ' ba' : null, s.sqft ? Number(s.sqft).toLocaleString('en-US') + ' sqft' : null, s.yearBuilt ? 'built ' + s.yearBuilt : null].filter(Boolean).map(esc).join(' · ');
+    const inc = (r.rows || []).filter(x => x.included);
+    const bu = snap.bestUse;
+    root.innerHTML = `
+      <div class="ps-comp-kicker">Comp Report${snap.createdAt ? ' · ' + esc(new Date(snap.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })) : ''}</div>
+      <h1 class="ps-comp-title">${esc(snap.address || s.address || '')}</h1>
+      ${facts ? `<div class="ps-comp-facts">${facts}</div>` : ''}
+      <div class="ps-comp-stats" style="margin-top:18px">
+        <div class="ps-comp-stat arv"><div class="k">FORGE ARV</div><div class="v">${money(r.arv)}</div><div class="s">Range ${moneyK(r.arvLow)}–${moneyK(r.arvHigh)}</div></div>
+        <div class="ps-comp-stat"><div class="k">$ / sq ft</div><div class="v">${r.pricePerSqft ? '$' + Math.round(r.pricePerSqft) : '—'}</div></div>
+        <div class="ps-comp-stat"><div class="k">Confidence</div><div class="v"><span class="ps-comp-conf ${esc(r.confidence)}">${esc(r.confidence || '—')}</span></div></div>
+        <div class="ps-comp-stat"><div class="k">Comps</div><div class="v">${inc.length}</div><div class="s">FORGE Cast ${avm.price ? moneyK(avm.price) : '—'}</div></div>
+      </div>
+      ${snap.rent ? `<div class="ps-comp-disclaim">Rent estimate: ${money(snap.rent)}/mo</div>` : ''}
+      ${r.relaxedRules && r.relaxedRules.length ? `<div class="ps-comp-relaxed">Rules relaxed: ${r.relaxedRules.map(esc).join('; ')}. Confidence lowered.</div>` : ''}
+      ${bu && bu.ranked && bu.ranked.length ? `
+      <section class="ps-comp-section" style="margin-top:20px">
+        <div class="ps-comp-section-title"><span>Best use · ARIS</span></div>
+        <div class="ps-comp-bu">
+          <div class="ps-comp-bu-top"><span class="k">Best fit</span><strong>${esc(STRAT[bu.ranked[0].strategy] || bu.ranked[0].strategy)}</strong><span class="score">${bu.ranked[0].score}/100</span></div>
+          <ul class="why" style="margin-left:16px;font-size:12.5px;color:#D1D5DB">${bu.ranked[0].reasons.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+        </div>
+      </section>` : ''}
+      <section class="ps-comp-section" style="margin-top:20px">
+        <div class="ps-comp-section-title"><span>Comparable sales used</span></div>
+        <div class="ps-comp-table-wrap"><table class="ps-comp-table ps-comp-table-sm">
+          <thead><tr><th scope="col">Address</th><th scope="col">Sold</th><th scope="col" class="num">Price</th><th scope="col">Bd/Ba/Sqft</th><th scope="col" class="num">Mi</th><th scope="col" class="num">Adjusted</th></tr></thead>
+          <tbody>${inc.map((c, i) => `<tr>
+            <td data-label="Address"><span class="ps-comp-idx mid">${i + 1}</span><span class="addr">${esc(street(c.address))}</span><span class="ps-comp-cityline">${esc(cityLine(c.address))}</span>
+              <span class="ps-comp-badge ${c.source === 'recorded' ? 'rec' : 'lst'}">${c.source === 'recorded' ? 'Recorded sale' : 'Listing (unverified sale)'}</span></td>
+            <td data-label="Sold">${tinyDate(c.date)}</td>
+            <td class="num" data-label="Price">${money(c.price)}</td>
+            <td data-label="Bd/Ba/Sqft">${c.beds ?? '—'}/${c.baths ?? '—'}/${c.sqft ? Number(c.sqft).toLocaleString('en-US') : '—'}</td>
+            <td class="num" data-label="Distance">${c.distance != null ? Number(c.distance).toFixed(2) : '—'}</td>
+            <td class="num" data-label="Adjusted"><strong>${money(c.adjustedPrice)}</strong></td>
+          </tr>`).join('') || '<tr><td colspan="6">No comps were included.</td></tr>'}</tbody>
+        </table></div>
+        <div class="ps-comp-disclaim">FORGE ARV = ${r.method === 'mean' ? 'average' : 'median'} of the adjusted prices (size adjustment $${esc(r.adjRate || 40)}/sq ft).</div>
+      </section>`;
+  }
+}());
+</script>
+</body>
+</html>

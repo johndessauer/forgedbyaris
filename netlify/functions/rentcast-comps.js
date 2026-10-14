@@ -323,6 +323,8 @@ function publicSnapshot(row, built) {
     avm: built ? built.avm : (row.avm ? { price: Number(row.avm) } : null),
     report: built ? built.report : null,
     rent: row.rent === null || row.rent === undefined ? null : Number(row.rent),
+    // Best use is computed from numbers only (no owner data) — safe to share.
+    bestUse: row.best_use && row.best_use.result ? row.best_use.result : null,
     createdAt: row.created_at || null,
   };
 }
@@ -398,7 +400,13 @@ function createHandler(deps) {
       if (isPost && action === 'revoke') return await revokeAction(ctx, body);
       if (isPost && action === 'best-use') return await bestUseAction(ctx, body);
       if (isPost && action === 'retry-record') return await run(() => retryRecordAction(ctx, fetchSection, body));
-      if (isPost && action === 'save-crm') return json(501, { error: 'not_implemented', message: 'Save to CRM ships in Phase 4.' });
+      if (isPost && action === 'link-crm') return await linkCrmAction(ctx, body);
+      // GHL push (admin-only) stays off until John creates the GHL custom
+      // fields (Build Brief §7.3) and sets GHL_COMPS_ENABLED=1.
+      if (isPost && action === 'save-crm') {
+        if (!isAdmin) return json(403, { error: 'admin_only' });
+        return json(501, { error: 'ghl_not_configured', message: 'GoHighLevel push is off until its custom fields are set up.' });
+      }
 
       return json(400, { error: 'Unknown action' });
     } catch (err) {
@@ -490,6 +498,8 @@ async function compAction(ctx, fetchSection, body) {
     comps: built.comps,
     report: built.report,
     sectionErrors,
+    crmDealId: null,
+    shareToken: null,
     noPublicRecord: !!noRecord.subject,
     // FORGE Cast found the property under a different spelling: offer a
     // 1-lookup retry of the public-record search with that address.
@@ -688,12 +698,24 @@ async function retryRecordAction(ctx, fetchSection, body) {
   return json(200, { reportId: row.id, cached: r.cached, subject: built.subject, property, comps: built.comps, report: built.report });
 }
 
+// ── link-crm: remember which native CRM deal this report was saved to ───
+// The member's own CRM (crm-deals / crm-notes / deal-documents) does the
+// saving; this just stores the deal id so a second save updates the same
+// deal instead of creating a duplicate.
+async function linkCrmAction(ctx, body) {
+  const row = await loadOwnReport(ctx, body.reportId);
+  const dealId = String(body.dealId || '').trim();
+  if (!/^[0-9a-f-]{36}$/i.test(dealId)) return json(400, { error: 'dealId must be a deal id' });
+  await ctx.store.updateReport(row.id, ctx.memberId, { crm_deal_id: dealId });
+  return json(200, { reportId: row.id, crmDealId: dealId });
+}
+
 async function shareAction(ctx, body) {
   const row = await loadOwnReport(ctx, body.reportId);
   const built = await rebuildFromCache(ctx, row, row.selection);
   const token = row.share_token || crypto.randomBytes(18).toString('base64url');
   await ctx.store.updateReport(row.id, ctx.memberId, { share_token: token, snapshot: publicSnapshot(row, built) });
-  return json(200, { reportId: row.id, token, url: `/property-search.html?report=${encodeURIComponent(token)}` });
+  return json(200, { reportId: row.id, token, url: `/comp-report.html?t=${encodeURIComponent(token)}` });
 }
 
 async function revokeAction(ctx, body) {

@@ -3639,11 +3639,12 @@ function preFillFromTransfer(transfer) {
   });
 
   // Toast + ARIS message
-  showToast('Deal numbers transferred from ARIS');
+  const fromComps = transfer.source === 'comps';
+  showToast(fromComps ? 'Numbers transferred from your comp report' : 'Deal numbers transferred from ARIS');
   setTimeout(() => {
     const fieldCount = Object.keys(fields).length;
     const tabLabels = { wholesale:'Wholesale', flip:'Fix & Flip', rental:'Long-Term Rental', str:'STR/MTR', multi:'2-4 Units (Residential)', commercial:'Commercial — 5+ Units', storage:'Self-Storage Facility', mhp:'Mobile Home Park', office:'Office & Industrial', mixeduse:'Mixed-Use', hotel:'Hotels & Hospitality' };
-    appendMsg('aris', `I transferred ${fieldCount} field${fieldCount !== 1 ? 's' : ''} from our conversation into the **${tabLabels[tab] || tab}** analyzer. Review the numbers on the left — fill in anything that's missing — then hit **Analyze Deal** and I'll give you the full verdict.`);
+    appendMsg('aris', `I transferred ${fieldCount} field${fieldCount !== 1 ? 's' : ''} ${fromComps ? 'from your comp report' : 'from our conversation'} into the **${tabLabels[tab] || tab}** analyzer. Review the numbers on the left — fill in anything that's missing — then hit **Analyze Deal** and I'll give you the full verdict.`);
   }, 400);
 }
 

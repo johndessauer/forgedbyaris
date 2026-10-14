@@ -23,6 +23,12 @@ _comp_json = subprocess.run(['node', '-e', _gen], cwd=REPO, capture_output=True,
 # Leaflet 1.9.4 from npm (the page loads it from cdnjs)
 subprocess.run(['npm', 'pack', 'leaflet@1.9.4', '--silent', '--pack-destination', _tmp], check=True, capture_output=True)
 subprocess.run(['tar', 'xzf', os.path.join(_tmp, 'leaflet-1.9.4.tgz'), '-C', _tmp], check=True)
+# html2canvas + jsPDF (the comp report PDF loads them from cdnjs on demand)
+for _pkg in ['html2canvas@1.4.1', 'jspdf@2.5.1']:
+    _d = os.path.join(_tmp, _pkg.split('@')[0]); os.makedirs(_d, exist_ok=True)
+    subprocess.run(['npm', 'pack', _pkg, '--silent', '--pack-destination', _d], check=True, capture_output=True)
+    _tgz = [f for f in os.listdir(_d) if f.endswith('.tgz')][0]
+    subprocess.run(['tar', 'xzf', os.path.join(_d, _tgz), '-C', _d], check=True)
 import asyncio, json, http.server, threading, functools, time, sys, copy
 from playwright.async_api import async_playwright
 
@@ -30,6 +36,8 @@ COMP = json.loads(_comp_json)
 COMP['reportId'] = 'rep_test'; COMP['demo'] = True
 LEAFLET_JS = open(os.path.join(_tmp, 'package/dist/leaflet.js')).read()
 LEAFLET_CSS = open(os.path.join(_tmp, 'package/dist/leaflet.css')).read()
+H2C_JS = open(os.path.join(_tmp, 'html2canvas/package/dist/html2canvas.min.js')).read()
+JSPDF_JS = open(os.path.join(_tmp, 'jspdf/package/dist/jspdf.umd.min.js')).read()
 
 class Q(http.server.SimpleHTTPRequestHandler):
     def log_message(self, *a): pass
@@ -63,8 +71,23 @@ async def make_page(browser, vp, email='john@thedessauergroup.com', comp_overrid
         url = r.request.url
         if 'leaflet.min.js' in url: return await r.fulfill(body=LEAFLET_JS, content_type='application/javascript')
         if 'leaflet.min.css' in url: return await r.fulfill(body=LEAFLET_CSS, content_type='text/css')
+        if 'html2canvas.min.js' in url: return await r.fulfill(body=H2C_JS, content_type='application/javascript')
+        if 'jspdf.umd.min.js' in url: return await r.fulfill(body=JSPDF_JS, content_type='application/javascript')
         if url.startswith(BASE):
+            if '/api/crm-deals' in url:
+                body = r.request.post_data
+                if body:
+                    CRM_LOG.append(('create', json.loads(body)))
+                    return await r.fulfill(status=201, body=json.dumps({'deal': {'id': NEW_DEAL_ID}}), content_type='application/json')
+                return await r.fulfill(body=json.dumps({'deals': CRM_DEALS}), content_type='application/json')
+            if '/api/deal-documents' in url:
+                CRM_LOG.append(('doc', json.loads(r.request.post_data or '{}')))
+                return await r.fulfill(status=201, body=json.dumps({'document': {'id': 'doc1'}}), content_type='application/json')
+            if '/api/crm-notes' in url:
+                CRM_LOG.append(('note', json.loads(r.request.post_data or '{}')))
+                return await r.fulfill(status=201, body=json.dumps({'note': {'id': 'n1'}}), content_type='application/json')
             if '/api/rentcast-comps' in url:
+
                 body = r.request.post_data
                 payload = json.loads(body) if body else {}
                 action = payload.get('action') or ('budget' if 'action=budget' in url else '?')
@@ -76,6 +99,8 @@ async def make_page(browser, vp, email='john@thedessauergroup.com', comp_overrid
                 if 'action=listings' in url:
                     calls[-1]['action'] = 'listings'
                     return await r.fulfill(body=json.dumps({'demo': True, 'cached': False, 'type': 'rental', 'listings': FIX('listings-rental.json')}), content_type='application/json')
+                if action == 'share':
+                    return await r.fulfill(body=json.dumps({'reportId': 'rep_test', 'token': 'tok_abcdefghijklmnopqrst', 'url': '/comp-report.html?t=tok_abcdefghijklmnopqrst'}), content_type='application/json')
                 if action == 'retry-record':
                     return await r.fulfill(body=json.dumps({'reportId': 'rep_test', 'cached': False, 'subject': COMP['subject'], 'property': COMP['property'], 'comps': COMP['comps'], 'report': COMP['report']}), content_type='application/json')
                 if action == 'best-use':
@@ -115,6 +140,13 @@ BEST_USE = {'cached': False, 'hash': 'x', 'model': 'claude-sonnet-4-6', 'result'
   {'strategy': 'Hold', 'score': 50, 'reasons': ['Modest appreciation']},
   {'strategy': 'STR', 'score': 30, 'reasons': ['No STR demand data']}], 'caveats': ['No repair estimate was provided.']}}
 BEST_USE_FAIL = False
+MATCH_DEAL_ID = '11111111-2222-4333-8444-555555555555'
+NEW_DEAL_ID = '99999999-8888-4777-8666-555555555555'
+CRM_DEALS = [
+  {'id': '22222222-3333-4444-8555-666666666666', 'property_address': '1 Other St, Gary, IN 46402', 'deal_type': 'wholesale', 'stage': 'Contacted'},
+  {'id': MATCH_DEAL_ID, 'property_address': '733 N Main St, Crown Point, IN 46307', 'deal_type': 'fix_flip', 'stage': 'New Lead'},
+]
+CRM_LOG = []
 SAVED_LEADS = [
   {'id': 's-new', 'address': '8583 WHEELER PL', 'owner': '<b>GRCEVICH</b>', 'equity': 198, 'play_id': 'prefore', 'details': {'city': 'Crown Point', 'state': 'IN', 'zip': '46307'}},
   {'id': 's-old', 'address': '55 OLD MILL RD', 'owner': 'OLD OWNER', 'equity': 10, 'play_id': 'prefore', 'details': {}},
@@ -336,6 +368,87 @@ async def main():
         await page.wait_for_selector('#ps-comp-bu-retry', timeout=5000)
         check('best use failure shows retry, ARV still shown', (await page.inner_text('.ps-comp-stat.arv .v')) == '$261,000')
         globals()['BEST_USE_FAIL'] = BEST_USE_FAIL_PREV
+        await ctx.close()
+
+        # ── Phase 4: Save to CRM, Deal Analyzer, PDF, Share ──
+        ctx, page, calls, errors = await make_page(b, (1440, 900))
+        await page.evaluate("ForgeComps.open('733 N Main St, Crown Point, IN 46307', {})")
+        await page.wait_for_selector('.ps-comp-bu-top', timeout=5000)
+        check('action bar has the four actions', await page.locator('.ps-comp-act').count() == 4)
+        await page.click('.ps-comp-act[data-act="crm"]')
+        await page.wait_for_selector('.ps-comp-deal-row')
+        first = await page.inner_text('.ps-comp-deal-row')
+        check('existing deal for this property listed first and marked', '733 N Main St' in first and 'this property' in first.lower(), first)
+        check('new-deal type defaults from ARIS best use', await page.input_value('#ps-comp-new-type') == 'lt_rental')
+        CRM_LOG.clear()
+        await page.click('.ps-comp-deal-row.match')
+        await page.wait_for_function("document.getElementById('ps-comp-toast') && /Saved to your CRM/.test(document.getElementById('ps-comp-toast').textContent)", timeout=30000)
+        docs = [x[1] for x in CRM_LOG if x[0] == 'doc']; notes = [x[1] for x in CRM_LOG if x[0] == 'note']
+        check('PDF attached to the matching deal as a comp report', len(docs) == 1 and docs[0]['deal_id'] == MATCH_DEAL_ID and docs[0]['source_tool'] == 'comp_report' and docs[0]['file_data'].startswith('data:application/pdf'), docs[0]['source_tool'] if docs else None)
+        check('PDF title names the property', bool(docs) and docs[0]['title'] == 'FORGE Comp Report — 733 N Main St', docs[0]['title'] if docs else None)
+        check('summary note added with the ARV', len(notes) == 1 and notes[0]['created_by'] == 'aris' and 'FORGE ARV: $261,000' in notes[0]['body'], notes[0]['body'][:80] if notes else None)
+        check('note never names the vendor', bool(notes) and 'rentcast' not in notes[0]['body'].lower())
+        check('report linked to the deal', any(c['action'] == 'link-crm' and c['payload'].get('dealId') == MATCH_DEAL_ID for c in calls))
+        check('no new deal created when one exists', not any(x[0] == 'create' for x in CRM_LOG))
+        await page.wait_for_timeout(3500)
+        await page.click('.ps-comp-act[data-act="crm"]'); await page.wait_for_selector('.ps-comp-deal-row')
+        CRM_LOG.clear()
+        await page.fill('#ps-comp-new-addr', '733 North Main Street, Crown Point, IN 46307')
+        await page.click('#ps-comp-create-deal')
+        await page.wait_for_function("document.getElementById('ps-comp-toast').classList.contains('show') && /Saved/.test(document.getElementById('ps-comp-toast').textContent)", timeout=30000)
+        check('typing the same property reuses its deal (no duplicate)', not any(x[0] == 'create' for x in CRM_LOG) and any(x[0] == 'doc' and x[1]['deal_id'] == MATCH_DEAL_ID for x in CRM_LOG))
+        await page.wait_for_timeout(3500)
+        await page.click('.ps-comp-act[data-act="crm"]'); await page.wait_for_selector('.ps-comp-deal-row')
+        CRM_LOG.clear()
+        await page.fill('#ps-comp-new-addr', '55 Brand New Rd, Hobart, IN 46342')
+        await page.click('#ps-comp-create-deal')
+        await page.wait_for_function("document.getElementById('ps-comp-toast').classList.contains('show') && /Saved/.test(document.getElementById('ps-comp-toast').textContent)", timeout=30000)
+        cr = [x[1] for x in CRM_LOG if x[0] == 'create']
+        check('new property creates one deal, then attaches', len(cr) == 1 and cr[0]['deal_type'] == 'lt_rental' and any(x[0] == 'doc' and x[1]['deal_id'] == NEW_DEAL_ID for x in CRM_LOG), cr)
+        info = await page.evaluate("ForgeComps._buildPdf().then(r => ({ pages: r.pages, len: r.dataUri.length, name: r.name }))")
+        check('PDF builds (pages, size, file name)', info['pages'] >= 1 and info['len'] > 20000 and info['name'] == 'FORGE-Comp-Report-733-N-Main-St.pdf', info)
+        uri = await page.evaluate("ForgeComps._buildPdf().then(r => r.dataUri)")
+        import base64 as _b64
+        open(os.path.join(W, 'comp-report-test.pdf'), 'wb').write(_b64.b64decode(uri.split(',', 1)[1]))
+        async with page.expect_download() as dl:
+            await page.click('.ps-comp-act[data-act="pdf"]')
+        d = await dl.value
+        check('Export PDF downloads the file', d.suggested_filename == 'FORGE-Comp-Report-733-N-Main-St.pdf', d.suggested_filename)
+        await page.click('.ps-comp-act[data-act="share"]')
+        await page.wait_for_selector('#ps-comp-share-url')
+        url = await page.input_value('#ps-comp-share-url')
+        check('share link points at the public report page', url.endswith('/comp-report.html?t=tok_abcdefghijklmnopqrst'), url)
+        await page.click('#ps-comp-revoke'); await page.wait_for_timeout(300)
+        check('share link can be turned off', any(c['action'] == 'revoke' for c in calls))
+        await page.click('#ps-comp-tabbtn-rent'); await page.wait_for_selector('#ps-comp-tab-rent .ps-comp-stat.arv .v')
+        await page.click('.ps-comp-act[data-act="analyzer"]')
+        await page.wait_for_url('**/deal-analyzer.html', timeout=10000)
+        await page.wait_for_timeout(1500)
+        rv = await page.evaluate("(document.getElementById('r-rent')||{}).value")
+        ra = await page.evaluate("(document.getElementById('r-address')||{}).value")
+        check('Deal Analyzer opens with rent and address filled', str(rv) == '1850' and ra == '733 N Main St, Crown Point, IN 46307', (rv, ra))
+        await ctx.close()
+
+        ctx = await b.new_context(viewport={'width': 1440, 'height': 900}); page = await ctx.new_page()
+        perrs = []; page.on('pageerror', lambda e: perrs.append(str(e)))
+        share_calls = []
+        async def sroute(r):
+            u = r.request.url
+            if u.startswith(BASE):
+                if '/api/rentcast-comps' in u:
+                    share_calls.append(u)
+                    snap = {'address': COMP['subject']['address'], 'subject': {k: v for k, v in COMP['subject'].items() if k != 'property'}, 'avm': COMP['avm'], 'report': COMP['report'], 'rent': 1850, 'bestUse': BEST_USE['result'], 'createdAt': '2026-10-13T12:00:00Z'}
+                    return await r.fulfill(body=json.dumps({'shared': True, 'report': snap}), content_type='application/json')
+                return await r.continue_()
+            return await r.abort()
+        await page.route('**/*', sroute)
+        await page.goto(BASE + '/comp-report.html?t=tok_abcdefghijklmnopqrst'); await page.wait_for_selector('.ps-comp-stat.arv .v')
+        txt = await page.inner_text('body')
+        check('shared page renders ARV, best use and comps', '$261,000' in txt and 'Buy & Hold Rental' in txt and await page.locator('tbody tr').count() == 5)
+        check('shared page: only the report call, no owner data', len(share_calls) == 1 and 'action=report' in share_calls[0] and 'Alvarez' not in txt)
+        check('shared page is noindex', await page.get_attribute('meta[name=robots]', 'content') == 'noindex, nofollow')
+        await page.screenshot(path=f'{W}/shot-shared-report.png', full_page=True)
+        check('shared page: no JS errors', not perrs, perrs)
         await ctx.close()
 
         # ── Non-admin: nothing changes on the page ──

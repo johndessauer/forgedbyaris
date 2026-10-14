@@ -334,8 +334,8 @@ test('live mode: sends X-Api-Key, retries once on 429, never puts the key in a r
   assert.equal(t.store.budget.get('2026-10').calls, 3);   // retry used the same reservation
 });
 
-test('save-crm is stubbed for Phase 4', async () => {
-  assert.equal((await setup().call('POST', { action: 'save-crm' })).status, 501);
+test('save-crm (GHL) is refused for non-admins', async () => {
+  assert.equal((await setup().call('POST', { action: 'save-crm' })).status, 403);
 });
 
 
@@ -499,4 +499,38 @@ test('best use calls the valuation "FORGE Cast" and never names the vendor', asy
   const sent = JSON.stringify(calls[0]);
   assert.ok(sent.includes('forgeCastValue') && sent.includes('FORGE Cast value'));
   assert.ok(!/rentcast/i.test(sent.replace(/never name any other data provider/g, '')), 'vendor name sent to ARIS');
+});
+
+// ── Phase 4: CRM link, GHL stub, share link + snapshot ─────────────────
+test('link-crm stores the deal on the report; only the owner can link; ids are validated', async () => {
+  const store = createMemoryStore();
+  const a = setup({ store, memberId: 'mem_a' });
+  const c = await a.call('POST', { action: 'comp', address: ADDRESS });
+  const id = '0f8fad5b-d9cb-469f-a165-70867728950e';
+  assert.equal((await a.call('POST', { action: 'link-crm', reportId: c.body.reportId, dealId: id })).status, 200);
+  assert.equal(store.reports.get(c.body.reportId).crm_deal_id, id);
+  assert.equal((await a.call('POST', { action: 'link-crm', reportId: c.body.reportId, dealId: 'not-an-id' })).status, 400);
+  assert.equal((await setup({ store, memberId: 'mem_b' }).call('POST', { action: 'link-crm', reportId: c.body.reportId, dealId: id })).status, 404);
+});
+
+test('GHL push is admin-only and stays off until configured', async () => {
+  assert.equal((await setup().call('POST', { action: 'save-crm', reportId: 'x' })).status, 403);
+  const r = await setup({ member: ADMIN }).call('POST', { action: 'save-crm', reportId: 'x' });
+  assert.equal(r.status, 501); assert.equal(r.body.error, 'ghl_not_configured');
+});
+
+test('share link points at the public comp-report page and includes best use, never owner data', async () => {
+  const t = setup({ env: { ANTHROPIC_API_KEY: 'k' }, anthropic: arisReply(GOOD_ARIS, []) });
+  const c = await t.call('POST', { action: 'comp', address: ADDRESS });
+  await t.call('POST', { action: 'best-use', reportId: c.body.reportId });
+  const s = await t.call('POST', { action: 'share', reportId: c.body.reportId });
+  assert.match(s.body.url, /^\/comp-report\.html\?t=[A-Za-z0-9_-]{20,}$/);
+  const pub = await setup({ store: t.store, unauth: true }).call('GET', { action: 'report', token: s.body.token });
+  assert.equal(pub.body.report.bestUse.ranked[0].strategy, 'Rental');
+  assert.ok(!JSON.stringify(pub.body).includes('Alvarez'));
+});
+
+test('the CRM accepts comp reports as a document source', () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '../netlify/functions/deal-documents.js'), 'utf8');
+  assert.ok(/VALID_SOURCE_TOOLS = \[[^\]]*'comp_report'/.test(src));
 });

@@ -396,6 +396,13 @@
     els.body.innerHTML = `
       ${resp.demo ? '<div class="ps-comp-notice warn"><strong>Demo data.</strong> These are sample Crown Point, IN comps, shown for every address until live property data is turned on.</div>' : ''}
       ${partial}
+      <div class="ps-comp-actions" role="toolbar" aria-label="Report actions">
+        <button type="button" class="ps-comp-act gold" data-act="crm">Save to CRM</button>
+        <button type="button" class="ps-comp-act" data-act="analyzer">Send to Deal Analyzer</button>
+        <button type="button" class="ps-comp-act" data-act="pdf">Export PDF</button>
+        <button type="button" class="ps-comp-act" data-act="share" ${resp.reportId ? '' : 'disabled title="Share links work with live data"'}>Share</button>
+      </div>
+      <div class="ps-comp-modal" id="ps-comp-modal" hidden></div>
       <div class="ps-comp-tabs" role="tablist" aria-label="Report sections">
         ${TABS.map(t => `<button type="button" role="tab" class="ps-comp-tab" id="ps-comp-tabbtn-${t.id}" data-tab="${t.id}" aria-selected="${t.id === 'comps'}" aria-controls="ps-comp-tab-${t.id}" tabindex="${t.id === 'comps' ? 0 : -1}">${t.label}</button>`).join('')}
       </div>
@@ -426,6 +433,7 @@
     setupMap();
     refresh({ initial: true });
     renderBestUse();
+    els.body.querySelectorAll('.ps-comp-act').forEach(b => b.addEventListener('click', () => runAction(b.dataset.act, b)));
     const rr = $('#ps-comp-retry-record');
     if (rr) rr.addEventListener('click', retryRecord);
     els.body.querySelectorAll('.ps-comp-tab').forEach(btn => {
@@ -1181,6 +1189,329 @@
     keep(m);
   }
 
+
+  // ═══════════════════════════════════════════════════════════════════
+  // Phase 4 — Save to CRM (+ PDF on the deal), Send to Deal Analyzer,
+  // Export PDF, Share. None of these use a FORGE Cast lookup: everything
+  // is built from data already on screen.
+  // ═══════════════════════════════════════════════════════════════════
+  const DEAL_TYPES = [
+    ['wholesale', 'Wholesale'], ['fix_flip', 'Fix & Flip'], ['lt_rental', 'Long-Term Rental'],
+    ['str_mtr', 'STR / MTR'], ['units_2_4', '2–4 Units'], ['commercial_5plus', 'Commercial 5+'],
+  ];
+  const BEST_USE_TO_DEAL = { Wholesale: 'wholesale', Flip: 'fix_flip', Rental: 'lt_rental', Hold: 'lt_rental', STR: 'str_mtr' };
+  const BEST_USE_TO_ANALYZER_TAB = { Wholesale: 'wholesale', Flip: 'flip', Rental: 'rental', Hold: 'rental', STR: 'str' };
+
+  function topStrategy() {
+    const bu = S && S.bestUse && S.bestUse.status === 'ok' && S.bestUse.data.result;
+    return bu && bu.ranked && bu.ranked[0] ? bu.ranked[0].strategy : null;
+  }
+  function subjectAddress() { return (S.resp.subject && S.resp.subject.address) || S.address; }
+  function apiAuth(path, opts) {
+    const o = opts || {};
+    const headers = { 'Content-Type': 'application/json' };
+    const t = ctx.getToken(); if (t) headers.Authorization = 'Bearer ' + t;
+    return fetch(path, { ...o, headers: { ...headers, ...(o.headers || {}) } })
+      .then(async r => ({ ok: r.ok, status: r.status, body: await r.json().catch(() => ({})) }))
+      .catch(() => ({ ok: false, status: 0, body: {} }));
+  }
+  function toast(msg, isErr) {
+    let t = document.getElementById('ps-comp-toast');
+    if (!t) { t = document.createElement('div'); t.id = 'ps-comp-toast'; t.className = 'ps-comp-scope ps-comp-toast'; t.setAttribute('role', 'status'); document.body.appendChild(t); }
+    t.textContent = msg; t.classList.toggle('err', !!isErr); t.classList.add('show');
+    clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), isErr ? 5000 : 3000);
+  }
+  function modal(html) {
+    const m = $('#ps-comp-modal');
+    if (!m) return null;
+    m.innerHTML = `<div class="ps-comp-modal-card" role="dialog" aria-modal="true" aria-labelledby="ps-comp-modal-title">${html}</div>`;
+    m.hidden = false;
+    const x = m.querySelector('[data-close]');
+    if (x) x.addEventListener('click', closeModal);
+    setTimeout(() => { const f = m.querySelector('input, button'); if (f) f.focus(); }, 30);
+    return m;
+  }
+  function closeModal() { const m = $('#ps-comp-modal'); if (m) { m.hidden = true; m.innerHTML = ''; } }
+
+  async function runAction(act, btn) {
+    if (!S || !S.resp) return;
+    if (act === 'crm') return openCrmModal();
+    if (act === 'analyzer') return sendToAnalyzer();
+    if (act === 'pdf') {
+      btn.disabled = true; const label = btn.textContent; btn.textContent = 'Building PDF…';
+      try { const { pdf, name } = await buildPdf(); pdf.save(name); toast('PDF downloaded'); }
+      catch (e) { toast(e.message || 'Could not build the PDF', true); }
+      finally { btn.disabled = false; btn.textContent = label; }
+      return;
+    }
+    if (act === 'share') return openShareModal();
+  }
+
+  // ── Send to Deal Analyzer (same handoff ARIS Coach uses) ────────────
+  function sendToAnalyzer() {
+    const strat = topStrategy();
+    const tab = BEST_USE_TO_ANALYZER_TAB[strat] || 'flip';
+    const prefix = { wholesale: 'w', flip: 'f', rental: 'r', str: 'str' }[tab];
+    const fields = {};
+    fields[prefix + '-address'] = subjectAddress();
+    const arv = S.report && S.report.arv;
+    if (arv && (tab === 'wholesale' || tab === 'flip')) fields[prefix + '-arv'] = Math.round(arv);
+    const rent = S.rent && S.rent.status === 'ok' && S.rent.data.rent;
+    if (rent && tab === 'rental') fields['r-rent'] = Math.round(rent);
+    try { localStorage.setItem('forge-transfer', JSON.stringify({ tab, fields, source: 'comps', timestamp: Date.now() })); }
+    catch (e) { toast('Could not hand off to the Deal Analyzer', true); return; }
+    flushSave();
+    window.location.href = 'deal-analyzer.html';
+  }
+
+  // ── Save to CRM ─────────────────────────────────────────────────────
+  const normAddr = a => String(a || '').toUpperCase().replace(/[.,#]/g, ' ')
+    .replace(/\bSTREET\b/g, 'ST').replace(/\bAVENUE\b/g, 'AVE').replace(/\bDRIVE\b/g, 'DR').replace(/\bCOURT\b/g, 'CT')
+    .replace(/\bROAD\b/g, 'RD').replace(/\bLANE\b/g, 'LN').replace(/\bPLACE\b/g, 'PL').replace(/\bNORTH\b/g, 'N')
+    .replace(/\bSOUTH\b/g, 'S').replace(/\bEAST\b/g, 'E').replace(/\bWEST\b/g, 'W').replace(/\s+/g, ' ').trim();
+  function sameProperty(a, b) {
+    const A = normAddr(a), B = normAddr(b);
+    if (!A || !B) return false;
+    if (A === B) return true;
+    const sa = normAddr(String(a).split(',')[0]), sb = normAddr(String(b).split(',')[0]);
+    return sa === sb && (!String(a).includes(',') || !String(b).includes(','));   // one side is street-only
+  }
+
+  async function openCrmModal() {
+    const addr = subjectAddress();
+    const defType = BEST_USE_TO_DEAL[topStrategy()] || 'fix_flip';
+    const m = modal(`
+      <div class="ps-comp-modal-head"><div class="ps-comp-modal-title" id="ps-comp-modal-title">Save to CRM</div><button type="button" class="ps-comp-close sm" data-close aria-label="Close">×</button></div>
+      <div class="ps-comp-disclaim" style="margin-top:0">Attaches the FORGE Comp Report PDF to a deal in your FORGE CRM and adds a summary note. No lookup used.</div>
+      <label class="ps-comp-field" style="margin-top:12px"><span>Find a deal</span><input class="ps-comp-input" id="ps-comp-deal-search" placeholder="Search by address"></label>
+      <div class="ps-comp-deal-list" id="ps-comp-deal-list"><div class="ps-comp-skel" style="height:48px"></div></div>
+      <div class="ps-comp-modal-sep">or create a new deal</div>
+      <label class="ps-comp-field"><span>Property address</span><input class="ps-comp-input" id="ps-comp-new-addr" value="${esc(addr)}"></label>
+      <label class="ps-comp-field"><span>Deal type${topStrategy() ? ' (from ARIS best use)' : ''}</span><select class="ps-comp-select" id="ps-comp-new-type">${DEAL_TYPES.map(([v, l]) => `<option value="${v}" ${v === defType ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+      <button type="button" class="ps-comp-btn-gold" id="ps-comp-create-deal">Create Deal &amp; Save</button>
+      <div class="ps-comp-form-error" id="ps-comp-crm-err" role="alert"></div>`);
+    if (!m) return;
+    const r = await apiAuth('/api/crm-deals?action=list');
+    const deals = (r.ok && r.body.deals) || [];
+    const listEl = $('#ps-comp-deal-list');
+    const linked = S.resp.crmDealId || S.crmDealId;
+    const render = q => {
+      const qq = String(q || '').toLowerCase();
+      const rows = deals
+        .map(d => ({ d, match: d.id === linked || sameProperty(d.property_address, addr) }))
+        .filter(x => !qq || String(x.d.property_address || '').toLowerCase().includes(qq))
+        .sort((a, b) => (b.match - a.match));
+      listEl.innerHTML = rows.length ? rows.slice(0, 30).map(({ d, match }) => `
+        <button type="button" class="ps-comp-deal-row ${match ? 'match' : ''}" data-deal="${esc(d.id)}">
+          <span class="a">${esc(d.property_address || 'Untitled property')}</span>
+          <span class="m">${esc(String(d.deal_type || '').replace(/_/g, ' '))} · ${esc(d.stage || '')}${match ? ' · <strong>this property</strong>' : ''}</span>
+        </button>`).join('') : `<div class="ps-comp-disclaim">${deals.length ? 'No deals match that search.' : 'No deals in your CRM yet — create one below.'}</div>`;
+      listEl.querySelectorAll('[data-deal]').forEach(b => b.addEventListener('click', () => saveToDeal(b.dataset.deal)));
+    };
+    if (!r.ok) listEl.innerHTML = '<div class="ps-comp-form-error" style="display:block">Could not load your deals. Try again in a moment.</div>';
+    else render('');
+    $('#ps-comp-deal-search').addEventListener('input', e => render(e.target.value));
+    $('#ps-comp-create-deal').addEventListener('click', async () => {
+      const property_address = $('#ps-comp-new-addr').value.trim();
+      const deal_type = $('#ps-comp-new-type').value;
+      const err = $('#ps-comp-crm-err');
+      if (!property_address) { err.textContent = 'Enter the property address.'; err.style.display = 'block'; return; }
+      const dup = deals.find(d => sameProperty(d.property_address, property_address));
+      if (dup) { saveToDeal(dup.id); return; }   // never create a second deal for the same property
+      const btn = $('#ps-comp-create-deal'); btn.disabled = true; btn.textContent = 'Creating…';
+      const c = await apiAuth('/api/crm-deals', { method: 'POST', body: JSON.stringify({ action: 'create', property_address, deal_type }) });
+      const id = c.body && c.body.deal && c.body.deal.id;
+      if (!c.ok || !id) { btn.disabled = false; btn.textContent = 'Create Deal & Save'; err.textContent = (c.body && c.body.error) || 'Could not create the deal.'; err.style.display = 'block'; return; }
+      saveToDeal(id);
+    });
+  }
+
+  function crmNote() {
+    const r = S.report || {}; const avm = S.resp.avm || {};
+    const bu = S.bestUse && S.bestUse.status === 'ok' && S.bestUse.data.result;
+    const inc = (r.rows || []).filter(x => x.included).slice(0, 5);
+    const lines = [
+      `FORGE Comp Report — ${subjectAddress()}`,
+      `FORGE ARV: ${money(r.arv)} (range ${money(r.arvLow)}–${money(r.arvHigh)}), ${r.confidence || '—'} confidence, ${r.compCount || 0} comps, $${r.adjRate || 40}/sqft size adjustment.`,
+      avm.price ? `FORGE Cast value: ${money(avm.price)} (${money(avm.low)}–${money(avm.high)}).` : null,
+      S.rent && S.rent.status === 'ok' ? `Rent estimate: ${money(S.rent.data.rent)}/mo (${money(S.rent.data.rentRangeLow)}–${money(S.rent.data.rentRangeHigh)}).` : null,
+      bu ? `ARIS best use: ${bu.ranked.slice(0, 3).map(x => `${STRAT_LABEL[x.strategy] || x.strategy} ${x.score}`).join(', ')}.` : null,
+      inc.length ? 'Top comps: ' + inc.map(c => `${streetOnly(c.address)} — ${money(c.price)}, ${tinyDate(c.date)}, ${c.distance != null ? c.distance.toFixed(2) + ' mi' : ''}`).join('; ') + '.' : null,
+      'Estimate from recorded sales, not an appraisal.',
+    ];
+    return lines.filter(Boolean).join('\n');
+  }
+
+  async function saveToDeal(dealId) {
+    const card = document.querySelector('#ps-comp-modal .ps-comp-modal-card');
+    if (card) { card.style.opacity = '0.55'; card.style.pointerEvents = 'none'; }
+    try {
+      toast('Building the comp report PDF…');
+      const { dataUri } = await buildPdf();
+      const title = `FORGE Comp Report — ${streetOnly(subjectAddress())}`;
+      const d = await apiAuth('/api/deal-documents', { method: 'POST', body: JSON.stringify({ action: 'create', deal_id: dealId, source_tool: 'comp_report', title, file_data: dataUri }) });
+      if (!d.ok) throw new Error(d.body && d.body.error === 'Invalid source_tool' ? 'The CRM does not accept comp reports yet — see the setup note.' : 'Could not attach the PDF to the deal.');
+      const n = await apiAuth('/api/crm-notes', { method: 'POST', body: JSON.stringify({ deal_id: dealId, body: crmNote(), created_by: 'aris' }) });
+      if (!n.ok) console.warn('Comp note was not saved', n.status);
+      if (S.resp.reportId) api('POST', { action: 'link-crm', reportId: S.resp.reportId, dealId }).catch(() => {});
+      S.crmDealId = dealId; S.resp.crmDealId = dealId;
+      closeModal();
+      toast('Saved to your CRM deal — PDF and note attached');
+    } catch (e) {
+      if (card) { card.style.opacity = ''; card.style.pointerEvents = ''; }
+      toast(e.message || 'Could not save to the CRM', true);
+    }
+  }
+
+  // ── Share link ──────────────────────────────────────────────────────
+  async function openShareModal() {
+    if (!S.resp.reportId) { toast('Share links work with live data.', true); return; }
+    flushSave();
+    const m = modal(`<div class="ps-comp-modal-head"><div class="ps-comp-modal-title" id="ps-comp-modal-title">Share this report</div><button type="button" class="ps-comp-close sm" data-close aria-label="Close">×</button></div>
+      <div class="ps-comp-skel" style="height:44px"></div>`);
+    if (!m) return;
+    const r = await api('POST', { action: 'share', reportId: S.resp.reportId });
+    if (r.status !== 200) { modal(`<div class="ps-comp-modal-head"><div class="ps-comp-modal-title" id="ps-comp-modal-title">Share this report</div><button type="button" class="ps-comp-close sm" data-close aria-label="Close">×</button></div><div class="ps-comp-form-error" style="display:block">Could not create a share link. Try again.</div>`); return; }
+    const url = window.location.origin + r.body.url;
+    S.shareUrl = url;
+    modal(`<div class="ps-comp-modal-head"><div class="ps-comp-modal-title" id="ps-comp-modal-title">Share this report</div><button type="button" class="ps-comp-close sm" data-close aria-label="Close">×</button></div>
+      <div class="ps-comp-disclaim" style="margin-top:0">Anyone with this link can view a read-only copy. Owner, mailing address and tax details are never included. Opening it never uses a lookup.</div>
+      <div class="ps-comp-share-row"><input class="ps-comp-input" id="ps-comp-share-url" readonly value="${esc(url)}"><button type="button" class="ps-comp-btn-outline" id="ps-comp-copy">Copy</button></div>
+      <div class="ps-comp-filter-actions"><a class="ps-comp-link" href="${esc(url)}" target="_blank" rel="noopener">Open shared view</a><button type="button" class="ps-comp-link" id="ps-comp-revoke">Turn off this link</button></div>`);
+    $('#ps-comp-copy').addEventListener('click', async () => {
+      const inp = $('#ps-comp-share-url'); inp.select();
+      try { await navigator.clipboard.writeText(inp.value); } catch (e) { document.execCommand && document.execCommand('copy'); }
+      toast('Link copied');
+    });
+    $('#ps-comp-revoke').addEventListener('click', async () => {
+      const v = await api('POST', { action: 'revoke', reportId: S.resp.reportId });
+      if (v.status === 200) { S.shareUrl = null; closeModal(); toast('Share link turned off'); } else toast('Could not turn off the link', true);
+    });
+  }
+
+  // ── PDF ─────────────────────────────────────────────────────────────
+  function loadScript(src) {
+    return new Promise((res, rej) => {
+      if (document.querySelector(`script[src="${src}"]`)) { res(); return; }
+      const el = document.createElement('script'); el.src = src; el.onload = res; el.onerror = () => rej(new Error('Could not load the PDF tools. Check your connection.'));
+      document.head.appendChild(el);
+    });
+  }
+  async function pdfLibs() {
+    if (!window.html2canvas) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+    if (!(window.jspdf && window.jspdf.jsPDF)) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+  }
+
+  // A schematic of comp locations (no map tiles, so it always renders).
+  function locationSvg(rows) {
+    const subj = S.resp.subject || {};
+    const pts = rows.filter(c => c.lat && c.lng);
+    if (!subj.lat || !subj.lng || !pts.length) return '';
+    const W = 300, H = 200, P = 18;
+    const lats = pts.map(c => c.lat).concat(subj.lat), lngs = pts.map(c => c.lng).concat(subj.lng);
+    const minLa = Math.min(...lats), maxLa = Math.max(...lats), minLn = Math.min(...lngs), maxLn = Math.max(...lngs);
+    const kx = (W - 2 * P) / ((maxLn - minLn) || 0.001), ky = (H - 2 * P) / ((maxLa - minLa) || 0.001);
+    const k = Math.min(kx, ky);
+    const cx = (W - (maxLn - minLn) * k) / 2, cy = (H - (maxLa - minLa) * k) / 2;
+    const X = ln => cx + (ln - minLn) * k, Y = la => H - (cy + (la - minLa) * k);
+    return `<svg viewBox="0 0 ${W} ${H}" width="300" height="200" style="background:#0b1622;border:1px solid rgba(200,155,60,0.25);border-radius:8px">
+      ${pts.map((c, i) => `<circle cx="${X(c.lng).toFixed(1)}" cy="${Y(c.lat).toFixed(1)}" r="9" fill="#22c55e" stroke="#0D1B2A" stroke-width="2"></circle><text x="${X(c.lng).toFixed(1)}" y="${(Y(c.lat) + 3.5).toFixed(1)}" font-size="10" font-weight="700" text-anchor="middle" fill="#0D1B2A" font-family="Inter, sans-serif">${i + 1}</text>`).join('')}
+      <text x="${X(subj.lng).toFixed(1)}" y="${(Y(subj.lat) + 7).toFixed(1)}" font-size="22" text-anchor="middle" fill="#C89B3C">★</text>
+    </svg>`;
+  }
+
+  function pdfHtml() {
+    const r = S.report || {}; const avm = S.resp.avm || {}; const subj = S.resp.subject || {};
+    const inc = (r.rows || []).filter(x => x.included);
+    const bu = S.bestUse && S.bestUse.status === 'ok' && S.bestUse.data.result;
+    const p = S.resp.property;
+    const rent = S.rent && S.rent.status === 'ok' ? S.rent.data : null;
+    const mk = S.market && S.market.status === 'ok' ? S.market.data : null;
+    const facts = [subj.propertyType, subj.beds != null ? subj.beds + ' bd' : null, subj.baths != null ? subj.baths + ' ba' : null, subj.sqft ? Number(subj.sqft).toLocaleString('en-US') + ' sqft' : null, subj.yearBuilt ? 'built ' + subj.yearBuilt : null].filter(Boolean).join(' · ');
+    const tr = (cells, head) => `<tr>${cells.map(c => `<${head ? 'th' : 'td'}>${c}</${head ? 'th' : 'td'}>`).join('')}</tr>`;
+    const owner = p && p.owner ? p.owner : null;
+    const mail = owner && owner.mailingAddress ? (owner.mailingAddress.formattedAddress || '') : '';
+    const lastTaxYear = p && p.propertyTaxes ? Object.keys(p.propertyTaxes).sort().pop() : null;
+    const trend = (hist, f) => { const ks = Object.keys(hist || {}).sort(); if (ks.length < 2) return ''; const a = hist[ks[0]][f], b = hist[ks[ks.length - 1]][f]; return a && b ? ` (${((b - a) / a * 100) >= 0 ? '+' : ''}${((b - a) / a * 100).toFixed(1)}% / 12 mo)` : ''; };
+    return `
+    <div class="pdf">
+      <div class="pdf-top"><div class="brand">FORGE</div><div class="kind">COMP REPORT · ${esc(new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }))}${S.resp.demo ? ' · DEMO DATA' : ''}</div></div>
+      <h1>${esc(subjectAddress())}</h1>
+      ${facts ? `<div class="sub">${esc(facts)}</div>` : ''}
+      <div class="grid4">
+        <div class="box gold"><div class="k">FORGE ARV</div><div class="v big">${money(r.arv)}</div><div class="s">Range ${money(r.arvLow)}–${money(r.arvHigh)}</div></div>
+        <div class="box"><div class="k">FORGE Cast value</div><div class="v">${money(avm.price)}</div><div class="s">${avm.low ? money(avm.low) + '–' + money(avm.high) : ''}</div></div>
+        <div class="box"><div class="k">Confidence</div><div class="v">${esc(r.confidence || '—')}</div><div class="s">${r.compCount || 0} comps · $${r.pricePerSqft ? Math.round(r.pricePerSqft) : '—'}/sqft</div></div>
+        <div class="box"><div class="k">Rent estimate</div><div class="v">${rent ? money(rent.rent) + '/mo' : '—'}</div><div class="s">${rent ? money(rent.rentRangeLow) + '–' + money(rent.rentRangeHigh) : 'Not pulled'}</div></div>
+      </div>
+      ${r.relaxedRules && r.relaxedRules.length ? `<div class="warn">Rules relaxed: ${esc(r.relaxedRules.join('; '))}. Confidence lowered.</div>` : ''}
+      <h2>Comparable sales used</h2>
+      <div class="two">
+        <table>${tr(['#', 'Address', 'Sold', 'Price', 'Sq ft', 'Mi', 'Adjusted'], true)}
+          ${inc.map((c, i) => tr([String(i + 1), `<strong>${esc(streetOnly(c.address))}</strong><br><span class="dim">${esc(cityLine(c.address))}</span>${c.source === 'listing' ? '<br><span class="dim">Listing (unverified sale)</span>' : ''}`, tinyDate(c.date), money(c.price), c.sqft ? Number(c.sqft).toLocaleString('en-US') : '—', c.distance != null ? c.distance.toFixed(2) : '—', `<strong>${money(c.adjustedPrice)}</strong>`])).join('')}
+        </table>
+        <div>${locationSvg(inc)}<div class="dim" style="margin-top:4px">★ subject · numbers match the table</div></div>
+      </div>
+      <div class="dim">ARV = ${r.method === 'mean' ? 'average' : 'median'} of the adjusted prices. Size adjustment $${r.adjRate || 40}/sq ft.</div>
+      ${bu ? `<h2>ARIS best use</h2><div class="bu">${bu.ranked.slice(0, 3).map((x, i) => `<div class="bu-row"><strong>${i + 1}. ${esc(STRAT_LABEL[x.strategy] || x.strategy)}</strong> — ${x.score}/100<ul>${x.reasons.map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>`).join('')}${bu.caveats.length ? `<div class="dim">Caveats: ${esc(bu.caveats.join(' '))}</div>` : ''}</div>` : ''}
+      ${mk ? `<h2>ZIP ${esc(mk.zipCode || '')} market</h2><div class="dim">Median price ${money(mk.saleData && mk.saleData.medianPrice)}${trend(mk.saleData && mk.saleData.history, 'medianPrice')} · median rent ${money(mk.rentalData && mk.rentalData.medianRent)}${trend(mk.rentalData && mk.rentalData.history, 'medianRent')} · ${mk.saleData && mk.saleData.medianDaysOnMarket != null ? mk.saleData.medianDaysOnMarket + ' days on market' : ''}</div>` : ''}
+      ${p ? `<h2>Property</h2><div class="dim">
+        ${owner ? `Owner: <strong>${esc((owner.names || []).join(', '))}</strong>${mail ? ' · mailing: ' + esc(mail) : ''} · ` : ''}
+        Last sale: ${money(p.lastSalePrice)}${p.lastSaleDate ? ' (' + tinyDate(p.lastSaleDate) + ')' : ''}${lastTaxYear ? ` · ${esc(lastTaxYear)} property tax: ${money(p.propertyTaxes[lastTaxYear].total)}` : ''}</div>` : ''}
+      <div class="foot">FORGE ARV is an estimate from recorded sales, not an appraisal. Listing comps are not verified sales. Coverage varies by market. Educational use only — not financial, legal or tax advice. Generated by FORGE (forgedbyaris.com).</div>
+    </div>`;
+  }
+
+  const PDF_CSS = `
+    .pdf { width: 760px; padding: 28px 30px; background: #0f2035; color: #E5E7EB; font-family: Inter, Arial, sans-serif; font-size: 12px; line-height: 1.45; }
+    .pdf-top { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid rgba(200,155,60,0.35); padding-bottom: 8px; margin-bottom: 12px; }
+    .pdf .brand { font-family: 'Bebas Neue', Impact, sans-serif; font-size: 26px; letter-spacing: 3px; color: #C89B3C; }
+    .pdf .kind { font-size: 10px; letter-spacing: 1.5px; color: #9CA3AF; }
+    .pdf h1 { font-family: 'Bebas Neue', Impact, sans-serif; font-weight: 400; font-size: 28px; letter-spacing: 1px; color: #fff; margin: 0; }
+    .pdf .sub { color: #9CA3AF; margin: 2px 0 14px; }
+    .pdf h2 { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: #C89B3C; margin: 18px 0 8px; }
+    .pdf .grid4 { display: grid; grid-template-columns: 1.3fr 1fr 1fr 1fr; gap: 8px; }
+    .pdf .box { border: 1px solid rgba(200,155,60,0.25); border-radius: 8px; padding: 10px; background: #162840; }
+    .pdf .box.gold { border-color: #C89B3C; }
+    .pdf .k { font-size: 9.5px; letter-spacing: 1px; text-transform: uppercase; color: #9CA3AF; }
+    .pdf .v { font-size: 16px; font-weight: 700; color: #fff; margin-top: 2px; }
+    .pdf .v.big { font-family: 'Bebas Neue', Impact, sans-serif; font-weight: 400; font-size: 28px; color: #C89B3C; letter-spacing: 1px; }
+    .pdf .s, .pdf .dim { font-size: 10.5px; color: #9CA3AF; }
+    .pdf .warn { color: #f59e0b; font-size: 11px; margin-top: 8px; }
+    .pdf .two { display: grid; grid-template-columns: 1fr 300px; gap: 12px; align-items: start; }
+    .pdf table { width: 100%; border-collapse: collapse; font-size: 10.5px; }
+    .pdf th { text-align: left; color: #9CA3AF; font-weight: 600; border-bottom: 1px solid rgba(255,255,255,0.12); padding: 5px 4px; }
+    .pdf td { border-bottom: 1px solid rgba(255,255,255,0.06); padding: 5px 4px; vertical-align: top; }
+    .pdf .bu-row { margin-bottom: 6px; } .pdf .bu ul { margin: 2px 0 0 16px; padding: 0; color: #D1D5DB; }
+    .pdf .foot { margin-top: 18px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 9.5px; color: #6B7280; }`;
+
+  async function buildPdf() {
+    if (!S || !S.report) throw new Error('Open a comp report first');
+    await pdfLibs();
+    const holder = document.createElement('div');
+    holder.style.cssText = 'position:fixed;left:-10000px;top:0;z-index:-1;';
+    holder.innerHTML = `<style>${PDF_CSS}</style>${pdfHtml()}`;
+    document.body.appendChild(holder);
+    try {
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const canvas = await window.html2canvas(holder.querySelector('.pdf'), { backgroundColor: '#0f2035', scale: 1.6, useCORS: true, logging: false });
+      const img = canvas.toDataURL('image/jpeg', 0.82);
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ orientation: 'p', unit: 'pt', format: 'letter' });
+      const pw = pdf.internal.pageSize.getWidth(), ph = pdf.internal.pageSize.getHeight(), m = 18;
+      const iw = pw - m * 2, ih = canvas.height * (iw / canvas.width);
+      let left = ih, y = m;
+      const paint = () => { pdf.setFillColor(15, 32, 53); pdf.rect(0, 0, pw, ph, 'F'); };
+      paint(); pdf.addImage(img, 'JPEG', m, y, iw, ih);
+      left -= (ph - m * 2);
+      while (left > 0) { pdf.addPage(); paint(); y = left - ih + m; pdf.addImage(img, 'JPEG', m, y, iw, ih); left -= (ph - m * 2); }
+      const name = 'FORGE-Comp-Report-' + streetOnly(subjectAddress()).replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '') + '.pdf';
+      return { pdf, name, dataUri: pdf.output('datauristring'), pages: pdf.getNumberOfPages() };
+    } finally {
+      holder.remove();
+    }
+  }
+
   // Buttons read their lead id from data attributes, so ids never pass
   // through an inline JS string. (A delegated document listener would miss
   // map-popup clicks: Leaflet stops click propagation inside popups.)
@@ -1188,5 +1519,5 @@
     if (btn) openLead(btn.getAttribute('data-comp-kind'), btn.getAttribute('data-comp-id'));
   }
 
-  window.ForgeComps = { init, buttonFor, popupButton, openLead, fromButton, open, close, _state: () => S };
+  window.ForgeComps = { init, buttonFor, popupButton, openLead, fromButton, open, close, _state: () => S, _buildPdf: () => buildPdf() };
 }());
