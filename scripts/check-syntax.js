@@ -11,7 +11,7 @@ const vm = require('vm');
 const { execFileSync } = require('child_process');
 
 const ROOT = path.join(__dirname, '..');
-const HTML_PAGES = ['property-search.html', 'deal-analyzer.html'];
+const HTML_PAGES = ['property-search.html', 'deal-analyzer.html', 'comp-report.html', 'crm.html'];
 let failures = 0;
 let checked = 0;
 

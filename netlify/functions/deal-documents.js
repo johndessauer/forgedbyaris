@@ -26,7 +26,7 @@ const memberstackAdmin = require('@memberstack/admin');
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 const memberstack = memberstackAdmin.init(process.env.MEMBERSTACK_SECRET_KEY);
 
-const VALID_SOURCE_TOOLS = ['deal_analyzer', 'market_oracle', 'capital_radar', 'manual_upload', 'document_vault'];
+const VALID_SOURCE_TOOLS = ['deal_analyzer', 'market_oracle', 'capital_radar', 'manual_upload', 'document_vault', 'comp_report'];
 
 async function verifyMemberstackId(event) {
   // ── AUTH BLOCK — swap this for your shared helper if you have one ──

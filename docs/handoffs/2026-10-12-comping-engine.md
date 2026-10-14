@@ -215,3 +215,28 @@ Phase 4: Send to Deal Analyzer, Save to CRM (native default, GHL admin-only), co
 - **Fact sources:** `subject.factSources` labels beds/baths/sqft/year/type as `lead` (PropertyRadar / typed), `record` (public record) or `forgecast`; `recordFacts` keeps the public-record numbers when a lead overrides them, and the header shows "Public record says …" on a mismatch. Lead overrides are stored on the report (`subject.leadOverrides`) so rebuilds keep them.
 - **Why 12323 Williams Ct showed 5 bd / 5 ba / 6,000 sqft:** those came from the PropertyRadar lead (lead facts override the record by design). The header now says so.
 - Tests: 72 backend, 95 browser checks.
+
+---
+
+# Phase 4 — Save to CRM, PDF, Deal Analyzer, Share (Oct 14, 2026)
+
+**Branch:** `feature/comping-engine-phase4`. **Live calls spent:** 0. Panel still admin-only.
+
+## Decisions
+- John approved the plan without choosing on two points; built to the brief's defaults: **new-deal type comes from the ARIS best use** (Wholesale→wholesale, Flip→fix_flip, Rental/Hold→lt_rental, STR→str_mtr; editable in the picker), and the **GHL push stays off** until John creates the §7.3 custom fields (the `save-crm` route is admin-only and returns `ghl_not_configured`).
+
+## What was built
+- **Action bar** in the comp report: Save to CRM · Send to Deal Analyzer · Export PDF · Share.
+- **Save to CRM** (native FORGE CRM): picker lists the member's deals with the one for this property first; never creates a second deal for the same property (address match, incl. Ct/Court etc.). Attaches the PDF via `/api/deal-documents` (`source_tool: 'comp_report'`), adds a summary note via `/api/crm-notes` (`created_by: 'aris'`), and stores `crm_deal_id` on the report (`POST link-crm`).
+- **PDF:** purpose-built layout (not a screenshot of the panel), FORGE dark style matching the other "Save to Deal" PDFs: header, ARV / FORGE Cast value / confidence / rent, included comps with city/state/ZIP, location schematic, best use, market, property (owner shown — member's own CRM), disclaimer. html2canvas + jsPDF load from cdnjs only when needed.
+- **Send to Deal Analyzer:** `forge-transfer` handoff (same as ARIS Coach) → tab from best use; fills address + ARV (wholesale/flip) or rent (rental). Deal Analyzer's toast/ARIS message now says "from your comp report".
+- **Share:** `comp-report.html?t=` — public, noindex, read-only snapshot; never calls FORGE Cast; no owner, mailing or tax data; includes best use. Revoke turns it off.
+- `deal-documents.js` accepts `comp_report`; `crm.html` labels it "Comp Report" 📍.
+
+## ⚠️ Before merging — one database check
+`deal_documents` was created outside the repo, so it may have a database rule limiting `source_tool`. Run in Supabase:
+`select conname, pg_get_constraintdef(oid) from pg_constraint where conrelid = 'deal_documents'::regclass and contype = 'c';`
+If it returns a rule listing source tools, `comp_report` must be added to it (Claude to supply the exact SQL). If it returns nothing, no change is needed.
+
+## Tests
+76 backend · 120 browser checks (incl. CRM save, duplicate prevention, PDF build + download, Deal Analyzer prefill, share page) · syntax 44 files/blocks.
