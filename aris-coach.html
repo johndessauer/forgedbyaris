@@ -1644,6 +1644,15 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
       return;
     }
 
+    // Usage tracking for the 14-day inactive list — fire-and-forget.
+    if (depth === 0 && currentMemberToken) {
+      fetch('/api/member-stats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + currentMemberToken },
+        body: JSON.stringify({ action: 'touch_aris' }),
+      }).catch(() => {});
+    }
+
     const res = await fetch('/api/aris-stream', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

@@ -8,6 +8,8 @@
 // Routes:
 //   GET  ?action=get                 -> { arisSessions } for this member (0 if no row yet)
 //   POST { action: 'increment_sessions' } -> increments and returns the new count
+//   POST { action: 'touch_aris' }         -> records last_aris_at = now (one call per ARIS request;
+//                                           feeds the 14-day inactive list, see add-aris-usage-tracking.sql)
 
 const { verifyMember, AuthError } = require('./_Lib/verify-member');
 const { supabase } = require('./_Lib/supabase-client');
@@ -43,6 +45,14 @@ exports.handler = async function (event, context) {
 
     if (event.httpMethod === 'POST') {
       const payload = JSON.parse(event.body || '{}');
+
+      if (payload.action === 'touch_aris') {
+        const { error: touchError } = await supabase
+          .from('member_stats')
+          .upsert({ memberstack_id: memberId, last_aris_at: new Date().toISOString() }, { onConflict: 'memberstack_id' });
+        if (touchError) throw touchError;
+        return json(200, { ok: true });
+      }
 
       if (payload.action === 'increment_sessions') {
         // Read-then-write rather than a single atomic increment — simple

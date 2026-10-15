@@ -73,6 +73,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/aris-inactive"
+  to = "/.netlify/functions/aris-inactive"
+  status = 200
+
+[[redirects]]
   from = "/api/video-library"
   to = "/.netlify/functions/video-library"
   status = 200

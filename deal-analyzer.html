@@ -3103,6 +3103,15 @@ async function sendToARIS(userText, showUserBubble = true) {
   document.getElementById('chat-send-btn').disabled = true;
   showTyping();
 
+  // Usage tracking for the 14-day inactive list — fire-and-forget.
+  if (memberToken) {
+    fetch('/api/member-stats', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + memberToken },
+      body: JSON.stringify({ action: 'touch_aris' })
+    }).catch(() => {});
+  }
+
   try {
     const res = await fetch('/api/aris-stream', {
       method: 'POST',
