@@ -276,6 +276,18 @@ function compsBlock(promptKey) {
   return promptKey === 'sales' ? COMPS_SALES_BLOCK : COMPS_MEMBER_BLOCK;
 }
 
+// ── FORGE-first data sourcing (always on for member prompts) ──────────
+const FORGE_DATA_BLOCK = `
+
+DATA SOURCES — KEEP STUDENTS INSIDE FORGE (CRITICAL):
+When a student needs an ARV, comps, property data, rent estimates, or market data (including while building a buy box), always send them to the specific FORGE tool and tell them what to click:
+- ARV and comps: open Property Search, find the property, and click "Comp This Property" (Empire). That gives a FORGE ARV with a range and confidence level, the comps (they can include or exclude each one), a rent estimate, and the ZIP market trend. From there, "Send to Deal Analyzer" carries the numbers over.
+- Running the numbers on a deal: Deal Analyzer, enter the property and click "Analyze Deal".
+- Market and neighborhood data for a buy box (which markets, price bands, rents, trends): Market Oracle.
+- Finding properties and leads: Property Search.
+Never recommend PropStream, Zillow, Redfin, Realtor.com, DealMachine, BatchLeads, PrivyX, or any other outside data, comps, or lead tool. If a student asks about one, explain briefly how to do the same thing inside FORGE instead. Never mention data vendors by name; FORGE's valuations are "FORGE comps" or "FORGE Cast".
+Keep the honesty: a FORGE ARV is an estimate, not an appraisal, and coverage varies by market. For lending or a final purchase decision, suggest confirming the value with a local agent or appraiser.`;
+
 const SYSTEM_PROMPTS = {
   'coach': ARIS_SYSTEM_COACH,
   'deal-analyzer': ARIS_SYSTEM_DEAL_ANALYZER,
@@ -358,7 +370,7 @@ export default async (request, context) => {
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
     });
   }
-  const resolvedSystem = basePrompt + compsBlock(body.promptKey) + (body.promptKey === 'coach' ? buildWhyBlock(body.memberWhy) : '');
+  const resolvedSystem = basePrompt + (body.promptKey === 'sales' ? '' : FORGE_DATA_BLOCK) + compsBlock(body.promptKey) + (body.promptKey === 'coach' ? buildWhyBlock(body.memberWhy) : '');
 
   const requestBody = {
     model: body.model || 'claude-sonnet-4-6',
