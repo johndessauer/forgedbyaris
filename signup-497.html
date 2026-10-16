@@ -204,7 +204,7 @@ html, body { min-height: 100vh; background: var(--black); color: var(--white); f
   // ?ref=fortiva) and passes it through as a Memberstack custom field so it
   // rides the existing plan.added -> GHL webhook sync. Absent on plain links;
   // GHL applies partner tags only when this field is present.
-  const referralSource = new URLSearchParams(window.location.search).get('ref') || '';
+  const referralSource = (window.ForgeRef && window.ForgeRef.getRef(window)) || new URLSearchParams(window.location.search).get('ref') || '';
 
   async function handleSignup() {
     const firstName = document.getElementById('first-name').value.trim();
