@@ -114,6 +114,7 @@ html, body { min-height: 100vh; background: var(--black); color: var(--white); f
 .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 8px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 </style>
+<script src="/assets/js/ref-capture.js"></script>
 </head>
 <body>
 <div class="noise"></div>
@@ -200,7 +201,7 @@ html, body { min-height: 100vh; background: var(--black); color: var(--white); f
   // ?ref=fortiva) and passes it through as a Memberstack custom field so it
   // rides the existing plan.added -> GHL webhook sync. Absent on plain links;
   // GHL applies partner tags only when this field is present.
-  const referralSource = new URLSearchParams(window.location.search).get('ref') || '';
+  const referralSource = (window.ForgeRef && window.ForgeRef.getRef(window)) || new URLSearchParams(window.location.search).get('ref') || '';
 
   async function handleSignup() {
     const firstName = document.getElementById('first-name').value.trim();
