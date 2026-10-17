@@ -782,12 +782,13 @@ async function initProfilePage() {
     const EMPIRE_PLAN_ID = 'pln_empire--871c00ah3';
     const EMPIRE_PRICE_ID = 'prc_empire-plan--401c10a7h';
     const FOUNDATION_EMPIRE_PLAN_ID = 'pln_foundation-empire-eh1bv0h3e';
+    const FOUNDATION_EMPIRE_MANUAL_PLAN_ID = 'pln_foundation-empire-manual--ztoj0c72'; // Free manual Foundation + Empire plan (split-pay/manual deals) — identical access to FOUNDATION_EMPIRE_PLAN_ID
     const FOUNDATION_PLAN_ID = 'pln_foundation--s11cv0hs9'; // NEW standalone Foundation-only plan — grants base access below but is deliberately NOT added to hasEmpireAccess
     const FOUNDATION_180_PLAN_ID = 'pln_foundation-180-month-payment-plan--gy4q09u4'; // Foundation 12-month $180/mo payment plan — same access as Foundation, NOT Empire
     const FORTIVA_1997_PLAN_ID = 'pln_fortiva-foundation-1997-xt5g037j'; // Fortiva Foundation $1997 — base access only, NOT Empire
     const FORTIVA_1497_PLAN_ID = 'pln_fortiva-foundation-1497-3k4v0yug'; // Fortiva Foundation $1497 — base access only, NOT Empire
     const activeConn = (member.planConnections || []).find(
-      pc => (FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) || pc.planId === FORGE_ZERO_PLAN_ID || pc.planId === FOUNDATION_PLAN_ID || pc.planId === FOUNDATION_180_PLAN_ID || pc.planId === FOUNDATION_EMPIRE_PLAN_ID || pc.planId === FORTIVA_1997_PLAN_ID || pc.planId === FORTIVA_1497_PLAN_ID || pc.planId === FOUNDING_MEMBER_PLAN_ID || pc.planId === FOUNDING_MEMBER_VIP_PLAN_ID) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
+      pc => (FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) || pc.planId === FORGE_ZERO_PLAN_ID || pc.planId === FOUNDATION_PLAN_ID || pc.planId === FOUNDATION_180_PLAN_ID || pc.planId === FOUNDATION_EMPIRE_PLAN_ID || pc.planId === FOUNDATION_EMPIRE_MANUAL_PLAN_ID || pc.planId === FORTIVA_1997_PLAN_ID || pc.planId === FORTIVA_1497_PLAN_ID || pc.planId === FOUNDING_MEMBER_PLAN_ID || pc.planId === FOUNDING_MEMBER_VIP_PLAN_ID) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
     );
     const hasActiveMembership = !!activeConn;
     if (!hasActiveMembership) {
@@ -801,6 +802,7 @@ async function initProfilePage() {
       (pc.status === 'ACTIVE' || pc.status === 'TRIALING') && (
         pc.planId === EMPIRE_PLAN_ID ||
         pc.planId === FOUNDATION_EMPIRE_PLAN_ID ||
+        pc.planId === FOUNDATION_EMPIRE_MANUAL_PLAN_ID ||
         pc.planId === FORGE_ZERO_PLAN_ID ||
         FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) ||
         pc.planId === FOUNDING_MEMBER_PLAN_ID ||
@@ -814,6 +816,7 @@ async function initProfilePage() {
       [FORTIVA_1997_PLAN_ID]: 'Foundation',
       [FORTIVA_1497_PLAN_ID]: 'Foundation',
       [FOUNDATION_EMPIRE_PLAN_ID]: 'Foundation & Empire',
+      [FOUNDATION_EMPIRE_MANUAL_PLAN_ID]: 'Foundation & Empire',
       [EMPIRE_PLAN_ID]: 'Empire',
       'pln_founding-member-a1p70rff': 'Founding Member',
       'pln_founding-member-vip--mzs707z3': 'Founding Member VIP',
@@ -828,6 +831,7 @@ async function initProfilePage() {
     // what members see on the site — update this map instead.
     const baseConnHasEmpireBuiltIn = activeConn && (
       activeConn.planId === FOUNDATION_EMPIRE_PLAN_ID ||
+      activeConn.planId === FOUNDATION_EMPIRE_MANUAL_PLAN_ID ||
       FOUNDING_MEMBER_PRICE_IDS.includes(activeConn.payment?.priceId) ||
       activeConn.planId === FORGE_ZERO_PLAN_ID ||
       activeConn.planId === FOUNDING_MEMBER_PLAN_ID ||

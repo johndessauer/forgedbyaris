@@ -15,6 +15,7 @@ const PLAN_IDS = Object.freeze({
   FORGE_ZERO: 'pln_forge-zero-psnx0aea',               // free staff plan
   EMPIRE: 'pln_empire--871c00ah3',
   FOUNDATION_EMPIRE: 'pln_foundation-empire-eh1bv0h3e', // incl. $1,797 bundle and partner $250/$125 prices
+  FOUNDATION_EMPIRE_MANUAL: 'pln_foundation-empire-manual--ztoj0c72', // free manual plan (split-pay/manual deals) — same access as FOUNDATION_EMPIRE
   FOUNDATION: 'pln_foundation--s11cv0hs9',               // Foundation only — no Empire
   FOUNDATION_180: 'pln_foundation-180-month-payment-plan--gy4q09u4', // Foundation $180/mo x12 payment plan — no Empire
   FOUNDING_MEMBER: 'pln_founding-member-a1p70rff',
@@ -45,6 +46,7 @@ function hasEmpireAccess(planConnections) {
   return (planConnections || []).some(pc => isLive(pc) && (
     pc.planId === PLAN_IDS.EMPIRE ||
     pc.planId === PLAN_IDS.FOUNDATION_EMPIRE ||
+    pc.planId === PLAN_IDS.FOUNDATION_EMPIRE_MANUAL ||
     pc.planId === PLAN_IDS.FORGE_ZERO ||
     FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment && pc.payment.priceId) ||
     pc.planId === PLAN_IDS.FOUNDING_MEMBER ||
