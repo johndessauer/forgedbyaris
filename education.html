@@ -372,33 +372,74 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 }
 .video-lightbox-close:hover { color: var(--white); }
 /* ── GROUP COACHING REPLAYS ── */
-.coaching-intro { font-size: 13px; color: var(--grey-light); line-height: 1.6; margin-bottom: 20px; max-width: 760px; }
-.coaching-list { display: flex; flex-direction: column; gap: 20px; }
-.coaching-session {
-  background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 12px;
-  padding: 20px; display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 22px; align-items: start;
+.coaching-intro { font-size: 12px; color: var(--grey-light); line-height: 1.6; margin-bottom: 14px; }
+/* Featured player: compact, capped width so it never dominates the page */
+.coaching-featured {
+  background: var(--navy-light); border: 1px solid var(--border); border-radius: 12px; padding: 14px;
+  display: grid; grid-template-columns: minmax(0, 520px) minmax(0, 1fr); gap: 18px; align-items: start; margin-bottom: 22px;
 }
-.coaching-session.latest { border-color: var(--border); }
-.coaching-embed { position: relative; width: 100%; aspect-ratio: 16/9; background: black; border-radius: 10px; overflow: hidden; }
+.coaching-embed { position: relative; width: 100%; aspect-ratio: 16/9; background: black; border-radius: 8px; overflow: hidden; }
 .coaching-embed iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: none; }
-.coaching-tag-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+.coaching-tag-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
 .coaching-tag { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--gold); opacity: 0.9; }
-.coaching-new { font-size: 9px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; background: var(--orange-dim); color: var(--orange); border: 1px solid rgba(255,107,43,0.3); }
-.coaching-title { font-family: 'Bebas Neue', sans-serif; font-size: 24px; letter-spacing: 1.5px; line-height: 1.15; color: var(--white); margin-bottom: 6px; }
-.coaching-date { font-size: 11px; color: var(--grey); margin-bottom: 10px; }
-.coaching-desc { font-size: 13px; color: var(--grey-light); line-height: 1.6; margin-bottom: 14px; }
-.coaching-chapters-label { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--grey-light); margin-bottom: 8px; }
-.coaching-chapters { list-style: none; display: flex; flex-direction: column; gap: 4px; }
-.coaching-chapter {
-  display: flex; gap: 10px; align-items: baseline; width: 100%; text-align: left;
-  background: none; border: 1px solid transparent; border-radius: 6px; padding: 6px 8px;
-  color: var(--white); font-family: 'Inter', sans-serif; font-size: 13px; cursor: pointer; transition: all 0.15s ease;
+.coaching-pill { font-size: 9px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; padding: 2px 7px; border-radius: 4px; background: var(--orange-dim); color: var(--orange); border: 1px solid rgba(255,107,43,0.3); }
+.coaching-pill.clip { background: var(--gold-dim); color: var(--gold); border-color: var(--border); }
+.coaching-title { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 1.2px; line-height: 1.15; color: var(--white); margin-bottom: 4px; }
+.coaching-meta { font-size: 11px; color: var(--grey); margin-bottom: 8px; }
+.coaching-desc { font-size: 12px; color: var(--grey-light); line-height: 1.55; margin-bottom: 10px; }
+.coaching-back { background: none; border: none; color: var(--orange); font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 600; cursor: pointer; padding: 0; margin-bottom: 8px; }
+.coaching-back:hover { text-decoration: underline; }
+.coaching-section-label { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--grey-light); margin: 2px 0 6px; }
+/* Chapters: always visible, compact chip row */
+.coaching-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.coaching-chip {
+  display: inline-flex; gap: 5px; align-items: baseline; padding: 3px 8px; border-radius: 999px;
+  background: var(--navy-mid); border: 1px solid var(--border-sub); color: var(--white);
+  font-family: 'Inter', sans-serif; font-size: 11px; line-height: 1.4; cursor: pointer; transition: all 0.15s ease;
 }
-.coaching-chapter:hover { border-color: var(--border); background: var(--gold-dim); }
-.coaching-chapter-time { font-variant-numeric: tabular-nums; color: var(--gold); font-weight: 700; min-width: 38px; }
+.coaching-chip:hover { border-color: var(--gold); background: var(--gold-dim); }
+.coaching-chip-time { font-variant-numeric: tabular-nums; color: var(--gold); font-weight: 700; }
+/* Training clips row */
+.coaching-clips { margin-bottom: 22px; }
+.coaching-clips-row { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(200px, 240px); gap: 10px; overflow-x: auto; padding-bottom: 6px; }
+.coaching-clip {
+  text-align: left; background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 8px; padding: 10px 12px;
+  color: var(--white); font-family: 'Inter', sans-serif; cursor: pointer; transition: border-color 0.15s, transform 0.15s;
+}
+.coaching-clip:hover { border-color: var(--gold); transform: translateY(-1px); }
+.coaching-clip.active { border-color: var(--orange); }
+.coaching-clip-topic { font-size: 9px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--gold); margin-bottom: 4px; }
+.coaching-clip-title { font-size: 12px; font-weight: 600; line-height: 1.35; margin-bottom: 4px; }
+.coaching-clip-time { font-size: 10px; color: var(--grey); font-variant-numeric: tabular-nums; }
+/* Session grid */
+.coaching-grid-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.coaching-search {
+  width: 260px; max-width: 100%; padding: 7px 12px; border-radius: 8px; border: 1px solid var(--border-sub);
+  background: var(--navy-mid); color: var(--white); font-family: 'Inter', sans-serif; font-size: 12px; outline: none;
+}
+.coaching-search:focus { border-color: var(--gold); }
+.coaching-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.coaching-card {
+  text-align: left; padding: 0; background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 10px; overflow: hidden;
+  color: var(--white); font-family: 'Inter', sans-serif; cursor: pointer; transition: border-color 0.15s, transform 0.15s;
+}
+.coaching-card:hover { border-color: var(--gold); transform: translateY(-1px); }
+.coaching-card.active { border-color: var(--orange); }
+.coaching-card-thumb { position: relative; width: 100%; aspect-ratio: 16/9; background: var(--navy-mid); overflow: hidden; }
+.coaching-card-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.coaching-card-duration { position: absolute; right: 6px; bottom: 6px; background: rgba(0,0,0,0.8); color: var(--white); font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 4px; font-variant-numeric: tabular-nums; }
+.coaching-card-now { position: absolute; left: 6px; top: 6px; background: var(--orange); color: var(--white); border-color: var(--orange); }
+.coaching-card-body { padding: 10px 12px 12px; }
+.coaching-card-session { font-size: 9px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--gold); margin-bottom: 4px; }
+.coaching-card-title { font-size: 12px; font-weight: 600; line-height: 1.35; margin-bottom: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.coaching-card-date { font-size: 10px; color: var(--grey); }
+.coaching-empty { color: var(--grey); font-size: 13px; }
+@media (max-width: 1280px) { .coaching-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 900px) {
-  .coaching-session { grid-template-columns: 1fr; padding: 16px; }
+  .coaching-featured { grid-template-columns: 1fr; padding: 12px; gap: 12px; }
+  .coaching-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 }
+@media (max-width: 359px) { .coaching-grid { grid-template-columns: 1fr; } }
 </style>
 <script src="https://static.memberstack.com/scripts/v1/memberstack.js" data-memberstack-app="app_cmr41qq5500q80tsx94pj61rc" defer></script>
 <script src="/assets/js/ref-capture.js"></script>
@@ -484,8 +525,10 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 
       <!-- GROUP COACHING REPLAYS VIEW (rendered from GROUP_COACHING_REPLAYS after the membership check) -->
       <div id="view-coaching" style="display:none;">
-        <div class="coaching-intro">Missed a live call? Every FORGE Group Coaching session is posted here, newest first. Click a chapter to jump straight to that part of the session.</div>
-        <div class="coaching-list" id="coaching-list-container"></div>
+        <div class="coaching-intro">Missed a live call? Every FORGE Group Coaching session is here, newest first. Pick a session below, or tap a chapter to jump to that part.</div>
+        <div id="coaching-featured-container"></div>
+        <div id="coaching-clips-container"></div>
+        <div id="coaching-grid-section"></div>
       </div>
 
       <!-- READER VIEW -->
@@ -574,15 +617,23 @@ const VIDEO_TYPE_META = {
 };
 
 // ── GROUP COACHING REPLAYS ──
-// To add a new session: copy the first object, paste it ABOVE the others
-// (newest first), and fill in the YouTube video id, title, date, and
-// chapters. Chapter times are "m:ss" (or "h:mm:ss"). Nothing else to change.
+// GROUP_COACHING_REPLAYS is the single source of truth for this tab.
+// To add a session: copy the first object, paste it ABOVE the others
+// (newest first), and fill it in. Times are "m:ss" or "h:mm:ss".
+//   session     number shown on the card; also the URL (#group-coaching/session-N)
+//   youtubeId   the id from the YouTube link (youtu.be/<id>)
+//   title, date (YYYY-MM-DD), duration ("m:ss"), description
+//   chapters    [['0:00', 'Label'], ...]  always shown as chips
+//   clips       OPTIONAL short training clips cut from the same video:
+//               [{ title, start: '2:04', end: '3:06', topic: 'Strategy' }, ...]
+//               Each clip plays the session embed from start to end.
 const GROUP_COACHING_REPLAYS = [
   {
     session: 1,
     youtubeId: 'SxgQqVXivNI',
     title: 'Session 1: Strategy, Market, Money - Build Your Investor Foundation',
-    date: '2026-10-18', // YYYY-MM-DD, date posted / recorded
+    date: '2026-10-18',
+    duration: '5:15',
     description: 'Every investor needs a foundation built on three pillars. Strategy: pick your lane and set your "Why" with ARIS, your AI coach. Market: choose where to invest with Market Oracle. Money: build your capital stack and find lenders with Capital Radar.',
     chapters: [
       ['0:00', 'Welcome'],
@@ -593,79 +644,212 @@ const GROUP_COACHING_REPLAYS = [
       ['4:19', 'Money: Capital Radar'],
       ['4:59', 'Wrap-Up'],
     ],
+    clips: [],
   },
 ];
 
+const COACHING_SEARCH_THRESHOLD = 6; // search box appears when there are more sessions than this
 let coachingRendered = false;
 let membershipVerified = false; // set in initEducationPage() once the plan check passes
+let coachingCurrent = 0;        // index into GROUP_COACHING_REPLAYS
+let coachingCurrentClip = null; // index into that session's clips, or null for the full session
+let coachingQuery = '';
 
 function chapterToSeconds(t) {
   return String(t).split(':').reduce((acc, part) => acc * 60 + (parseInt(part, 10) || 0), 0);
 }
 
-function coachingEmbedUrl(youtubeId, startSeconds, autoplay) {
+function coachingSlug(s, i) {
+  return 'session-' + (s.session != null ? s.session : GROUP_COACHING_REPLAYS.length - i);
+}
+
+function coachingDate(d) {
+  return d ? new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+}
+
+function coachingEmbedUrl(youtubeId, opts = {}) {
   const params = new URLSearchParams({ rel: '0', modestbranding: '1', playsinline: '1' });
-  if (startSeconds) params.set('start', String(startSeconds));
-  if (autoplay) params.set('autoplay', '1');
+  if (opts.start) params.set('start', String(opts.start));
+  if (opts.end) params.set('end', String(opts.end));
+  if (opts.autoplay) params.set('autoplay', '1');
   return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(youtubeId)}?${params.toString()}`;
 }
 
+function coachingIframe(s, opts) {
+  return `<iframe src="${coachingEmbedUrl(s.youtubeId, opts)}" title="${escapeHtml(s.title)}"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+    referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>`;
+}
+
+// Parses #group-coaching, #group-coaching/session-3, #group-coaching/session-3/clip-2
+function coachingParseHash() {
+  const parts = window.location.hash.replace(/^#/, '').split('/');
+  if (parts[0] !== 'group-coaching') return null;
+  let index = 0, clip = null;
+  if (parts[1]) {
+    const found = GROUP_COACHING_REPLAYS.findIndex((s, i) => coachingSlug(s, i) === parts[1]);
+    if (found >= 0) index = found;
+  }
+  const m = /^clip-(\d+)$/.exec(parts[2] || '');
+  if (m) {
+    const k = parseInt(m[1], 10) - 1;
+    if ((GROUP_COACHING_REPLAYS[index].clips || [])[k]) clip = k;
+  }
+  return { index, clip };
+}
+
+function coachingSetHash() {
+  const s = GROUP_COACHING_REPLAYS[coachingCurrent];
+  let h = '#group-coaching/' + coachingSlug(s, coachingCurrent);
+  if (coachingCurrentClip != null) h += '/clip-' + (coachingCurrentClip + 1);
+  if (window.location.hash !== h) history.replaceState(null, '', h);
+}
+
 function renderCoachingReplays() {
-  if (coachingRendered) return;
-  const container = document.getElementById('coaching-list-container');
-  if (!container) return;
+  const featured = document.getElementById('coaching-featured-container');
+  if (!featured) return;
   // Same gate as the rest of this page: nothing renders until the
   // Memberstack plan check in initEducationPage() has passed.
   if (!membershipVerified) {
-    container.innerHTML = '<div style="color:var(--grey);font-size:13px;">Loading replays...</div>';
+    featured.innerHTML = '<div class="coaching-empty">Loading replays...</div>';
     return;
   }
-  if (!GROUP_COACHING_REPLAYS.length) {
-    container.innerHTML = '<div style="color:var(--grey);font-size:13px;">No group coaching replays yet. Check back after the next live call.</div>';
-    coachingRendered = true;
-    return;
-  }
-  container.innerHTML = GROUP_COACHING_REPLAYS.map((s, i) => {
-    const dateHtml = s.date
-      ? `<div class="coaching-date">${new Date(s.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>`
-      : '';
-    const chaptersHtml = (s.chapters || []).map(([time, label]) => `
-          <li><button type="button" class="coaching-chapter" onclick="seekCoachingReplay(${i}, ${chapterToSeconds(time)})">
-            <span class="coaching-chapter-time">${escapeHtml(time)}</span><span>${escapeHtml(label)}</span>
-          </button></li>`).join('');
-    return `
-      <div class="coaching-session${i === 0 ? ' latest' : ''}" id="coaching-session-${i}">
-        <div class="coaching-embed" id="coaching-embed-${i}">
-          <iframe src="${coachingEmbedUrl(s.youtubeId)}" title="${escapeHtml(s.title)}" loading="lazy"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
-        </div>
-        <div>
-          <div class="coaching-tag-row">
-            <span class="coaching-tag">🎥 Group Coaching${s.session ? ' · Session ' + escapeHtml(s.session) : ''}</span>
-            ${i === 0 ? '<span class="coaching-new">Latest</span>' : ''}
-          </div>
-          <div class="coaching-title">${escapeHtml(s.title)}</div>
-          ${dateHtml}
-          ${s.description ? `<div class="coaching-desc">${escapeHtml(s.description)}</div>` : ''}
-          ${chaptersHtml ? `<div class="coaching-chapters-label">Chapters</div><ul class="coaching-chapters">${chaptersHtml}</ul>` : ''}
-        </div>
-      </div>`;
-  }).join('');
+  if (coachingRendered) return;
   coachingRendered = true;
+  if (!GROUP_COACHING_REPLAYS.length) {
+    featured.innerHTML = '<div class="coaching-empty">No group coaching replays yet. Check back after the next live call.</div>';
+    return;
+  }
+  const fromHash = coachingParseHash();
+  if (fromHash) { coachingCurrent = fromHash.index; coachingCurrentClip = fromHash.clip; }
+  renderCoachingGridSection();
+  renderCoachingFeatured(false);
 }
 
-function seekCoachingReplay(index, seconds) {
-  const s = GROUP_COACHING_REPLAYS[index];
-  const wrap = document.getElementById('coaching-embed-' + index);
-  if (!s || !wrap) return;
-  // Reloading the iframe with ?start= is the simplest reliable seek without
-  // pulling in the YouTube IFrame API.
-  wrap.innerHTML = `<iframe src="${coachingEmbedUrl(s.youtubeId, seconds, true)}" title="${escapeHtml(s.title)}"
-    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-    referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>`;
-  wrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
+function renderCoachingFeatured(autoplay) {
+  const s = GROUP_COACHING_REPLAYS[coachingCurrent];
+  const clip = coachingCurrentClip != null ? (s.clips || [])[coachingCurrentClip] : null;
+  const opts = clip
+    ? { start: chapterToSeconds(clip.start), end: clip.end ? chapterToSeconds(clip.end) : null, autoplay }
+    : { autoplay };
+  const meta = [coachingDate(s.date), s.duration].filter(Boolean).map(escapeHtml).join(' &nbsp;·&nbsp; ');
+  const chips = (s.chapters || []).map(([time, label]) => `
+      <button type="button" class="coaching-chip" data-seek="${chapterToSeconds(time)}">
+        <span class="coaching-chip-time">${escapeHtml(time)}</span><span>${escapeHtml(label)}</span>
+      </button>`).join('');
+  document.getElementById('coaching-featured-container').innerHTML = `
+    <div class="coaching-featured">
+      <div class="coaching-embed" id="coaching-embed">${coachingIframe(s, opts)}</div>
+      <div>
+        <div class="coaching-tag-row">
+          <span class="coaching-tag">🎥 Group Coaching${s.session != null ? ' · Session ' + escapeHtml(s.session) : ''}</span>
+          ${coachingCurrent === 0 ? '<span class="coaching-pill">Latest</span>' : ''}
+          ${clip ? '<span class="coaching-pill clip">Clip</span>' : ''}
+        </div>
+        ${clip ? `<button type="button" class="coaching-back" data-full="1">← Watch the full session</button>` : ''}
+        <div class="coaching-title">${escapeHtml(clip ? clip.title : s.title)}</div>
+        <div class="coaching-meta">${clip ? escapeHtml(clip.start + (clip.end ? ' – ' + clip.end : '') + ' · from ' + s.title) : meta}</div>
+        ${!clip && s.description ? `<div class="coaching-desc">${escapeHtml(s.description)}</div>` : ''}
+        ${chips ? `<div class="coaching-section-label">Chapters</div><div class="coaching-chips">${chips}</div>` : ''}
+      </div>
+    </div>`;
+
+  const clips = s.clips || [];
+  document.getElementById('coaching-clips-container').innerHTML = clips.length ? `
+    <div class="coaching-clips">
+      <div class="coaching-section-label">✂️ Training Clips from this session</div>
+      <div class="coaching-clips-row">
+        ${clips.map((c, k) => `
+          <button type="button" class="coaching-clip${k === coachingCurrentClip ? ' active' : ''}" data-clip="${k}">
+            ${c.topic ? `<div class="coaching-clip-topic">${escapeHtml(c.topic)}</div>` : ''}
+            <div class="coaching-clip-title">${escapeHtml(c.title)}</div>
+            <div class="coaching-clip-time">▶ ${escapeHtml(c.start)}${c.end ? ' – ' + escapeHtml(c.end) : ''}</div>
+          </button>`).join('')}
+      </div>
+    </div>` : '';
+  renderCoachingGrid();
 }
+
+function coachingMatches(s) {
+  if (!coachingQuery) return true;
+  const hay = [
+    s.title, s.description, s.date, 'session ' + s.session,
+    ...(s.chapters || []).map(c => c[1]),
+    ...(s.clips || []).flatMap(c => [c.title, c.topic]),
+  ].join(' ').toLowerCase();
+  return coachingQuery.toLowerCase().split(/\s+/).filter(Boolean).every(w => hay.includes(w));
+}
+
+function renderCoachingGridSection() {
+  const el = document.getElementById('coaching-grid-section');
+  const n = GROUP_COACHING_REPLAYS.length;
+  el.innerHTML = `
+    <div class="coaching-grid-head">
+      <div class="coaching-section-label" style="margin:0;">All Sessions (${n})</div>
+      ${n > COACHING_SEARCH_THRESHOLD ? '<input type="search" class="coaching-search" id="coaching-search" placeholder="Search sessions, chapters, topics..." aria-label="Search group coaching sessions" />' : ''}
+    </div>
+    <div class="coaching-grid" id="coaching-grid"></div>`;
+  const input = document.getElementById('coaching-search');
+  if (input) input.addEventListener('input', () => { coachingQuery = input.value.trim(); renderCoachingGrid(); });
+}
+
+function renderCoachingGrid() {
+  const grid = document.getElementById('coaching-grid');
+  if (!grid) return;
+  const cards = GROUP_COACHING_REPLAYS.map((s, i) => ({ s, i })).filter(({ s }) => coachingMatches(s));
+  if (!cards.length) { grid.innerHTML = '<div class="coaching-empty">No sessions match your search.</div>'; return; }
+  grid.innerHTML = cards.map(({ s, i }) => `
+    <button type="button" class="coaching-card${i === coachingCurrent ? ' active' : ''}" data-session="${i}">
+      <div class="coaching-card-thumb">
+        <img src="https://i.ytimg.com/vi/${encodeURIComponent(s.youtubeId)}/hqdefault.jpg" alt="" loading="lazy" />
+        ${i === coachingCurrent ? '<span class="coaching-pill coaching-card-now">Now playing</span>' : ''}
+        ${s.duration ? `<span class="coaching-card-duration">${escapeHtml(s.duration)}</span>` : ''}
+      </div>
+      <div class="coaching-card-body">
+        <div class="coaching-card-session">${s.session != null ? 'Session ' + escapeHtml(s.session) : 'Group Coaching'}${(s.clips || []).length ? ' · ' + s.clips.length + ' clips' : ''}</div>
+        <div class="coaching-card-title">${escapeHtml(s.title)}</div>
+        <div class="coaching-card-date">${escapeHtml(coachingDate(s.date))}</div>
+      </div>
+    </button>`).join('');
+}
+
+function selectCoachingSession(index, clip, autoplay) {
+  if (!GROUP_COACHING_REPLAYS[index]) return;
+  coachingCurrent = index;
+  coachingCurrentClip = clip;
+  coachingSetHash();
+  renderCoachingFeatured(autoplay);
+  document.getElementById('coaching-featured-container').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// One delegated click handler for chips, clips, cards (no inline onclick strings).
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#view-coaching')) return;
+  const chip = e.target.closest('[data-seek]');
+  if (chip) {
+    // Chapters always seek within the FULL session.
+    const s = GROUP_COACHING_REPLAYS[coachingCurrent];
+    if (coachingCurrentClip != null) { coachingCurrentClip = null; coachingSetHash(); renderCoachingFeatured(false); }
+    document.getElementById('coaching-embed').innerHTML = coachingIframe(s, { start: parseInt(chip.dataset.seek, 10), autoplay: true });
+    return;
+  }
+  const clipBtn = e.target.closest('[data-clip]');
+  if (clipBtn) { selectCoachingSession(coachingCurrent, parseInt(clipBtn.dataset.clip, 10), true); return; }
+  if (e.target.closest('[data-full]')) { selectCoachingSession(coachingCurrent, null, true); return; }
+  const card = e.target.closest('[data-session]');
+  if (card) selectCoachingSession(parseInt(card.dataset.session, 10), null, true);
+});
+
+// Back/forward or a pasted link while already on the page.
+window.addEventListener('hashchange', () => {
+  if (!membershipVerified) return;
+  const h = coachingParseHash();
+  if (!h) return;
+  if (document.getElementById('view-coaching').style.display !== 'block') switchEduSection('coaching');
+  if (h.index !== coachingCurrent || h.clip !== coachingCurrentClip) {
+    coachingCurrent = h.index; coachingCurrentClip = h.clip; renderCoachingFeatured(false);
+  }
+});
 
 function switchEduSection(section) {
   document.getElementById('edu-tab-lessons').classList.toggle('active', section === 'lessons');
@@ -860,7 +1044,8 @@ async function initEducationPage() {
 
     membershipVerified = true;
     // Deep link: education.html#group-coaching opens the replays tab directly.
-    if (window.location.hash === '#group-coaching') switchEduSection('coaching');
+    // Also accepts #group-coaching/session-N and #group-coaching/session-N/clip-K.
+    if (/^#group-coaching(\/|$)/.test(window.location.hash)) switchEduSection('coaching');
     else if (document.getElementById('view-coaching').style.display === 'block') renderCoachingReplays();
 
     await loadModules();
