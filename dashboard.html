@@ -204,6 +204,8 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 .whats-new-date { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--grey); margin-bottom: 6px; }
 .whats-new-title { font-family: 'Bebas Neue', sans-serif; font-size: 14px; letter-spacing: 1px; color: var(--white); margin-bottom: 6px; }
 .whats-new-body { font-size: 12px; color: var(--grey-light); line-height: 1.5; margin-bottom: 10px; }
+.whats-new-link { display: inline-block; margin-left: 8px; font-size: 11px; font-weight: 600; color: var(--orange); text-decoration: none; }
+.whats-new-link:hover { text-decoration: underline; }
 
 /* ── RECENT DEALS ── */
 .recent-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
@@ -623,7 +625,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
             <div class="module-arrow">→</div>
             <div class="module-icon">🏛</div>
             <div class="module-name">Education</div>
-            <div class="module-desc">Wholesaling, flipping, STR, MTR, multifamily, commercial, tax strategy.</div>
+            <div class="module-desc">Wholesaling, flipping, STR, MTR, multifamily, commercial, tax strategy. Plus Group Coaching replays.</div>
             <div class="module-status live">● Live</div>
           </a>
           <a class="module-card live" href="real-estate-lab.html">
@@ -1044,6 +1046,7 @@ function renderWhatsNew(items) {
         <div class="whats-new-title">${item.title}</div>
         <div class="whats-new-body">${item.body}</div>
         <div class="module-status ${tag}">${label}</div>
+        ${item.href ? `<a class="whats-new-link" href="${item.href}">Open →</a>` : ''}
       </div>`;
   }).join('');
   sub.textContent = items.length + (items.length === 1 ? ' update' : ' updates');

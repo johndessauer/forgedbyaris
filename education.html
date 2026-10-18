@@ -371,6 +371,34 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
   font-size: 14px; cursor: pointer; font-family: 'Inter', sans-serif;
 }
 .video-lightbox-close:hover { color: var(--white); }
+/* ── GROUP COACHING REPLAYS ── */
+.coaching-intro { font-size: 13px; color: var(--grey-light); line-height: 1.6; margin-bottom: 20px; max-width: 760px; }
+.coaching-list { display: flex; flex-direction: column; gap: 20px; }
+.coaching-session {
+  background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 12px;
+  padding: 20px; display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 22px; align-items: start;
+}
+.coaching-session.latest { border-color: var(--border); }
+.coaching-embed { position: relative; width: 100%; aspect-ratio: 16/9; background: black; border-radius: 10px; overflow: hidden; }
+.coaching-embed iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: none; }
+.coaching-tag-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+.coaching-tag { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--gold); opacity: 0.9; }
+.coaching-new { font-size: 9px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; background: var(--orange-dim); color: var(--orange); border: 1px solid rgba(255,107,43,0.3); }
+.coaching-title { font-family: 'Bebas Neue', sans-serif; font-size: 24px; letter-spacing: 1.5px; line-height: 1.15; color: var(--white); margin-bottom: 6px; }
+.coaching-date { font-size: 11px; color: var(--grey); margin-bottom: 10px; }
+.coaching-desc { font-size: 13px; color: var(--grey-light); line-height: 1.6; margin-bottom: 14px; }
+.coaching-chapters-label { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--grey-light); margin-bottom: 8px; }
+.coaching-chapters { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.coaching-chapter {
+  display: flex; gap: 10px; align-items: baseline; width: 100%; text-align: left;
+  background: none; border: 1px solid transparent; border-radius: 6px; padding: 6px 8px;
+  color: var(--white); font-family: 'Inter', sans-serif; font-size: 13px; cursor: pointer; transition: all 0.15s ease;
+}
+.coaching-chapter:hover { border-color: var(--border); background: var(--gold-dim); }
+.coaching-chapter-time { font-variant-numeric: tabular-nums; color: var(--gold); font-weight: 700; min-width: 38px; }
+@media (max-width: 900px) {
+  .coaching-session { grid-template-columns: 1fr; padding: 16px; }
+}
 </style>
 <script src="https://static.memberstack.com/scripts/v1/memberstack.js" data-memberstack-app="app_cmr41qq5500q80tsx94pj61rc" defer></script>
 <script src="/assets/js/ref-capture.js"></script>
@@ -434,6 +462,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
       <!-- TOP-LEVEL SECTION SWITCHER (always visible, not part of showView) -->
       <div class="edu-section-tabs">
         <div class="edu-section-tab active" id="edu-tab-lessons" onclick="switchEduSection('lessons')">📚 Lessons</div>
+        <div class="edu-section-tab" id="edu-tab-coaching" onclick="switchEduSection('coaching')">🎥 Group Coaching</div>
         <div class="edu-section-tab" id="edu-tab-videos" onclick="switchEduSection('videos')">🎬 Video Library</div>
       </div>
 
@@ -451,6 +480,12 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
         <div id="video-list-container">
           <div style="color:var(--grey);font-size:13px;">Loading videos...</div>
         </div>
+      </div>
+
+      <!-- GROUP COACHING REPLAYS VIEW (rendered from GROUP_COACHING_REPLAYS after the membership check) -->
+      <div id="view-coaching" style="display:none;">
+        <div class="coaching-intro">Missed a live call? Every FORGE Group Coaching session is posted here, newest first. Click a chapter to jump straight to that part of the session.</div>
+        <div class="coaching-list" id="coaching-list-container"></div>
       </div>
 
       <!-- READER VIEW -->
@@ -538,12 +573,110 @@ const VIDEO_TYPE_META = {
   recorded_call: { label: 'Recorded Call', icon: '📞' },
 };
 
+// ── GROUP COACHING REPLAYS ──
+// To add a new session: copy the first object, paste it ABOVE the others
+// (newest first), and fill in the YouTube video id, title, date, and
+// chapters. Chapter times are "m:ss" (or "h:mm:ss"). Nothing else to change.
+const GROUP_COACHING_REPLAYS = [
+  {
+    session: 1,
+    youtubeId: 'SxgQqVXivNI',
+    title: 'Session 1: Strategy, Market, Money - Build Your Investor Foundation',
+    date: '2026-10-18', // YYYY-MM-DD, date posted / recorded
+    description: 'Every investor needs a foundation built on three pillars. Strategy: pick your lane and set your "Why" with ARIS, your AI coach. Market: choose where to invest with Market Oracle. Money: build your capital stack and find lenders with Capital Radar.',
+    chapters: [
+      ['0:00', 'Welcome'],
+      ['0:42', 'Building Your Investor Foundation'],
+      ['1:21', 'The 3 Pillars'],
+      ['2:04', 'Strategy: Ask ARIS'],
+      ['3:06', 'Market: Market Oracle'],
+      ['4:19', 'Money: Capital Radar'],
+      ['4:59', 'Wrap-Up'],
+    ],
+  },
+];
+
+let coachingRendered = false;
+let membershipVerified = false; // set in initEducationPage() once the plan check passes
+
+function chapterToSeconds(t) {
+  return String(t).split(':').reduce((acc, part) => acc * 60 + (parseInt(part, 10) || 0), 0);
+}
+
+function coachingEmbedUrl(youtubeId, startSeconds, autoplay) {
+  const params = new URLSearchParams({ rel: '0', modestbranding: '1', playsinline: '1' });
+  if (startSeconds) params.set('start', String(startSeconds));
+  if (autoplay) params.set('autoplay', '1');
+  return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(youtubeId)}?${params.toString()}`;
+}
+
+function renderCoachingReplays() {
+  if (coachingRendered) return;
+  const container = document.getElementById('coaching-list-container');
+  if (!container) return;
+  // Same gate as the rest of this page: nothing renders until the
+  // Memberstack plan check in initEducationPage() has passed.
+  if (!membershipVerified) {
+    container.innerHTML = '<div style="color:var(--grey);font-size:13px;">Loading replays...</div>';
+    return;
+  }
+  if (!GROUP_COACHING_REPLAYS.length) {
+    container.innerHTML = '<div style="color:var(--grey);font-size:13px;">No group coaching replays yet. Check back after the next live call.</div>';
+    coachingRendered = true;
+    return;
+  }
+  container.innerHTML = GROUP_COACHING_REPLAYS.map((s, i) => {
+    const dateHtml = s.date
+      ? `<div class="coaching-date">${new Date(s.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>`
+      : '';
+    const chaptersHtml = (s.chapters || []).map(([time, label]) => `
+          <li><button type="button" class="coaching-chapter" onclick="seekCoachingReplay(${i}, ${chapterToSeconds(time)})">
+            <span class="coaching-chapter-time">${escapeHtml(time)}</span><span>${escapeHtml(label)}</span>
+          </button></li>`).join('');
+    return `
+      <div class="coaching-session${i === 0 ? ' latest' : ''}" id="coaching-session-${i}">
+        <div class="coaching-embed" id="coaching-embed-${i}">
+          <iframe src="${coachingEmbedUrl(s.youtubeId)}" title="${escapeHtml(s.title)}" loading="lazy"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+        </div>
+        <div>
+          <div class="coaching-tag-row">
+            <span class="coaching-tag">🎥 Group Coaching${s.session ? ' · Session ' + escapeHtml(s.session) : ''}</span>
+            ${i === 0 ? '<span class="coaching-new">Latest</span>' : ''}
+          </div>
+          <div class="coaching-title">${escapeHtml(s.title)}</div>
+          ${dateHtml}
+          ${s.description ? `<div class="coaching-desc">${escapeHtml(s.description)}</div>` : ''}
+          ${chaptersHtml ? `<div class="coaching-chapters-label">Chapters</div><ul class="coaching-chapters">${chaptersHtml}</ul>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+  coachingRendered = true;
+}
+
+function seekCoachingReplay(index, seconds) {
+  const s = GROUP_COACHING_REPLAYS[index];
+  const wrap = document.getElementById('coaching-embed-' + index);
+  if (!s || !wrap) return;
+  // Reloading the iframe with ?start= is the simplest reliable seek without
+  // pulling in the YouTube IFrame API.
+  wrap.innerHTML = `<iframe src="${coachingEmbedUrl(s.youtubeId, seconds, true)}" title="${escapeHtml(s.title)}"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+    referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>`;
+  wrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
 function switchEduSection(section) {
   document.getElementById('edu-tab-lessons').classList.toggle('active', section === 'lessons');
+  document.getElementById('edu-tab-coaching').classList.toggle('active', section === 'coaching');
   document.getElementById('edu-tab-videos').classList.toggle('active', section === 'videos');
 
   if (section === 'lessons') {
     showView('list');
+  } else if (section === 'coaching') {
+    showView('coaching');
+    renderCoachingReplays();
   } else {
     showView('videos');
     // Lazy-load: only fetch the video library the first time this tab
@@ -724,6 +857,11 @@ async function initEducationPage() {
     if (avEl) avEl.textContent = initials;
     const tierEl = document.getElementById('sidebar-tier');
     if (tierEl) tierEl.textContent = currentPlanName;
+
+    membershipVerified = true;
+    // Deep link: education.html#group-coaching opens the replays tab directly.
+    if (window.location.hash === '#group-coaching') switchEduSection('coaching');
+    else if (document.getElementById('view-coaching').style.display === 'block') renderCoachingReplays();
 
     await loadModules();
   } catch (err) {
@@ -1133,7 +1271,7 @@ function backToList() { loadModules(); showView('list'); }
 function backToReader() { showView('reader'); }
 
 function showView(name) {
-  ['list', 'videos', 'reader', 'quiz', 'results'].forEach(v => {
+  ['list', 'coaching', 'videos', 'reader', 'quiz', 'results'].forEach(v => {
     document.getElementById('view-' + v).style.display = v === name ? 'block' : 'none';
   });
 }
