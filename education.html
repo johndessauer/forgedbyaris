@@ -321,7 +321,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 .income-filter-tab:hover { border-color: var(--gold); color: var(--gold); }
 .income-filter-tab.active { background: var(--orange-dim); border-color: rgba(255,107,43,0.4); color: var(--orange); }
 
-/* ── EDUCATION TOP-LEVEL SECTION SWITCHER (Lessons / Video Library) ── */
+/* ── EDUCATION TOP-LEVEL SECTION SWITCHER (Lessons / Coaching Lessons / Group Coaching / Video Lesson Library) ── */
 .edu-section-tabs { display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--border-sub); padding-bottom: 16px; }
 .edu-section-tab {
   padding: 9px 18px; border-radius: 8px;
@@ -333,7 +333,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 .edu-section-tab:hover { border-color: var(--gold); color: var(--gold); }
 .edu-section-tab.active { background: var(--gold-dim); border-color: var(--gold); color: var(--gold); }
 
-/* ── VIDEO LIBRARY ── */
+/* ── VIDEO LESSON LIBRARY ── */
 .video-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
 .video-card {
   background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 10px;
@@ -543,7 +543,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
         <div class="edu-section-tab active" id="edu-tab-lessons" onclick="switchEduSection('lessons')">📚 Lessons</div>
         <div class="edu-section-tab" id="edu-tab-path" onclick="switchEduSection('path')">🎓 Coaching Lessons</div>
         <div class="edu-section-tab" id="edu-tab-coaching" onclick="switchEduSection('coaching')">🎥 Group Coaching</div>
-        <div class="edu-section-tab" id="edu-tab-videos" onclick="switchEduSection('videos')">🎬 Video Library</div>
+        <div class="edu-section-tab" id="edu-tab-videos" onclick="switchEduSection('videos')">🎬 Video Lesson Library</div>
       </div>
 
       <!-- LIST VIEW -->
@@ -554,7 +554,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
         </div>
       </div>
 
-      <!-- VIDEO LIBRARY VIEW -->
+      <!-- VIDEO LESSON LIBRARY VIEW -->
       <div id="view-videos" style="display:none;">
         <div class="income-filter-row" id="video-filter-row"></div>
         <div id="video-list-container">
@@ -651,7 +651,7 @@ function waitForMemberstack(maxWaitMs = 6000, intervalMs = 100) {
   });
 }
 
-// ── VIDEO LIBRARY ──
+// ── VIDEO LESSON LIBRARY ──
 let allVideos = [];
 let currentVideoFilter = 'all';
 let videosLoaded = false;
@@ -1154,7 +1154,7 @@ async function loadVideoLibrary() {
     allVideos = videos || [];
   } catch (e) {
     console.error('Failed to load video library:', e);
-    container.innerHTML = '<div style="color:var(--grey);font-size:13px;">Couldn\'t load the video library — check your connection and try reopening this tab.</div>';
+    container.innerHTML = '<div style="color:var(--grey);font-size:13px;">Couldn\'t load the Video Lesson Library — check your connection and try reopening this tab.</div>';
     return;
   }
   renderVideoFilterTabs();
