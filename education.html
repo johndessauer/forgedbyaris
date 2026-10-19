@@ -371,6 +371,44 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
   font-size: 14px; cursor: pointer; font-family: 'Inter', sans-serif;
 }
 .video-lightbox-close:hover { color: var(--white); }
+/* ── FORGE COACHING LESSONS (numbered path) ── */
+.path-progress { background: var(--navy-light); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-bottom: 16px; }
+.path-progress-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12px; color: var(--grey-light); margin-bottom: 10px; }
+.path-progress-count { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 1px; color: var(--gold); margin-right: 2px; }
+.path-bar { height: 6px; border-radius: 999px; background: var(--navy-mid); overflow: hidden; }
+.path-bar > div { height: 100%; background: linear-gradient(90deg, var(--gold), var(--orange)); border-radius: 999px; transition: width 0.3s; }
+.path-btn { background: var(--orange); border: 1px solid var(--orange); color: var(--white); font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600; padding: 7px 12px; border-radius: 7px; cursor: pointer; transition: background 0.15s; }
+.path-btn:hover { background: #e55a1c; }
+.path-btn.done { background: var(--green-dim); border-color: rgba(34,197,94,0.4); color: var(--green); }
+.path-btn.ghost { background: none; border-color: var(--border); color: var(--gold); }
+.path-btn.ghost:hover { background: var(--gold-dim); }
+.path-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.path-modules { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: start; }
+.path-module { background: var(--navy-light); border: 1px solid var(--border-sub); border-radius: 10px; padding: 10px; }
+.path-module-head { display: flex; justify-content: space-between; align-items: baseline; padding: 2px 4px 8px; }
+.path-module-name { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--gold); }
+.path-module-count { font-size: 11px; color: var(--grey); font-variant-numeric: tabular-nums; }
+.path-row { display: flex; align-items: center; gap: 6px; border-radius: 8px; border: 1px solid transparent; }
+.path-row + .path-row { margin-top: 4px; }
+.path-row.active { border-color: var(--orange); background: var(--orange-dim); }
+.path-row-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 5px; background: none; border: none; color: var(--white); font-family: 'Inter', sans-serif; text-align: left; cursor: pointer; border-radius: 8px; }
+.path-row-main:hover { background: var(--border-sub); }
+.path-thumb { position: relative; flex-shrink: 0; width: 96px; aspect-ratio: 16/9; border-radius: 5px; overflow: hidden; background: var(--navy-mid); }
+.path-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.path-thumb .coaching-card-duration { right: 3px; bottom: 3px; font-size: 9px; padding: 1px 4px; }
+.path-num { flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--border); color: var(--gold); font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; font-variant-numeric: tabular-nums; }
+.path-row.done .path-num { background: var(--green-dim); border-color: rgba(34,197,94,0.4); color: var(--green); }
+.path-row-title { font-size: 12px; font-weight: 600; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.path-row.done .path-row-title { color: var(--grey-light); }
+.path-check { flex-shrink: 0; width: 26px; height: 26px; margin-right: 4px; border-radius: 6px; border: 1px solid var(--border); background: none; color: var(--green); font-size: 14px; font-weight: 700; cursor: pointer; }
+.path-check:hover { border-color: var(--green); }
+.path-check.on { background: var(--green-dim); border-color: rgba(34,197,94,0.5); }
+@media (max-width: 1100px) { .path-modules { grid-template-columns: 1fr; } }
+@media (max-width: 600px) {
+  .edu-section-tabs { flex-wrap: wrap; }
+  .path-thumb { width: 80px; }
+  .path-progress-top .path-btn { width: 100%; }
+}
 /* ── GROUP COACHING REPLAYS ── */
 .coaching-intro { font-size: 12px; color: var(--grey-light); line-height: 1.6; margin-bottom: 14px; }
 /* Featured player: compact, capped width so it never dominates the page */
@@ -503,6 +541,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
       <!-- TOP-LEVEL SECTION SWITCHER (always visible, not part of showView) -->
       <div class="edu-section-tabs">
         <div class="edu-section-tab active" id="edu-tab-lessons" onclick="switchEduSection('lessons')">📚 Lessons</div>
+        <div class="edu-section-tab" id="edu-tab-path" onclick="switchEduSection('path')">🎓 Coaching Lessons</div>
         <div class="edu-section-tab" id="edu-tab-coaching" onclick="switchEduSection('coaching')">🎥 Group Coaching</div>
         <div class="edu-section-tab" id="edu-tab-videos" onclick="switchEduSection('videos')">🎬 Video Library</div>
       </div>
@@ -521,6 +560,12 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
         <div id="video-list-container">
           <div style="color:var(--grey);font-size:13px;">Loading videos...</div>
         </div>
+      </div>
+
+      <!-- FORGE COACHING LESSONS VIEW (numbered path, rendered from FORGE_COACHING_LESSONS after the membership check) -->
+      <div id="view-path" style="display:none;">
+        <div class="coaching-intro">FORGE Coaching Lessons: John Dessauer's 22-lesson path in 5 modules, coached by ARIS. Take them in order, mark each one complete, and pick up where you left off.</div>
+        <div id="path-container"></div>
       </div>
 
       <!-- GROUP COACHING REPLAYS VIEW (rendered from GROUP_COACHING_REPLAYS after the membership check) -->
@@ -851,16 +896,242 @@ window.addEventListener('hashchange', () => {
   }
 });
 
+// ── FORGE COACHING LESSONS (numbered path) ──
+// FORGE_COACHING_LESSONS is the single source of truth for this tab.
+// 5 modules, 22 lessons, in the order members should take them.
+//   n           lesson number (1-22); also the URL (#coaching-lessons/lesson-N)
+//   youtubeId   the id from the YouTube link (youtube.com/watch?v=<id>)
+//   duration    "m:ss"
+// Progress (completed lessons + last lesson opened) is saved per member in
+// localStorage under PATH_STORAGE_PREFIX + member id. It is not synced.
+const FORGE_COACHING_LESSONS = [
+  { module: 1, title: "Mindset & Foundation", lessons: [
+      { n: 1, youtubeId: "oA-iC0HPRgY", duration: "6:38", title: "Main Street vs. Wall Street: The Four Ways Real Estate Pays You",
+        description: "Why John Dessauer believes Main Street beats Wall Street, and the four ways one rental property pays you: cash flow, depreciation, amortization (loan paydown), and appreciation. Plus the velocity-of-money illustration and the six myths that keep people from starting." },
+      { n: 2, youtubeId: "ORUHuH_IN5g", duration: "6:35", title: "Choose to Be Free: John's Story and the First Duplex",
+        description: "Freedom vs. security, John Dessauer's story from losing his father at four to quitting his job, and the 80/20 bank-and-seller financing on his first Crown Point duplex. Learn the early rules: cash flow is king, buy in good neighborhoods, and no more than 12 units in year one." },
+      { n: 3, youtubeId: "wiK4Z_7rmuo", duration: "6:11", title: "Control Your Destiny: The Big Four and the Myths That Hold You Back",
+        description: "The Big Four reasons to invest (time, control, health, passion), how to ask empowering questions, the ten myths John Dessauer debunks, and why you should choose carefully who you listen to." },
+      { n: 4, youtubeId: "j9yRmm6vpws", duration: "6:15", title: "Conquer F.E.A.R. and Learn by Real Estate Jobbing",
+        description: "John Dessauer's F.E.A.R. method (Figure it out, Evaluate it, Action plan it, Repeat it), applied to your first real estate deal. Plus learning hands-on as a real estate jobber, the homework that removes fear of the unknown, and what it means to be a professional landlord." },
+      { n: 5, youtubeId: "QmRORWT5Kd8", duration: "4:30", title: "Cash-Flow Side Businesses That Fund Your Next Deal",
+        description: "John Dessauer's secret for buy-and-hold investors: run a cash-flow service business alongside your rentals to fund future down payments. John's four ideas (turnkey investor packages, apartment prep, landlord organizing, cash-flow consulting), dozens of other niches, and how to pick the one that fits you." },
+  ] },
+  { module: 2, title: "Money & Goals", lessons: [
+      { n: 6, youtubeId: "JB2LJJY1mT4", duration: "5:53", title: "Set Your Financial Table: The Dessauer List and Getting Organized",
+        description: "Before you invest one dollar, complete the Dessauer List: John Dessauer's financial self-analysis covering credit, income and expenses, net worth, investments, time, health, relationships, and knowledge. Then get organized with a spending record, a simple filing system, and John's document-retention guide." },
+      { n: 7, youtubeId: "-fOZhRVBkRY", duration: "6:15", title: "Budget, Net Worth, Good Debt vs. Bad Debt, and Credit",
+        description: "Build a budget that turns you from spender to saver, pay off debt with the snowball method, calculate your net worth in five steps, tell good debt from bad debt, and get your credit in shape, straight from John Dessauer's own playbook." },
+      { n: 8, youtubeId: "BoaEX9GPFR4", duration: "5:44", title: "Start With Your WHY: Turning Dreams into 12-Month Goals",
+        description: "Define your reason WHY, separate dreams from goals, and break a 12-month goal (John's example: 12 units in 12 months) into 6- and 3-month steps. Plus John Dessauer's list of 20, the Five Freedoms, and how to beat the security-and-scarcity trap." },
+      { n: 9, youtubeId: "xLDVY9Z7fb8", duration: "5:28", title: "Back to School: Building Your Real Estate Education",
+        description: "Build your real estate education the way John Dessauer did: the right mentor, two books a month, three periodicals, a local investment club, audio learning, two seminars a year, and real-world practice. Plus how to spot a fake guru, and John's 20-point education guide." },
+  ] },
+  { module: 3, title: "Team & Deals", lessons: [
+      { n: 10, youtubeId: "9xGiJLmTx54", duration: "5:55", title: "Build Your Real Estate Dream Team",
+        description: "Every role on John Dessauer's real estate Dream Team, from agents, CPA, and small regional banks to the tax appraiser he calls a secret weapon. Learn where to find each player, how to coach the team with real activity numbers, and why the team should only chase motivated sellers." },
+      { n: 11, youtubeId: "ONg9bJ1PZVk", duration: "5:02", title: "Taking Action: How to Recognize a Good Deal",
+        description: "Why John Dessauer focuses on multi-unit buildings (600+ units collected), how to write a plan of action that sticks, and the five factors that define a good deal for you. Plus John's two buy rules: 60% of as-is value for wholesale deals, and 70% of after-repair value minus repairs." },
+      { n: 12, youtubeId: "sihtIKB4HEw", duration: "6:05", title: "Finding Deals: Farming, Bird-Dogs, and Due Diligence",
+        description: "Where the deals hide: motivated-seller signals, John's negotiating tactics, how to farm a neighborhood, John Dessauer's three-pronged search (internet, classifieds, bird-dogs), online due diligence, condo documents, and the top mistakes new investors make." },
+      { n: 13, youtubeId: "mAEK4QetMUI", duration: "4:09", title: "Marketing That Finds Sellers",
+        description: "Build a simple marketing plan that finds motivated sellers: John Dessauer's marketing do's and don'ts, his favorite tactics, what worked and what flopped in his own tests, and his rule to run three lead sources at once and track every one." },
+  ] },
+  { module: 4, title: "Value & the Numbers", lessons: [
+      { n: 14, youtubeId: "17BeDDGBVzI", duration: "6:36", title: "Establishing Value: NOI and Cap Rate",
+        description: "The most common rookie mistake is overpaying. Learn assessed vs. appraised value, the three approaches to value, how to walk a property from potential gross income to NOI, and how to use cap rate both ways, with John Dessauer's worked examples." },
+      { n: 15, youtubeId: "D276fafj4ns", duration: "5:13", title: "Read the Financials: Income Statement, Rent Roll, and the 4 Ratios",
+        description: "Read a multifamily seller's financials like a pro: the income statement's five categories, the balance sheet, the rent roll and turnover, and the four key ratios John uses: cap rate, cash ROI, total ROI, and debt service coverage ratio (DSCR)." },
+      { n: 16, youtubeId: "NFYxA6ceZ74", duration: "4:36", title: "The One-Minute Assessment",
+        description: "Screen any apartment listing in under a minute with John Dessauer's three-step One-Minute Assessment, sanity-check expenses against John's benchmarks, spot red flags, and estimate market value with John's eight-step approach." },
+      { n: 17, youtubeId: "LK8LEiRsshs", duration: "5:40", title: "Forced Appreciation: Add Value Without Over-Improving",
+        description: "Natural vs. forced appreciation, John's ten low-cost improvements, curb appeal that sells, the $2-of-value-for-every-$1 rule that stops over-improving, a six-part fix-up plan, and how to hire contractors safely with written estimates, lien waivers, and a final walk-through." },
+      { n: 18, youtubeId: "L_W4vGzV8o0", duration: "5:05", title: "Market Cycles: When to Buy, Sell, and Hold",
+        description: "The four phases of the real estate cycle, what drives demand, why segments matter, when John says to buy, sell, and hold, the 'alligator' to avoid, seasonality, and a careful look at pre-foreclosures." },
+  ] },
+  { module: 5, title: "Manage, Protect, Exit", lessons: [
+      { n: 19, youtubeId: "BVPJMn3NjnA", duration: "4:49", title: "Property Management: The 4 Skills and Hiring a Manager",
+        description: "The four property management skills (management, accounting, creativity, vision), rent policies that get you paid on time, the hands-on-or-hire checklist, management options and fees, and the questions to ask any property manager before you sign." },
+      { n: 20, youtubeId: "yWeX-O0wILA", duration: "5:14", title: "Leases, Tenants, Protection, and Exit Strategies",
+        description: "What every lease must cover, advertising and fair, consistent screening, being a polite-but-distant landlord, loyalty perks that keep good tenants, firm rent collection, legal eviction, insurance and entity protection, tax deductions to ask your CPA about, and four exit strategies." },
+      { n: 21, youtubeId: "1DBLKRk4iis", duration: "4:44", title: "John's 50 Tips, Part 1: Start, Stay Informed, Buy and Negotiate",
+        description: "John's tips 1 through 23: getting started (partners, quality deals, keep your job, your team, a business plan, worst-case thinking, organization, asset protection), staying informed and connected, and buying and negotiating with inspections, due diligence, comps, and listening." },
+      { n: 22, youtubeId: "oyy7V-mMlmc", duration: "4:59", title: "John's 50 Tips, Part 2: Sell, Close, Market, and What's Next",
+        description: "John's tips 24 through 50: selling and fix-and-flip, closing without surprises, advertising and marketing that brings in motivated sellers, the liens that can survive foreclosure, why multifamily, reading owner fatigue, and the last tip. Then a full-series recap and your next steps in FORGE." },
+  ] },
+];
+const PATH_LESSONS = FORGE_COACHING_LESSONS.flatMap(m => m.lessons.map(l => ({ ...l, module: m.module, moduleTitle: m.title })));
+const PATH_STORAGE_PREFIX = 'forge_coaching_lessons_v1:';
+let pathStorageKey = PATH_STORAGE_PREFIX + 'anon';
+let pathRendered = false;
+let pathCurrent = null; // lesson number shown in the player, or null
+
+function pathLoad() {
+  try {
+    const d = JSON.parse(localStorage.getItem(pathStorageKey) || '{}');
+    return { done: Array.isArray(d.done) ? d.done.filter(n => PATH_LESSONS.some(l => l.n === n)) : [], last: d.last || null };
+  } catch (e) { return { done: [], last: null }; }
+}
+function pathSave(state) {
+  try { localStorage.setItem(pathStorageKey, JSON.stringify({ done: state.done, last: state.last, updated: Date.now() })); } catch (e) { /* storage full or blocked */ }
+}
+function pathLesson(n) { return PATH_LESSONS.find(l => l.n === n) || null; }
+function pathIsDone(state, n) { return state.done.includes(n); }
+// Continue = the last lesson opened if it isn't finished, otherwise the first unfinished lesson.
+function pathNextUp(state) {
+  if (state.last && !pathIsDone(state, state.last) && pathLesson(state.last)) return state.last;
+  const next = PATH_LESSONS.find(l => !pathIsDone(state, l.n));
+  return next ? next.n : null;
+}
+
+function pathParseHash() {
+  const parts = window.location.hash.replace(/^#/, '').split('/');
+  if (parts[0] !== 'coaching-lessons') return null;
+  const m = /^lesson-(\d+)$/.exec(parts[1] || '');
+  const n = m ? parseInt(m[1], 10) : null;
+  return { n: n && pathLesson(n) ? n : null };
+}
+function pathSetHash() {
+  const h = '#coaching-lessons' + (pathCurrent ? '/lesson-' + pathCurrent : '');
+  if (window.location.hash !== h) history.replaceState(null, '', h);
+}
+
+function renderCoachingLessons() {
+  const root = document.getElementById('path-container');
+  if (!root) return;
+  // Same gate as the rest of this page: nothing renders until the
+  // Memberstack plan check in initEducationPage() has passed.
+  if (!membershipVerified) { root.innerHTML = '<div class="coaching-empty">Loading lessons...</div>'; return; }
+  if (!pathRendered) {
+    pathRendered = true;
+    const h = pathParseHash();
+    if (h && h.n) pathCurrent = h.n;
+  }
+  pathRenderAll(false);
+}
+
+function pathRenderAll(autoplay) {
+  const state = pathLoad();
+  const total = PATH_LESSONS.length;
+  const doneCount = state.done.length;
+  const pct = Math.round((doneCount / total) * 100);
+  const next = pathNextUp(state);
+  const nextL = next ? pathLesson(next) : null;
+  const cur = pathCurrent ? pathLesson(pathCurrent) : null;
+
+  let player = '';
+  if (cur) {
+    const isDone = pathIsDone(state, cur.n);
+    const after = pathLesson(cur.n + 1);
+    player = `
+    <div class="coaching-featured" id="path-player">
+      <div class="coaching-embed">${coachingIframe(cur, { autoplay })}</div>
+      <div>
+        <div class="coaching-tag-row">
+          <span class="coaching-tag">🎓 Module ${cur.module} · ${escapeHtml(cur.moduleTitle)}</span>
+          <span class="coaching-pill">Lesson ${cur.n} of ${total}</span>
+        </div>
+        <div class="coaching-title">${escapeHtml(cur.title)}</div>
+        <div class="coaching-meta">${escapeHtml(cur.duration)} &nbsp;·&nbsp; Coached by ARIS</div>
+        ${cur.description ? `<div class="coaching-desc">${escapeHtml(cur.description)}</div>` : ''}
+        <div class="path-actions">
+          <button type="button" class="path-btn${isDone ? ' done' : ''}" data-path-toggle="${cur.n}">${isDone ? '✓ Completed' : 'Mark complete'}</button>
+          ${after ? `<button type="button" class="path-btn ghost" data-path-open="${after.n}">Next: Lesson ${after.n} →</button>` : ''}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  const modules = FORGE_COACHING_LESSONS.map(m => {
+    const mDone = m.lessons.filter(l => pathIsDone(state, l.n)).length;
+    const rows = m.lessons.map(l => {
+      const d = pathIsDone(state, l.n);
+      const cls = ['path-row', d ? 'done' : '', l.n === pathCurrent ? 'active' : ''].filter(Boolean).join(' ');
+      return `
+        <div class="${cls}">
+          <button type="button" class="path-row-main" data-path-open="${l.n}" aria-label="Play lesson ${l.n}: ${escapeHtml(l.title)}">
+            <span class="path-thumb"><img src="https://i.ytimg.com/vi/${encodeURIComponent(l.youtubeId)}/mqdefault.jpg" alt="" loading="lazy" /><span class="coaching-card-duration">${escapeHtml(l.duration)}</span></span>
+            <span class="path-num">${l.n}</span>
+            <span class="path-row-title">${escapeHtml(l.title)}${l.n === next && !d ? ' <span class="coaching-pill">Up next</span>' : ''}</span>
+          </button>
+          <button type="button" class="path-check${d ? ' on' : ''}" data-path-toggle="${l.n}" aria-pressed="${d}" title="${d ? 'Mark as not complete' : 'Mark complete'}">${d ? '✓' : ''}</button>
+        </div>`;
+    }).join('');
+    return `
+      <div class="path-module">
+        <div class="path-module-head">
+          <span class="path-module-name">Module ${m.module} · ${escapeHtml(m.title)}</span>
+          <span class="path-module-count">${mDone}/${m.lessons.length}</span>
+        </div>
+        ${rows}
+      </div>`;
+  }).join('');
+
+  document.getElementById('path-container').innerHTML = `
+    <div class="path-progress">
+      <div class="path-progress-top">
+        <div><span class="path-progress-count">${doneCount} of ${total}</span> lessons complete</div>
+        ${nextL ? `<button type="button" class="path-btn" data-path-open="${nextL.n}">${doneCount || state.last ? 'Continue' : 'Start'}: Lesson ${nextL.n} →</button>`
+                : '<span class="coaching-pill clip">Path complete 🎉</span>'}
+      </div>
+      <div class="path-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${doneCount}"><div style="width:${pct}%"></div></div>
+    </div>
+    ${player}
+    <div class="path-modules">${modules}</div>`;
+}
+
+function pathOpen(n, autoplay) {
+  if (!pathLesson(n)) return;
+  pathCurrent = n;
+  const state = pathLoad(); state.last = n; pathSave(state);
+  pathSetHash();
+  pathRenderAll(autoplay);
+  const el = document.getElementById('path-player');
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function pathToggle(n) {
+  const state = pathLoad();
+  state.done = pathIsDone(state, n) ? state.done.filter(x => x !== n) : [...state.done, n].sort((a, b) => a - b);
+  pathSave(state);
+  // Re-render without reloading the player iframe (so playback isn't interrupted).
+  const embed = document.querySelector('#path-player .coaching-embed');
+  const keep = embed ? embed.innerHTML : null;
+  pathRenderAll(false);
+  const embed2 = document.querySelector('#path-player .coaching-embed');
+  if (keep && embed2) embed2.innerHTML = keep;
+}
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#view-path')) return;
+  const t = e.target.closest('[data-path-toggle]');
+  if (t) { pathToggle(parseInt(t.dataset.pathToggle, 10)); return; }
+  const o = e.target.closest('[data-path-open]');
+  if (o) pathOpen(parseInt(o.dataset.pathOpen, 10), true);
+});
+
+window.addEventListener('hashchange', () => {
+  if (!membershipVerified) return;
+  const h = pathParseHash();
+  if (!h) return;
+  if (document.getElementById('view-path').style.display !== 'block') switchEduSection('path');
+  if (h.n && h.n !== pathCurrent) { pathCurrent = h.n; pathRenderAll(false); }
+});
+
 function switchEduSection(section) {
   document.getElementById('edu-tab-lessons').classList.toggle('active', section === 'lessons');
   document.getElementById('edu-tab-coaching').classList.toggle('active', section === 'coaching');
   document.getElementById('edu-tab-videos').classList.toggle('active', section === 'videos');
+  document.getElementById('edu-tab-path').classList.toggle('active', section === 'path');
 
   if (section === 'lessons') {
     showView('list');
   } else if (section === 'coaching') {
     showView('coaching');
     renderCoachingReplays();
+  } else if (section === 'path') {
+    showView('path');
+    renderCoachingLessons();
   } else {
     showView('videos');
     // Lazy-load: only fetch the video library the first time this tab
@@ -1042,7 +1313,10 @@ async function initEducationPage() {
     const tierEl = document.getElementById('sidebar-tier');
     if (tierEl) tierEl.textContent = currentPlanName;
 
+    pathStorageKey = PATH_STORAGE_PREFIX + (member.id || 'member');
     membershipVerified = true;
+    // Deep link: education.html#coaching-lessons (or #coaching-lessons/lesson-N) opens the lesson path.
+    if (/^#coaching-lessons(\/|$)/.test(window.location.hash)) switchEduSection('path');
     // Deep link: education.html#group-coaching opens the replays tab directly.
     // Also accepts #group-coaching/session-N and #group-coaching/session-N/clip-K.
     if (/^#group-coaching(\/|$)/.test(window.location.hash)) switchEduSection('coaching');
@@ -1456,7 +1730,7 @@ function backToList() { loadModules(); showView('list'); }
 function backToReader() { showView('reader'); }
 
 function showView(name) {
-  ['list', 'coaching', 'videos', 'reader', 'quiz', 'results'].forEach(v => {
+  ['list', 'path', 'coaching', 'videos', 'reader', 'quiz', 'results'].forEach(v => {
     document.getElementById('view-' + v).style.display = v === name ? 'block' : 'none';
   });
 }
