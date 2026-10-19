@@ -321,7 +321,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 .income-filter-tab:hover { border-color: var(--gold); color: var(--gold); }
 .income-filter-tab.active { background: var(--orange-dim); border-color: rgba(255,107,43,0.4); color: var(--orange); }
 
-/* ── EDUCATION TOP-LEVEL SECTION SWITCHER (Lessons / Coaching Lessons / Group Coaching / Video Lesson Library) ── */
+/* ── EDUCATION TOP-LEVEL SECTION SWITCHER (Lessons / Group Coaching / Video Lesson Library) ── */
 .edu-section-tabs { display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--border-sub); padding-bottom: 16px; }
 .edu-section-tab {
   padding: 9px 18px; border-radius: 8px;
@@ -409,6 +409,9 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
   .path-thumb { width: 80px; }
   .path-progress-top .path-btn { width: 100%; }
 }
+/* ── VIDEO LESSON LIBRARY SECTIONS (Coaching Lessons path on top, video grid below) ── */
+.library-section + .library-section { margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border-sub); }
+.library-section-head { font-size: 16px; font-weight: 700; color: var(--gold); margin-bottom: 6px; }
 /* ── GROUP COACHING REPLAYS ── */
 .coaching-intro { font-size: 12px; color: var(--grey-light); line-height: 1.6; margin-bottom: 14px; }
 /* Featured player: compact, capped width so it never dominates the page */
@@ -541,7 +544,6 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
       <!-- TOP-LEVEL SECTION SWITCHER (always visible, not part of showView) -->
       <div class="edu-section-tabs">
         <div class="edu-section-tab active" id="edu-tab-lessons" onclick="switchEduSection('lessons')">📚 Lessons</div>
-        <div class="edu-section-tab" id="edu-tab-path" onclick="switchEduSection('path')">🎓 Coaching Lessons</div>
         <div class="edu-section-tab" id="edu-tab-coaching" onclick="switchEduSection('coaching')">🎥 Group Coaching</div>
         <div class="edu-section-tab" id="edu-tab-videos" onclick="switchEduSection('videos')">🎬 Video Lesson Library</div>
       </div>
@@ -554,18 +556,23 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
         </div>
       </div>
 
-      <!-- VIDEO LESSON LIBRARY VIEW -->
+      <!-- VIDEO LESSON LIBRARY VIEW
+           Top: FORGE Coaching Lessons (numbered path, rendered from FORGE_COACHING_LESSONS after the membership check).
+           Below: the Supabase video library grid with its filters (loaded from /api/video-library). -->
       <div id="view-videos" style="display:none;">
-        <div class="income-filter-row" id="video-filter-row"></div>
-        <div id="video-list-container">
-          <div style="color:var(--grey);font-size:13px;">Loading videos...</div>
+        <div id="view-path" class="library-section">
+          <div class="library-section-head">🎓 FORGE Coaching Lessons</div>
+          <div class="coaching-intro">John Dessauer's 22-lesson path in 5 modules, coached by ARIS. Take them in order, mark each one complete, and pick up where you left off.</div>
+          <div id="path-container"></div>
         </div>
-      </div>
-
-      <!-- FORGE COACHING LESSONS VIEW (numbered path, rendered from FORGE_COACHING_LESSONS after the membership check) -->
-      <div id="view-path" style="display:none;">
-        <div class="coaching-intro">FORGE Coaching Lessons: John Dessauer's 22-lesson path in 5 modules, coached by ARIS. Take them in order, mark each one complete, and pick up where you left off.</div>
-        <div id="path-container"></div>
+        <div class="library-section">
+          <div class="library-section-head">🎬 More Video Lessons &amp; Recorded Calls</div>
+          <div class="coaching-intro">Extra lessons and recorded calls from the FORGE team. Filter by type below.</div>
+          <div class="income-filter-row" id="video-filter-row"></div>
+          <div id="video-list-container">
+            <div style="color:var(--grey);font-size:13px;">Loading videos...</div>
+          </div>
+        </div>
       </div>
 
       <!-- GROUP COACHING REPLAYS VIEW (rendered from GROUP_COACHING_REPLAYS after the membership check) -->
@@ -1114,7 +1121,8 @@ window.addEventListener('hashchange', () => {
   if (!membershipVerified) return;
   const h = pathParseHash();
   if (!h) return;
-  if (document.getElementById('view-path').style.display !== 'block') switchEduSection('path');
+  // The Coaching Lessons path lives at the top of the Video Lesson Library tab.
+  if (document.getElementById('view-videos').style.display !== 'block') switchEduSection('videos');
   if (h.n && h.n !== pathCurrent) { pathCurrent = h.n; pathRenderAll(false); }
 });
 
@@ -1122,18 +1130,17 @@ function switchEduSection(section) {
   document.getElementById('edu-tab-lessons').classList.toggle('active', section === 'lessons');
   document.getElementById('edu-tab-coaching').classList.toggle('active', section === 'coaching');
   document.getElementById('edu-tab-videos').classList.toggle('active', section === 'videos');
-  document.getElementById('edu-tab-path').classList.toggle('active', section === 'path');
 
   if (section === 'lessons') {
     showView('list');
   } else if (section === 'coaching') {
     showView('coaching');
     renderCoachingReplays();
-  } else if (section === 'path') {
-    showView('path');
-    renderCoachingLessons();
   } else {
+    // Video Lesson Library: the Coaching Lessons path on top, the video grid below.
+    // (The old 'path' section name still lands here.)
     showView('videos');
+    renderCoachingLessons();
     // Lazy-load: only fetch the video library the first time this tab
     // is opened, not on every Education page load.
     if (!videosLoaded) {
@@ -1315,8 +1322,9 @@ async function initEducationPage() {
 
     pathStorageKey = PATH_STORAGE_PREFIX + (member.id || 'member');
     membershipVerified = true;
-    // Deep link: education.html#coaching-lessons (or #coaching-lessons/lesson-N) opens the lesson path.
-    if (/^#coaching-lessons(\/|$)/.test(window.location.hash)) switchEduSection('path');
+    // Deep link: education.html#coaching-lessons (or #coaching-lessons/lesson-N) opens the
+    // Video Lesson Library tab, where the lesson path sits at the top (and opens lesson N).
+    if (/^#coaching-lessons(\/|$)/.test(window.location.hash)) switchEduSection('videos');
     // Deep link: education.html#group-coaching opens the replays tab directly.
     // Also accepts #group-coaching/session-N and #group-coaching/session-N/clip-K.
     if (/^#group-coaching(\/|$)/.test(window.location.hash)) switchEduSection('coaching');
@@ -1730,7 +1738,7 @@ function backToList() { loadModules(); showView('list'); }
 function backToReader() { showView('reader'); }
 
 function showView(name) {
-  ['list', 'path', 'coaching', 'videos', 'reader', 'quiz', 'results'].forEach(v => {
+  ['list', 'coaching', 'videos', 'reader', 'quiz', 'results'].forEach(v => {
     document.getElementById('view-' + v).style.display = v === name ? 'block' : 'none';
   });
 }
