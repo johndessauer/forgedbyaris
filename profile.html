@@ -432,6 +432,43 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 .empire-unlocked-title { font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 2px; color: var(--gold); }
 .empire-unlocked-sub { font-size: 12px; color: var(--grey-light); margin-top: 2px; }
 
+/* Password & security */
+.pw-intro { font-size: 13px; color: var(--grey-light); line-height: 1.6; margin-bottom: 16px; max-width: 560px; }
+.pw-form { display: flex; flex-direction: column; gap: 14px; max-width: 460px; }
+.pw-field label { display: block; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--grey); margin-bottom: 6px; }
+.pw-input {
+  width: 100%; background: var(--navy-mid); border: 1px solid var(--border-sub);
+  border-radius: 8px; padding: 11px 14px; color: var(--white);
+  font-family: 'Inter', sans-serif; font-size: 14px; outline: none;
+  transition: border-color 0.15s;
+}
+.pw-input:focus { border-color: var(--gold); }
+.pw-input::placeholder { color: var(--grey); }
+.pw-input.invalid { border-color: var(--red); }
+.pw-hint { font-size: 11px; color: var(--grey); margin-top: 5px; }
+.pw-show { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--grey-light); cursor: pointer; user-select: none; width: fit-content; }
+.pw-show input { accent-color: var(--gold); width: 15px; height: 15px; cursor: pointer; }
+.pw-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 2px; }
+.pw-submit {
+  background: var(--orange); border: none; color: white;
+  font-family: 'Bebas Neue', sans-serif; font-size: 15px; letter-spacing: 2px;
+  padding: 11px 22px; border-radius: 8px; cursor: pointer; transition: background 0.15s;
+}
+.pw-submit:hover { background: #e55a1c; }
+.pw-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+.pw-forgot { font-size: 12px; color: var(--gold); text-decoration: none; }
+.pw-forgot:hover { text-decoration: underline; }
+.pw-msg { display: none; font-size: 13px; line-height: 1.5; padding: 10px 14px; border-radius: 8px; max-width: 460px; }
+.pw-msg.error { display: block; background: var(--red-dim); border: 1px solid rgba(239,68,68,0.35); color: #fca5a5; }
+.pw-msg.success { display: block; background: var(--green-dim); border: 1px solid rgba(34,197,94,0.35); color: #86efac; }
+@media (max-width: 500px) {
+  .pw-form, .pw-msg { max-width: none; }
+  .pw-input { font-size: 16px; } /* 16px+ stops iOS Safari zooming on focus */
+  .pw-actions { flex-direction: column; align-items: stretch; }
+  .pw-submit { width: 100%; padding: 13px 22px; }
+  .pw-forgot { text-align: center; }
+}
+
 @media (max-width: 900px) { .membership-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 500px) { .membership-grid { grid-template-columns: 1fr; } }
 
@@ -573,6 +610,35 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
             <div style="font-size:10px;color:var(--grey);margin-top:4px;">Used only if we need to reach you for support — never for marketing.</div>
           </div>
         </div>
+      </div>
+
+      <!-- PASSWORD & SECURITY -->
+      <div class="profile-card" id="password-section">
+        <div class="profile-card-label">Password &amp; Security</div>
+        <div class="pw-intro" id="pw-intro">Change the password you use to sign in to FORGE. You'll need your current password.</div>
+        <form class="pw-form" id="pw-form" novalidate onsubmit="handlePasswordSubmit(event)">
+          <!-- Hidden username field so password managers file the new password under the right account -->
+          <input type="email" id="pw-username" autocomplete="username" style="display:none;" tabindex="-1" aria-hidden="true" />
+          <div class="pw-field" id="pw-current-wrap">
+            <label for="pw-current">Current Password</label>
+            <input type="password" class="pw-input" id="pw-current" autocomplete="current-password" placeholder="Your current password" />
+          </div>
+          <div class="pw-field">
+            <label for="pw-new">New Password</label>
+            <input type="password" class="pw-input" id="pw-new" autocomplete="new-password" minlength="8" placeholder="At least 8 characters" aria-describedby="pw-new-hint" />
+            <div class="pw-hint" id="pw-new-hint">At least 8 characters. Use something you don't use on other sites.</div>
+          </div>
+          <div class="pw-field">
+            <label for="pw-confirm">Confirm New Password</label>
+            <input type="password" class="pw-input" id="pw-confirm" autocomplete="new-password" minlength="8" placeholder="Type the new password again" />
+          </div>
+          <label class="pw-show"><input type="checkbox" id="pw-show" onchange="togglePasswordVisibility(this.checked)" /> Show passwords</label>
+          <div class="pw-msg" id="pw-msg" role="status" aria-live="polite"></div>
+          <div class="pw-actions">
+            <button type="submit" class="pw-submit" id="pw-submit">Update Password</button>
+            <a class="pw-forgot" id="pw-forgot" href="login.html" title="On the sign-in page, enter your email and click &quot;Forgot password?&quot;">Forgot your current password?</a>
+          </div>
+        </form>
       </div>
 
       <!-- EMPIRE UPGRADE / STATUS -->
@@ -867,6 +933,7 @@ async function initProfilePage() {
     document.getElementById('sidebar-name').textContent = fullName;
     document.getElementById('sidebar-tier').textContent = planName;
     renderEmpireSection(hasEmpireAccess, EMPIRE_PRICE_ID);
+    setupPasswordSection(member);
 
     await loadProfileData();
   } catch (err) {
@@ -1104,6 +1171,114 @@ async function savePhoneEdit() {
     console.error('savePhoneEdit failed:', err);
     showToast('Could not save phone number — check your connection and try again.');
     renderPhoneDisplay(currentProfile?.phone);
+  }
+}
+
+// ── PASSWORD & SECURITY ──
+// Uses Memberstack's documented DOM methods: updateMemberAuth({ oldPassword,
+// newPassword }) for members who already have a password, and setPassword({
+// password }) for members who signed up with Google / an email code and have
+// never had one (member.auth.hasPassword === false). This mirrors what
+// Memberstack's own built-in profile modal does.
+const PW_MIN_LENGTH = 8;
+let memberHasPassword = true;
+
+function setupPasswordSection(member) {
+  const auth = (member && member.auth) || {};
+  const email = auth.email || '';
+  document.getElementById('pw-username').value = email;
+
+  // Only treat it as passwordless when Memberstack explicitly says so.
+  memberHasPassword = auth.hasPassword !== false;
+  if (!memberHasPassword) {
+    const providers = (auth.providers || [])
+      .map(p => p && p.provider ? String(p.provider) : '')
+      .filter(Boolean)
+      .map(p => p.charAt(0).toUpperCase() + p.slice(1));
+    const via = providers.length ? providers.join(' / ') : 'an email code';
+    document.getElementById('pw-intro').textContent =
+      `You currently sign in with ${via}, so your account doesn't have a password yet. ` +
+      `Set one below if you'd also like to sign in with your email and a password.`;
+    document.getElementById('pw-current-wrap').style.display = 'none';
+    document.getElementById('pw-forgot').style.display = 'none';
+    document.getElementById('pw-submit').textContent = 'Set Password';
+  }
+}
+
+function togglePasswordVisibility(show) {
+  ['pw-current', 'pw-new', 'pw-confirm'].forEach(id => {
+    document.getElementById(id).type = show ? 'text' : 'password';
+  });
+}
+
+function showPasswordMessage(type, msg) {
+  const el = document.getElementById('pw-msg');
+  el.className = 'pw-msg' + (type ? ' ' + type : '');
+  el.textContent = msg || '';
+}
+
+function passwordErrorText(err) {
+  const code = err && (err.code || (err.data && err.data.code));
+  if (code === 'invalid-password' || code === 'invalid-credentials') return 'Your current password is incorrect. Please try again.';
+  if (code === 'invalid-password-too-short') return `Your new password must be at least ${PW_MIN_LENGTH} characters.`;
+  if (code === 'no-password-set') return 'Your account doesn\u2019t have a password yet. Refresh the page to set one.';
+  if (code === 'login-required' || (err && err.statusCode === 401)) return 'Your session has expired. Please sign in again, then retry.';
+  const m = err && (err.message || (err.data && err.data.message) || (typeof err === 'string' ? err : ''));
+  return (m && String(m).trim()) ? String(m).trim() : 'We couldn\u2019t update your password. Check your connection and try again.';
+}
+
+async function handlePasswordSubmit(e) {
+  e.preventDefault();
+  const currentEl = document.getElementById('pw-current');
+  const newEl = document.getElementById('pw-new');
+  const confirmEl = document.getElementById('pw-confirm');
+  const btn = document.getElementById('pw-submit');
+  const current = currentEl.value;
+  const next = newEl.value;
+  const confirm = confirmEl.value;
+  [currentEl, newEl, confirmEl].forEach(el => el.classList.remove('invalid'));
+  showPasswordMessage(null, '');
+
+  const fail = (el, msg) => { if (el) { el.classList.add('invalid'); el.focus(); } showPasswordMessage('error', msg); };
+  if (memberHasPassword && !current) return fail(currentEl, 'Enter your current password.');
+  if (!next) return fail(newEl, 'Enter a new password.');
+  if (next.length < PW_MIN_LENGTH) return fail(newEl, `Your new password must be at least ${PW_MIN_LENGTH} characters.`);
+  if (memberHasPassword && next === current) return fail(newEl, 'Your new password must be different from your current one.');
+  if (next !== confirm) return fail(confirmEl, 'The new passwords don\u2019t match.');
+
+  const label = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Updating...';
+  try {
+    await waitForMemberstack();
+    const memberstack = window.$memberstackDom;
+    const result = memberHasPassword
+      ? await memberstack.updateMemberAuth({ oldPassword: current, newPassword: next })
+      : await memberstack.setPassword({ password: next });
+    if (result && result.error) throw result.error;
+
+    currentEl.value = ''; newEl.value = ''; confirmEl.value = '';
+    if (!memberHasPassword) {
+      // They now have a password, so future changes need the current one.
+      memberHasPassword = true;
+      document.getElementById('pw-current-wrap').style.display = '';
+      document.getElementById('pw-forgot').style.display = '';
+      document.getElementById('pw-intro').textContent = 'Change the password you use to sign in to FORGE. You\u2019ll need your current password.';
+      btn.textContent = 'Update Password';
+      showPasswordMessage('success', 'Password set. You can now sign in with your email and this password.');
+      showToast('Password set');
+    } else {
+      btn.textContent = label;
+      showPasswordMessage('success', 'Password updated. Use your new password the next time you sign in.');
+      showToast('Password updated');
+    }
+  } catch (err) {
+    console.error('Password update failed:', err && (err.code || err.message || err));
+    btn.textContent = label;
+    const msg = passwordErrorText(err);
+    fail(msg.startsWith('Your current password') ? currentEl : null, msg);
+  } finally {
+    btn.disabled = false;
   }
 }
 
