@@ -403,6 +403,10 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 .path-check { flex-shrink: 0; width: 26px; height: 26px; margin-right: 4px; border-radius: 6px; border: 1px solid var(--border); background: none; color: var(--green); font-size: 14px; font-weight: 700; cursor: pointer; }
 .path-check:hover { border-color: var(--green); }
 .path-check.on { background: var(--green-dim); border-color: rgba(34,197,94,0.5); }
+.path-row.locked .path-row-main { cursor: pointer; opacity: 0.7; }
+.path-lock-thumb { position: relative; flex-shrink: 0; width: 96px; aspect-ratio: 16/9; border-radius: 5px; background: var(--navy-mid); border: 1px solid var(--border-sub); display: flex; align-items: center; justify-content: center; font-size: 18px; }
+.path-lock-thumb .coaching-card-duration { right: 3px; bottom: 3px; font-size: 9px; padding: 1px 4px; }
+.path-locked-banner { border-color: var(--gold); }
 @media (max-width: 1100px) { .path-modules { grid-template-columns: 1fr; } }
 @media (max-width: 600px) {
   .edu-section-tabs { flex-wrap: wrap; }
@@ -564,6 +568,11 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
           <div class="library-section-head">🎓 FORGE Coaching Lessons</div>
           <div class="coaching-intro">John Dessauer's 22-lesson path in 5 modules, coached by ARIS. Take them in order, mark each one complete, and pick up where you left off.</div>
           <div id="path-container"></div>
+        </div>
+        <div id="view-empire-path" class="library-section">
+          <div class="library-section-head">👑 FORGE Empire Coaching Lessons</div>
+          <div class="coaching-intro">Apartment Confidential: John Dessauer's 18-lesson apartment investing path in 5 modules, coached by ARIS. For FORGE Empire members.</div>
+          <div id="empire-path-container"></div>
         </div>
         <div class="library-section">
           <div class="library-section-head">🎬 More Video Lessons &amp; Recorded Calls</div>
@@ -910,7 +919,7 @@ window.addEventListener('hashchange', () => {
 //   youtubeId   the id from the YouTube link (youtube.com/watch?v=<id>)
 //   duration    "m:ss"
 // Progress (completed lessons + last lesson opened) is saved per member in
-// localStorage under PATH_STORAGE_PREFIX + member id. It is not synced.
+// localStorage under "forge_coaching_lessons_v1:" + member id. It is not synced.
 const FORGE_COACHING_LESSONS = [
   { module: 1, title: "Mindset & Foundation", lessons: [
       { n: 1, youtubeId: "oA-iC0HPRgY", duration: "6:38", title: "Main Street vs. Wall Street: The Four Ways Real Estate Pays You",
@@ -967,75 +976,162 @@ const FORGE_COACHING_LESSONS = [
         description: "John's tips 24 through 50: selling and fix-and-flip, closing without surprises, advertising and marketing that brings in motivated sellers, the liens that can survive foreclosure, why multifamily, reading owner fatigue, and the last tip. Then a full-series recap and your next steps in FORGE." },
   ] },
 ];
-const PATH_LESSONS = FORGE_COACHING_LESSONS.flatMap(m => m.lessons.map(l => ({ ...l, module: m.module, moduleTitle: m.title })));
-const PATH_STORAGE_PREFIX = 'forge_coaching_lessons_v1:';
-let pathStorageKey = PATH_STORAGE_PREFIX + 'anon';
-let pathRendered = false;
-let pathCurrent = null; // lesson number shown in the player, or null
+// ── EMPIRE COACHING LESSONS (numbered path, Empire members only) ──
+// Same shape as FORGE_COACHING_LESSONS: 5 modules, 18 lessons (Apartment Confidential).
+// URL: #empire-lessons and #empire-lessons/lesson-N. Progress is stored separately
+// from the H2O path ("forge_empire_lessons_v1:" + member id).
+// Gate: hasEmpireAccess (same Memberstack plan check used for the Empire
+// Education categories). Locked members see titles only: no thumbnails,
+// player, or video ids in the clickable UI.
+// NOTE: this is a UI gate. The ids below are still in page source, and
+// Unlisted YouTube videos play for anyone who has the link.
+const FORGE_EMPIRE_LESSONS = [
+  { module: 1, title: "Why Apartments & Your Plan", lessons: [
+      { n: 1, youtubeId: "St5NUR2RbLI", duration: "5:18", title: "Why Apartments: Your Tenants Pay the Mortgage",
+        description: "Why John Dessauer chose apartments, the five reasons he keeps buying them, the difference between an investor and a landlord, and the four ways one building pays you: cash flow, appreciation, equity growth, and tax benefits. Plus the simple ROI math every apartment investor needs." },
+      { n: 2, youtubeId: "fv5w8ssXuR0", duration: "4:51", title: "The 10-to-1 Multiplier: Small Changes, Big Apartment Value",
+        description: "Flip, wholesale, or buy and hold? John Dessauer walks through his 20-unit buy-and-hold example line by line, then shows how raising rents to market and trimming waste adds about $24,000 of NOI and, at a 10% cap rate, about $240,000 of value. The 10-to-1 multiplier explained, with John's 2015 figures." },
+      { n: 3, youtubeId: "U2a3ayw_mRM", duration: "4:17", title: "What's Your Number? Build Your Apartment Investing Plan",
+        description: "Build your apartment investing plan the way John Dessauer's mentor made him: goals, involvement, timeline, needs versus wants, and net-worth targets. Then run John's What's Your Number exercise to see how many units would replace your income, and take inventory of your cash, credit, equity, and time." },
+      { n: 4, youtubeId: "V88XRFAfWFg", duration: "4:37", title: "Class, Unit Mix and Occupancy: Pick the Right Apartment Building",
+        description: "Choose the right apartment building: Class A through D, John Dessauer's B-or-C-in-an-A-or-B-neighborhood rule, ingress and egress, unit mix, occupancy versus the submarket, size, construction, and deferred maintenance. Finish by writing your one-page buying criteria." },
+  ] },
+  { module: 2, title: "Markets & Your Team", lessons: [
+      { n: 5, youtubeId: "bMEfaOHMKZE", duration: "4:54", title: "Find Your Neighborhood and Market: The Path of Progress",
+        description: "How John Dessauer chooses neighborhoods and markets for apartments: ten neighborhood factors, the path-of-progress map technique, seven market drivers, the traits of good apartment markets, and a fast research routine. Judge areas by economics and property data, never by who lives there." },
+      { n: 6, youtubeId: "HBzEWruZYio", duration: "4:40", title: "Build Your Apartment Dream Team",
+        description: "You don't have to be an expert at everything. John Dessauer's apartment dream team: agents and brokers, a real estate attorney, a multifamily inspector, loan officers and mortgage brokers, an insurance agent, a real-estate CPA, a property manager, and a coach, plus how to vet each one and keep them organized." },
+      { n: 7, youtubeId: "NCvMDyP85uU", duration: "4:29", title: "Hire and Manage Your Property Manager Like a Pro",
+        description: "Be an investor, not a landlord. John Dessauer's property-management playbook: why he prefers larger firms, the questions to ask, secret-shopping their properties, the contract terms he always changes, the monthly owner package, and the weekly report and call that keep leasing, collections, and spending on track." },
+  ] },
+  { module: 3, title: "Find & Analyze Deals", lessons: [
+      { n: 8, youtubeId: "WweesQTg4eQ", duration: "4:26", title: "Where the Apartment Deals Hide",
+        description: "Where apartment deals hide: brokers, investor clubs, online listings, owners advertising units for rent, attorneys, courthouse hold-period searches, lenders, FSBOs, driving for dollars, and John Dessauer's most overlooked source, property managers. Plus the follow-up habit and property checklist that turn leads into deals." },
+      { n: 9, youtubeId: "Fxq5flSX1ZM", duration: "4:07", title: "Direct Mail That Gets Apartment Owners Calling",
+        description: "John Dessauer's direct mail system for reaching apartment owners: buying a current list or pulling owners free from appraisal districts, writing a personal, low-key, honest letter, the ten envelope-and-letter details that raise his response rate, and how to track every mailing so you keep only what works." },
+      { n: 10, youtubeId: "y-PENNhM-bk", duration: "4:22", title: "NOI and Cap Rate: Never Buy Someone Else's Fantasy",
+        description: "Value an apartment building the way John Dessauer does: comps and price per door as a check, then net operating income and cap rate, three ways. What moves cap rates, why you never buy someone else's proforma fantasy, how to annualize partial-year numbers, and John's 10-unit worked example." },
+      { n: 11, youtubeId: "fAcoQMC-NVA", duration: "3:58", title: "Cash-on-Cash, DSCR, and Your Exit Plan",
+        description: "John Dessauer's favorite return metric, cash-on-cash, plus the debt service coverage ratio lenders use, and the exit strategies that create your big payday: quick turn, forced appreciation, refinance (prime the pump), seller financing, 1031 exchange, condo conversion, and divide and conquer. Plan the exit the day you buy." },
+  ] },
+  { module: 4, title: "Offer, Negotiate, Verify", lessons: [
+      { n: 12, youtubeId: "ecxqp24WyIw", duration: "4:00", title: "Letters of Intent and Purchase Agreements That Get Deals Done",
+        description: "How John Dessauer makes offers on apartment buildings: offer forms for 2 to 6 units, simple non-binding letters of intent for larger properties, the two-option LOI, the practice-LOI drill, the must-have LOI terms, and turning an agreed LOI into a purchase and sale agreement with attorney review and a make-ready clause." },
+      { n: 13, youtubeId: "HUA8C5RbJWk", duration: "4:17", title: "Negotiate Like a Pro: Bracketing, Strike Price, and the Nibble",
+        description: "John Dessauer's negotiation playbook for apartment deals: know the other party, ask for more, keep a poker face, never take the first offer, bracket your counteroffers, start near 80% of asking or 10% under your strike price, never counter yourself, handle the nibble, work with brokers, and justify your price with comps and cap rates." },
+      { n: 14, youtubeId: "FVOrDemag3U", duration: "4:21", title: "Due Diligence: Where Apartment Deals Live or Die",
+        description: "John Dessauer's due diligence process for apartment buildings: assume everything is wrong until verified, start with the financials (bank statements versus books, monthly detail, rent roll and leases, utilities), then operational checks (contracts, property tax reassessment, insurance loss runs, survey, capital items, local laws, Phase I), and finally the physical inspection, repair credits, and terminating properly." },
+  ] },
+  { module: 5, title: "Fund, Fill & Scale", lessons: [
+      { n: 15, youtubeId: "ru6QxZZPL6w", duration: "5:07", title: "Finance Your Apartments: Leverage, DSCR, and Creative Money",
+        description: "Finance apartment deals the way John Dessauer does: the main loan types, how commercial underwriters judge DSCR, loan-to-value, loan-to-cost and tenant concentration, the power and risk of leverage, seller financing and seller seconds, private money, partners, bridge loans, recourse, and the closing details, including choosing an ownership entity with your CPA and attorney." },
+      { n: 16, youtubeId: "KjW5tM3OEb4", duration: "4:24", title: "Add Value: Value Plays and New Income Streams",
+        description: "John Dessauer's value-add playbook: drill into submarket stats (price per door, concessions, current versus asking rents), spot the five value plays, add income from covered parking, trash valet, cable and internet agreements, laundry, and vending, never pay a seller for your own upside, and know what moves values up or down. Includes John's 52-unit Rensselaer, Indiana example." },
+      { n: 17, youtubeId: "6L2ZrkLdIPI", duration: "4:49", title: "Fill Your Units: Apartment Marketing and Fair Housing",
+        description: "Keep your apartments full and stay compliant. John Dessauer's always-on marketing programs (flyers, resident referrals, signage, voucher programs, online listings and a property website, rent locators), tracking every lead to its source, Fair Housing rules for advertising and screening, retention, and lawful collections, with evictions only through the courts." },
+      { n: 18, youtubeId: "_35ACUu2NVo", duration: "4:17", title: "Build Your Empire: Investors, Partners, and Your Next Three Steps",
+        description: "Build your apartment empire: run it like a real business with an entity, logo, domain email, and professional phone habits; raise private capital and syndicate with an SEC attorney; use self-directed IRAs with a qualified custodian and your CPA; choose partners carefully; then John Dessauer's three steps (set a goal, educate yourself daily, take action) and why top performers use coaches." },
+  ] },
+];
 
-function pathLoad() {
-  try {
-    const d = JSON.parse(localStorage.getItem(pathStorageKey) || '{}');
-    return { done: Array.isArray(d.done) ? d.done.filter(n => PATH_LESSONS.some(l => l.n === n)) : [], last: d.last || null };
-  } catch (e) { return { done: [], last: null }; }
-}
-function pathSave(state) {
-  try { localStorage.setItem(pathStorageKey, JSON.stringify({ done: state.done, last: state.last, updated: Date.now() })); } catch (e) { /* storage full or blocked */ }
-}
-function pathLesson(n) { return PATH_LESSONS.find(l => l.n === n) || null; }
-function pathIsDone(state, n) { return state.done.includes(n); }
-// Continue = the last lesson opened if it isn't finished, otherwise the first unfinished lesson.
-function pathNextUp(state) {
-  if (state.last && !pathIsDone(state, state.last) && pathLesson(state.last)) return state.last;
-  const next = PATH_LESSONS.find(l => !pathIsDone(state, l.n));
-  return next ? next.n : null;
-}
+// Shared numbered-path component. One instance per path; each has its own
+// data, container, hash prefix, and localStorage key.
+function createLessonPath(cfg) {
+  const LESSONS = cfg.modules.flatMap(m => m.lessons.map(l => ({ ...l, module: m.module, moduleTitle: m.title })));
+  const P = {
+    cfg, storageKey: cfg.storagePrefix + 'anon', rendered: false, current: null,
+    lessons: LESSONS,
+    locked() { return !!(cfg.isLocked && cfg.isLocked()); },
+    setMember(id) { P.storageKey = cfg.storagePrefix + (id || 'member'); },
+    load() {
+      try {
+        const d = JSON.parse(localStorage.getItem(P.storageKey) || '{}');
+        return { done: Array.isArray(d.done) ? d.done.filter(n => LESSONS.some(l => l.n === n)) : [], last: d.last || null };
+      } catch (e) { return { done: [], last: null }; }
+    },
+    save(state) {
+      try { localStorage.setItem(P.storageKey, JSON.stringify({ done: state.done, last: state.last, updated: Date.now() })); } catch (e) { /* storage full or blocked */ }
+    },
+    lesson(n) { return LESSONS.find(l => l.n === n) || null; },
+    isDone(state, n) { return state.done.includes(n); },
+    // Continue = the last lesson opened if it isn't finished, otherwise the first unfinished lesson.
+    nextUp(state) {
+      if (state.last && !P.isDone(state, state.last) && P.lesson(state.last)) return state.last;
+      const next = LESSONS.find(l => !P.isDone(state, l.n));
+      return next ? next.n : null;
+    },
+    parseHash() {
+      const parts = window.location.hash.replace(/^#/, '').split('/');
+      if (parts[0] !== cfg.hash) return null;
+      const m = /^lesson-(\d+)$/.exec(parts[1] || '');
+      const n = m ? parseInt(m[1], 10) : null;
+      return { n: n && P.lesson(n) ? n : null };
+    },
+    setHash() {
+      const h = '#' + cfg.hash + (P.current ? '/lesson-' + P.current : '');
+      if (window.location.hash !== h) history.replaceState(null, '', h);
+    },
+    render() {
+      const root = document.getElementById(cfg.containerId);
+      if (!root) return;
+      // Nothing renders until the Memberstack plan check in initEducationPage() has passed.
+      if (!membershipVerified) { root.innerHTML = '<div class="coaching-empty">Loading lessons...</div>'; return; }
+      if (!P.rendered) {
+        P.rendered = true;
+        const h = P.parseHash();
+        if (h && h.n && !P.locked()) P.current = h.n;
+      }
+      P.renderAll(false);
+    },
+    renderLocked() {
+      const modules = cfg.modules.map(m => `
+      <div class="path-module">
+        <div class="path-module-head">
+          <span class="path-module-name">Module ${m.module} · ${escapeHtml(m.title)}</span>
+          <span class="path-module-count">🔒 ${m.lessons.length} lessons</span>
+        </div>
+        ${m.lessons.map(l => `
+        <div class="path-row locked">
+          <button type="button" class="path-row-main" data-path-locked="1" aria-label="Lesson ${l.n}: ${escapeHtml(l.title)} (Empire only)">
+            <span class="path-lock-thumb">🔒<span class="coaching-card-duration">${escapeHtml(l.duration)}</span></span>
+            <span class="path-num">${l.n}</span>
+            <span class="path-row-title">${escapeHtml(l.title)}</span>
+          </button>
+        </div>`).join('')}
+      </div>`).join('');
+      document.getElementById(cfg.containerId).innerHTML = `
+      <div class="path-progress path-locked-banner">
+        <div class="path-progress-top">
+          <div><span class="path-progress-count">🔒 ${LESSONS.length} lessons</span> Unlock with FORGE Empire</div>
+          <div class="path-actions">
+            <button type="button" class="path-btn" data-path-unlock="1">Unlock with FORGE Empire →</button>
+            <a class="path-btn ghost" href="profile.html#empire-section" style="text-decoration:none;">See what's in Empire</a>
+          </div>
+        </div>
+        <div class="coaching-desc" style="margin:0;">${cfg.lockedMessage}</div>
+      </div>
+      <div class="path-modules">${modules}</div>`;
+    },
+    renderAll(autoplay) {
+      if (P.locked()) { P.current = null; P.renderLocked(); return; }
+      const state = P.load();
+      const total = LESSONS.length;
+      const doneCount = state.done.length;
+      const pct = Math.round((doneCount / total) * 100);
+      const next = P.nextUp(state);
+      const nextL = next ? P.lesson(next) : null;
+      const cur = P.current ? P.lesson(P.current) : null;
 
-function pathParseHash() {
-  const parts = window.location.hash.replace(/^#/, '').split('/');
-  if (parts[0] !== 'coaching-lessons') return null;
-  const m = /^lesson-(\d+)$/.exec(parts[1] || '');
-  const n = m ? parseInt(m[1], 10) : null;
-  return { n: n && pathLesson(n) ? n : null };
-}
-function pathSetHash() {
-  const h = '#coaching-lessons' + (pathCurrent ? '/lesson-' + pathCurrent : '');
-  if (window.location.hash !== h) history.replaceState(null, '', h);
-}
-
-function renderCoachingLessons() {
-  const root = document.getElementById('path-container');
-  if (!root) return;
-  // Same gate as the rest of this page: nothing renders until the
-  // Memberstack plan check in initEducationPage() has passed.
-  if (!membershipVerified) { root.innerHTML = '<div class="coaching-empty">Loading lessons...</div>'; return; }
-  if (!pathRendered) {
-    pathRendered = true;
-    const h = pathParseHash();
-    if (h && h.n) pathCurrent = h.n;
-  }
-  pathRenderAll(false);
-}
-
-function pathRenderAll(autoplay) {
-  const state = pathLoad();
-  const total = PATH_LESSONS.length;
-  const doneCount = state.done.length;
-  const pct = Math.round((doneCount / total) * 100);
-  const next = pathNextUp(state);
-  const nextL = next ? pathLesson(next) : null;
-  const cur = pathCurrent ? pathLesson(pathCurrent) : null;
-
-  let player = '';
-  if (cur) {
-    const isDone = pathIsDone(state, cur.n);
-    const after = pathLesson(cur.n + 1);
-    player = `
-    <div class="coaching-featured" id="path-player">
+      let player = '';
+      if (cur) {
+        const isDone = P.isDone(state, cur.n);
+        const after = P.lesson(cur.n + 1);
+        player = `
+    <div class="coaching-featured path-player" id="${cfg.playerId}">
       <div class="coaching-embed">${coachingIframe(cur, { autoplay })}</div>
       <div>
         <div class="coaching-tag-row">
-          <span class="coaching-tag">🎓 Module ${cur.module} · ${escapeHtml(cur.moduleTitle)}</span>
+          <span class="coaching-tag">${cfg.icon} Module ${cur.module} · ${escapeHtml(cur.moduleTitle)}</span>
           <span class="coaching-pill">Lesson ${cur.n} of ${total}</span>
         </div>
         <div class="coaching-title">${escapeHtml(cur.title)}</div>
@@ -1047,24 +1143,24 @@ function pathRenderAll(autoplay) {
         </div>
       </div>
     </div>`;
-  }
+      }
 
-  const modules = FORGE_COACHING_LESSONS.map(m => {
-    const mDone = m.lessons.filter(l => pathIsDone(state, l.n)).length;
-    const rows = m.lessons.map(l => {
-      const d = pathIsDone(state, l.n);
-      const cls = ['path-row', d ? 'done' : '', l.n === pathCurrent ? 'active' : ''].filter(Boolean).join(' ');
-      return `
+      const modules = cfg.modules.map(m => {
+        const mDone = m.lessons.filter(l => P.isDone(state, l.n)).length;
+        const rows = m.lessons.map(l => {
+          const d = P.isDone(state, l.n);
+          const cls = ['path-row', d ? 'done' : '', l.n === P.current ? 'active' : ''].filter(Boolean).join(' ');
+          return `
         <div class="${cls}">
           <button type="button" class="path-row-main" data-path-open="${l.n}" aria-label="Play lesson ${l.n}: ${escapeHtml(l.title)}">
             <span class="path-thumb"><img src="https://i.ytimg.com/vi/${encodeURIComponent(l.youtubeId)}/mqdefault.jpg" alt="" loading="lazy" /><span class="coaching-card-duration">${escapeHtml(l.duration)}</span></span>
-            <span class="path-num">${l.n}</span>
+            <span class="path-num">${d ? '✓' : l.n}</span>
             <span class="path-row-title">${escapeHtml(l.title)}${l.n === next && !d ? ' <span class="coaching-pill">Up next</span>' : ''}</span>
           </button>
           <button type="button" class="path-check${d ? ' on' : ''}" data-path-toggle="${l.n}" aria-pressed="${d}" title="${d ? 'Mark as not complete' : 'Mark complete'}">${d ? '✓' : ''}</button>
         </div>`;
-    }).join('');
-    return `
+        }).join('');
+        return `
       <div class="path-module">
         <div class="path-module-head">
           <span class="path-module-name">Module ${m.module} · ${escapeHtml(m.title)}</span>
@@ -1072,9 +1168,9 @@ function pathRenderAll(autoplay) {
         </div>
         ${rows}
       </div>`;
-  }).join('');
+      }).join('');
 
-  document.getElementById('path-container').innerHTML = `
+      document.getElementById(cfg.containerId).innerHTML = `
     <div class="path-progress">
       <div class="path-progress-top">
         <div><span class="path-progress-count">${doneCount} of ${total}</span> lessons complete</div>
@@ -1085,46 +1181,73 @@ function pathRenderAll(autoplay) {
     </div>
     ${player}
     <div class="path-modules">${modules}</div>`;
+    },
+    open(n, autoplay) {
+      if (P.locked() || !P.lesson(n)) return;
+      P.current = n;
+      const state = P.load(); state.last = n; P.save(state);
+      P.setHash();
+      P.renderAll(autoplay);
+      const el = document.getElementById(cfg.playerId);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    },
+    toggle(n) {
+      if (P.locked()) return;
+      const state = P.load();
+      state.done = P.isDone(state, n) ? state.done.filter(x => x !== n) : [...state.done, n].sort((a, b) => a - b);
+      P.save(state);
+      // Re-render without reloading the player iframe (so playback isn't interrupted).
+      const sel = '#' + cfg.playerId + ' .coaching-embed';
+      const embed = document.querySelector(sel);
+      const keep = embed ? embed.innerHTML : null;
+      P.renderAll(false);
+      const embed2 = document.querySelector(sel);
+      if (keep && embed2) embed2.innerHTML = keep;
+    },
+  };
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('#' + cfg.sectionId)) return;
+    if (e.target.closest('[data-path-unlock]')) { handleUnlockEmpireEducation(); return; }
+    if (e.target.closest('[data-path-locked]')) { showEmpireLockModal(); return; }
+    const t = e.target.closest('[data-path-toggle]');
+    if (t) { P.toggle(parseInt(t.dataset.pathToggle, 10)); return; }
+    const o = e.target.closest('[data-path-open]');
+    if (o) P.open(parseInt(o.dataset.pathOpen, 10), true);
+  });
+
+  window.addEventListener('hashchange', () => {
+    if (!membershipVerified) return;
+    const h = P.parseHash();
+    if (!h) return;
+    // Both lesson paths live in the Video Lesson Library tab.
+    if (document.getElementById('view-videos').style.display !== 'block') switchEduSection('videos');
+    if (!P.locked() && h.n && h.n !== P.current) { P.current = h.n; P.renderAll(false); }
+    P.scrollIntoViewIfDeepLinked();
+  });
+
+  P.scrollIntoViewIfDeepLinked = () => {
+    if (!P.parseHash() || !cfg.scrollOnDeepLink) return;
+    const el = (P.current && document.getElementById(cfg.playerId)) || document.getElementById(cfg.sectionId);
+    if (el) setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  };
+  return P;
 }
 
-function pathOpen(n, autoplay) {
-  if (!pathLesson(n)) return;
-  pathCurrent = n;
-  const state = pathLoad(); state.last = n; pathSave(state);
-  pathSetHash();
-  pathRenderAll(autoplay);
-  const el = document.getElementById('path-player');
-  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-function pathToggle(n) {
-  const state = pathLoad();
-  state.done = pathIsDone(state, n) ? state.done.filter(x => x !== n) : [...state.done, n].sort((a, b) => a - b);
-  pathSave(state);
-  // Re-render without reloading the player iframe (so playback isn't interrupted).
-  const embed = document.querySelector('#path-player .coaching-embed');
-  const keep = embed ? embed.innerHTML : null;
-  pathRenderAll(false);
-  const embed2 = document.querySelector('#path-player .coaching-embed');
-  if (keep && embed2) embed2.innerHTML = keep;
-}
-
-document.addEventListener('click', (e) => {
-  if (!e.target.closest('#view-path')) return;
-  const t = e.target.closest('[data-path-toggle]');
-  if (t) { pathToggle(parseInt(t.dataset.pathToggle, 10)); return; }
-  const o = e.target.closest('[data-path-open]');
-  if (o) pathOpen(parseInt(o.dataset.pathOpen, 10), true);
+// H2O path: 'forge_coaching_lessons_v1:' storage key kept so existing progress carries over.
+const h2oPath = createLessonPath({
+  modules: FORGE_COACHING_LESSONS, hash: 'coaching-lessons', storagePrefix: 'forge_coaching_lessons_v1:',
+  containerId: 'path-container', sectionId: 'view-path', playerId: 'path-player', icon: '🎓',
 });
-
-window.addEventListener('hashchange', () => {
-  if (!membershipVerified) return;
-  const h = pathParseHash();
-  if (!h) return;
-  // The Coaching Lessons path lives at the top of the Video Lesson Library tab.
-  if (document.getElementById('view-videos').style.display !== 'block') switchEduSection('videos');
-  if (h.n && h.n !== pathCurrent) { pathCurrent = h.n; pathRenderAll(false); }
+const empirePath = createLessonPath({
+  modules: FORGE_EMPIRE_LESSONS, hash: 'empire-lessons', storagePrefix: 'forge_empire_lessons_v1:',
+  containerId: 'empire-path-container', sectionId: 'view-empire-path', playerId: 'empire-path-player', icon: '👑',
+  scrollOnDeepLink: true,
+  isLocked: () => !hasEmpireAccess,
+  lockedMessage: 'The 18-lesson Apartment Confidential path is part of FORGE Empire. Upgrade to watch every lesson and track your progress.',
 });
+const PATH_LESSONS = h2oPath.lessons; // kept for any older references
+function renderCoachingLessons() { h2oPath.render(); empirePath.render(); empirePath.scrollIntoViewIfDeepLinked(); }
 
 function switchEduSection(section) {
   document.getElementById('edu-tab-lessons').classList.toggle('active', section === 'lessons');
@@ -1320,11 +1443,14 @@ async function initEducationPage() {
     const tierEl = document.getElementById('sidebar-tier');
     if (tierEl) tierEl.textContent = currentPlanName;
 
-    pathStorageKey = PATH_STORAGE_PREFIX + (member.id || 'member');
+    h2oPath.setMember(member.id);
+    empirePath.setMember(member.id);
     membershipVerified = true;
     // Deep link: education.html#coaching-lessons (or #coaching-lessons/lesson-N) opens the
     // Video Lesson Library tab, where the lesson path sits at the top (and opens lesson N).
     if (/^#coaching-lessons(\/|$)/.test(window.location.hash)) switchEduSection('videos');
+    // Deep link: #empire-lessons (or #empire-lessons/lesson-N), same tab, Empire path.
+    if (/^#empire-lessons(\/|$)/.test(window.location.hash)) switchEduSection('videos');
     // Deep link: education.html#group-coaching opens the replays tab directly.
     // Also accepts #group-coaching/session-N and #group-coaching/session-N/clip-K.
     if (/^#group-coaching(\/|$)/.test(window.location.hash)) switchEduSection('coaching');
