@@ -116,7 +116,6 @@ export default async (request, context) => {
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     });
   }
-  console.log(`aris-voice: key present, length=${API_KEY.length}, first4=${API_KEY.slice(0, 4)}`);
 
   let upstream;
   try {
