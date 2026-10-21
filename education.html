@@ -418,7 +418,9 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 .library-section-head { font-size: 16px; font-weight: 700; color: var(--gold); margin-bottom: 6px; }
 /* Section band heading: reusable label above a group of library sections.
    Usage: <div class="section-band"><span class="section-band-label">GETTING STARTED</span></div> */
-.section-band { display: flex; align-items: center; gap: 14px; margin: 8px 0 18px; }
+.section-band { display: flex; align-items: center; gap: 14px; margin: 48px 0 18px; }
+.section-band:first-child { margin-top: 8px; } /* top of the tab: keep the existing GETTING STARTED spacing */
+.library-section + .section-band { margin-top: 48px; }
 .section-band::before, .section-band::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, var(--gold)); opacity: 0.6; }
 .section-band::after { background: linear-gradient(90deg, var(--gold), transparent); }
 .section-band-label { font-size: 15px; font-weight: 800; letter-spacing: 3px; text-transform: uppercase; color: var(--gold); padding: 6px 16px; border: 1px solid rgba(200,155,60,0.45); border-radius: 6px; background: var(--gold-dim); white-space: nowrap; }
