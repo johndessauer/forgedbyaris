@@ -416,6 +416,13 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 /* ── VIDEO LESSON LIBRARY SECTIONS (Coaching Lessons path on top, video grid below) ── */
 .library-section + .library-section { margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border-sub); }
 .library-section-head { font-size: 16px; font-weight: 700; color: var(--gold); margin-bottom: 6px; }
+/* Section band heading: reusable label above a group of library sections.
+   Usage: <div class="section-band"><span class="section-band-label">GETTING STARTED</span></div> */
+.section-band { display: flex; align-items: center; gap: 14px; margin: 8px 0 18px; }
+.section-band::before, .section-band::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, var(--gold)); opacity: 0.6; }
+.section-band::after { background: linear-gradient(90deg, var(--gold), transparent); }
+.section-band-label { font-size: 15px; font-weight: 800; letter-spacing: 3px; text-transform: uppercase; color: var(--gold); padding: 6px 16px; border: 1px solid rgba(200,155,60,0.45); border-radius: 6px; background: var(--gold-dim); white-space: nowrap; }
+@media (max-width: 600px) { .section-band-label { font-size: 13px; letter-spacing: 2px; padding: 5px 12px; } }
 /* ── GROUP COACHING REPLAYS ── */
 .coaching-intro { font-size: 12px; color: var(--grey-light); line-height: 1.6; margin-bottom: 14px; }
 /* Featured player: compact, capped width so it never dominates the page */
@@ -564,6 +571,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
            Top: FORGE Coaching Lessons (numbered path, rendered from FORGE_COACHING_LESSONS after the membership check).
            Below: the Supabase video library grid with its filters (loaded from /api/video-library). -->
       <div id="view-videos" style="display:none;">
+        <div class="section-band" role="heading" aria-level="2"><span class="section-band-label">Getting Started</span></div>
         <div id="view-path" class="library-section">
           <div class="library-section-head">🎓 FORGE Coaching Lessons</div>
           <div class="coaching-intro">John Dessauer's 22-lesson path in 5 modules, coached by ARIS. Take them in order, mark each one complete, and pick up where you left off.</div>
