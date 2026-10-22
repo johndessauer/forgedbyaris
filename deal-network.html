@@ -861,7 +861,10 @@ async function handleUnlockEmpireNetwork() {
   if (btn) { btn.disabled = true; btn.textContent = 'Loading checkout...'; }
   try {
     const memberstack = window.$memberstackDom;
-    await memberstack.purchasePlansWithCheckout({ priceId: 'prc_empire-plan--401c10a7h' });
+    const empireArgs = { priceId: 'prc_empire-plan--401c10a7h' };
+    await ((window.ForgeRef && window.ForgeRef.purchase)
+      ? window.ForgeRef.purchase(memberstack, empireArgs, window)
+      : memberstack.purchasePlansWithCheckout(empireArgs));
   } catch (err) {
     console.error('Empire checkout failed:', err);
     if (btn) { btn.disabled = false; btn.textContent = 'Unlock Empire →'; }

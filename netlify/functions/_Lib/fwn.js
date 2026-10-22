@@ -30,6 +30,7 @@
 //   lead_source  fwn-virtual | fwn-raleigh   (?src=)
 //   sold_by      cart | john | rep           (?sold_by=, or rep when ?ref= is set)
 //   rep          ?ref= via assets/js/ref-capture.js
+//   ref          the same ?ref= value, also written to Stripe as metadata.ref
 //
 // These plan ids are on the gated member allowlists, with the same access
 // as Founding Member: the member tools and Empire. Existing plans stay.
@@ -244,7 +245,7 @@ function buildMemberstackCheckout({
     successURL: successURL,
     cancelURL: cancelURL,
     autoRedirect: false,
-    metadataForCheckout: {
+    metadataForCheckout: checkoutMetadata({
       lead_source: lead_source,
       sold_by: sold_by,
       rep: rep || '',
@@ -253,8 +254,19 @@ function buildMemberstackCheckout({
       email: clip(email, 200),
       phone: clip(phone, 40),
       memberstack_id: memberId || '',
-    },
+    }),
   };
+}
+
+function checkoutMetadata(fields) {
+  const metadata = {};
+  Object.keys(fields).forEach((key) => {
+    metadata[key] = String(fields[key] == null ? '' : fields[key]);
+  });
+  const ref = sanitize(metadata.ref || metadata.rep);
+  if (ref) metadata.ref = ref;
+  else delete metadata.ref;
+  return metadata;
 }
 
 function containsTrialKey(value) {
@@ -539,12 +551,33 @@ async function webhookHandler(event, deps) {
   try { stripeEvent = JSON.parse(raw); }
   catch (err) { return json(400, { error: 'Invalid JSON body' }); }
 
-  const outcome = classifyStripeEvent(stripeEvent);
-  if (!outcome.process) return json(200, { received: true, ignored: true, reason: outcome.reason });
+  const paid = paidCheckoutSession(stripeEvent);
+  if (!paid.session) return json(200, { received: true, ignored: true, reason: paid.reason });
 
-  const session = stripeEvent.data.object;
-  const copied = await copySubscriptionMetadata(session, env, options.stripeRequest || stripeRequest);
-  return json(200, { received: true, charged: false, metadata: copied.copied ? 'copied' : copied.reason });
+  const outcome = classifyStripeEvent(stripeEvent);
+  const ref = sanitize((paid.session.metadata && (paid.session.metadata.ref || paid.session.metadata.rep)) || '');
+  if (!outcome.process && !ref) {
+    return json(200, { received: true, ignored: true, reason: outcome.reason || 'no_ref' });
+  }
+
+  const copied = await copyCheckoutMetadata(paid.session, env, options.stripeRequest || stripeRequest, {
+    fwn: outcome.process,
+    ref: ref,
+  });
+  return json(200, { received: true, charged: false, metadata: copied.copied ? 'copied' : copied.reason, ref: !!ref });
+}
+
+function paidCheckoutSession(stripeEvent) {
+  const type = stripeEvent && stripeEvent.type;
+  const session = stripeEvent && stripeEvent.data && stripeEvent.data.object;
+  if (type !== 'checkout.session.completed' && type !== 'checkout.session.async_payment_succeeded') {
+    return { session: null, reason: 'event' };
+  }
+  if (type === 'checkout.session.completed' && (!session || session.payment_status !== 'paid')) {
+    return { session: null, reason: 'unpaid' };
+  }
+  if (!session) return { session: null, reason: 'event' };
+  return { session: session, reason: '' };
 }
 
 function subscriptionIdFromSession(session) {
@@ -554,29 +587,85 @@ function subscriptionIdFromSession(session) {
   return '';
 }
 
-async function copySubscriptionMetadata(session, env, stripe) {
-  const subId = subscriptionIdFromSession(session);
-  if (!subId.startsWith('sub_')) return { copied: false, reason: 'no_subscription' };
+function stripeId(value, prefix) {
+  if (typeof value === 'string' && value.startsWith(prefix)) return value;
+  if (value && typeof value.id === 'string' && value.id.startsWith(prefix)) return value.id;
+  return '';
+}
+
+function metadataForm(metadata) {
+  const form = toForm({ metadata: metadata });
+  if (form.includes('line_items') || /(^|&)price=/.test(form)) {
+    throw new FwnError(500, 'Refusing an extra price', 'metadata update included a price');
+  }
+  return form;
+}
+
+async function postMetadata(stripe, secret, path, metadata) {
+  const keys = Object.keys(metadata || {}).filter((key) => metadata[key] !== '' && metadata[key] != null);
+  if (!keys.length) return false;
+  const body = {};
+  keys.forEach((key) => { body[key] = String(metadata[key]); });
+  await stripe(secret, 'POST', path, metadataForm(body));
+  return true;
+}
+
+async function copyCheckoutMetadata(session, env, stripe, opts) {
+  const options = opts || {};
   if (!env.STRIPE_SECRET_KEY) return { copied: false, reason: 'no_stripe_key' };
+  const ref = sanitize(options.ref || '');
   const md = (session && session.metadata) || {};
-  const form = toForm({
-    metadata: {
-      lead_source: String(md.lead_source || ''),
-      sold_by: String(md.sold_by || ''),
-      rep: String(md.rep || ''),
-      package: String(md.package || ''),
-    },
-  });
-  if (form.includes('line_items') || form.includes('price_')) {
-    return { copied: false, reason: 'refused_extra_price' };
+  let copied = false;
+  let failed = false;
+
+  async function write(path, metadata) {
+    try {
+      const did = await postMetadata(stripe, env.STRIPE_SECRET_KEY, path, metadata);
+      if (did) copied = true;
+    } catch (err) {
+      failed = true;
+      console.error('FWN metadata copy failed:', path, err.message || err);
+    }
   }
-  try {
-    await stripe(env.STRIPE_SECRET_KEY, 'POST', '/v1/subscriptions/' + encodeURIComponent(subId), form);
-    return { copied: true };
-  } catch (err) {
-    console.error('FWN subscription metadata copy failed:', err.message || err);
-    return { copied: false, reason: 'update_failed' };
+
+  const subId = subscriptionIdFromSession(session);
+  if (subId) {
+    const subscriptionMetadata = {};
+    if (options.fwn) {
+      subscriptionMetadata.lead_source = String(md.lead_source || '');
+      subscriptionMetadata.sold_by = String(md.sold_by || '');
+      subscriptionMetadata.rep = String(md.rep || '');
+      subscriptionMetadata.package = String(md.package || '');
+    }
+    if (ref) subscriptionMetadata.ref = ref;
+    await write('/v1/subscriptions/' + encodeURIComponent(subId), subscriptionMetadata);
   }
+
+  if (ref) {
+    const customerId = stripeId(session && session.customer, 'cus_');
+    if (customerId) await write('/v1/customers/' + encodeURIComponent(customerId), { ref: ref });
+
+    const paymentIntent = session && session.payment_intent;
+    const paymentIntentId = stripeId(paymentIntent, 'pi_');
+    let chargeId = stripeId(paymentIntent && paymentIntent.latest_charge, 'ch_') || stripeId(session && session.latest_charge, 'ch_');
+    if (paymentIntentId && !chargeId) {
+      try {
+        const pi = await stripe(env.STRIPE_SECRET_KEY, 'GET', '/v1/payment_intents/' + encodeURIComponent(paymentIntentId));
+        chargeId = stripeId(pi && pi.latest_charge, 'ch_');
+        if (!chargeId && pi && pi.charges && Array.isArray(pi.charges.data) && pi.charges.data[0]) {
+          chargeId = stripeId(pi.charges.data[0].id || pi.charges.data[0], 'ch_');
+        }
+      } catch (err) {
+        failed = true;
+        console.error('FWN payment lookup failed:', err.message || err);
+      }
+    }
+    if (paymentIntentId) await write('/v1/payment_intents/' + encodeURIComponent(paymentIntentId), { ref: ref });
+    if (chargeId) await write('/v1/charges/' + encodeURIComponent(chargeId), { ref: ref });
+  }
+
+  if (copied) return { copied: true };
+  return { copied: false, reason: failed ? 'update_failed' : 'nothing_to_copy' };
 }
 
 module.exports = {

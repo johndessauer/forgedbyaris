@@ -290,11 +290,15 @@ html, body { min-height: 100vh; background: var(--black); color: var(--white); f
       // Step 2: Open Stripe Checkout for the $250/mo price (first month
       // charged today, no setup fee, no trial).
       try {
-        const { error: checkoutError } = await memberstack.purchasePlansWithCheckout({
+        const checkoutArgs = {
           priceId: currentPhase.priceId,
           successURL: window.location.origin + '/dashboard.html',
           cancelURL: window.location.href
-        });
+        };
+        const checkoutResult = (window.ForgeRef && window.ForgeRef.purchase)
+          ? await window.ForgeRef.purchase(memberstack, checkoutArgs, window)
+          : await memberstack.purchasePlansWithCheckout(checkoutArgs);
+        const checkoutError = checkoutResult && checkoutResult.error;
         if (checkoutError) throw checkoutError;
       } catch (checkoutErr) {
         console.error('FORGE signup: checkout failed:', checkoutErr);

@@ -126,6 +126,7 @@ test('Memberstack checkout is one price with metadata and no extra one-time fee'
   assert.equal(params.metadataForCheckout.lead_source, 'fwn-virtual');
   assert.equal(params.metadataForCheckout.sold_by, 'rep');
   assert.equal(params.metadataForCheckout.rep, '023k-eddie');
+  assert.equal(params.metadataForCheckout.ref, '023k-eddie');
   assert.equal(params.metadataForCheckout.package, 'launch');
   assert.equal(params.line_items, undefined);
   assert.equal(params.subscription_data, undefined);
@@ -276,6 +277,7 @@ test('stripe webhook copies metadata only and does not add a price or a plan', a
   assert.equal(form.get('metadata[lead_source]'), 'fwn-virtual');
   assert.equal(form.get('metadata[sold_by]'), 'rep');
   assert.equal(form.get('metadata[rep]'), '023k-eddie');
+  assert.equal(form.get('metadata[ref]'), '023k-eddie');
   assert.equal(form.get('metadata[package]'), 'launch');
   assert.equal(calls[0].body.includes('line_items'), false);
   assert.equal(calls[0].body.includes('price_'), false);
@@ -291,6 +293,49 @@ test('stripe webhook copies metadata only and does not add a price or a plan', a
   assert.equal(failed.statusCode, 200);
   assert.equal(JSON.parse(failed.body).metadata, 'update_failed');
   assert.equal(fwn.isRealPlanId('pln_fwn_launch_placeholder'), false);
+});
+
+test('main checkout ref is copied onto the customer, subscription, and payment', async () => {
+  const calls = [];
+  const session = {
+    id: 'cs_main',
+    mode: 'subscription',
+    payment_status: 'paid',
+    customer: 'cus_123',
+    subscription: { id: 'sub_123' },
+    payment_intent: 'pi_123',
+    metadata: { ref: 'Lexort-Jeremy' },
+  };
+  const res = await fwn.webhookHandler(signed({
+    type: 'checkout.session.completed',
+    data: { object: session },
+  }, SECRET, TS), {
+    env: envWithWebhook(),
+    nowSec: TS,
+    stripeRequest: async (secret, method, path, body) => {
+      calls.push({ method, path, body });
+      if (method === 'GET' && path === '/v1/payment_intents/pi_123') {
+        return { id: 'pi_123', latest_charge: 'ch_123' };
+      }
+      return { id: 'ok' };
+    },
+  });
+  assert.equal(res.statusCode, 200);
+  assert.equal(JSON.parse(res.body).ref, true);
+  const posts = calls.filter(c => c.method === 'POST');
+  assert.deepEqual(posts.map(c => c.path), [
+    '/v1/subscriptions/sub_123',
+    '/v1/customers/cus_123',
+    '/v1/payment_intents/pi_123',
+    '/v1/charges/ch_123',
+  ]);
+  posts.forEach((call) => {
+    const form = new URLSearchParams(call.body);
+    assert.equal(form.get('metadata[ref]'), 'lexort-jeremy');
+    assert.equal(call.body.includes('line_items'), false);
+    assert.equal(call.body.includes('price='), false);
+    assert.equal(form.get('metadata[lead_source]'), null);
+  });
 });
 
 test('webhook ignores unpaid, unrelated, and badly signed events', async () => {
