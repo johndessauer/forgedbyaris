@@ -8,6 +8,9 @@ Disallow: /signup-97.html
 Disallow: /signup-497.html
 Disallow: /signup-foundation.html
 Disallow: /payment-plan.html
+Disallow: /fwn-webinar.html
+Disallow: /fwn-webinar
+Disallow: /fwn/
 Disallow: /founding-member.html
 Disallow: /profile.html
 Disallow: /logged-in-elsewhere.html
