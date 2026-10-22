@@ -721,7 +721,6 @@ const LIVE_COACHING_VIDEOS = [
   { youtubeId: 'bvvcMTQb4ew', title: 'Volume of Offers Equals Velocity of Deals' },
   { youtubeId: 'AWJO5vju2QU', title: 'The Backup-Offer Trick to Beat Other Wholesalers' },
   { youtubeId: 'gVMudTaVrrQ', title: 'Subject-To and the Due-on-Sale Clause' },
-  { youtubeId: 'hUWw3BUte5Y', title: 'Full Coaching Replay' },
 ];
 let liveCoachingRendered = false;
 
@@ -759,6 +758,13 @@ const GROUP_COACHING_REPLAYS = [
     ],
     clips: [],
   },
+  {
+    session: 2,
+    youtubeId: 'hUWw3BUte5Y',
+    title: 'Full Coaching Replay',
+    chapters: [],
+    clips: [],
+  },
 ];
 
 const COACHING_SEARCH_THRESHOLD = 6; // search box appears when there are more sessions than this
@@ -781,7 +787,7 @@ function coachingDate(d) {
 }
 
 function coachingEmbedUrl(youtubeId, opts = {}) {
-  const params = new URLSearchParams({ rel: '0', modestbranding: '1', playsinline: '1' });
+  const params = new URLSearchParams({ rel: '0', modestbranding: '1', playsinline: '1', cc_load_policy: '0' });
   if (opts.start) params.set('start', String(opts.start));
   if (opts.end) params.set('end', String(opts.end));
   if (opts.autoplay) params.set('autoplay', '1');
