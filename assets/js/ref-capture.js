@@ -44,9 +44,40 @@
     var incoming = urlRef(win);
     if (incoming && shouldReplace(readStored(win), incoming)) store(win, incoming);
   }
-  /* Signup pages: URL ?ref first, else stored value, else ''. */
+  /* Signup pages: URL ?ref first, else stored value, else ''.
+   * The stored value lasts 90 days from the landing that set it, which is
+   * longer than 30 days. Last-touch still applies between rep refs. */
   function getRef(win) { return urlRef(win) || readStored(win); }
 
-  return { KEY: KEY, CHANNEL_REFS: CHANNEL_REFS, sanitize: sanitize, isChannel: isChannel,
-    shouldReplace: shouldReplace, capture: capture, getRef: getRef, readStored: readStored };
+  /* Attach the stored ref to a Memberstack checkout call. Memberstack puts
+   * metadataForCheckout on the Stripe Checkout Session. Prices are unchanged. */
+  function withCheckout(params, win) {
+    var base = params || {};
+    var target = win || (typeof window !== 'undefined' ? window : null);
+    var ref = target ? getRef(target) : '';
+    if (!ref) return base;
+    return Object.assign({}, base, {
+      metadataForCheckout: Object.assign({}, base.metadataForCheckout, { ref: ref })
+    });
+  }
+
+  async function purchase(memberstack, params, win) {
+    if (!memberstack || typeof memberstack.purchasePlansWithCheckout !== 'function') {
+      throw new Error('Checkout is unavailable.');
+    }
+    var args = withCheckout(params, win);
+    try {
+      return await memberstack.purchasePlansWithCheckout(args);
+    } catch (err) {
+      if (!args.metadataForCheckout) throw err;
+      if (typeof console !== 'undefined' && console.error) {
+        console.error('FORGE checkout: retrying without ref metadata:', err);
+      }
+      return memberstack.purchasePlansWithCheckout(params || {});
+    }
+  }
+
+  return { KEY: KEY, CHANNEL_REFS: CHANNEL_REFS, MAX_AGE: MAX_AGE, sanitize: sanitize, isChannel: isChannel,
+    shouldReplace: shouldReplace, capture: capture, getRef: getRef, readStored: readStored,
+    withCheckout: withCheckout, purchase: purchase };
 });

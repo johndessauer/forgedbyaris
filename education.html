@@ -1797,7 +1797,10 @@ async function handleUnlockEmpireEducation() {
   if (btn) { btn.disabled = true; btn.textContent = 'Loading checkout...'; }
   try {
     const memberstack = window.$memberstackDom;
-    await memberstack.purchasePlansWithCheckout({ priceId: EMPIRE_PRICE_ID });
+    const empireArgs = { priceId: EMPIRE_PRICE_ID };
+    await ((window.ForgeRef && window.ForgeRef.purchase)
+      ? window.ForgeRef.purchase(memberstack, empireArgs, window)
+      : memberstack.purchasePlansWithCheckout(empireArgs));
   } catch (err) {
     console.error('Empire checkout failed:', err);
     if (btn) { btn.disabled = false; btn.textContent = 'Unlock Empire →'; }

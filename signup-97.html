@@ -288,11 +288,15 @@ html, body { min-height: 100vh; background: var(--black); color: var(--white); f
       // Step 2: Open Stripe Checkout for the single recurring price (setup fee
       // charged today, $97/mo begins automatically after the 30-day trial).
       try {
-        const { error: checkoutError } = await memberstack.purchasePlansWithCheckout({
+        const checkoutArgs = {
           priceId: currentPhase.priceId,
           successURL: window.location.origin + '/dashboard.html',
           cancelURL: window.location.href
-        });
+        };
+        const checkoutResult = (window.ForgeRef && window.ForgeRef.purchase)
+          ? await window.ForgeRef.purchase(memberstack, checkoutArgs, window)
+          : await memberstack.purchasePlansWithCheckout(checkoutArgs);
+        const checkoutError = checkoutResult && checkoutResult.error;
         if (checkoutError) throw checkoutError;
       } catch (checkoutErr) {
         console.error('FORGE signup: checkout failed:', checkoutErr);

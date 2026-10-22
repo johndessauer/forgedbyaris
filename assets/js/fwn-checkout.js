@@ -90,14 +90,24 @@
       autoRedirect: false
     };
     if (checkout.metadataForCheckout) params.metadataForCheckout = checkout.metadataForCheckout;
+    if (window.ForgeRef && window.ForgeRef.withCheckout) params = window.ForgeRef.withCheckout(params, window);
     var result;
     try {
       result = await memberstack.purchasePlansWithCheckout(params);
     } catch (err) {
       if (!params.metadataForCheckout) throw err;
-      console.error('FWN checkout: retrying without checkout metadata:', err);
-      delete params.metadataForCheckout;
-      result = await memberstack.purchasePlansWithCheckout(params);
+      var refOnly = params.metadataForCheckout.ref;
+      console.error('FWN checkout: retrying with ref only:', err);
+      if (refOnly) params.metadataForCheckout = { ref: refOnly };
+      else delete params.metadataForCheckout;
+      try {
+        result = await memberstack.purchasePlansWithCheckout(params);
+      } catch (err2) {
+        if (!params.metadataForCheckout) throw err2;
+        console.error('FWN checkout: retrying without checkout metadata:', err2);
+        delete params.metadataForCheckout;
+        result = await memberstack.purchasePlansWithCheckout(params);
+      }
     }
     if (result && result.error) throw result.error;
     var url = checkoutUrl(result);

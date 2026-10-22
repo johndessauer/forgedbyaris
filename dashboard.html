@@ -1027,7 +1027,10 @@ async function handleUnlockEmpireDashboard(priceId) {
   if (btn) { btn.disabled = true; btn.textContent = 'Loading checkout...'; }
   try {
     const memberstack = window.$memberstackDom;
-    await memberstack.purchasePlansWithCheckout({ priceId });
+    const empireArgs = { priceId: priceId };
+    await ((window.ForgeRef && window.ForgeRef.purchase)
+      ? window.ForgeRef.purchase(memberstack, empireArgs, window)
+      : memberstack.purchasePlansWithCheckout(empireArgs));
   } catch (err) {
     console.error('Empire checkout failed:', err);
     if (btn) { btn.disabled = false; btn.textContent = 'Unlock Empire →'; }
