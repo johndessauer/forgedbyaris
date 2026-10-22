@@ -321,7 +321,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 .income-filter-tab:hover { border-color: var(--gold); color: var(--gold); }
 .income-filter-tab.active { background: var(--orange-dim); border-color: rgba(255,107,43,0.4); color: var(--orange); }
 
-/* ── EDUCATION TOP-LEVEL SECTION SWITCHER (Lessons / Group Coaching / Video Lesson Library) ── */
+/* ── EDUCATION TOP-LEVEL SECTION SWITCHER (Lessons / Group Coaching / Video Lesson Library / Live Coaching) ── */
 .edu-section-tabs { display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--border-sub); padding-bottom: 16px; }
 .edu-section-tab {
   padding: 9px 18px; border-radius: 8px;
@@ -371,6 +371,10 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
   font-size: 14px; cursor: pointer; font-family: 'Inter', sans-serif;
 }
 .video-lightbox-close:hover { color: var(--white); }
+/* Live Coaching players use the same 16:9 card frame as the video library. */
+#view-live .video-card-thumb-wrap iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: none; }
+#view-live .video-card { cursor: default; }
+#view-live .video-card:hover { transform: none; }
 /* ── FORGE COACHING LESSONS (numbered path) ── */
 .path-progress { background: var(--navy-light); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-bottom: 16px; }
 .path-progress-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12px; color: var(--grey-light); margin-bottom: 10px; }
@@ -559,6 +563,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
         <div class="edu-section-tab active" id="edu-tab-lessons" onclick="switchEduSection('lessons')">📚 Lessons</div>
         <div class="edu-section-tab" id="edu-tab-coaching" onclick="switchEduSection('coaching')">🎥 Group Coaching</div>
         <div class="edu-section-tab" id="edu-tab-videos" onclick="switchEduSection('videos')">🎬 Video Lesson Library</div>
+        <div class="edu-section-tab" id="edu-tab-live" onclick="switchEduSection('live')">🔴 Live Coaching</div>
       </div>
 
       <!-- LIST VIEW -->
@@ -598,6 +603,15 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
           <div id="video-list-container">
             <div style="color:var(--grey);font-size:13px;">Loading videos...</div>
           </div>
+        </div>
+      </div>
+
+      <!-- LIVE COACHING (rendered from LIVE_COACHING_VIDEOS after the membership check) -->
+      <div id="view-live" style="display:none;">
+        <div class="library-section">
+          <div class="library-section-head">🔴 Live Coaching</div>
+          <div class="coaching-intro">Live coaching sessions from the FORGE team. Watch them in order.</div>
+          <div id="live-coaching-container"></div>
         </div>
       </div>
 
@@ -693,6 +707,27 @@ const VIDEO_TYPE_META = {
   lesson: { label: 'Video Lesson', icon: '🎓' },
   recorded_call: { label: 'Recorded Call', icon: '📞' },
 };
+
+// ── LIVE COACHING ──
+// LIVE_COACHING_VIDEOS is the single source of truth for this tab.
+// To add a session: append an object. Array order is the order on the page.
+//   youtubeId  the id from the YouTube link
+//   title
+// Each player is youtube.com/embed/<id>?cc_load_policy=0&rel=0 with no caption tracks.
+const LIVE_COACHING_VIDEOS = [
+  { youtubeId: 'yrA_2l0q1ko', title: 'The Truth About Flipping Houses Today' },
+  { youtubeId: 'hgPKYuWWbI0', title: 'Why Contractors Can Ruin Your Flip' },
+  { youtubeId: 'oCtoiqlhlF0', title: 'Watch ARIS Analyze a Market Live' },
+  { youtubeId: 'bvvcMTQb4ew', title: 'Volume of Offers Equals Velocity of Deals' },
+  { youtubeId: 'AWJO5vju2QU', title: 'The Backup-Offer Trick to Beat Other Wholesalers' },
+  { youtubeId: 'gVMudTaVrrQ', title: 'Subject-To and the Due-on-Sale Clause' },
+  { youtubeId: 'hUWw3BUte5Y', title: 'Full Coaching Replay' },
+];
+let liveCoachingRendered = false;
+
+function liveCoachingEmbedUrl(youtubeId) {
+  return 'https://www.youtube.com/embed/' + encodeURIComponent(youtubeId) + '?cc_load_policy=0&rel=0';
+}
 
 // ── GROUP COACHING REPLAYS ──
 // GROUP_COACHING_REPLAYS is the single source of truth for this tab.
@@ -927,6 +962,12 @@ window.addEventListener('hashchange', () => {
   if (h.index !== coachingCurrent || h.clip !== coachingCurrentClip) {
     coachingCurrent = h.index; coachingCurrentClip = h.clip; renderCoachingFeatured(false);
   }
+});
+
+window.addEventListener('hashchange', () => {
+  if (!membershipVerified) return;
+  if (!/^#live-coaching(\/|$)/.test(window.location.hash)) return;
+  if (document.getElementById('view-live').style.display !== 'block') switchEduSection('live');
 });
 
 // ── FORGE COACHING LESSONS (numbered path) ──
@@ -1330,12 +1371,16 @@ function switchEduSection(section) {
   document.getElementById('edu-tab-lessons').classList.toggle('active', section === 'lessons');
   document.getElementById('edu-tab-coaching').classList.toggle('active', section === 'coaching');
   document.getElementById('edu-tab-videos').classList.toggle('active', section === 'videos');
+  document.getElementById('edu-tab-live').classList.toggle('active', section === 'live');
 
   if (section === 'lessons') {
     showView('list');
   } else if (section === 'coaching') {
     showView('coaching');
     renderCoachingReplays();
+  } else if (section === 'live') {
+    showView('live');
+    renderLiveCoaching();
   } else {
     // Video Lesson Library: the Coaching Lessons path on top, the video grid below.
     // (The old 'path' section name still lands here.)
@@ -1440,6 +1485,33 @@ function closeVideoLightbox() {
   document.getElementById('video-lightbox-frame-wrap').innerHTML = '';
 }
 
+function renderLiveCoaching() {
+  const container = document.getElementById('live-coaching-container');
+  if (!container) return;
+  // Same gate as the Video Lesson Library: nothing renders until the
+  // Memberstack plan check in initEducationPage() has passed.
+  if (!membershipVerified) {
+    container.innerHTML = '<div style="color:var(--grey);font-size:13px;">Loading live coaching...</div>';
+    return;
+  }
+  if (liveCoachingRendered) return;
+  liveCoachingRendered = true;
+  container.innerHTML = `
+    <div class="video-grid">
+      ${LIVE_COACHING_VIDEOS.map((v, i) => `
+        <div class="video-card">
+          <div class="video-card-thumb-wrap">
+            <iframe src="${liveCoachingEmbedUrl(v.youtubeId)}" title="${escapeHtml(v.title)}"
+              allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
+          </div>
+          <div class="video-card-body">
+            <div class="video-card-type-tag">🔴 Live Coaching · ${i + 1}</div>
+            <div class="video-card-title">${escapeHtml(v.title)}</div>
+          </div>
+        </div>`).join('')}
+    </div>`;
+}
+
 async function initEducationPage() {
   try {
     await waitForMemberstack();
@@ -1535,6 +1607,9 @@ async function initEducationPage() {
     // Also accepts #group-coaching/session-N and #group-coaching/session-N/clip-K.
     if (/^#group-coaching(\/|$)/.test(window.location.hash)) switchEduSection('coaching');
     else if (document.getElementById('view-coaching').style.display === 'block') renderCoachingReplays();
+    // Deep link: education.html#live-coaching opens the Live Coaching tab.
+    if (/^#live-coaching(\/|$)/.test(window.location.hash)) switchEduSection('live');
+    else if (document.getElementById('view-live').style.display === 'block') renderLiveCoaching();
 
     await loadModules();
   } catch (err) {
@@ -1944,7 +2019,7 @@ function backToList() { loadModules(); showView('list'); }
 function backToReader() { showView('reader'); }
 
 function showView(name) {
-  ['list', 'coaching', 'videos', 'reader', 'quiz', 'results'].forEach(v => {
+  ['list', 'coaching', 'videos', 'live', 'reader', 'quiz', 'results'].forEach(v => {
     document.getElementById('view-' + v).style.display = v === name ? 'block' : 'none';
   });
 }
