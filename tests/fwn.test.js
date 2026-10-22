@@ -42,50 +42,53 @@ function paidSession(overrides) {
   }, overrides || {});
 }
 
-function envWithPrices() {
+const DEFAULTS = {
+  launch: {
+    plan: 'pln_forge-launch-fwn--md00xzj',
+    price: 'prc_forge-launch-fwn-2-497-97-ip10xow',
+    setup: 240000,
+    due: 249700,
+  },
+  accelerator: {
+    plan: 'pln_forge-accelerator-fwn--dz20xmt',
+    price: 'prc_forge-accelerator-fwn-4-997-97-dh50xnp',
+    setup: 490000,
+    due: 499700,
+  },
+  '997': {
+    plan: 'pln_forge-fwn-997-9x30xu2',
+    price: 'prc_forge-fwn-997-97-zm60xmi',
+    setup: 90000,
+    due: 99700,
+  },
+  '1797': {
+    plan: 'pln_forge-fwn-1-797-es40xk6',
+    price: 'prc_forge-fwn-1-797-97-qg70x6i',
+    setup: 170000,
+    due: 179700,
+  },
+};
+
+function envWithWebhook() {
   return {
     STRIPE_SECRET_KEY: 'sk_test_123',
     STRIPE_WEBHOOK_SECRET: SECRET,
-    STRIPE_PRICE_FWN_MONTHLY: 'price_monthly97',
-    STRIPE_PRICE_FWN_LAUNCH: 'price_launch2400',
-    STRIPE_PRICE_FWN_ACCELERATOR: 'price_acc4900',
-    STRIPE_PRICE_FWN_997: 'price_p997',
-    STRIPE_PRICE_FWN_1797: 'price_p1797',
-    MEMBERSTACK_PLAN_FWN_LAUNCH: 'pln_fwn_launch_placeholder',
-    MEMBERSTACK_SECRET_KEY: 'sk_memberstack',
   };
 }
 
-function pricesFor(centsDue) {
-  return {
-    oneTime: { id: 'price_one', active: true, type: 'one_time', currency: 'usd', unit_amount: centsDue - fwn.MONTHLY_CENTS },
-    monthly: { id: 'price_month', active: true, type: 'recurring', currency: 'usd', unit_amount: fwn.MONTHLY_CENTS, recurring: { interval: 'month', interval_count: 1 } },
-  };
-}
-
-test('package totals: one-time price is the page price minus the included first month', () => {
-  assert.equal(fwn.PACKAGES.launch.dueTodayCents - fwn.MONTHLY_CENTS, 240000);
-  assert.equal(fwn.PACKAGES.accelerator.dueTodayCents - fwn.MONTHLY_CENTS, 490000);
-  assert.equal(fwn.PACKAGES['997'].dueTodayCents - fwn.MONTHLY_CENTS, 90000);
-  assert.equal(fwn.PACKAGES['1797'].dueTodayCents - fwn.MONTHLY_CENTS, 170000);
+test('each Memberstack price is $97/month plus its setup fee, which is the full tier', () => {
   assert.equal(fwn.MONTHLY_CENTS, 9700);
-});
-
-test('validatePrices accepts the foundation-empire shape and rejects a full price plus $97', () => {
-  const ok = fwn.validatePrices({ ...pricesFor(249700), dueTodayCents: 249700 });
-  assert.equal(ok.ok, true);
-  const doubled = fwn.validatePrices({
-    oneTime: { active: true, type: 'one_time', currency: 'usd', unit_amount: 249700 },
-    monthly: pricesFor(249700).monthly,
-    dueTodayCents: 249700,
-  });
-  assert.equal(doubled.ok, false);
-  const trialish = fwn.validatePrices({
-    oneTime: pricesFor(249700).oneTime,
-    monthly: { active: true, type: 'recurring', currency: 'usd', unit_amount: 0, recurring: { interval: 'month', interval_count: 1 } },
-    dueTodayCents: 249700,
-  });
-  assert.equal(trialish.ok, false);
+  for (const slug of Object.keys(DEFAULTS)) {
+    const pkg = fwn.PACKAGES[slug];
+    const expected = DEFAULTS[slug];
+    assert.equal(pkg.setupFeeCents + fwn.MONTHLY_CENTS, pkg.dueTodayCents, slug);
+    assert.equal(pkg.setupFeeCents, expected.setup);
+    assert.equal(pkg.dueTodayCents, expected.due);
+    assert.equal(pkg.defaultPlanId, expected.plan);
+    assert.equal(pkg.defaultPriceId, expected.price);
+    assert.equal(fwn.resolvePlanId(pkg, {}), expected.plan);
+    assert.equal(fwn.resolvePriceId(pkg, {}), expected.price);
+  }
 });
 
 test('attribution: src is required, ref follows ForgeRef sanitize, sold_by defaults', () => {
@@ -105,13 +108,11 @@ test('attribution: src is required, ref follows ForgeRef sanitize, sold_by defau
   });
 });
 
-test('checkout session sets metadata and subscription metadata, and does not start a trial', () => {
-  const params = fwn.buildSessionParams({
-    oneTimePriceId: 'price_launch2400',
-    monthlyPriceId: 'price_monthly97',
-    customerId: 'cus_123',
-    successUrl: 'https://forgedbyaris.com/fwn/thank-you?session_id={CHECKOUT_SESSION_ID}',
-    cancelUrl: 'https://forgedbyaris.com/fwn/launch?src=fwn-virtual',
+test('Memberstack checkout is one price with metadata and no extra one-time fee', () => {
+  const params = fwn.buildMemberstackCheckout({
+    priceId: DEFAULTS.launch.price,
+    successURL: 'https://forgedbyaris.com/fwn/thank-you',
+    cancelURL: 'https://forgedbyaris.com/fwn/launch?src=fwn-virtual',
     memberId: 'mem_123',
     name: 'Ada Investor',
     email: 'ada@example.com',
@@ -121,32 +122,20 @@ test('checkout session sets metadata and subscription metadata, and does not sta
     rep: '023k-eddie',
     packageSlug: 'launch',
   });
-  assert.equal(params.mode, 'subscription');
-  assert.equal(params.line_items[0].price, 'price_launch2400');
-  assert.equal(params.line_items[1].price, 'price_monthly97');
-  assert.equal(params.metadata.lead_source, 'fwn-virtual');
-  assert.equal(params.metadata.sold_by, 'rep');
-  assert.equal(params.metadata.rep, '023k-eddie');
-  assert.deepEqual(params.subscription_data.metadata, {
-    lead_source: 'fwn-virtual',
-    sold_by: 'rep',
-    rep: '023k-eddie',
-    package: 'launch',
-  });
+  assert.equal(params.priceId, DEFAULTS.launch.price);
+  assert.equal(params.metadataForCheckout.lead_source, 'fwn-virtual');
+  assert.equal(params.metadataForCheckout.sold_by, 'rep');
+  assert.equal(params.metadataForCheckout.rep, '023k-eddie');
+  assert.equal(params.metadataForCheckout.package, 'launch');
+  assert.equal(params.line_items, undefined);
+  assert.equal(params.subscription_data, undefined);
   assert.equal(fwn.containsTrialKey(params), false);
-  assert.equal(params.subscription_data.trial_period_days, undefined);
-  const encoded = fwn.toForm(params);
-  assert.equal(encoded.includes('trial_period_days'), false);
-  assert.equal(encoded.includes('trial_end'), false);
-  const form = new URLSearchParams(encoded);
-  assert.equal(form.get('metadata[lead_source]'), 'fwn-virtual');
-  assert.equal(form.get('metadata[sold_by]'), 'rep');
-  assert.equal(form.get('metadata[rep]'), '023k-eddie');
-  assert.equal(form.get('subscription_data[metadata][lead_source]'), 'fwn-virtual');
-  assert.equal(form.get('subscription_data[metadata][sold_by]'), 'rep');
-  assert.equal(form.get('subscription_data[metadata][rep]'), '023k-eddie');
-  assert.match(form.get('success_url'), /\{CHECKOUT_SESSION_ID\}$/);
-  assert.match(form.get('custom_text[submit][message]'), /no free trial and no free months/i);
+  const serialized = JSON.stringify(params);
+  assert.equal(serialized.includes('line_items'), false);
+  assert.equal(serialized.includes('price_'), false);
+  assert.equal(serialized.includes('one_time'), false);
+  assert.equal(serialized.includes('trial_period_days'), false);
+  assert.equal(serialized.includes('trial_end'), false);
 });
 
 test('safe cancel path stays on an FWN page', () => {
@@ -155,24 +144,11 @@ test('safe cancel path stays on an FWN page', () => {
   assert.equal(fwn.safeCancelPath('/fwn/997?src=fwn-raleigh&ref=lexort', '997'), '/fwn/997?src=fwn-raleigh&ref=lexort');
 });
 
-test('checkout handler creates a session only when prices sum to the page total', async () => {
-  const calls = [];
-  const good = pricesFor(249700);
-  async function stripe(secret, method, path, body) {
-    calls.push({ method, path, body });
-    if (method === 'GET' && path.startsWith('/v1/customers')) return { data: [] };
-    if (method === 'POST' && path === '/v1/customers') return { id: 'cus_new' };
-    if (method === 'GET' && path === '/v1/prices/price_launch2400') return good.oneTime;
-    if (method === 'GET' && path === '/v1/prices/price_monthly97') return good.monthly;
-    if (method === 'POST' && path === '/v1/checkout/sessions') {
-      return { url: 'https://checkout.stripe.com/c/pay/cs_test_abc' };
-    }
-    throw new Error('unexpected ' + method + ' ' + path);
-  }
-  const event = {
+function checkoutEvent(overrides) {
+  return {
     httpMethod: 'POST',
     headers: { host: 'forgedbyaris.com', 'x-forwarded-proto': 'https' },
-    body: JSON.stringify({
+    body: JSON.stringify(Object.assign({
       package: 'launch',
       email: 'ada@example.com',
       name: 'Ada Investor',
@@ -182,67 +158,71 @@ test('checkout handler creates a session only when prices sum to the page total'
       sold_by: 'rep',
       ref: '023K-Eddie',
       cancelPath: '/fwn/launch?src=fwn-virtual&ref=023K-Eddie',
-    }),
+    }, overrides || {})),
   };
-  const res = await fwn.checkoutHandler(event, { env: envWithPrices(), stripeRequest: stripe });
-  assert.equal(res.statusCode, 200);
-  assert.equal(JSON.parse(res.body).url, 'https://checkout.stripe.com/c/pay/cs_test_abc');
-  const sessionCall = calls.find(c => c.path === '/v1/checkout/sessions');
-  const form = new URLSearchParams(sessionCall.body);
-  assert.equal(form.get('metadata[rep]'), '023k-eddie');
-  assert.equal(form.get('subscription_data[metadata][sold_by]'), 'rep');
-  assert.equal(form.get('line_items[0][price]'), 'price_launch2400');
-  assert.equal(form.get('line_items[1][price]'), 'price_monthly97');
-  assert.equal(form.get('mode'), 'subscription');
+}
 
-  calls.length = 0;
-  async function mismatch(secret, method, path) {
-    calls.push(path);
-    if (path.startsWith('/v1/customers')) return { data: [{ id: 'cus_existing' }] };
-    if (path === '/v1/prices/price_launch2400') return { active: true, type: 'one_time', currency: 'usd', unit_amount: 249700 };
-    if (path === '/v1/prices/price_monthly97') return good.monthly;
-    throw new Error('should not create a session');
-  }
-  const bad = await fwn.checkoutHandler(event, { env: envWithPrices(), stripeRequest: mismatch });
-  assert.equal(bad.statusCode, 500);
-  assert.equal(calls.some(p => p === '/v1/checkout/sessions'), false);
-});
-
-test('checkout handler rejects a missing source and a missing price env', async () => {
-  const event = {
-    httpMethod: 'POST',
-    headers: { host: 'forgedbyaris.com' },
-    body: JSON.stringify({ package: 'launch', email: 'ada@example.com', name: 'Ada Investor' }),
-  };
-  const missingSrc = await fwn.checkoutHandler(event, { env: envWithPrices(), stripeRequest: async () => { throw new Error('no stripe'); } });
-  assert.equal(missingSrc.statusCode, 400);
-  assert.match(JSON.parse(missingSrc.body).error, /src=fwn-virtual/);
-
-  const noPrice = await fwn.checkoutHandler({
-    httpMethod: 'POST',
-    headers: { host: 'forgedbyaris.com' },
-    body: JSON.stringify({ package: 'accelerator', email: 'ada@example.com', name: 'Ada Investor', src: 'fwn-raleigh' }),
-  }, { env: { STRIPE_SECRET_KEY: 'sk_test_123' }, stripeRequest: async () => { throw new Error('no stripe'); } });
-  assert.equal(noPrice.statusCode, 500);
-  assert.match(JSON.parse(noPrice.body).error, /not available/);
-});
-
-test('webhook posts the buyer to the FWN hook and skips a placeholder plan', async () => {
-  const posts = [];
-  const event = signed({
-    type: 'checkout.session.completed',
-    data: { object: paidSession() },
-  }, SECRET, TS);
-  const res = await fwn.webhookHandler(event, {
-    env: envWithPrices(),
-    nowSec: TS,
-    postJson: async (url, body) => { posts.push({ url, body }); return { statusCode: 200, body: 'ok' }; },
-    memberstack: { members: { addFreePlan: async () => { throw new Error('should not attach a placeholder plan'); } } },
+test('checkout returns the default Memberstack price and never calls Stripe', async () => {
+  let stripeCalls = 0;
+  const res = await fwn.checkoutHandler(checkoutEvent(), {
+    env: {},
+    stripeRequest: async () => { stripeCalls += 1; throw new Error('stripe must not be called'); },
   });
   assert.equal(res.statusCode, 200);
-  const parsed = JSON.parse(res.body);
-  assert.equal(parsed.ghl, true);
-  assert.equal(parsed.plan, 'not_configured');
+  assert.equal(stripeCalls, 0);
+  const body = JSON.parse(res.body);
+  assert.equal(body.priceId, DEFAULTS.launch.price);
+  assert.equal(body.planId, DEFAULTS.launch.plan);
+  assert.equal(body.checkout.priceId, DEFAULTS.launch.price);
+  assert.equal(body.lead_source, 'fwn-virtual');
+  assert.equal(body.sold_by, 'rep');
+  assert.equal(body.rep, '023k-eddie');
+  assert.equal(body.checkout.metadataForCheckout.rep, '023k-eddie');
+  assert.equal(body.url, undefined);
+  const serialized = JSON.stringify(body);
+  assert.equal(serialized.includes('line_items'), false);
+  assert.equal(serialized.includes('price_'), false);
+  assert.equal(serialized.includes('one_time'), false);
+});
+
+test('a Memberstack price env override is used, and a Stripe price override is rejected', async () => {
+  const override = 'prc_custom-launch-price';
+  const replaced = await fwn.checkoutHandler(checkoutEvent(), {
+    env: { MEMBERSTACK_PRICE_FWN_LAUNCH: override },
+    stripeRequest: async () => { throw new Error('stripe must not be called'); },
+  });
+  assert.equal(replaced.statusCode, 200);
+  assert.equal(JSON.parse(replaced.body).priceId, override);
+
+  const stripePrice = await fwn.checkoutHandler(checkoutEvent(), {
+    env: { MEMBERSTACK_PRICE_FWN_LAUNCH: 'price_launch2400' },
+    stripeRequest: async () => { throw new Error('stripe must not be called'); },
+  });
+  assert.equal(stripePrice.statusCode, 500);
+  assert.match(JSON.parse(stripePrice.body).error, /not available/);
+});
+
+test('checkout handler rejects a missing source', async () => {
+  const missingSrc = await fwn.checkoutHandler(checkoutEvent({ src: '' }), {
+    env: {},
+    stripeRequest: async () => { throw new Error('no stripe'); },
+  });
+  assert.equal(missingSrc.statusCode, 400);
+  assert.match(JSON.parse(missingSrc.body).error, /src=fwn-virtual/);
+});
+
+test('member.plan.added posts the FWN buyer and ignores other plans', async () => {
+  const posts = [];
+  const send = async (url, body) => { posts.push({ url, body }); return { statusCode: 200, body: 'ok' }; };
+  const posted = await fwn.notifyFwnPlanAdded({
+    planId: DEFAULTS.launch.plan,
+    email: 'Ada@Example.com',
+    customFields: { 'first-name': 'Ada', 'last-name': 'Investor', 'referral-source': 'fallback-rep' },
+    json: { fwn: { name: 'Ada Investor', phone: '555-111-2222', lead_source: 'fwn-virtual', sold_by: 'rep', rep: '023k-eddie' } },
+    env: {},
+    postJson: send,
+  });
+  assert.equal(posted.posted, true);
   assert.equal(posts.length, 1);
   assert.equal(posts[0].url, 'https://services.leadconnectorhq.com/hooks/3dQD2B6ZsBjZVIrWF8WR/webhook-trigger/50f73ea5-6f8b-49bd-8ba2-458aae6e7d9f');
   assert.equal(posts[0].body.email, 'Ada@Example.com');
@@ -252,57 +232,89 @@ test('webhook posts the buyer to the FWN hook and skips a placeholder plan', asy
   assert.equal(posts[0].body.lead_source, 'fwn-virtual');
   assert.equal(posts[0].body.sold_by, 'rep');
   assert.equal(posts[0].body.rep, '023k-eddie');
-  assert.equal(fwn.isRealPlanId('pln_fwn_launch_placeholder'), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(posts[0].body, 'stripe_checkout_session_id'), false);
+
+  const other = await fwn.notifyFwnPlanAdded({
+    planId: 'pln_some-other-plan',
+    email: 'ada@example.com',
+    postJson: send,
+  });
+  assert.equal(other.posted, false);
+  assert.equal(posts.length, 1);
+
+  await assert.rejects(() => fwn.notifyFwnPlanAdded({
+    planId: DEFAULTS.accelerator.plan,
+    email: 'ada@example.com',
+    json: { fwn: { name: 'Ada Investor', lead_source: 'fwn-raleigh', sold_by: 'cart' } },
+    postJson: async () => ({ statusCode: 500, body: 'no' }),
+  }));
 });
 
-test('webhook attaches a real free plan to the member with the payer email', async () => {
-  const added = [];
-  const env = envWithPrices();
-  env.MEMBERSTACK_PLAN_FWN_LAUNCH = 'pln_fwn_launch_real1';
-  const event = signed({
-    type: 'checkout.session.async_payment_succeeded',
-    data: { object: paidSession() },
-  }, SECRET, TS);
-  const res = await fwn.webhookHandler(event, {
-    env: env,
+test('stripe webhook copies metadata only and does not add a price or a plan', async () => {
+  const calls = [];
+  const session = paidSession({ subscription: 'sub_123' });
+  const res = await fwn.webhookHandler(signed({
+    type: 'checkout.session.completed',
+    data: { object: session },
+  }, SECRET, TS), {
+    env: envWithWebhook(),
     nowSec: TS,
-    postJson: async () => ({ statusCode: 200 }),
-    memberstack: {
-      members: {
-        async retrieve(query) {
-          if (query.id) return { data: { id: query.id, auth: { email: 'other@example.com' }, planConnections: [] } };
-          return { data: { id: 'mem_real', auth: { email: query.email }, planConnections: [] } };
-        },
-        async addFreePlan(params) { added.push(params); return 'ok'; },
-      },
+    postJson: async () => { throw new Error('stripe webhook must not post to GHL'); },
+    memberstack: { members: { addFreePlan: async () => { throw new Error('must not add a plan'); } } },
+    stripeRequest: async (secret, method, path, body) => {
+      calls.push({ secret, method, path, body });
+      return { id: 'sub_123' };
     },
   });
   assert.equal(res.statusCode, 200);
-  assert.deepEqual(added, [{ id: 'mem_real', data: { planId: 'pln_fwn_launch_real1' } }]);
+  assert.equal(JSON.parse(res.body).charged, false);
+  assert.equal(JSON.parse(res.body).metadata, 'copied');
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, 'POST');
+  assert.equal(calls[0].path, '/v1/subscriptions/sub_123');
+  const form = new URLSearchParams(calls[0].body);
+  assert.equal(form.get('metadata[lead_source]'), 'fwn-virtual');
+  assert.equal(form.get('metadata[sold_by]'), 'rep');
+  assert.equal(form.get('metadata[rep]'), '023k-eddie');
+  assert.equal(form.get('metadata[package]'), 'launch');
+  assert.equal(calls[0].body.includes('line_items'), false);
+  assert.equal(calls[0].body.includes('price_'), false);
+
+  const failed = await fwn.webhookHandler(signed({
+    type: 'checkout.session.completed',
+    data: { object: session },
+  }, SECRET, TS), {
+    env: envWithWebhook(),
+    nowSec: TS,
+    stripeRequest: async () => { throw new Error('stripe down'); },
+  });
+  assert.equal(failed.statusCode, 200);
+  assert.equal(JSON.parse(failed.body).metadata, 'update_failed');
+  assert.equal(fwn.isRealPlanId('pln_fwn_launch_placeholder'), false);
 });
 
 test('webhook ignores unpaid, unrelated, and badly signed events', async () => {
-  let posts = 0;
-  const postJson = async () => { posts += 1; return { statusCode: 200 }; };
-  const env = envWithPrices();
+  let calls = 0;
+  const stripeRequest = async () => { calls += 1; return {}; };
+  const env = envWithWebhook();
   const unpaid = await fwn.webhookHandler(signed({
     type: 'checkout.session.completed',
     data: { object: paidSession({ payment_status: 'unpaid' }) },
-  }, SECRET, TS), { env, nowSec: TS, postJson });
+  }, SECRET, TS), { env, nowSec: TS, stripeRequest });
   assert.equal(JSON.parse(unpaid.body).reason, 'unpaid');
 
   const other = await fwn.webhookHandler(signed({
     type: 'checkout.session.completed',
     data: { object: paidSession({ metadata: { package: 'foundation', lead_source: 'fwn-virtual' } }) },
-  }, SECRET, TS), { env, nowSec: TS, postJson });
+  }, SECRET, TS), { env, nowSec: TS, stripeRequest });
   assert.equal(JSON.parse(other.body).reason, 'not_fwn');
 
   const bad = await fwn.webhookHandler(signed({
     type: 'checkout.session.completed',
     data: { object: paidSession() },
-  }, 'whsec_other', TS), { env, nowSec: TS, postJson });
+  }, 'whsec_other', TS), { env, nowSec: TS, stripeRequest });
   assert.equal(bad.statusCode, 400);
-  assert.equal(posts, 0);
+  assert.equal(calls, 0);
 });
 
 test('ghl payload includes phone only when present', () => {
@@ -345,7 +357,9 @@ test('FWN pages are noindex, unlisted, and do not name forbidden brands or meeti
   for (const rel of ['fwn/launch.html', 'fwn/accelerator.html', 'fwn/997.html', 'fwn/1797.html']) {
     const html = read(rel);
     assert.match(html, /There is no free trial and no free months/);
+    assert.match(html, /There is no additional one-time fee/);
     assert.match(html, /it is BNPL/);
+    assert.equal(/one-time enrollment|line_items|STRIPE_PRICE_FWN/.test(html), false, rel);
     assert.match(html, /\/assets\/js\/ref-capture\.js/);
     assert.match(html, /\/assets\/js\/fwn-checkout\.js/);
     assert.match(html, /data-fwn-package="/);
@@ -369,4 +383,14 @@ test('FWN pages are noindex, unlisted, and do not name forbidden brands or meeti
   assert.match(toml, /\/api\/fwn-checkout/);
   assert.match(toml, /\/api\/fwn-stripe-webhook/);
   assert.match(toml, /X-Robots-Tag = "noindex, nofollow"/);
+
+  const source = read('netlify/functions/_Lib/fwn.js');
+  assert.equal(source.includes('STRIPE_PRICE_FWN_MONTHLY'), false);
+  assert.equal(source.includes('oneTimePriceId'), false);
+  assert.equal(source.includes('addFreePlan'), false);
+  assert.equal(/line_items\s*:/.test(source), false);
+  const client = read('assets/js/fwn-checkout.js');
+  assert.match(client, /purchasePlansWithCheckout/);
+  assert.match(client, /metadataForCheckout/);
+  assert.match(read('netlify/functions/memberstack-webhook.js'), /notifyFwnPlanAdded/);
 });

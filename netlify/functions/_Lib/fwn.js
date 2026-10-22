@@ -1,53 +1,44 @@
 // FWN webinar checkout.
 //
-// Unlisted pages under /fwn/* charge a one-time enrollment plus the FORGE
-// subscription on the FORGE Stripe account. Billing follows
-// signup-foundation-empire.html: the amount due today includes the first
-// $97 month, the subscription starts at signup, and there is no free trial
-// and no free months. Stripe Checkout therefore has two line items on the
-// first invoice:
+// Each package is one Memberstack price: a $97/month subscription with a
+// setup fee already enabled (Launch $2,400, Accelerator $4,900, 997 $900,
+// 1797 $1,700). Memberstack checkout charges that setup fee plus the first
+// $97 month, so the first charge is the full tier price. This code must not
+// add another one-time price or a second $97 line. That would charge the
+// buyer twice.
 //
-//   one-time Price  = package due-today minus $97
-//   monthly Price   = $97, billed every month, first invoice at signup
+// Checkout is Memberstack purchasePlansWithCheckout for that single price
+// id, the same call the other FORGE signup pages use. The browser asks this
+// module for the price id. Env vars override the defaults, which are the
+// live plans and prices:
 //
-// Price IDs come from env vars. This code does not create Stripe products
-// or prices. Create them in the FORGE Stripe account (test mode first):
+//   MEMBERSTACK_PLAN_FWN_LAUNCH=pln_forge-launch-fwn--md00xzj
+//   MEMBERSTACK_PRICE_FWN_LAUNCH=prc_forge-launch-fwn-2-497-97-ip10xow
+//   MEMBERSTACK_PLAN_FWN_ACCELERATOR=pln_forge-accelerator-fwn--dz20xmt
+//   MEMBERSTACK_PRICE_FWN_ACCELERATOR=prc_forge-accelerator-fwn-4-997-97-dh50xnp
+//   MEMBERSTACK_PLAN_FWN_997=pln_forge-fwn-997-9x30xu2
+//   MEMBERSTACK_PRICE_FWN_997=prc_forge-fwn-997-97-zm60xmi
+//   MEMBERSTACK_PLAN_FWN_1797=pln_forge-fwn-1-797-es40xk6
+//   MEMBERSTACK_PRICE_FWN_1797=prc_forge-fwn-1-797-97-qg70x6i
 //
-//   STRIPE_SECRET_KEY              FORGE Stripe secret key (sk_test_... or sk_live_...)
-//   STRIPE_WEBHOOK_SECRET          signing secret for a NEW endpoint
-//                                  POST https://forgedbyaris.com/api/fwn-stripe-webhook
-//                                  events: checkout.session.completed,
-//                                          checkout.session.async_payment_succeeded
-//                                  Do not replace the webhook Memberstack already uses.
-//   STRIPE_PRICE_FWN_MONTHLY       active USD recurring price, $97 / month (9700 cents)
-//   STRIPE_PRICE_FWN_LAUNCH        active USD one-time price, $2,400 (240000 cents)
-//   STRIPE_PRICE_FWN_ACCELERATOR   active USD one-time price, $4,900 (490000 cents)
-//   STRIPE_PRICE_FWN_997           active USD one-time price, $900  (90000 cents)
-//   STRIPE_PRICE_FWN_1797          active USD one-time price, $1,700 (170000 cents)
+// There is no free trial and no free months. The subscription starts at
+// signup. No Stripe product or price is created here.
 //
-// Due today on the page is one-time + $97:
-//   Launch $2,497, Accelerator $4,997, 997 $997, 1797 $1,797.
-//
-// Memberstack plans do not exist yet. Create one FREE plan per package
-// (no Stripe price on the plan — payment is collected by this Checkout).
-// addFreePlan is what the admin SDK exposes, and a paid plan would open a
-// second charge. Then replace the placeholders:
-//
-//   MEMBERSTACK_PLAN_FWN_LAUNCH=pln_fwn_launch_placeholder
-//   MEMBERSTACK_PLAN_FWN_ACCELERATOR=pln_fwn_accelerator_placeholder
-//   MEMBERSTACK_PLAN_FWN_997=pln_fwn_997_placeholder
-//   MEMBERSTACK_PLAN_FWN_1797=pln_fwn_1797_placeholder
-//
-// Gated member pages keep their own hardcoded plan allowlists. A new plan
-// id does not unlock those tools until the id is added there. That is
-// intentionally not done here: the ids do not exist yet, and existing
-// member pages are left unchanged.
-//
-// Attribution on every Checkout Session, both metadata and
-// subscription_data.metadata:
+// After Memberstack attaches the plan (member.plan.added), the Memberstack
+// webhook POSTs the buyer to the FWN GoHighLevel hook. Attribution is saved
+// on the member before checkout and sent as metadataForCheckout:
 //   lead_source  fwn-virtual | fwn-raleigh   (?src=)
 //   sold_by      cart | john | rep           (?sold_by=, or rep when ?ref= is set)
-//   rep          ?ref= via the same sanitize rules as assets/js/ref-capture.js
+//   rep          ?ref= via assets/js/ref-capture.js
+//
+// Gated member pages still use their own plan allowlists. These plan ids
+// do not unlock those tools until the allowlists include them. Existing
+// member pages are unchanged.
+//
+// Optional STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET let the Stripe
+// webhook copy session metadata onto the subscription. That update has no
+// line items and does not charge the customer. Do not replace the webhook
+// Memberstack already uses.
 
 const https = require('https');
 const crypto = require('crypto');
@@ -56,12 +47,9 @@ const { json, preflight } = require('./http');
 
 const FWN_GHL_HOOK = 'https://services.leadconnectorhq.com/hooks/3dQD2B6ZsBjZVIrWF8WR/webhook-trigger/50f73ea5-6f8b-49bd-8ba2-458aae6e7d9f';
 const MONTHLY_CENTS = 9700;
-const MONTHLY_ENV = 'STRIPE_PRICE_FWN_MONTHLY';
 const STRIPE_API_VERSION = '2024-06-20';
 const LEAD_SOURCES = new Set(['fwn-virtual', 'fwn-raleigh']);
 const SOLD_BY = new Set(['cart', 'john', 'rep']);
-
-const SUBMIT_MESSAGE = 'Due today is the one-time enrollment plus the first month of FORGE at $97. The subscription starts at signup. There is no free trial and no free months. After the first month, FORGE continues at $97/month.';
 
 const PACKAGES = Object.freeze({
   launch: {
@@ -69,36 +57,48 @@ const PACKAGES = Object.freeze({
     label: 'Launch',
     dueTodayCents: 249700,
     dueTodayLabel: '$2,497',
+    setupFeeCents: 240000,
     path: '/fwn/launch',
-    oneTimeEnv: 'STRIPE_PRICE_FWN_LAUNCH',
     planEnv: 'MEMBERSTACK_PLAN_FWN_LAUNCH',
+    priceEnv: 'MEMBERSTACK_PRICE_FWN_LAUNCH',
+    defaultPlanId: 'pln_forge-launch-fwn--md00xzj',
+    defaultPriceId: 'prc_forge-launch-fwn-2-497-97-ip10xow',
   },
   accelerator: {
     slug: 'accelerator',
     label: 'Accelerator',
     dueTodayCents: 499700,
     dueTodayLabel: '$4,997',
+    setupFeeCents: 490000,
     path: '/fwn/accelerator',
-    oneTimeEnv: 'STRIPE_PRICE_FWN_ACCELERATOR',
     planEnv: 'MEMBERSTACK_PLAN_FWN_ACCELERATOR',
+    priceEnv: 'MEMBERSTACK_PRICE_FWN_ACCELERATOR',
+    defaultPlanId: 'pln_forge-accelerator-fwn--dz20xmt',
+    defaultPriceId: 'prc_forge-accelerator-fwn-4-997-97-dh50xnp',
   },
   '997': {
     slug: '997',
     label: '997',
     dueTodayCents: 99700,
     dueTodayLabel: '$997',
+    setupFeeCents: 90000,
     path: '/fwn/997',
-    oneTimeEnv: 'STRIPE_PRICE_FWN_997',
     planEnv: 'MEMBERSTACK_PLAN_FWN_997',
+    priceEnv: 'MEMBERSTACK_PRICE_FWN_997',
+    defaultPlanId: 'pln_forge-fwn-997-9x30xu2',
+    defaultPriceId: 'prc_forge-fwn-997-97-zm60xmi',
   },
   '1797': {
     slug: '1797',
     label: '1797',
     dueTodayCents: 179700,
     dueTodayLabel: '$1,797',
+    setupFeeCents: 170000,
     path: '/fwn/1797',
-    oneTimeEnv: 'STRIPE_PRICE_FWN_1797',
     planEnv: 'MEMBERSTACK_PLAN_FWN_1797',
+    priceEnv: 'MEMBERSTACK_PRICE_FWN_1797',
+    defaultPlanId: 'pln_forge-fwn-1-797-es40xk6',
+    defaultPriceId: 'prc_forge-fwn-1-797-97-qg70x6i',
   },
 });
 
@@ -178,42 +178,43 @@ function attributionFromInput({ src, soldBy, ref }) {
   return { lead_source: leadSource, sold_by: sold, rep };
 }
 
-function isStripePriceId(id) {
-  return typeof id === 'string' && /^price_[A-Za-z0-9]+$/.test(id);
+function isMemberstackPriceId(id) {
+  return typeof id === 'string' && /^prc_[A-Za-z0-9_-]+$/.test(id);
 }
 
 function isRealPlanId(id) {
   return typeof id === 'string' && /^pln_[A-Za-z0-9_-]+$/.test(id) && !/placeholder/i.test(id);
 }
 
-function requirePriceId(env, key) {
-  const id = env[key];
-  if (!isStripePriceId(id)) {
-    throw new FwnError(500, PUBLIC_UNAVAILABLE, 'Missing or invalid ' + key);
+function configuredId(env, key, fallback) {
+  const raw = env && env[key];
+  if (typeof raw === 'string' && raw.trim()) return raw.trim();
+  return fallback;
+}
+
+function resolvePriceId(pkg, env) {
+  const id = configuredId(env, pkg.priceEnv, pkg.defaultPriceId);
+  if (!isMemberstackPriceId(id)) {
+    throw new FwnError(500, PUBLIC_UNAVAILABLE, 'Missing or invalid ' + pkg.priceEnv);
   }
   return id;
 }
 
-function validatePrices({ oneTime, monthly, dueTodayCents }) {
-  const problems = [];
-  const oneTimeOk = oneTime && oneTime.active !== false && oneTime.type === 'one_time' &&
-    oneTime.currency === 'usd' && Number.isInteger(oneTime.unit_amount);
-  if (!oneTimeOk) problems.push('one-time price must be an active USD one-time price');
-
-  const interval = monthly && monthly.recurring && monthly.recurring.interval;
-  const intervalCount = monthly && monthly.recurring ? (monthly.recurring.interval_count || 1) : 0;
-  const monthlyOk = monthly && monthly.active !== false && monthly.type === 'recurring' &&
-    interval === 'month' && intervalCount === 1 && monthly.currency === 'usd' &&
-    monthly.unit_amount === MONTHLY_CENTS;
-  if (!monthlyOk) problems.push('monthly price must be an active USD price of $97 billed every month');
-
-  if (oneTimeOk && monthly && Number.isInteger(monthly.unit_amount)) {
-    const total = oneTime.unit_amount + monthly.unit_amount;
-    if (total !== dueTodayCents) {
-      problems.push('prices total ' + total + ' cents but this package is ' + dueTodayCents + ' cents due today. The one-time price must be the package price minus the included first $97 month.');
-    }
+function resolvePlanId(pkg, env) {
+  const id = configuredId(env, pkg.planEnv, pkg.defaultPlanId);
+  if (!isRealPlanId(id)) {
+    throw new FwnError(500, PUBLIC_UNAVAILABLE, 'Missing or invalid ' + pkg.planEnv);
   }
-  return { ok: problems.length === 0, problems };
+  return id;
+}
+
+function packageForPlanId(planId, env) {
+  const id = String(planId || '').trim();
+  if (!id) return null;
+  return Object.values(PACKAGES).find((pkg) => {
+    const configured = configuredId(env, pkg.planEnv, pkg.defaultPlanId);
+    return isRealPlanId(configured) && configured === id;
+  }) || null;
 }
 
 function safeCancelPath(input, packageSlug) {
@@ -235,46 +236,24 @@ function originFromEvent(event) {
   return proto + '://' + host;
 }
 
-function buildSessionParams({
-  oneTimePriceId, monthlyPriceId, customerId, successUrl, cancelUrl,
+function buildMemberstackCheckout({
+  priceId, successURL, cancelURL,
   memberId, name, email, phone, lead_source, sold_by, rep, packageSlug,
 }) {
-  const attribution = {
-    lead_source: lead_source,
-    sold_by: sold_by,
-    rep: rep || '',
-    package: packageSlug,
-  };
   return {
-    mode: 'subscription',
-    customer: customerId,
-    success_url: successUrl,
-    cancel_url: cancelUrl,
-    client_reference_id: memberId || undefined,
-    line_items: [
-      { price: oneTimePriceId, quantity: 1 },
-      { price: monthlyPriceId, quantity: 1 },
-    ],
-    metadata: {
-      lead_source: attribution.lead_source,
-      sold_by: attribution.sold_by,
-      rep: attribution.rep,
+    priceId: priceId,
+    successURL: successURL,
+    cancelURL: cancelURL,
+    autoRedirect: false,
+    metadataForCheckout: {
+      lead_source: lead_source,
+      sold_by: sold_by,
+      rep: rep || '',
       package: packageSlug,
       name: clip(name, 120),
       email: clip(email, 200),
       phone: clip(phone, 40),
       memberstack_id: memberId || '',
-    },
-    subscription_data: {
-      metadata: {
-        lead_source: attribution.lead_source,
-        sold_by: attribution.sold_by,
-        rep: attribution.rep,
-        package: packageSlug,
-      },
-    },
-    custom_text: {
-      submit: { message: SUBMIT_MESSAGE },
     },
   };
 }
@@ -362,9 +341,9 @@ function ghlPayload(buyer, sessionId) {
     lead_source: buyer.lead_source,
     sold_by: buyer.sold_by,
     rep: buyer.rep || '',
-    stripe_checkout_session_id: sessionId || '',
   };
   if (buyer.phone) body.phone = buyer.phone;
+  if (sessionId) body.stripe_checkout_session_id = sessionId;
   return body;
 }
 
@@ -427,55 +406,55 @@ function postJson(urlString, payload, timeoutMs) {
   });
 }
 
-function memberstackClient(secret) {
-  const memberstackAdmin = require('@memberstack/admin');
-  return memberstackAdmin.init(secret);
+function customFieldValue(customFields, key) {
+  if (!customFields) return '';
+  if (Array.isArray(customFields)) {
+    const hit = customFields.find((field) => field && (field.key === key || field.id === key || field.name === key));
+    return hit ? String(hit.value || hit.field_value || '').trim() : '';
+  }
+  return String(customFields[key] || '').trim();
 }
 
-function alreadyHasPlan(member, planId) {
-  return ((member && member.planConnections) || []).some((pc) => {
-    if (!pc) return false;
-    if (typeof pc === 'string') return pc === planId;
-    if (pc.planId !== planId) return false;
-    const status = String(pc.status || '').toUpperCase();
-    return status !== 'CANCELED' && status !== 'CANCELLED' && status !== 'EXPIRED';
-  });
+function buyerFromMember({ planId, email, customFields, metaData, json, env }) {
+  const pkg = packageForPlanId(planId, env || {});
+  if (!pkg) return null;
+  const stored = (json && json.fwn && typeof json.fwn === 'object') ? json.fwn : {};
+  const meta = metaData || {};
+  const first = customFieldValue(customFields, 'first-name') || meta['first-name'] || meta.firstName || '';
+  const last = customFieldValue(customFields, 'last-name') || meta['last-name'] || meta.lastName || '';
+  const fallbackName = [first, last].filter(Boolean).join(' ').trim();
+  const fallbackRep = customFieldValue(customFields, 'referral-source') || meta['referral-source'] || '';
+  return {
+    name: String(stored.name || fallbackName).trim(),
+    email: String(email || stored.email || '').trim(),
+    phone: String(stored.phone || '').trim(),
+    package: pkg.slug,
+    lead_source: String(stored.lead_source || '').trim(),
+    sold_by: String(stored.sold_by || '').trim(),
+    rep: String(stored.rep || fallbackRep).trim(),
+  };
 }
 
-async function attachFwnPlan({ memberstack, email, memberId, planId }) {
-  let member = null;
-  if (memberId) {
-    try {
-      const byId = await memberstack.members.retrieve({ id: memberId });
-      const found = byId && byId.data;
-      const foundEmail = found && found.auth && found.auth.email;
-      if (found && foundEmail && email && foundEmail.toLowerCase() === email.toLowerCase()) member = found;
-    } catch (err) {
-      member = null;
-    }
+async function notifyFwnPlanAdded({ planId, email, customFields, metaData, json, env, postJson: send }) {
+  const buyer = buyerFromMember({ planId, email, customFields, metaData, json, env });
+  if (!buyer) return { posted: false };
+  if (!buyer.email) throw new FwnError(500, 'FWN hook failed', 'missing email');
+  const payload = ghlPayload(buyer, '');
+  const ghl = await (send || postJson)(FWN_GHL_HOOK, payload);
+  if (!ghl || ghl.statusCode < 200 || ghl.statusCode >= 300) {
+    throw new FwnError(502, 'FWN hook failed', 'GHL HTTP ' + (ghl && ghl.statusCode));
   }
-  if (!member && email) {
-    const byEmail = await memberstack.members.retrieve({ email: email });
-    member = byEmail && byEmail.data;
-  }
-  if (!member || !member.id) {
-    throw new FwnError(500, 'Plan attach failed', 'No Memberstack member for ' + email);
-  }
-  if (alreadyHasPlan(member, planId)) return { attached: true, already: true, memberId: member.id };
-  await memberstack.members.addFreePlan({ id: member.id, data: { planId: planId } });
-  return { attached: true, memberId: member.id };
+  return { posted: true, package: buyer.package };
 }
 
-async function findOrCreateCustomer(stripe, secret, { email, name, phone }) {
-  const listed = await stripe(secret, 'GET', '/v1/customers?email=' + encodeURIComponent(email) + '&limit=1');
-  if (listed && Array.isArray(listed.data) && listed.data[0] && listed.data[0].id) return listed.data[0].id;
-  const created = await stripe(secret, 'POST', '/v1/customers', toForm({
-    email: email,
-    name: name,
-    phone: phone || undefined,
-  }));
-  if (!created || !created.id) throw new FwnError(502, PUBLIC_UNAVAILABLE, 'Stripe customer was not created');
-  return created.id;
+function assertSingleMemberstackPrice(checkout) {
+  if (!checkout || !isMemberstackPriceId(checkout.priceId)) {
+    throw new FwnError(500, PUBLIC_UNAVAILABLE, 'Checkout is not a single Memberstack price');
+  }
+  const serialized = JSON.stringify(checkout);
+  if (checkout.line_items || checkout.lineItems || /"price_/.test(serialized) || serialized.includes('line_items') || serialized.includes('one_time')) {
+    throw new FwnError(500, PUBLIC_UNAVAILABLE, 'Refusing an extra one-time price');
+  }
 }
 
 async function checkoutHandler(event, deps) {
@@ -484,11 +463,8 @@ async function checkoutHandler(event, deps) {
   if (event.httpMethod !== 'POST') return json(405, { error: 'Method not allowed' });
 
   const env = options.env || process.env;
-  const stripe = options.stripeRequest || stripeRequest;
 
   try {
-    if (!env.STRIPE_SECRET_KEY) throw new FwnError(500, PUBLIC_UNAVAILABLE, 'Missing STRIPE_SECRET_KEY');
-
     let body;
     try { body = JSON.parse(event.body || ''); }
     catch (err) { throw new FwnError(400, 'Invalid request.'); }
@@ -504,25 +480,13 @@ async function checkoutHandler(event, deps) {
     const phone = normalizePhone(body.phone);
     const memberId = normalizeMemberId(body.memberId);
 
-    const oneTimePriceId = requirePriceId(env, pkg.oneTimeEnv);
-    const monthlyPriceId = requirePriceId(env, MONTHLY_ENV);
-    const oneTime = await stripe(env.STRIPE_SECRET_KEY, 'GET', '/v1/prices/' + oneTimePriceId);
-    const monthly = await stripe(env.STRIPE_SECRET_KEY, 'GET', '/v1/prices/' + monthlyPriceId);
-    const priceCheck = validatePrices({ oneTime: oneTime, monthly: monthly, dueTodayCents: pkg.dueTodayCents });
-    if (!priceCheck.ok) {
-      throw new FwnError(500, PUBLIC_UNAVAILABLE, priceCheck.problems.join('; '));
-    }
-
-    const customerId = await findOrCreateCustomer(stripe, env.STRIPE_SECRET_KEY, { email: email, name: name, phone: phone });
+    const priceId = resolvePriceId(pkg, env);
+    const planId = resolvePlanId(pkg, env);
     const origin = options.origin || originFromEvent(event);
-    const successUrl = origin + '/fwn/thank-you?session_id={CHECKOUT_SESSION_ID}';
-    const cancelUrl = origin + safeCancelPath(body.cancelPath, pkg.slug);
-    const params = buildSessionParams({
-      oneTimePriceId: oneTimePriceId,
-      monthlyPriceId: monthlyPriceId,
-      customerId: customerId,
-      successUrl: successUrl,
-      cancelUrl: cancelUrl,
+    const checkout = buildMemberstackCheckout({
+      priceId: priceId,
+      successURL: origin + '/fwn/thank-you',
+      cancelURL: origin + safeCancelPath(body.cancelPath, pkg.slug),
       memberId: memberId,
       name: name,
       email: email,
@@ -532,14 +496,19 @@ async function checkoutHandler(event, deps) {
       rep: attribution.rep,
       packageSlug: pkg.slug,
     });
-    if (containsTrialKey(params)) {
+    if (containsTrialKey(checkout)) {
       throw new FwnError(500, PUBLIC_UNAVAILABLE, 'Refusing to start a trial');
     }
-    const session = await stripe(env.STRIPE_SECRET_KEY, 'POST', '/v1/checkout/sessions', toForm(params));
-    if (!session || typeof session.url !== 'string' || !session.url.startsWith('https://checkout.stripe.com/')) {
-      throw new FwnError(502, PUBLIC_UNAVAILABLE, 'Stripe did not return a Checkout URL');
-    }
-    return json(200, { url: session.url });
+    assertSingleMemberstackPrice(checkout);
+    return json(200, {
+      priceId: priceId,
+      planId: planId,
+      package: pkg.slug,
+      lead_source: attribution.lead_source,
+      sold_by: attribution.sold_by,
+      rep: attribution.rep,
+      checkout: checkout,
+    });
   } catch (err) {
     const status = err.statusCode || 500;
     const publicMessage = err.publicMessage || 'Something went wrong. Please try again.';
@@ -575,70 +544,62 @@ async function webhookHandler(event, deps) {
   if (!outcome.process) return json(200, { received: true, ignored: true, reason: outcome.reason });
 
   const session = stripeEvent.data.object;
-  const buyer = buyerFromSession(session);
-  if (!buyer.email) {
-    console.error('FWN webhook missing email', session && session.id);
-    return json(200, { received: true, skipped: true, reason: 'no email' });
-  }
+  const copied = await copySubscriptionMetadata(session, env, options.stripeRequest || stripeRequest);
+  return json(200, { received: true, charged: false, metadata: copied.copied ? 'copied' : copied.reason });
+}
 
-  const send = options.postJson || postJson;
-  let ghl;
+function subscriptionIdFromSession(session) {
+  const sub = session && session.subscription;
+  if (typeof sub === 'string') return sub;
+  if (sub && typeof sub.id === 'string') return sub.id;
+  return '';
+}
+
+async function copySubscriptionMetadata(session, env, stripe) {
+  const subId = subscriptionIdFromSession(session);
+  if (!subId.startsWith('sub_')) return { copied: false, reason: 'no_subscription' };
+  if (!env.STRIPE_SECRET_KEY) return { copied: false, reason: 'no_stripe_key' };
+  const md = (session && session.metadata) || {};
+  const form = toForm({
+    metadata: {
+      lead_source: String(md.lead_source || ''),
+      sold_by: String(md.sold_by || ''),
+      rep: String(md.rep || ''),
+      package: String(md.package || ''),
+    },
+  });
+  if (form.includes('line_items') || form.includes('price_')) {
+    return { copied: false, reason: 'refused_extra_price' };
+  }
   try {
-    ghl = await send(FWN_GHL_HOOK, ghlPayload(buyer, session.id));
+    await stripe(env.STRIPE_SECRET_KEY, 'POST', '/v1/subscriptions/' + encodeURIComponent(subId), form);
+    return { copied: true };
   } catch (err) {
-    console.error('FWN GHL hook error:', err.message || err);
-    return json(500, { error: 'GHL hook failed' });
-  }
-  if (!ghl || ghl.statusCode < 200 || ghl.statusCode >= 300) {
-    console.error('FWN GHL hook failed:', ghl && ghl.statusCode);
-    return json(500, { error: 'GHL hook failed' });
-  }
-
-  const pkg = PACKAGES[buyer.package];
-  const planId = env[pkg.planEnv];
-  if (!isRealPlanId(planId)) {
-    console.error('FWN Memberstack plan is not configured (' + pkg.planEnv + '). Create the free plan and set the env var. Session ' + session.id + ' was paid and sent to GHL, but the plan was not attached.');
-    return json(200, { received: true, ghl: true, plan: 'not_configured' });
-  }
-  if (!env.MEMBERSTACK_SECRET_KEY && !options.memberstack) {
-    console.error('Missing MEMBERSTACK_SECRET_KEY');
-    return json(500, { error: 'Memberstack is not configured' });
-  }
-
-  try {
-    const memberstack = options.memberstack || memberstackClient(env.MEMBERSTACK_SECRET_KEY);
-    const attached = await attachFwnPlan({
-      memberstack: memberstack,
-      email: buyer.email,
-      memberId: buyer.memberstack_id,
-      planId: planId,
-    });
-    return json(200, { received: true, ghl: true, plan: attached });
-  } catch (err) {
-    console.error('FWN plan attach failed:', err.message || err);
-    return json(500, { error: 'Plan attach failed' });
+    console.error('FWN subscription metadata copy failed:', err.message || err);
+    return { copied: false, reason: 'update_failed' };
   }
 }
 
 module.exports = {
   FWN_GHL_HOOK,
   MONTHLY_CENTS,
-  MONTHLY_ENV,
   PACKAGES,
-  SUBMIT_MESSAGE,
   FwnError,
   toForm,
   attributionFromInput,
-  validatePrices,
-  buildSessionParams,
+  configuredId,
+  resolvePriceId,
+  resolvePlanId,
+  packageForPlanId,
+  isMemberstackPriceId,
+  buildMemberstackCheckout,
   containsTrialKey,
   verifyStripeSignature,
   classifyStripeEvent,
   buyerFromSession,
   ghlPayload,
   isRealPlanId,
-  alreadyHasPlan,
-  attachFwnPlan,
+  notifyFwnPlanAdded,
   safeCancelPath,
   checkoutHandler,
   webhookHandler,

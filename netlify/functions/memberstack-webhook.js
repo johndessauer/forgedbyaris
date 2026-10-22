@@ -34,6 +34,7 @@
 const memberstackAdmin = require('@memberstack/admin');
 const https = require('https');
 const { json, preflight } = require('./_Lib/http');
+const { notifyFwnPlanAdded } = require('./_Lib/fwn');
 
 const memberstack = memberstackAdmin.init(process.env.MEMBERSTACK_SECRET_KEY);
 
@@ -185,11 +186,13 @@ exports.handler = async function (event, context) {
   // the webhook: fall back to whatever the payload itself has.
   const metaData = payload?.member?.metaData || {};
   let customFields = payload?.member?.customFields || {};
+  let memberJson = payload?.member?.json || {};
   const memberId = payload?.member?.id;
   if (memberId) {
     try {
       const { data: fullMember } = await memberstack.members.retrieve({ id: memberId });
       customFields = { ...customFields, ...(fullMember?.customFields || {}) };
+      memberJson = { ...(fullMember?.json || {}), ...memberJson };
     } catch (err) {
       console.error('Memberstack member lookup failed (continuing with payload data):', err?.message || err);
     }
@@ -200,6 +203,27 @@ exports.handler = async function (event, context) {
   const planName = payload?.planConnection?.planId || undefined;
 
   const ghlResult = await upsertGhlContact({ email, firstName, lastName, planName, referralSource });
+
+  // FWN plans already include the setup fee on the Memberstack price.
+  // When one of those plans is attached, also POST the buyer to the FWN
+  // hook. A failure returns 500 so Memberstack retries. The contact upsert
+  // above is idempotent. Other plans are unchanged.
+  try {
+    const fwnResult = await notifyFwnPlanAdded({
+      planId: planName,
+      email,
+      customFields,
+      metaData,
+      json: memberJson,
+      env: process.env,
+    });
+    if (fwnResult && fwnResult.posted) {
+      return json(200, { received: true, synced: true, ghlResult, fwn: true, package: fwnResult.package });
+    }
+  } catch (err) {
+    console.error('FWN hook failed:', err?.message || err);
+    return json(500, { error: 'FWN hook failed' });
+  }
 
   return json(200, { received: true, synced: true, ghlResult });
 };

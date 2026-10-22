@@ -1,5 +1,7 @@
-/* FWN checkout pages. Creates the Memberstack account, then asks the
- * server to open Stripe Checkout. The server owns prices and metadata. */
+/* FWN checkout pages. Creates the Memberstack account, then opens
+ * Memberstack checkout for the single package price. That price is a
+ * $97/month subscription with the setup fee already enabled, so the first
+ * charge is the full tier. This script never adds a second price. */
 (function () {
   var PACKAGE = document.body.getAttribute('data-fwn-package') || '';
   var BUTTON_LABEL = 'Continue to Checkout';
@@ -49,6 +51,58 @@
   function friendlySignupError(err) {
     if (isEmailTakenError(err)) return 'An account with this email already exists. Please sign in instead.';
     return (err && err.message) ? err.message : 'Something went wrong. Please try again.';
+  }
+
+  async function saveFwnAttribution(memberstack, fwn) {
+    if (!memberstack.updateMemberJSON) return;
+    var existing = {};
+    try {
+      if (memberstack.getMemberJSON) {
+        var current = await memberstack.getMemberJSON();
+        existing = (current && current.data) || {};
+      }
+    } catch (err) {
+      existing = {};
+    }
+    try {
+      await memberstack.updateMemberJSON({ json: Object.assign({}, existing, { fwn: fwn }) });
+    } catch (err) {
+      console.error('FWN checkout: could not save attribution on the member:', err);
+    }
+  }
+
+  function checkoutUrl(result) {
+    var data = result && result.data;
+    var url = (data && (data.url || data.checkoutUrl)) || (result && result.url) || '';
+    return typeof url === 'string' && /^https:\/\//.test(url) ? url : '';
+  }
+
+  async function openMemberstackCheckout(memberstack, data) {
+    var checkout = data.checkout || {};
+    var success = checkout.successURL || (window.location.origin + '/fwn/thank-you');
+    var cancel = checkout.cancelURL || window.location.href;
+    var params = {
+      priceId: data.priceId,
+      successURL: success,
+      cancelURL: cancel,
+      successUrl: success,
+      cancelUrl: cancel,
+      autoRedirect: false
+    };
+    if (checkout.metadataForCheckout) params.metadataForCheckout = checkout.metadataForCheckout;
+    var result;
+    try {
+      result = await memberstack.purchasePlansWithCheckout(params);
+    } catch (err) {
+      if (!params.metadataForCheckout) throw err;
+      console.error('FWN checkout: retrying without checkout metadata:', err);
+      delete params.metadataForCheckout;
+      result = await memberstack.purchasePlansWithCheckout(params);
+    }
+    if (result && result.error) throw result.error;
+    var url = checkoutUrl(result);
+    if (!url) throw new Error('Checkout did not return a payment link.');
+    window.location.href = url;
   }
 
   function hasActivePaidPlan(member) {
@@ -157,10 +211,20 @@
       var data = {};
       try { data = await response.json(); } catch (parseErr) { data = {}; }
       if (!response.ok) throw new Error(data.error || 'Checkout could not be started.');
-      if (!data.url || !/^https:\/\/checkout\.stripe\.com\//.test(data.url)) {
-        throw new Error('Checkout did not return a payment link.');
+      if (!data.priceId || String(data.priceId).indexOf('prc_') !== 0) {
+        throw new Error('Checkout did not return a payment price.');
       }
-      window.location.href = data.url;
+      await saveFwnAttribution(memberstack, {
+        name: firstName + ' ' + lastName,
+        email: email,
+        phone: phone,
+        package: data.package || PACKAGE,
+        lead_source: data.lead_source,
+        sold_by: data.sold_by,
+        rep: data.rep,
+        planId: data.planId || ''
+      });
+      await openMemberstackCheckout(memberstack, data);
     } catch (err) {
       console.error('FWN checkout error:', err);
       showError(friendlySignupError(err));
