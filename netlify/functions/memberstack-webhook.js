@@ -43,6 +43,10 @@ const memberstack = memberstackAdmin.init(process.env.MEMBERSTACK_SECRET_KEY);
 // matches what members are called on the site itself, not a raw plan ID.
 const PLAN_TAG_OVERRIDES = {
   'pln_-97-direct--jx9b09ut': 'Beta Member',
+  'pln_forge-launch-fwn--md00xzj': 'FORGE Launch',
+  'pln_forge-accelerator-fwn--dz20xmt': 'FORGE Accelerator',
+  'pln_forge-fwn-997-9x30xu2': 'FORGE 997',
+  'pln_forge-fwn-1-797-es40xk6': 'FORGE 1,797',
 };
 
 // GHL contact custom field "Referral Source" (key contact.referral_source).

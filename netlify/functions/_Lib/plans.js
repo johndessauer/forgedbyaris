@@ -23,6 +23,10 @@ const PLAN_IDS = Object.freeze({
   FORTIVA_1997: 'pln_fortiva-foundation-1997-xt5g037j',  // Foundation only — no Empire
   FORTIVA_1497: 'pln_fortiva-foundation-1497-3k4v0yug',  // Foundation only — no Empire
   BETA_97: 'pln_-97-direct--jx9b09ut',
+  FWN_LAUNCH: 'pln_forge-launch-fwn--md00xzj',       // FWN — same access as Founding Member, including Empire
+  FWN_ACCELERATOR: 'pln_forge-accelerator-fwn--dz20xmt',
+  FWN_997: 'pln_forge-fwn-997-9x30xu2',
+  FWN_1797: 'pln_forge-fwn-1-797-es40xk6',
 });
 
 // Price IDs the pages treat as Founding Member (Empire included). Note that
@@ -50,7 +54,11 @@ function hasEmpireAccess(planConnections) {
     pc.planId === PLAN_IDS.FORGE_ZERO ||
     FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment && pc.payment.priceId) ||
     pc.planId === PLAN_IDS.FOUNDING_MEMBER ||
-    pc.planId === PLAN_IDS.FOUNDING_MEMBER_VIP
+    pc.planId === PLAN_IDS.FOUNDING_MEMBER_VIP ||
+    pc.planId === PLAN_IDS.FWN_LAUNCH ||
+    pc.planId === PLAN_IDS.FWN_ACCELERATOR ||
+    pc.planId === PLAN_IDS.FWN_997 ||
+    pc.planId === PLAN_IDS.FWN_1797
   ));
 }
 

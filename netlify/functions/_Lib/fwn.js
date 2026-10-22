@@ -31,9 +31,8 @@
 //   sold_by      cart | john | rep           (?sold_by=, or rep when ?ref= is set)
 //   rep          ?ref= via assets/js/ref-capture.js
 //
-// Gated member pages still use their own plan allowlists. These plan ids
-// do not unlock those tools until the allowlists include them. Existing
-// member pages are unchanged.
+// These plan ids are on the gated member allowlists, with the same access
+// as Founding Member: the member tools and Empire. Existing plans stay.
 //
 // Optional STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET let the Stripe
 // webhook copy session metadata onto the subscription. That update has no

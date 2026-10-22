@@ -394,3 +394,49 @@ test('FWN pages are noindex, unlisted, and do not name forbidden brands or meeti
   assert.match(client, /metadataForCheckout/);
   assert.match(read('netlify/functions/memberstack-webhook.js'), /notifyFwnPlanAdded/);
 });
+
+const GATED_PAGES = [
+  'deal-network.html',
+  'capital-radar.html',
+  'crm.html',
+  'dashboard.html',
+  'deal-analyzer.html',
+  'education.html',
+  'profile.html',
+  'property-search.html',
+  'real-estate-lab.html',
+  'document-vault.html',
+  'market-oracle.html',
+  'aris-coach.html',
+];
+
+test('FWN plans are on the member allowlists with Founding Member access', () => {
+  const plans = require('../netlify/functions/_Lib/plans');
+  const ids = Object.values(DEFAULTS).map(pkg => pkg.plan);
+  for (const id of ids) {
+    const live = [{ planId: id, status: 'ACTIVE' }];
+    assert.equal(plans.hasEmpireAccess(live), true, id);
+    assert.equal(plans.hasCompsAccess(live), true, id);
+    assert.equal(plans.hasEmpireAccess([{ planId: id, status: 'CANCELED' }]), false, id);
+  }
+  assert.equal(plans.hasEmpireAccess([{ planId: plans.PLAN_IDS.FOUNDATION, status: 'ACTIVE' }]), false);
+  assert.equal(plans.hasEmpireAccess([{ planId: plans.PLAN_IDS.FOUNDING_MEMBER, status: 'ACTIVE' }]), true);
+  assert.equal(plans.PLAN_IDS.FORGE_ZERO, 'pln_forge-zero-psnx0aea');
+  assert.equal(plans.PLAN_IDS.BETA_97, 'pln_-97-direct--jx9b09ut');
+
+  for (const rel of GATED_PAGES) {
+    const html = read(rel);
+    for (const id of ids) {
+      assert.equal(html.includes(id), true, rel + ' missing ' + id);
+    }
+    assert.match(html, /FWN_LAUNCH_PLAN_ID \|\| pc\.planId === FWN_ACCELERATOR_PLAN_ID/, rel);
+    assert.match(html, /activeConn\.planId === FWN_1797_PLAN_ID/, rel);
+    assert.match(html, /\[FWN_LAUNCH_PLAN_ID\]: 'FORGE Launch'/, rel);
+    assert.match(html, /pln_founding-member-a1p70rff/, rel);
+    assert.match(html, /pln_foundation--s11cv0hs9/, rel);
+  }
+  const empirePages = ['deal-network.html', 'dashboard.html', 'deal-analyzer.html', 'education.html', 'profile.html', 'property-search.html', 'real-estate-lab.html'];
+  for (const rel of empirePages) {
+    assert.match(read(rel), /hasEmpireAccess[\s\S]{0,1200}pc\.planId === FWN_1797_PLAN_ID/, rel);
+  }
+});
