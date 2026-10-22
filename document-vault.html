@@ -752,8 +752,12 @@ window.addEventListener('load', async () => {
     const FOUNDATION_180_PLAN_ID = 'pln_foundation-180-month-payment-plan--gy4q09u4'; // Foundation 12-month $180/mo payment plan — same access as Foundation, NOT Empire
     const FORTIVA_1997_PLAN_ID = 'pln_fortiva-foundation-1997-xt5g037j'; // Fortiva Foundation $1997 — base access only, NOT Empire
     const FORTIVA_1497_PLAN_ID = 'pln_fortiva-foundation-1497-3k4v0yug'; // Fortiva Foundation $1497 — base access only, NOT Empire
+    const FWN_LAUNCH_PLAN_ID = 'pln_forge-launch-fwn--md00xzj'; // FWN — same access as Founding Member, including Empire
+    const FWN_ACCELERATOR_PLAN_ID = 'pln_forge-accelerator-fwn--dz20xmt';
+    const FWN_997_PLAN_ID = 'pln_forge-fwn-997-9x30xu2';
+    const FWN_1797_PLAN_ID = 'pln_forge-fwn-1-797-es40xk6';
     const hasActiveMembership = (member.planConnections || []).some(
-            pc => (FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) || pc.planId === FORGE_ZERO_PLAN_ID || pc.planId === FOUNDATION_PLAN_ID || pc.planId === FOUNDATION_180_PLAN_ID || pc.planId === FOUNDATION_EMPIRE_PLAN_ID || pc.planId === FOUNDATION_EMPIRE_MANUAL_PLAN_ID || pc.planId === FORTIVA_1997_PLAN_ID || pc.planId === FORTIVA_1497_PLAN_ID || pc.planId === FOUNDING_MEMBER_PLAN_ID || pc.planId === FOUNDING_MEMBER_VIP_PLAN_ID) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
+            pc => (FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) || pc.planId === FORGE_ZERO_PLAN_ID || pc.planId === FOUNDATION_PLAN_ID || pc.planId === FOUNDATION_180_PLAN_ID || pc.planId === FOUNDATION_EMPIRE_PLAN_ID || pc.planId === FOUNDATION_EMPIRE_MANUAL_PLAN_ID || pc.planId === FORTIVA_1997_PLAN_ID || pc.planId === FORTIVA_1497_PLAN_ID || pc.planId === FOUNDING_MEMBER_PLAN_ID || pc.planId === FOUNDING_MEMBER_VIP_PLAN_ID || pc.planId === FWN_LAUNCH_PLAN_ID || pc.planId === FWN_ACCELERATOR_PLAN_ID || pc.planId === FWN_997_PLAN_ID || pc.planId === FWN_1797_PLAN_ID) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
     );
     if (!hasActiveMembership) {
       window.location.href = 'signup.html';
@@ -762,7 +766,7 @@ window.addEventListener('load', async () => {
     // Populate sidebar member name/tier — this page previously never did this at all,
     // leaving the sidebar's hardcoded placeholder text visible for every member.
     const activeConn = (member.planConnections || []).find(
-            pc => (FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) || pc.planId === FORGE_ZERO_PLAN_ID || pc.planId === FOUNDATION_PLAN_ID || pc.planId === FOUNDATION_180_PLAN_ID || pc.planId === FOUNDATION_EMPIRE_PLAN_ID || pc.planId === FOUNDATION_EMPIRE_MANUAL_PLAN_ID || pc.planId === FORTIVA_1997_PLAN_ID || pc.planId === FORTIVA_1497_PLAN_ID || pc.planId === FOUNDING_MEMBER_PLAN_ID || pc.planId === FOUNDING_MEMBER_VIP_PLAN_ID) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
+            pc => (FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) || pc.planId === FORGE_ZERO_PLAN_ID || pc.planId === FOUNDATION_PLAN_ID || pc.planId === FOUNDATION_180_PLAN_ID || pc.planId === FOUNDATION_EMPIRE_PLAN_ID || pc.planId === FOUNDATION_EMPIRE_MANUAL_PLAN_ID || pc.planId === FORTIVA_1997_PLAN_ID || pc.planId === FORTIVA_1497_PLAN_ID || pc.planId === FOUNDING_MEMBER_PLAN_ID || pc.planId === FOUNDING_MEMBER_VIP_PLAN_ID || pc.planId === FWN_LAUNCH_PLAN_ID || pc.planId === FWN_ACCELERATOR_PLAN_ID || pc.planId === FWN_997_PLAN_ID || pc.planId === FWN_1797_PLAN_ID) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
     );
     const PLAN_NAME_OVERRIDES = {
       [FORGE_ZERO_PLAN_ID]: 'FORGE Zero',
@@ -775,6 +779,10 @@ window.addEventListener('load', async () => {
       [EMPIRE_PLAN_ID]: 'Empire',
       'pln_founding-member-a1p70rff': 'Founding Member',
       'pln_founding-member-vip--mzs707z3': 'Founding Member VIP',
+      [FWN_LAUNCH_PLAN_ID]: 'FORGE Launch',
+      [FWN_ACCELERATOR_PLAN_ID]: 'FORGE Accelerator',
+      [FWN_997_PLAN_ID]: 'FORGE 997',
+      [FWN_1797_PLAN_ID]: 'FORGE 1,797',
       'pln_-97-direct--jx9b09ut': 'Beta Member',
     };
     // NOTE 9/2/2026: Memberstack's planConnections objects never actually
@@ -790,7 +798,11 @@ window.addEventListener('load', async () => {
       FOUNDING_MEMBER_PRICE_IDS.includes(activeConn.payment?.priceId) ||
       activeConn.planId === FORGE_ZERO_PLAN_ID ||
             activeConn.planId === FOUNDING_MEMBER_PLAN_ID ||
-      activeConn.planId === FOUNDING_MEMBER_VIP_PLAN_ID
+      activeConn.planId === FOUNDING_MEMBER_VIP_PLAN_ID ||
+      activeConn.planId === FWN_LAUNCH_PLAN_ID ||
+      activeConn.planId === FWN_ACCELERATOR_PLAN_ID ||
+      activeConn.planId === FWN_997_PLAN_ID ||
+      activeConn.planId === FWN_1797_PLAN_ID
     );
     const hasSeparateEmpireConn = (member.planConnections || []).some(pc =>
       pc.planId === EMPIRE_PLAN_ID && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')

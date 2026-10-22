@@ -1,0 +1,93 @@
+/* Unlisted FWN pages. Brand tokens match the signup pages. */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --black: #0D1B2A;
+  --navy: #0f2035;
+  --navy-l: #162840;
+  --orange: #FF6B2B;
+  --gold: #C89B3C;
+  --gold-dim: rgba(200,155,60,0.15);
+  --white: #FFFFFF;
+  --grey: #6B7280;
+  --grey-l: #9CA3AF;
+  --border: rgba(200,155,60,0.18);
+  --border-s: rgba(255,255,255,0.06);
+  --red: #ef4444;
+}
+html, body { min-height: 100vh; background: var(--black); color: var(--white); font-family: 'Inter', sans-serif; }
+.noise { position: fixed; inset: 0; pointer-events: none; opacity: 0.04; background-image: radial-gradient(rgba(255,255,255,0.6) 0.5px, transparent 0.5px); background-size: 3px 3px; }
+.glow { position: fixed; width: 520px; height: 520px; border-radius: 50%; background: radial-gradient(circle, rgba(255,107,43,0.16), transparent 68%); top: -180px; right: -120px; pointer-events: none; }
+.glow-2 { position: fixed; width: 420px; height: 420px; border-radius: 50%; background: radial-gradient(circle, rgba(200,155,60,0.12), transparent 70%); bottom: -160px; left: -100px; pointer-events: none; }
+.page { position: relative; z-index: 1; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 24px; }
+.logo-area { text-align: center; margin-bottom: 28px; text-decoration: none; color: inherit; }
+.logo-area img { width: 72px; height: 72px; margin: 0 auto 10px; display: block; }
+.wordmark { font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 6px; color: var(--white); }
+.wordmark span { color: var(--gold); }
+.tagline { font-size: 10px; letter-spacing: 3px; color: var(--grey); text-transform: uppercase; margin-top: 3px; }
+.auth-card { width: 100%; max-width: 520px; background: var(--navy); border: 1px solid var(--border); border-radius: 16px; padding: 36px; }
+.auth-card.wide { max-width: 640px; }
+.founding-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(200,155,60,0.1); border: 1px solid rgba(200,155,60,0.3);
+  color: var(--gold); font-size: 10px; font-weight: 700;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  padding: 5px 12px; border-radius: 20px; margin-bottom: 16px;
+}
+.auth-title { font-family: 'Bebas Neue', sans-serif; font-size: 32px; letter-spacing: 1px; color: var(--white); margin-bottom: 8px; line-height: 1.05; }
+.auth-sub { font-size: 14px; color: var(--grey-l); margin-bottom: 22px; line-height: 1.6; }
+.when { display: grid; gap: 8px; margin-bottom: 22px; }
+.when div { font-size: 14px; color: var(--white); line-height: 1.5; }
+.when span { display: inline-block; min-width: 64px; color: var(--gold); font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+.cover { margin: 0 0 22px; padding-left: 18px; color: var(--grey-l); font-size: 14px; line-height: 1.6; }
+.cover li { margin-bottom: 6px; }
+.price-note {
+  background: rgba(200,155,60,0.07); border: 1px solid rgba(200,155,60,0.2);
+  border-radius: 10px; padding: 14px 16px; margin-bottom: 22px;
+}
+.price-note strong { color: var(--gold); }
+.price-note p { font-size: 13px; color: var(--grey-l); line-height: 1.55; margin-top: 6px; }
+.field-row { display: flex; gap: 12px; }
+.field-row .field { flex: 1; }
+.field { margin-bottom: 16px; }
+.field label { display: block; font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--grey); margin-bottom: 7px; }
+.field input {
+  width: 100%; background: var(--navy-l);
+  border: 1px solid var(--border-s); border-radius: 8px;
+  padding: 11px 14px; font-size: 14px; color: var(--white);
+  font-family: 'Inter', sans-serif; outline: none;
+}
+.field input::placeholder { color: var(--grey); }
+.field input:focus { border-color: var(--gold); background: rgba(200,155,60,0.04); }
+.pw-hint { font-size: 11px; color: var(--grey); margin-top: 5px; }
+.btn-primary {
+  width: 100%; background: var(--orange); border: none;
+  border-radius: 8px; padding: 14px;
+  font-family: 'Bebas Neue', sans-serif; font-size: 17px;
+  letter-spacing: 2px; color: white; cursor: pointer;
+  margin-top: 6px; margin-bottom: 16px;
+}
+.btn-primary:hover { background: #e55a1c; }
+.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+.terms-note, .fine { font-size: 12px; color: var(--grey); text-align: center; line-height: 1.6; margin-bottom: 20px; }
+.terms-note a, .fine a, .footer-note a { color: var(--gold); text-decoration: none; }
+.terms-note a:hover, .fine a:hover, .footer-note a:hover { text-decoration: underline; }
+.divider { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.divider-line { flex: 1; height: 1px; background: var(--border-s); }
+.divider-text { font-size: 11px; color: var(--grey); letter-spacing: 1px; text-transform: uppercase; }
+.btn-secondary {
+  width: 100%; background: transparent; border: 1px solid var(--border);
+  border-radius: 8px; padding: 13px; font-size: 13px; font-weight: 600;
+  color: var(--gold); text-align: center; text-decoration: none; display: block;
+}
+.btn-secondary:hover { background: var(--gold-dim); }
+.error-msg { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 8px; padding: 10px 14px; font-size: 13px; color: var(--red); margin-bottom: 16px; display: none; }
+.footer-note { text-align: center; margin-top: 24px; font-size: 11px; color: var(--grey); }
+.form-embed { background: #fff; border-radius: 12px; overflow: hidden; min-height: 420px; }
+.form-embed iframe { display: block; width: 100%; height: 420px; border: 0; }
+.spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.35); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: -2px; margin-right: 8px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (max-width: 560px) {
+  .field-row { flex-direction: column; gap: 0; }
+  .auth-card { padding: 24px 18px; }
+  .auth-title { font-size: 28px; }
+}

@@ -117,6 +117,38 @@
   to = "/.netlify/functions/property-search"
   status = 200
 
+[[redirects]]
+  from = "/api/fwn-checkout"
+  to = "/.netlify/functions/fwn-checkout"
+  status = 200
+
+[[redirects]]
+  from = "/api/fwn-stripe-webhook"
+  to = "/.netlify/functions/fwn-stripe-webhook"
+  status = 200
+
+# FWN pages are unlisted. noindex is also set in each page's meta robots.
+[[headers]]
+  for = "/fwn-webinar"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+
+[[headers]]
+  for = "/fwn-webinar.html"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+
+[[headers]]
+  for = "/fwn/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+
+[functions.fwn-checkout]
+  timeout = 26
+
+[functions.fwn-stripe-webhook]
+  timeout = 26
+
 # Internal handoff notes live in docs/handoffs/ (Comping Engine Build Brief
 # §10). The site publishes the repo root, so block them from the web.
 [[redirects]]
