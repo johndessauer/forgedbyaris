@@ -35,8 +35,8 @@ test('flag on: member prompts get the caveated description; the public widget ma
   assert.ok(coach.includes('recorded sales within 1 mi / 90 days and FORGE Cast valuations'));
   assert.ok(coach.includes('estimate, not an appraisal') && coach.includes('not verified sales') && coach.includes('coverage varies by market'));
   const da = await systemPromptFor('deal-analyzer', '1');
-  assert.ok(da.includes('COMPING ENGINE (Empire feature, live)'));
+  assert.ok(da.includes('COMPING ENGINE (Empire + FORGE Zero, live)'));
   const sales = await systemPromptFor('sales', '1');
   assert.ok(sales.includes('must NOT run comps'));
-  assert.ok(!sales.includes('Empire feature, live'));
+  assert.ok(!sales.includes('Empire + FORGE Zero, live'));
 });
