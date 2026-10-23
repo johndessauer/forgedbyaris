@@ -80,8 +80,8 @@ test('channel ref fills empty value or replaces another channel ref; rep replace
   const w2 = fakeWin('?ref=lexort', 'blog'); R.capture(w2); assert.equal(w2._ls.get(R.KEY), 'lexort');
 });
 
-test('the 4 signup pages read referralSource via ForgeRef and keep omit-when-empty', () => {
-  for (const f of ['signup.html', 'signup-97.html', 'signup-partner.html', 'signup-partner-125.html']) {
+test('all signup pages read referralSource via ForgeRef and keep omit-when-empty', () => {
+  for (const f of ['signup.html', 'signup-97.html', 'signup-partner.html', 'signup-partner-125.html', 'signup-497.html', 'signup-fortiva-1497.html', 'signup-fortiva-1997.html', 'signup-foundation.html', 'signup-foundation-empire.html', 'payment-plan.html']) {
     const html = fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
     assert.match(html, /<script src="\/assets\/js\/ref-capture\.js"><\/script>/, f);
     assert.match(html, /ForgeRef\.getRef\(window\)/, f);
