@@ -62,12 +62,11 @@ function hasEmpireAccess(planConnections) {
   ));
 }
 
-// Comp lookups: Empire access, EXCLUDING FORGE Zero (John, Oct 12, 2026).
-// A member who holds FORGE Zero and also a paid Empire-level plan still
-// qualifies through the paid plan.
+// Comp lookups: same as Empire access, which includes Beta $97 and
+// FORGE Zero (John, Oct 23, 2026 — reverses the Oct 12 Zero exclusion).
+// Foundation-only plans still do not get comps.
 function hasCompsAccess(planConnections) {
-  const paid = (planConnections || []).filter(pc => pc.planId !== PLAN_IDS.FORGE_ZERO);
-  return hasEmpireAccess(paid);
+  return hasEmpireAccess(planConnections);
 }
 
 module.exports = { PLAN_IDS, FOUNDING_MEMBER_PRICE_IDS, isLive, hasEmpireAccess, hasCompsAccess };
