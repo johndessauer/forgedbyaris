@@ -126,12 +126,12 @@ test('budget check failure fails closed: 503 and no RentCast call', async () => 
   assert.equal(t.mockCalls.length, 0);
 });
 
-test('unauthenticated → 401; non-Empire → 403; FORGE Zero → 403', async () => {
+test('unauthenticated → 401; non-Empire → 403; FORGE Zero → 200', async () => {
   assert.equal((await setup({ unauth: true }).call('POST', { action: 'comp', address: ADDRESS })).status, 401);
   const f = await setup({ member: FOUNDATION_ONLY }).call('POST', { action: 'comp', address: ADDRESS });
   assert.equal(f.status, 403); assert.equal(f.body.error, 'not_empire');
   const z = await setup({ member: FORGE_ZERO }).call('POST', { action: 'comp', address: ADDRESS });
-  assert.equal(z.status, 403);
+  assert.equal(z.status, 200);
 });
 
 test('admins pass the tier gate even on FORGE Zero (admin-only testing period)', async () => {

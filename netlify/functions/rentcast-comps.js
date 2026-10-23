@@ -357,7 +357,7 @@ function createHandler(deps) {
         return json(200, { shared: true, report: row.snapshot });
       }
 
-      // ── Everything else: verified member, Empire (not FORGE Zero) ───────
+      // ── Everything else: verified member, Empire / Beta / FORGE Zero ───────
       let memberId;
       try { memberId = await deps.verifyMember(event); }
       catch (e) { return json(e.statusCode || 401, { error: 'session_expired', message: e.message }); }
@@ -374,7 +374,7 @@ function createHandler(deps) {
       // Admins pass the tier gate so John can test while the panel is
       // admin-only (Phase 2–4) — his own account may be on FORGE Zero.
       if (!isAdmin && !hasCompsAccess(member && member.planConnections)) {
-        return json(403, { error: 'not_empire', message: 'Comp lookups are an Empire feature.' });
+        return json(403, { error: 'not_empire', message: 'Comp lookups are included with Empire and FORGE Zero memberships.' });
       }
 
       const ctx = { store: deps.store, cfg, env, memberId, now, deps, startedAt };
