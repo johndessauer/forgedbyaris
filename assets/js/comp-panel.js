@@ -6,11 +6,11 @@
 // "Comp This Property" button wherever it renders a lead.
 //
 // ── Visibility flag ────────────────────────────────────────────────────
-// Until RentCast goes live (Phase 5) the panel is ADMIN-ONLY (John,
-// Oct 12, 2026): with no RentCast key the backend serves Crown Point demo
-// data for any address, which members could mistake for real comps.
-// Flip COMPS_PUBLIC to true in Phase 5. The server enforces the Empire
-// tier gate regardless of this flag.
+// Phase 5 (John, Oct 23, 2026): the panel is on for every logged-in
+// member. init() only runs after Memberstack auth, and it still requires a
+// member email, so anonymous visitors never get it. The server enforces the
+// Empire tier gate (FORGE Zero excluded) regardless of this flag.
+// NOTE: without RENTCAST_API_KEY in Netlify the backend serves demo data.
 //
 // All ARV math lives in comp-engine.js. Toggling a comp, changing a filter
 // inside the pulled range, or moving the $/sqft slider is a pure re-run of
@@ -22,7 +22,7 @@
 (function () {
   'use strict';
 
-  const COMPS_PUBLIC = false;
+  const COMPS_PUBLIC = true;
   const ADMIN_EMAILS = ['john@thedessauergroup.com', 'jdessauer@antonagency.com'];
   const API = '/api/rentcast-comps';
   const SAVE_DEBOUNCE_MS = 900;
@@ -68,7 +68,7 @@
     const o = opts || {};
     ctx.getToken = typeof o.getToken === 'function' ? o.getToken : () => null;
     ctx.email = String(o.email || '').toLowerCase();
-    ctx.enabled = !!E && (COMPS_PUBLIC || ADMIN_EMAILS.includes(ctx.email));
+    ctx.enabled = !!E && !!ctx.email && (COMPS_PUBLIC || ADMIN_EMAILS.includes(ctx.email));
     if (!ctx.enabled) return false;
 
     buildPanel();
