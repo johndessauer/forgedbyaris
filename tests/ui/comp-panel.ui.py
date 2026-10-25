@@ -459,7 +459,7 @@ async def main():
         await ctx.close()
 
         # ── Error states ──
-        for status, body, expect in [(403, {'error': 'not_empire'}, 'Empire feature'), (402, {'error': 'budget_cap'}, 'paused for this month'),
+        for status, body, expect in [(403, {'error': 'not_empire'}, 'Empire and FORGE Zero'), (402, {'error': 'budget_cap'}, 'paused for this month'),
                                      (404, {'error': 'address_not_found'}, "couldn't find that address"), (401, {'error': 'session_expired'}, 'session expired'),
                                      (502, {'error': 'rentcast_unavailable'}, 'temporarily unavailable'), (429, {'error': 'member_limit'}, 'lookup limit')]:
             ctx, page, calls, errors = await make_page(b, (1440, 900), comp_override=(status, body))

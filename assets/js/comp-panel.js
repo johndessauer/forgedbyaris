@@ -9,7 +9,7 @@
 // Phase 5 (John, Oct 23, 2026): the panel is on for every logged-in
 // member. init() only runs after Memberstack auth, and it still requires a
 // member email, so anonymous visitors never get it. The server enforces the
-// Empire tier gate (FORGE Zero excluded) regardless of this flag.
+// Empire + FORGE Zero tier gate regardless of this flag.
 // NOTE: without RENTCAST_API_KEY in Netlify the backend serves demo data.
 //
 // All ARV math lives in comp-engine.js. Toggling a comp, changing a filter
@@ -371,7 +371,7 @@
     if (r.status === 401 || e === 'session_expired') {
       html = `<div class="ps-comp-notice err"><strong>Your session expired.</strong> Log in again to pull comps.<br><a class="ps-comp-btn-gold" style="display:inline-block;text-decoration:none;text-align:center" href="login.html">Log in</a></div>`;
     } else if (r.status === 403 && e === 'not_empire') {
-      html = `<div class="ps-comp-notice"><strong>Comps are an Empire feature.</strong><br>Pull recorded sales, a value range and an ARV for any property, then send it straight to the Deal Analyzer.<br><a class="ps-comp-btn-gold" style="display:inline-block;text-decoration:none;text-align:center" href="dashboard.html#empire-banner">Unlock Empire</a></div>`;
+      html = `<div class="ps-comp-notice"><strong>Comps are included with Empire and FORGE Zero.</strong><br>Pull recorded sales, a value range and an ARV for any property, then send it straight to the Deal Analyzer.<br><a class="ps-comp-btn-gold" style="display:inline-block;text-decoration:none;text-align:center" href="dashboard.html#empire-banner">Unlock Empire</a></div>`;
     } else if (r.status === 402 || e === 'budget_cap') {
       html = `<div class="ps-comp-notice warn"><strong>Comp lookups are paused for this month.</strong> Cached reports still work — properties comped recently will still open.</div>`;
     } else if (r.status === 404) {
