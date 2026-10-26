@@ -755,3 +755,7 @@ p.body-copy { font-size: 15px; color: var(--light-grey); line-height: 1.85; marg
 }
 
 .blog-related { max-width: 900px; margin: 0 auto; }
+.blog-table-wrap { overflow-x: auto; margin: 0 0 24px; }
+.blog-post-body table.blog-table { width: 100%; border-collapse: collapse; font-size: 14px; color: var(--light-grey); }
+.blog-post-body table.blog-table th, .blog-post-body table.blog-table td { border: 1px solid rgba(255,255,255,0.12); padding: 10px 12px; text-align: left; vertical-align: top; line-height: 1.55; }
+.blog-post-body table.blog-table th { color: var(--white); font-weight: 600; background: rgba(255,255,255,0.04); }
