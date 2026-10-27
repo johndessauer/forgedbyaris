@@ -156,3 +156,14 @@
   to = "/404.html"
   status = 404
   force = true
+
+# Short path for the Chris/Eddie/Ian FWN book-a-call round-robin.
+# Same widget as DEMO_URL in assets/site.js. 302 (not a rewrite) so the
+# browser lands on the LeadConnector widget. No query key is set here, so
+# Netlify forwards the request query string (for example ?ref=blog).
+# Trailing-slash normalization matches /book and /book/.
+[[redirects]]
+  from = "/book"
+  to = "https://api.leadconnectorhq.com/widget/booking/JlM6SoqbqCKmDois6PHx"
+  status = 302
+  force = true
