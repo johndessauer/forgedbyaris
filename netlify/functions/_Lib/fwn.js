@@ -39,6 +39,11 @@
 // webhook copy session metadata onto the subscription. That update has no
 // line items and does not charge the customer. Do not replace the webhook
 // Memberstack already uses.
+//
+// FORGE webinar sessions are not FWN packages. The same webhook copies
+// their attribution when metadata.package is webinar-997 or webinar-1797
+// and lead_source is present and is not fwn-virtual or fwn-raleigh. FWN
+// src validation is unchanged. Webinar checkout is _Lib/webinar.js.
 
 const https = require('https');
 const crypto = require('crypto');
@@ -555,13 +560,24 @@ async function webhookHandler(event, deps) {
   if (!paid.session) return json(200, { received: true, ignored: true, reason: paid.reason });
 
   const outcome = classifyStripeEvent(stripeEvent);
+  // Webinar sessions are distinguished by metadata.package, not by adding
+  // them to PACKAGES. A failure here must not change the FWN result.
+  let webinar = false;
+  if (!outcome.process) {
+    try {
+      webinar = require('./webinar').isWebinarAttributionSession(paid.session);
+    } catch (err) {
+      console.error('Webinar session check failed:', err.message || err);
+      webinar = false;
+    }
+  }
   const ref = sanitize((paid.session.metadata && (paid.session.metadata.ref || paid.session.metadata.rep)) || '');
-  if (!outcome.process && !ref) {
+  if (!outcome.process && !webinar && !ref) {
     return json(200, { received: true, ignored: true, reason: outcome.reason || 'no_ref' });
   }
 
   const copied = await copyCheckoutMetadata(paid.session, env, options.stripeRequest || stripeRequest, {
-    fwn: outcome.process,
+    fwn: outcome.process || webinar,
     ref: ref,
   });
   return json(200, { received: true, charged: false, metadata: copied.copied ? 'copied' : copied.reason, ref: !!ref });
@@ -624,7 +640,7 @@ async function copyCheckoutMetadata(session, env, stripe, opts) {
       if (did) copied = true;
     } catch (err) {
       failed = true;
-      console.error('FWN metadata copy failed:', path, err.message || err);
+      console.error('Checkout metadata copy failed:', path, err.message || err);
     }
   }
 
@@ -657,7 +673,7 @@ async function copyCheckoutMetadata(session, env, stripe, opts) {
         }
       } catch (err) {
         failed = true;
-        console.error('FWN payment lookup failed:', err.message || err);
+        console.error('Checkout payment lookup failed:', err.message || err);
       }
     }
     if (paymentIntentId) await write('/v1/payment_intents/' + encodeURIComponent(paymentIntentId), { ref: ref });
