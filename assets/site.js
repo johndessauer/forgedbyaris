@@ -6,7 +6,7 @@
 // WEBINAR_URL  -> John will send the GHL webinar-registration link.
 window.FORGE_LINKS = {
   WEBINAR_URL: '#webinar-link-pending',
-  DEMO_URL: 'https://api.leadconnectorhq.com/widget/bookings/chris-ciampa-personal-calendar-lyxn1ck2j'
+  DEMO_URL: 'https://api.leadconnectorhq.com/widget/booking/JlM6SoqbqCKmDois6PHx'
 };
 
 // Public announcement bar (index.html only). Edit this object to change
