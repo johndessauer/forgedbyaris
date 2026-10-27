@@ -127,6 +127,11 @@
   to = "/.netlify/functions/fwn-stripe-webhook"
   status = 200
 
+[[redirects]]
+  from = "/api/webinar-checkout"
+  to = "/.netlify/functions/webinar-checkout"
+  status = 200
+
 # FWN pages are unlisted. noindex is also set in each page's meta robots.
 [[headers]]
   for = "/fwn-webinar"
@@ -143,10 +148,19 @@
   [headers.values]
     X-Robots-Tag = "noindex, nofollow"
 
+# FORGE webinar checkout pages are unlisted. noindex is also set in each page.
+[[headers]]
+  for = "/webinar/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+
 [functions.fwn-checkout]
   timeout = 26
 
 [functions.fwn-stripe-webhook]
+  timeout = 26
+
+[functions.webinar-checkout]
   timeout = 26
 
 # Internal handoff notes live in docs/handoffs/ (Comping Engine Build Brief
