@@ -181,3 +181,19 @@
   to = "https://api.leadconnectorhq.com/widget/booking/JlM6SoqbqCKmDois6PHx"
   status = 302
   force = true
+
+# FWN index. The FWN pages live under /fwn/ (997, 1797, accelerator, launch,
+# thank-you, 4-numbers-deal-sheet.pdf) but there is no /fwn/index.html, so
+# /fwn and /fwn/ returned 404. Send them to the FWN webinar landing page.
+# Only the exact index path matches; /fwn/* pages are untouched.
+[[redirects]]
+  from = "/fwn"
+  to = "/fwn-webinar"
+  status = 302
+  force = true
+
+[[redirects]]
+  from = "/fwn/"
+  to = "/fwn-webinar"
+  status = 302
+  force = true
