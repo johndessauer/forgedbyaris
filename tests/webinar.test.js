@@ -385,3 +385,21 @@ test('webinar plans grant Empire and comps access on the server and the gated pa
     assert.match(read(rel), /hasEmpireAccess[\s\S]{0,1600}pc\.planId === WEBINAR_1797_PLAN_ID/, rel);
   }
 });
+
+test('rpm-newport-2026 src is accepted by webinar checkout', () => {
+  const a = webinar.attributionFromInput({ src: 'rpm-newport-2026', ref: 'eddie' });
+  assert.equal(a.lead_source, 'rpm-newport-2026');
+  assert.equal(a.rep, 'eddie');
+  assert.equal(a.sold_by, 'rep');
+});
+
+test('event tags: rpm-newport-2026 plus rep tag', () => {
+  assert.deepEqual(
+    webinar.eventTagsForMember({ memberJson: { webinar: { lead_source: 'rpm-newport-2026', rep: 'chris' } } }),
+    ['rpm-newport-2026', 'rep-chris']);
+  assert.deepEqual(
+    webinar.eventTagsForMember({ memberJson: { webinar: { lead_source: 'rpm-newport-2026' } }, referralSource: 'ian' }),
+    ['rpm-newport-2026', 'rep-ian']);
+  assert.deepEqual(webinar.eventTagsForMember({ memberJson: { webinar: { lead_source: 'other-src', rep: 'john' } } }), []);
+  assert.deepEqual(webinar.eventTagsForMember({ memberJson: {} }), []);
+});

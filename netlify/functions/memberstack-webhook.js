@@ -35,6 +35,7 @@ const memberstackAdmin = require('@memberstack/admin');
 const https = require('https');
 const { json, preflight } = require('./_Lib/http');
 const { notifyFwnPlanAdded } = require('./_Lib/fwn');
+const { eventTagsForMember } = require('./_Lib/webinar');
 
 const memberstack = memberstackAdmin.init(process.env.MEMBERSTACK_SECRET_KEY);
 
@@ -55,7 +56,7 @@ const PLAN_TAG_OVERRIDES = {
 // The "FORGE - Fortiva Referral Tagging" workflow tags fortiva-7525 off this.
 const GHL_REFERRAL_SOURCE_FIELD_ID = '4UsHzTuolKkrrtBov1hM';
 
-function upsertGhlContact({ email, firstName, lastName, planName, referralSource }) {
+function upsertGhlContact({ email, firstName, lastName, planName, referralSource, extraTags }) {
   const API_KEY = process.env.GHL_API_KEY;
   const LOCATION_ID = process.env.GHL_LOCATION_ID;
 
@@ -69,6 +70,7 @@ function upsertGhlContact({ email, firstName, lastName, planName, referralSource
     tags.push(planName);
     if (PLAN_TAG_OVERRIDES[planName]) tags.push(PLAN_TAG_OVERRIDES[planName]);
   }
+  (extraTags || []).forEach((tag) => { if (tag && !tags.includes(tag)) tags.push(tag); });
 
   const payload = JSON.stringify({
     email,
@@ -208,7 +210,14 @@ exports.handler = async function (event, context) {
   const referralSource = (customFields['referral-source'] || metaData['referral-source'] || '').trim().toLowerCase() || undefined;
   const planName = payload?.planConnection?.planId || undefined;
 
-  const ghlResult = await upsertGhlContact({ email, firstName, lastName, planName, referralSource });
+  let extraTags = [];
+  try {
+    extraTags = eventTagsForMember({ memberJson, referralSource });
+  } catch (err) {
+    console.error('Event tag lookup failed (continuing):', err?.message || err);
+  }
+
+  const ghlResult = await upsertGhlContact({ email, firstName, lastName, planName, referralSource, extraTags });
 
   // FWN plans already include the setup fee on the Memberstack price.
   // When one of those plans is attached, also POST the buyer to the FWN

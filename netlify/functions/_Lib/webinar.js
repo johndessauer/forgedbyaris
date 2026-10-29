@@ -295,7 +295,25 @@ async function checkoutHandler(event, deps) {
   }
 }
 
+// Event sources that get their own GHL tags when a webinar plan is added.
+// The buyer's src is saved on the member JSON (json.webinar.lead_source) by
+// assets/js/webinar-checkout.js before checkout. ref is saved as the
+// referral-source custom field. Only listed sources are tagged.
+const EVENT_TAG_SOURCES = new Set(['rpm-newport-2026']);
+
+function eventTagsForMember({ memberJson, referralSource }) {
+  const stored = (memberJson && memberJson.webinar && typeof memberJson.webinar === 'object') ? memberJson.webinar : {};
+  const source = sanitize(stored.lead_source);
+  if (!source || !EVENT_TAG_SOURCES.has(source)) return [];
+  const tags = [source];
+  const rep = sanitize(stored.rep || referralSource);
+  if (rep) tags.push('rep-' + rep);
+  return tags;
+}
+
 module.exports = {
+  EVENT_TAG_SOURCES,
+  eventTagsForMember,
   MONTHLY_CENTS,
   PACKAGES,
   FWN_LEAD_SOURCES,
