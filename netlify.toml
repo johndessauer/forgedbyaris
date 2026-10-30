@@ -132,6 +132,11 @@
   to = "/.netlify/functions/webinar-checkout"
   status = 200
 
+[[redirects]]
+  from = "/api/webinar-register"
+  to = "/.netlify/functions/webinar-register"
+  status = 200
+
 # FWN pages are unlisted. noindex is also set in each page's meta robots.
 [[headers]]
   for = "/fwn-webinar"
@@ -161,6 +166,9 @@
   timeout = 26
 
 [functions.webinar-checkout]
+  timeout = 26
+
+[functions.webinar-register]
   timeout = 26
 
 # Internal handoff notes live in docs/handoffs/ (Comping Engine Build Brief
