@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="shortcut icon" href="/favicon.ico" />
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/css/fwn.css">
+<script src="/assets/js/ref-capture.js"></script>
+<title>Register: FORGE Live Webinar | FORGE</title>
+<meta name="description" content="Register for the free weekly FORGE live webinar, Thursdays at 7 PM CT.">
+</head>
+<body>
+<div class="noise"></div>
+<div class="glow"></div>
+<div class="glow-2"></div>
+<div class="page">
+  <a class="logo-area" href="/">
+    <img src="/assets/logo-icon.png" alt="FORGE">
+    <div class="wordmark">F<span>O</span>RGE</div>
+    <div class="tagline">Powered by ARIS</div>
+  </a>
+
+  <div class="auth-card">
+    <div class="founding-badge">Free live webinar · Thursdays 7 PM CT</div>
+    <h1 class="auth-title">FORGE Live</h1>
+    <p class="auth-sub">Register below and you'll go straight to the Zoom link. Next session: <strong id="next-date">Thursday, November 19, 2026 at 7 PM CT</strong>.</p>
+
+    <div class="error-msg" id="error-msg"></div>
+
+    <form id="reg-form" novalidate>
+      <div class="field-row">
+        <div class="field">
+          <label for="first-name">First name</label>
+          <input type="text" id="first-name" autocomplete="given-name" required>
+        </div>
+        <div class="field">
+          <label for="last-name">Last name</label>
+          <input type="text" id="last-name" autocomplete="family-name">
+        </div>
+      </div>
+      <div class="field">
+        <label for="email">Email address</label>
+        <input type="email" id="email" autocomplete="email" required>
+      </div>
+      <div class="field">
+        <label for="phone">Mobile phone</label>
+        <input type="tel" id="phone" autocomplete="tel" required>
+      </div>
+      <div class="field" style="position:absolute;left:-9999px" aria-hidden="true">
+        <label for="website">Website</label>
+        <input type="text" id="website" tabindex="-1" autocomplete="off">
+      </div>
+      <label class="terms-note" style="display:flex;gap:10px;align-items:flex-start;text-align:left;">
+        <input type="checkbox" id="sms-consent" style="margin-top:3px;">
+        <span>I agree to receive text messages from FORGE about this webinar and related offers. Msg &amp; data rates may apply. Msg frequency varies. Reply STOP to opt out, HELP for help. Consent is not a condition of purchase.</span>
+      </label>
+      <button class="btn-primary" id="reg-btn" type="submit">Save My Seat</button>
+    </form>
+
+    <div class="terms-note">
+      By registering you agree to our <a href="/terms.html">Terms of Service</a> and
+      <a href="/privacy-policy.html">Privacy Policy</a>.
+    </div>
+  </div>
+
+  <div class="footer-note">
+    <a href="/">ForgedByAris.com</a> &nbsp;·&nbsp;
+    <a href="mailto:support@forgedbyaris.com">support@forgedbyaris.com</a>
+  </div>
+</div>
+<script>
+(function () {
+  var params = new URLSearchParams(location.search);
+  var src = (params.get('src') || 'direct').toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 64);
+  var ref = '';
+  try { ref = window.ForgeRef && window.ForgeRef.getRef ? window.ForgeRef.getRef(window) : (params.get('ref') || ''); } catch (e) { ref = params.get('ref') || ''; }
+  var form = document.getElementById('reg-form');
+  var btn = document.getElementById('reg-btn');
+  var err = document.getElementById('error-msg');
+  function show(msg) { err.textContent = msg; err.style.display = 'block'; }
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    err.style.display = 'none';
+    var body = {
+      firstName: document.getElementById('first-name').value,
+      lastName: document.getElementById('last-name').value,
+      email: document.getElementById('email').value,
+      phone: document.getElementById('phone').value,
+      smsConsent: document.getElementById('sms-consent').checked,
+      website: document.getElementById('website').value,
+      src: src,
+      ref: ref
+    };
+    if (!body.firstName || !body.email || !body.phone) { show('Please enter your name, email, and mobile phone.'); return; }
+    btn.disabled = true; btn.textContent = 'Saving your seat...';
+    fetch('/api/webinar-register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        if (!res.ok) throw new Error(res.j.error || 'Registration failed');
+        location.href = res.j.redirect;
+      })
+      .catch(function (e2) { btn.disabled = false; btn.textContent = 'Save My Seat'; show(e2.message); });
+  });
+})();
+</script>
+</body>
+</html>
