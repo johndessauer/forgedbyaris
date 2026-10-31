@@ -3,14 +3,26 @@ const assert = require('node:assert/strict');
 const { EventEmitter } = require('events');
 const reg = require('../netlify/functions/_Lib/webinar-register');
 
-const ENV = { GHL_API_KEY: 'k', GHL_LOCATION_ID: '3dQD2B6ZsBjZVIrWF8WR', WEBINAR_ZOOM_URL: 'https://zoom.us/j/123' };
+const ENV = { GHL_API_KEY: 'k', GHL_LOCATION_ID: '3dQD2B6ZsBjZVIrWF8WR', WEBINAR_JOIN_URL: 'https://meet.google.com/abc-defg-hij' };
 const good = { firstName: 'Joe', lastName: 'Investor', email: 'Joe@Example.com', phone: '(555) 555-1234', smsConsent: true, src: '023k', ref: 'eddie' };
 
-function fakeRequest(status, capture) {
+// Fake https.request. Duplicate lookup (GET) returns lookupBody; upsert (POST) returns upsertStatus.
+function fakeRequest(capture, { lookupBody = { contact: null }, lookupStatus = 200, upsertStatus = 200 } = {}) {
+  capture.calls = [];
   return (opts, cb) => {
     const req = new EventEmitter();
-    req.write = (b) => { capture.opts = opts; capture.body = JSON.parse(b); };
-    req.end = () => { const res = new EventEmitter(); res.statusCode = status; cb(res); res.emit('data', '{}'); res.emit('end'); };
+    let sent = null;
+    req.write = (b) => { sent = JSON.parse(b); };
+    req.end = () => {
+      capture.calls.push({ method: opts.method, path: opts.path, body: sent });
+      if (opts.method === 'POST') { capture.opts = opts; capture.body = sent; }
+      const res = new EventEmitter();
+      const isGet = opts.method === 'GET';
+      res.statusCode = isGet ? lookupStatus : upsertStatus;
+      cb(res);
+      res.emit('data', JSON.stringify(isGet ? lookupBody : {}));
+      res.emit('end');
+    };
     return req;
   };
 }
@@ -39,20 +51,20 @@ test('rejects FWN sources, missing src, bad phone', () => {
   assert.equal(reg.validate({ ...good, phone: '123' }, {}).ok, false);
 });
 
-test('handler upserts to FORGE location and redirects to Zoom', async () => {
+test('handler upserts to FORGE location and redirects to the live session link', async () => {
   const cap = {};
-  const res = await reg.registerHandler({ httpMethod: 'POST', body: JSON.stringify(good) }, { env: ENV, request: fakeRequest(200, cap) });
+  const res = await reg.registerHandler({ httpMethod: 'POST', body: JSON.stringify(good) }, { env: ENV, request: fakeRequest(cap) });
   const j = JSON.parse(res.body);
   assert.equal(res.statusCode, 200);
-  assert.equal(j.redirect, 'https://zoom.us/j/123');
+  assert.equal(j.redirect, 'https://meet.google.com/abc-defg-hij');
   assert.equal(cap.opts.path, '/contacts/upsert');
   assert.equal(cap.body.locationId, '3dQD2B6ZsBjZVIrWF8WR');
   assert.ok(cap.body.tags.includes('forge-webinar-reg'));
 });
 
-test('handler falls back to holding page when Zoom URL is unset', async () => {
+test('handler falls back to holding page when the live session link is unset', async () => {
   const cap = {};
-  const res = await reg.registerHandler({ httpMethod: 'POST', body: JSON.stringify(good) }, { env: { ...ENV, WEBINAR_ZOOM_URL: '' }, request: fakeRequest(200, cap) });
+  const res = await reg.registerHandler({ httpMethod: 'POST', body: JSON.stringify(good) }, { env: { ...ENV, WEBINAR_JOIN_URL: '' }, request: fakeRequest(cap) });
   assert.equal(JSON.parse(res.body).redirect, '/webinar/registered?date=2026-11-17');
 });
 
@@ -92,5 +104,52 @@ test('pages do not hard-code a recurring weekday', () => {
   for (const f of ['register.html', 'registered.html', 'replay.html']) {
     const html = fs.readFileSync(path.join(__dirname, '..', 'webinar', f), 'utf8');
     assert.doesNotMatch(html, /(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)s?\b/, f);
+  }
+});
+
+test('existing FORGE member (paying-member tag) goes to holding page without tagging', async () => {
+  const cap = {};
+  const req = fakeRequest(cap, { lookupBody: { contact: { id: 'c1', tags: ['member', 'paying-member', 'FORGE 997'] } } });
+  const res = await reg.registerHandler({ httpMethod: 'POST', body: JSON.stringify(good) }, { env: ENV, request: req });
+  const j = JSON.parse(res.body);
+  assert.equal(res.statusCode, 200);
+  assert.equal(j.member, true);
+  assert.equal(j.redirect, '/webinar/registered?date=2026-11-17');
+  assert.equal(cap.calls.length, 1);
+  assert.equal(cap.calls[0].method, 'GET');
+  assert.match(cap.calls[0].path, /^\/contacts\/search\/duplicate\?locationId=3dQD2B6ZsBjZVIrWF8WR&email=joe%40example\.com$/);
+  assert.ok(!cap.calls.some((c) => c.method === 'POST'));
+});
+
+test('member tag match is case-insensitive and covers member / paying-member only', () => {
+  assert.equal(reg.hasMemberTag(['Paying-Member']), true);
+  assert.equal(reg.hasMemberTag(['member']), true);
+  assert.equal(reg.hasMemberTag(['waitlist', 'forge-webinar-reg']), false);
+  assert.equal(reg.hasMemberTag(undefined), false);
+});
+
+test('non-member contact is tagged and sent to the live session link', async () => {
+  const cap = {};
+  const req = fakeRequest(cap, { lookupBody: { contact: { id: 'c2', tags: ['waitlist'] } } });
+  const j = JSON.parse((await reg.registerHandler({ httpMethod: 'POST', body: JSON.stringify(good) }, { env: ENV, request: req })).body);
+  assert.equal(j.redirect, 'https://meet.google.com/abc-defg-hij');
+  assert.deepEqual(cap.calls.map((c) => c.method), ['GET', 'POST']);
+});
+
+test('member lookup failure fails open and still registers', async () => {
+  const cap = {};
+  const req = fakeRequest(cap, { lookupStatus: 500 });
+  const j = JSON.parse((await reg.registerHandler({ httpMethod: 'POST', body: JSON.stringify(good) }, { env: ENV, request: req })).body);
+  assert.equal(j.redirect, 'https://meet.google.com/abc-defg-hij');
+  assert.ok(cap.body.tags.includes('forge-webinar-reg'));
+});
+
+test('only Google Meet: no other video-platform references remain', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const root = path.join(__dirname, '..');
+  for (const f of ['netlify/functions/_Lib/webinar-register.js', 'netlify/functions/webinar-register.js',
+    'webinar/register.html', 'webinar/registered.html', 'webinar/replay.html']) {
+    assert.doesNotMatch(fs.readFileSync(path.join(root, f), 'utf8'), /z[o]om/i, f);
   }
 });
