@@ -20,12 +20,12 @@ test('validate builds tags with dated webinar tag', () => {
   assert.equal(v.ok, true);
   assert.equal(v.contact.phone, '+15555551234');
   assert.equal(v.contact.email, 'joe@example.com');
-  assert.deepEqual(v.contact.tags, ['forge-webinar-reg', 'webinar-2026-11-19', 'src-023k', 'ref-eddie', 'sms-consent']);
+  assert.deepEqual(v.contact.tags, ['forge-webinar-reg', 'webinar-2026-11-17', 'src-023k', 'ref-eddie', 'sms-consent']);
 });
 
 test('WEBINAR_NEXT_DATE overrides the dated tag', () => {
-  const v = reg.validate(good, { WEBINAR_NEXT_DATE: '2026-11-26' });
-  assert.ok(v.contact.tags.includes('webinar-2026-11-26'));
+  const v = reg.validate(good, { WEBINAR_NEXT_DATE: '2026-11-24' });
+  assert.ok(v.contact.tags.includes('webinar-2026-11-24'));
 });
 
 test('no sms-consent tag without consent', () => {
@@ -53,7 +53,7 @@ test('handler upserts to FORGE location and redirects to Zoom', async () => {
 test('handler falls back to holding page when Zoom URL is unset', async () => {
   const cap = {};
   const res = await reg.registerHandler({ httpMethod: 'POST', body: JSON.stringify(good) }, { env: { ...ENV, WEBINAR_ZOOM_URL: '' }, request: fakeRequest(200, cap) });
-  assert.equal(JSON.parse(res.body).redirect, '/webinar/registered?date=2026-11-19');
+  assert.equal(JSON.parse(res.body).redirect, '/webinar/registered?date=2026-11-17');
 });
 
 test('handler rejects GET and bad input', async () => {
