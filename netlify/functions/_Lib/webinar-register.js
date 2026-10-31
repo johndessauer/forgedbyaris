@@ -2,13 +2,13 @@
 //
 // POST /api/webinar-register  { firstName, lastName, email, phone, smsConsent, src, ref }
 // Upserts the contact into FORGE GHL (GHL_LOCATION_ID, the FORGE location only)
-// with registration tags, then returns the Zoom join URL for the browser to
-// redirect to. Nothing is sent to the registrant from here; any confirmation
+// with registration tags, then returns the live session link (Google Meet)
+// for the browser to redirect to. Nothing is sent to the registrant from here; any confirmation
 // or reminder sequence lives in a GHL workflow keyed off the tags.
 //
 // Env vars:
 //   GHL_API_KEY, GHL_LOCATION_ID   already set for memberstack-webhook.js
-//   WEBINAR_ZOOM_URL               Zoom registration/join link (placeholder until set)
+//   WEBINAR_JOIN_URL               live session link (Google Meet); holding page until set
 //   WEBINAR_NEXT_DATE              YYYY-MM-DD of the next live session (default 2026-11-17)
 //   WEBINAR_NEXT_TIME              display time of the next session (default "7:00 PM CT")
 //
@@ -24,6 +24,11 @@ const { json, preflight } = require('./http');
 
 const DEFAULT_DATE = '2026-11-17';
 const DEFAULT_TIME = '7:00 PM CT';
+
+// Existing FORGE members are not re-tagged as webinar registrants. The
+// memberstack-webhook.js upsert gives every paying member both 'member' and
+// 'paying-member'; either one counts. GHL stores tags lowercase.
+const MEMBER_TAGS = ['paying-member', 'member'];
 const FWN_LEAD_SOURCES = new Set(['fwn-virtual', 'fwn-raleigh']);
 const SMS_CONSENT_TEXT =
   'I agree to receive text messages from FORGE about this webinar and related offers. ' +
@@ -114,35 +119,50 @@ function buildPayload(contact, locationId) {
   };
 }
 
-function ghlUpsert(payload, env, request = https.request) {
+function ghlRequest({ method, path, payload }, env, request = https.request) {
   const apiKey = env.GHL_API_KEY;
-  if (!apiKey || !payload.locationId) {
+  if (!apiKey || !env.GHL_LOCATION_ID) {
     return Promise.resolve({ skipped: true, reason: 'missing GHL env vars' });
   }
-  const body = JSON.stringify(payload);
+  const body = payload ? JSON.stringify(payload) : null;
+  const headers = { Authorization: `Bearer ${apiKey}`, Version: '2021-07-28', Accept: 'application/json' };
+  if (body) {
+    headers['Content-Type'] = 'application/json';
+    headers['Content-Length'] = Buffer.byteLength(body);
+  }
   return new Promise((resolve) => {
-    const req = request(
-      {
-        hostname: 'services.leadconnectorhq.com',
-        path: '/contacts/upsert',
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-          Version: '2021-07-28',
-          'Content-Length': Buffer.byteLength(body),
-        },
-      },
-      (res) => {
-        let data = '';
-        res.on('data', (c) => { data += c; });
-        res.on('end', () => resolve({ statusCode: res.statusCode, data }));
-      }
-    );
+    const req = request({ hostname: 'services.leadconnectorhq.com', path, method, headers }, (res) => {
+      let data = '';
+      res.on('data', (c) => { data += c; });
+      res.on('end', () => resolve({ statusCode: res.statusCode, data }));
+    });
     req.on('error', (err) => resolve({ error: err.message }));
-    req.write(body);
+    if (body) req.write(body);
     req.end();
   });
+}
+
+function ghlUpsert(payload, env, request) {
+  return ghlRequest({ method: 'POST', path: '/contacts/upsert', payload }, env, request);
+}
+
+function hasMemberTag(tags) {
+  if (!Array.isArray(tags)) return false;
+  return tags.some((t) => MEMBER_TAGS.includes(String(t).trim().toLowerCase()));
+}
+
+// Looks up the existing contact by email in the FORGE location. Fails open:
+// if the lookup errors, the registrant is treated as a non-member.
+async function isExistingMember(email, env, request) {
+  const q = `locationId=${encodeURIComponent(env.GHL_LOCATION_ID || '')}&email=${encodeURIComponent(email)}`;
+  const res = await ghlRequest({ method: 'GET', path: `/contacts/search/duplicate?${q}` }, env, request);
+  if (!(res.statusCode >= 200 && res.statusCode < 300)) return false;
+  try {
+    const parsed = JSON.parse(res.data || '{}');
+    return hasMemberTag(parsed.contact && parsed.contact.tags);
+  } catch (e) {
+    return false;
+  }
 }
 
 async function registerHandler(event, options = {}) {
@@ -158,13 +178,19 @@ async function registerHandler(event, options = {}) {
   const v = validate(body, env);
   if (!v.ok) return json(400, { error: v.errors.join('; ') });
 
+  const holding = `/webinar/registered?date=${v.contact.date}`;
+  if (await isExistingMember(v.contact.email, env, options.request)) {
+    // Already a FORGE member: no webinar tags, straight to the holding page.
+    return json(200, { ok: true, member: true, ghl: false, date: v.contact.date, session: sessionInfo(env).label, redirect: holding });
+  }
+
   const result = await ghlUpsert(buildPayload(v.contact, env.GHL_LOCATION_ID), env, options.request);
   const ghlOk = result.statusCode >= 200 && result.statusCode < 300;
   if (!ghlOk) console.error('webinar-register GHL upsert failed', result.statusCode || result.error || result.reason);
 
-  const zoom = String(env.WEBINAR_ZOOM_URL || '').trim();
-  // If the Zoom link is not configured yet, the registrant lands on a holding page.
-  const redirect = /^https:\/\//.test(zoom) ? zoom : `/webinar/registered?date=${v.contact.date}`;
+  const joinUrl = String(env.WEBINAR_JOIN_URL || '').trim();
+  // If the live session link is not configured yet, the registrant lands on the holding page.
+  const redirect = /^https:\/\//.test(joinUrl) ? joinUrl : holding;
   return json(200, { ok: true, ghl: ghlOk, date: v.contact.date, session: sessionInfo(env).label, redirect });
 }
 
@@ -178,5 +204,9 @@ module.exports = {
   DEFAULT_TIME,
   buildPayload,
   ghlUpsert,
+  ghlRequest,
+  hasMemberTag,
+  isExistingMember,
+  MEMBER_TAGS,
   registerHandler,
 };
