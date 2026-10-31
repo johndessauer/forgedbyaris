@@ -56,7 +56,41 @@ test('handler falls back to holding page when Zoom URL is unset', async () => {
   assert.equal(JSON.parse(res.body).redirect, '/webinar/registered?date=2026-11-17');
 });
 
-test('handler rejects GET and bad input', async () => {
-  assert.equal((await reg.registerHandler({ httpMethod: 'GET' }, { env: ENV })).statusCode, 405);
+test('handler rejects other methods and bad input', async () => {
+  assert.equal((await reg.registerHandler({ httpMethod: 'PUT' }, { env: ENV })).statusCode, 405);
   assert.equal((await reg.registerHandler({ httpMethod: 'POST', body: '{}' }, { env: ENV })).statusCode, 400);
+});
+
+test('sessionInfo defaults to Tuesday, November 17, 2026 at 7:00 PM CT', () => {
+  assert.deepEqual(reg.sessionInfo({}), {
+    date: '2026-11-17', time: '7:00 PM CT', weekday: 'Tuesday',
+    label: 'Tuesday, November 17, 2026 at 7:00 PM CT',
+  });
+});
+
+test('sessionInfo computes the weekday from WEBINAR_NEXT_DATE and uses WEBINAR_NEXT_TIME', () => {
+  assert.equal(reg.sessionInfo({ WEBINAR_NEXT_DATE: '2026-11-18', WEBINAR_NEXT_TIME: '6:30 PM CT' }).label,
+    'Wednesday, November 18, 2026 at 6:30 PM CT');
+  assert.equal(reg.sessionInfo({ WEBINAR_NEXT_DATE: '2026-11-19' }).label,
+    'Thursday, November 19, 2026 at 7:00 PM CT');
+});
+
+test('invalid WEBINAR_NEXT_DATE falls back to the default', () => {
+  assert.equal(reg.sessionInfo({ WEBINAR_NEXT_DATE: '2026-02-30' }).date, '2026-11-17');
+  assert.equal(reg.sessionInfo({ WEBINAR_NEXT_DATE: 'next week' }).date, '2026-11-17');
+});
+
+test('GET returns the session info for the pages', async () => {
+  const res = await reg.registerHandler({ httpMethod: 'GET' }, { env: { WEBINAR_NEXT_DATE: '2026-11-18', WEBINAR_NEXT_TIME: '7:00 PM CT' } });
+  assert.equal(res.statusCode, 200);
+  assert.equal(JSON.parse(res.body).label, 'Wednesday, November 18, 2026 at 7:00 PM CT');
+});
+
+test('pages do not hard-code a recurring weekday', () => {
+  const fs = require('fs');
+  const path = require('path');
+  for (const f of ['register.html', 'registered.html', 'replay.html']) {
+    const html = fs.readFileSync(path.join(__dirname, '..', 'webinar', f), 'utf8');
+    assert.doesNotMatch(html, /(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)s?\b/, f);
+  }
 });
