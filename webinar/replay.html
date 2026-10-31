@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="shortcut icon" href="/favicon.ico" />
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/css/fwn.css">
+<script src="/assets/js/ref-capture.js"></script>
+<title>FORGE Live Replay | FORGE</title>
+<meta name="description" content="Watch the FORGE live webinar replay.">
+<style>
+  .replay-card { max-width: 880px; width: 100%; }
+  .video-slot { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #0b0b0b; border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; overflow: hidden; display: flex; align-items: center; justify-content: center; margin: 20px 0; }
+  .video-slot iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+  .video-slot .placeholder { color: rgba(255,255,255,0.6); font-size: 14px; text-align: center; padding: 20px; }
+  .offer-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 8px; }
+  .offer { border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; padding: 18px; }
+  .offer h2 { font-family: 'Bebas Neue', sans-serif; font-size: 32px; margin: 0 0 6px; letter-spacing: 1px; }
+  .offer p { font-size: 14px; margin: 0 0 14px; opacity: 0.85; }
+  @media (max-width: 640px) { .offer-row { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="noise"></div>
+<div class="glow"></div>
+<div class="glow-2"></div>
+<div class="page">
+  <a class="logo-area" href="/">
+    <img src="/assets/logo-icon.png" alt="FORGE">
+    <div class="wordmark">F<span>O</span>RGE</div>
+    <div class="tagline">Powered by ARIS</div>
+  </a>
+  <div class="auth-card replay-card">
+    <div class="founding-badge">FORGE Live replay</div>
+    <h1 class="auth-title">Watch the Replay</h1>
+    <p class="auth-sub">Missed the live session? Watch it here, then pick the FORGE package that fits you.</p>
+
+    <!-- Replay video: set data-youtube-id to the Unlisted YouTube ID for the latest session. -->
+    <div class="video-slot" id="video-slot" data-youtube-id="">
+      <div class="placeholder">Replay coming soon. Check back shortly after our next live session.</div>
+    </div>
+
+    <div class="offer-row">
+      <div class="offer">
+        <h2>FORGE $997</h2>
+        <p>$997 due today, including your first month. Then $97/month.</p>
+        <a class="btn-primary" data-checkout href="/webinar/997">Enroll at $997</a>
+      </div>
+      <div class="offer">
+        <h2>FORGE $1,797</h2>
+        <p>$1,797 due today, including your first month. Then $97/month.</p>
+        <a class="btn-primary" data-checkout href="/webinar/1797">Enroll at $1,797</a>
+      </div>
+    </div>
+    <div class="terms-note">No free trial and no free months. See our <a href="/terms.html">Terms</a> and <a href="/earnings-disclaimer.html">Earnings Disclaimer</a>.</div>
+  </div>
+  <div class="footer-note">
+    <a href="/">ForgedByAris.com</a> &nbsp;·&nbsp;
+    <a href="mailto:support@forgedbyaris.com">support@forgedbyaris.com</a>
+  </div>
+</div>
+<script>
+(function () {
+  var params = new URLSearchParams(location.search);
+  // /webinar/997 and /1797 require ?src=. Default replay traffic to webinar-replay.
+  var src = (params.get('src') || 'webinar-replay').toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 64);
+  if (src === 'fwn-virtual' || src === 'fwn-raleigh') src = 'webinar-replay';
+  var ref = (params.get('ref') || '').toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 64);
+  document.querySelectorAll('a[data-checkout]').forEach(function (a) {
+    a.href = a.getAttribute('href') + '?src=' + encodeURIComponent(src) + (ref ? '&ref=' + encodeURIComponent(ref) : '');
+  });
+  var slot = document.getElementById('video-slot');
+  var id = (slot.getAttribute('data-youtube-id') || params.get('v') || '').replace(/[^A-Za-z0-9_-]/g, '');
+  if (id) {
+    slot.innerHTML = '<iframe src="https://www.youtube-nocookie.com/embed/' + id + '?rel=0&cc_load_policy=0" title="FORGE Live replay" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>';
+  }
+})();
+</script>
+</body>
+</html>

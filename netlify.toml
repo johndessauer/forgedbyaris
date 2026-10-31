@@ -132,6 +132,18 @@
   to = "/.netlify/functions/webinar-checkout"
   status = 200
 
+[[redirects]]
+  from = "/api/webinar-register"
+  to = "/.netlify/functions/webinar-register"
+  status = 200
+
+# Attendance tracking link used in reminder emails/texts. Tags, then 302s to Google Meet.
+[[redirects]]
+  from = "/webinar/join"
+  to = "/.netlify/functions/webinar-join"
+  status = 200
+  force = true
+
 # FWN pages are unlisted. noindex is also set in each page's meta robots.
 [[headers]]
   for = "/fwn-webinar"
@@ -162,6 +174,12 @@
 
 [functions.webinar-checkout]
   timeout = 26
+
+[functions.webinar-register]
+  timeout = 26
+
+[functions.webinar-join]
+  timeout = 10
 
 # Internal handoff notes live in docs/handoffs/ (Comping Engine Build Brief
 # §10). The site publishes the repo root, so block them from the web.
