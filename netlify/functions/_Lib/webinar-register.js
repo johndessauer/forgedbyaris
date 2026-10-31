@@ -10,6 +10,11 @@
 //   GHL_API_KEY, GHL_LOCATION_ID   already set for memberstack-webhook.js
 //   WEBINAR_ZOOM_URL               Zoom registration/join link (placeholder until set)
 //   WEBINAR_NEXT_DATE              YYYY-MM-DD of the next live session (default 2026-11-17)
+//   WEBINAR_NEXT_TIME              display time of the next session (default "7:00 PM CT")
+//
+// Sessions can fall on any weekday at any time, so nothing here names a
+// recurring day. GET /api/webinar-register returns { date, time, weekday, label }
+// and the pages render the label, e.g. "Tuesday, November 17, 2026 at 7:00 PM CT".
 //
 // Tags: forge-webinar-reg, webinar-<date>, src-<src>, plus sms-consent when
 // the box is checked. fwn-virtual / fwn-raleigh are rejected so FWN stays on /fwn/.
@@ -18,6 +23,7 @@ const https = require('https');
 const { json, preflight } = require('./http');
 
 const DEFAULT_DATE = '2026-11-17';
+const DEFAULT_TIME = '7:00 PM CT';
 const FWN_LEAD_SOURCES = new Set(['fwn-virtual', 'fwn-raleigh']);
 const SMS_CONSENT_TEXT =
   'I agree to receive text messages from FORGE about this webinar and related offers. ' +
@@ -45,7 +51,25 @@ function isEmail(v) {
 
 function webinarDate(env) {
   const d = String(env.WEBINAR_NEXT_DATE || DEFAULT_DATE).trim();
-  return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : DEFAULT_DATE;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return DEFAULT_DATE;
+  const t = new Date(d + 'T12:00:00Z');
+  return !isNaN(t) && t.toISOString().slice(0, 10) === d ? d : DEFAULT_DATE;
+}
+
+function webinarTime(env) {
+  const t = String(env.WEBINAR_NEXT_TIME || '').replace(/[<>]/g, '').trim().slice(0, 40);
+  return t || DEFAULT_TIME;
+}
+
+// Weekday and long date are computed from the YYYY-MM-DD in UTC, so the
+// calendar day never shifts with the server's timezone.
+function sessionInfo(env) {
+  const date = webinarDate(env);
+  const time = webinarTime(env);
+  const d = new Date(date + 'T12:00:00Z');
+  const weekday = d.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' });
+  const longDate = d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+  return { date, time, weekday, label: `${weekday}, ${longDate} at ${time}` };
 }
 
 function validate(body, env) {
@@ -124,7 +148,8 @@ function ghlUpsert(payload, env, request = https.request) {
 async function registerHandler(event, options = {}) {
   const env = options.env || process.env;
   if (event.httpMethod === 'OPTIONS') return preflight();
-  if (event.httpMethod !== 'POST') return json(405, { error: 'POST only' });
+  if (event.httpMethod === 'GET') return json(200, sessionInfo(env));
+  if (event.httpMethod !== 'POST') return json(405, { error: 'GET or POST only' });
 
   let body;
   try { body = JSON.parse(event.body || '{}'); } catch (e) { return json(400, { error: 'invalid JSON' }); }
@@ -140,7 +165,7 @@ async function registerHandler(event, options = {}) {
   const zoom = String(env.WEBINAR_ZOOM_URL || '').trim();
   // If the Zoom link is not configured yet, the registrant lands on a holding page.
   const redirect = /^https:\/\//.test(zoom) ? zoom : `/webinar/registered?date=${v.contact.date}`;
-  return json(200, { ok: true, ghl: ghlOk, date: v.contact.date, redirect });
+  return json(200, { ok: true, ghl: ghlOk, date: v.contact.date, session: sessionInfo(env).label, redirect });
 }
 
 module.exports = {
@@ -148,6 +173,9 @@ module.exports = {
   sanitize,
   normalizePhone,
   validate,
+  sessionInfo,
+  DEFAULT_DATE,
+  DEFAULT_TIME,
   buildPayload,
   ghlUpsert,
   registerHandler,
