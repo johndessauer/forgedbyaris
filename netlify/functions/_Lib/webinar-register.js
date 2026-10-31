@@ -9,7 +9,7 @@
 // Env vars:
 //   GHL_API_KEY, GHL_LOCATION_ID   already set for memberstack-webhook.js
 //   WEBINAR_ZOOM_URL               Zoom registration/join link (placeholder until set)
-//   WEBINAR_NEXT_DATE              YYYY-MM-DD of the next live session (default 2026-11-19)
+//   WEBINAR_NEXT_DATE              YYYY-MM-DD of the next live session (default 2026-11-17)
 //
 // Tags: forge-webinar-reg, webinar-<date>, src-<src>, plus sms-consent when
 // the box is checked. fwn-virtual / fwn-raleigh are rejected so FWN stays on /fwn/.
@@ -17,7 +17,7 @@
 const https = require('https');
 const { json, preflight } = require('./http');
 
-const DEFAULT_DATE = '2026-11-19';
+const DEFAULT_DATE = '2026-11-17';
 const FWN_LEAD_SOURCES = new Set(['fwn-virtual', 'fwn-raleigh']);
 const SMS_CONSENT_TEXT =
   'I agree to receive text messages from FORGE about this webinar and related offers. ' +
