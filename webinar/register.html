@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="/assets/css/fwn.css">
 <script src="/assets/js/ref-capture.js"></script>
 <title>Register: FORGE Live Webinar | FORGE</title>
-<meta name="description" content="Register for the free weekly FORGE live webinar, Tuesdays at 7:00 PM CT.">
+<meta name="description" content="Register for the next free FORGE live webinar session.">
 </head>
 <body>
 <div class="noise"></div>
@@ -24,9 +24,9 @@
   </a>
 
   <div class="auth-card">
-    <div class="founding-badge">Free live webinar · Tuesdays 7:00 PM CT</div>
+    <div class="founding-badge">Free live webinar · Weekly sessions</div>
     <h1 class="auth-title">FORGE Live</h1>
-    <p class="auth-sub">Register below and you'll go straight to the Zoom link. Next session: <strong id="next-date">Tuesday, November 17, 2026 at 7:00 PM CT</strong>.</p>
+    <p class="auth-sub">Register below and you'll go straight to the Zoom link. Our next live session: <strong id="next-date" data-session-label>coming up soon</strong>.</p>
 
     <div class="error-msg" id="error-msg"></div>
 
@@ -104,6 +104,14 @@
       })
       .catch(function (e2) { btn.disabled = false; btn.textContent = 'Save My Seat'; show(e2.message); });
   });
+})();
+</script>
+<script>
+(function () {
+  fetch('/api/webinar-register').then(function (r) { return r.json(); }).then(function (s) {
+    if (!s || !s.label) return;
+    document.querySelectorAll('[data-session-label]').forEach(function (el) { el.textContent = s.label; });
+  }).catch(function () {});
 })();
 </script>
 </body>
