@@ -194,7 +194,77 @@ async function registerHandler(event, options = {}) {
   return json(200, { ok: true, ghl: ghlOk, date: v.contact.date, session: sessionInfo(env).label, redirect });
 }
 
+// ---------------------------------------------------------------------------
+// GET /webinar/join?e=<GHL contact id or email>&s=<YYYY-MM-DD>
+//
+// Attendance tracking link for reminder emails/texts. Tags the FORGE GHL
+// contact webinar-joined-<s> (default WEBINAR_NEXT_DATE), then 302s to
+// WEBINAR_JOIN_URL (Google Meet). The redirect ALWAYS happens: a missing or
+// unknown identifier, or a GHL error, only skips the tag.
+//
+// Prefer the contact id so emails stay out of URLs. In GHL reminder links use:
+//   https://forgedbyaris.com/webinar/join?e={{contact.id}}&s=2026-11-17
+// ---------------------------------------------------------------------------
+
+const CONTACT_ID_RE = /^[A-Za-z0-9]{10,40}$/;
+
+function validDate(d) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(d || ''))) return false;
+  const t = new Date(d + 'T12:00:00Z');
+  return !isNaN(t) && t.toISOString().slice(0, 10) === d;
+}
+
+async function resolveContactId(identifier, env, request) {
+  const id = String(identifier || '').trim();
+  if (!id) return '';
+  if (CONTACT_ID_RE.test(id)) return id;
+  if (!isEmail(id)) return '';
+  const q = `locationId=${encodeURIComponent(env.GHL_LOCATION_ID || '')}&email=${encodeURIComponent(id.toLowerCase())}`;
+  const res = await ghlRequest({ method: 'GET', path: `/contacts/search/duplicate?${q}` }, env, request);
+  if (!(res.statusCode >= 200 && res.statusCode < 300)) return '';
+  try {
+    const c = JSON.parse(res.data || '{}').contact;
+    return c && c.id ? String(c.id) : '';
+  } catch (e) {
+    return '';
+  }
+}
+
+function joinRedirect(env, date) {
+  const url = String(env.WEBINAR_JOIN_URL || '').trim();
+  const location = /^https:\/\//.test(url) ? url : `/webinar/registered?date=${date}`;
+  return { statusCode: 302, headers: { Location: location, 'Cache-Control': 'no-store' }, body: '' };
+}
+
+async function joinHandler(event, options = {}) {
+  const env = options.env || process.env;
+  const q = event.queryStringParameters || {};
+  const date = validDate(q.s) ? q.s : webinarDate(env);
+  const tag = `webinar-joined-${date}`;
+  let tagged = false;
+  try {
+    const contactId = await resolveContactId(q.e, env, options.request);
+    if (contactId) {
+      const res = await ghlRequest(
+        { method: 'POST', path: `/contacts/${encodeURIComponent(contactId)}/tags`, payload: { tags: [tag] } },
+        env,
+        options.request
+      );
+      tagged = res.statusCode >= 200 && res.statusCode < 300;
+      if (!tagged) console.error('webinar-join tag failed', res.statusCode || res.error || res.reason);
+    }
+  } catch (err) {
+    console.error('webinar-join error', err && err.message);
+  }
+  const out = joinRedirect(env, date);
+  out.headers['X-Forge-Join-Tagged'] = tagged ? '1' : '0';
+  return out;
+}
+
 module.exports = {
+  joinHandler,
+  resolveContactId,
+
   SMS_CONSENT_TEXT,
   sanitize,
   normalizePhone,
