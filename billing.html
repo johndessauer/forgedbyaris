@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Update Billing | FORGE</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<script src="https://static.memberstack.com/scripts/v1/memberstack.js" data-memberstack-app="app_cmr41qq5500q80tsx94pj61rc" defer></script>
+<style>
+body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; background:#0D1B2A; color:#fff; font-family:Inter,Arial,sans-serif; }
+.card { max-width:440px; padding:32px; background:#162840; border-radius:12px; text-align:center; }
+a, button { display:inline-block; margin-top:16px; padding:12px 22px; border:0; border-radius:8px; background:#FF6B2B; color:#fff; font-weight:600; text-decoration:none; cursor:pointer; font-size:15px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1 style="font-size:22px">Update your FORGE payment method</h1>
+  <p id="msg">Opening your secure billing page…</p>
+  <button id="go" hidden>Open billing</button>
+  <a id="login" href="/login.html" hidden>Log in to continue</a>
+</div>
+<script>
+// Stable link for the FORGE Past-Due Dunning emails and texts. A signed-in
+// member is sent to the Stripe customer portal Memberstack manages, where
+// they can update their card. Signed-out visitors log in first.
+function waitForMemberstack(maxWaitMs, intervalMs) {
+  return new Promise(function (resolve, reject) {
+    var start = Date.now();
+    (function check() {
+      if (window.$memberstackDom && window.$memberstackDom.getCurrentMember) resolve(window.$memberstackDom);
+      else if (Date.now() - start > maxWaitMs) reject(new Error('Memberstack failed to load'));
+      else setTimeout(check, intervalMs);
+    })();
+  });
+}
+function openPortal(ms) {
+  return ms.launchStripeCustomerPortal({ returnUrl: window.location.origin + '/dashboard.html' });
+}
+(async function () {
+  var msg = document.getElementById('msg');
+  try {
+    var ms = await waitForMemberstack(8000, 100);
+    var res = await ms.getCurrentMember();
+    if (!res || !res.data) {
+      msg.textContent = 'Log in to your FORGE account, then come back to this link to update your card.';
+      document.getElementById('login').hidden = false;
+      return;
+    }
+    var go = document.getElementById('go');
+    go.onclick = function () { openPortal(ms).catch(function () { msg.textContent = 'We could not open billing. Reply to our email and we will help.'; }); };
+    try { await openPortal(ms); }
+    catch (e) { msg.textContent = 'Click below to open your billing page.'; go.hidden = false; }
+  } catch (e) {
+    msg.textContent = 'We could not load billing right now. Reply to our email and we will help.';
+  }
+})();
+</script>
+</body>
+</html>
