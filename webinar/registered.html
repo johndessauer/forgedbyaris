@@ -9,6 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/assets/css/fwn.css">
 <script src="/assets/js/ref-capture.js"></script>
+<script src="/assets/js/webinar-schedule.js"></script>
 <title>You're registered | FORGE Live</title>
 </head>
 <body>
@@ -24,20 +25,12 @@
   <div class="auth-card">
     <div class="founding-badge">You're registered</div>
     <h1 class="auth-title">See you live</h1>
-    <p class="auth-sub">Your seat for FORGE Live is saved. Our next live session is <strong data-session-label>coming up soon</strong>. Watch your email and texts for the Google Meet link before we go live.</p>
+    <p class="auth-sub">Your seat for FORGE Live is saved. Our next live session is <strong data-session-label>Tuesday, November 17, 2026 at 8:00 PM CT</strong>. Watch your email and texts for the session link before we go live.</p>
   </div>
   <div class="footer-note">
     <a href="/">ForgedByAris.com</a> &nbsp;·&nbsp;
     <a href="mailto:support@forgedbyaris.com">support@forgedbyaris.com</a>
   </div>
 </div>
-<script>
-(function () {
-  fetch('/api/webinar-register').then(function (r) { return r.json(); }).then(function (s) {
-    if (!s || !s.label) return;
-    document.querySelectorAll('[data-session-label]').forEach(function (el) { el.textContent = s.label; });
-  }).catch(function () {});
-})();
-</script>
 </body>
 </html>

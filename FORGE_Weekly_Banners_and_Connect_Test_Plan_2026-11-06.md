@@ -1,0 +1,1 @@
+Build marker only: this commit refreshes PR 53's Netlify deploy preview with the John-approved webinar settings (WEBINAR_JOIN_URL https://meet.google.com/ptf-kebj-kjr, WEBINAR_NEXT_DATE 2026-11-17, WEBINAR_NEXT_TIME 8:00 PM CT). Production already had those values and is unchanged.
