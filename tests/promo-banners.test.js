@@ -62,6 +62,44 @@ test('banner names the Nov 17 start, then the next session, and keeps the Monday
   assert.equal(/\d{4}/.test(afterSeries), false);
 });
 
+test('registration label follows the approved sessions and an env pin', () => {
+  const early = new Date('2026-11-06T16:00:00Z');
+  assert.equal(schedule.sessionLabel(early), 'Tuesday, November 17, 2026 at 8:00 PM CT');
+  assert.equal(
+    schedule.sessionLabel(new Date('2026-11-18T04:00:00Z')),
+    'Tuesday, November 24, 2026 at 8:00 PM CT'
+  );
+  assert.equal(
+    schedule.sessionLabel(new Date('2026-11-25T04:00:00Z')),
+    'Monday, November 30, 2026 at 8:00 PM CT'
+  );
+  assert.equal(
+    schedule.sessionLabel(new Date('2026-12-01T04:00:00Z')),
+    'Tuesday, December 8, 2026 at 8:00 PM CT'
+  );
+  assert.equal(
+    schedule.sessionLabel(new Date('2026-12-09T04:00:00Z')),
+    'Tuesday, December 15, 2026 at 8:00 PM CT'
+  );
+  assert.equal(
+    schedule.sessionLabel(new Date('2026-12-16T04:00:00Z')),
+    'Tuesday, January 5, 2027 at 8:00 PM CT'
+  );
+  assert.equal(schedule.sessionLabel(new Date('2027-01-06T04:00:00Z')), 'Tuesdays at 8:00 PM CT');
+  assert.equal(
+    schedule.sessionLabel(early, '2026-11-30'),
+    'Monday, November 30, 2026 at 8:00 PM CT'
+  );
+  assert.equal(
+    schedule.sessionLabel(early, '2026-11-18', '6:30 PM CT'),
+    'Wednesday, November 18, 2026 at 6:30 PM CT'
+  );
+  assert.equal(
+    schedule.sessionLabel(new Date('2026-12-01T04:00:00Z'), '2026-11-17', '8:00 PM CT'),
+    'Tuesday, December 8, 2026 at 8:00 PM CT'
+  );
+});
+
 test('a registration pin is used only when it is an approved date that has not ended', () => {
   const early = new Date('2026-11-06T16:00:00Z');
   assert.equal(

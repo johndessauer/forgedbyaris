@@ -14,7 +14,10 @@ test('homepage support lives under Connect, with no corner launchers', () => {
   const site = read('assets/site.js');
   const css = read('assets/sales-chat.css');
   assert.match(index, /id="navConnectBtn"/);
-  assert.match(index, />Connect</);
+  assert.match(index, /aria-haspopup="menu"/);
+  assert.match(site, /ArrowDown/);
+  assert.match(site, /focusItem\(0\)/);
+  assert.match(index, />Connect /);
   assert.match(index, /id="navAskAris"/);
   assert.match(index, /id="navSupportChat"/);
   assert.match(index, /id="salesChatPanel"/);

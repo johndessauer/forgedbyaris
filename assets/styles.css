@@ -164,7 +164,7 @@ img { max-width: 100%; display: block; }
 .nav-connect__btn {
   background: none;
   border: none;
-  padding: 0;
+  padding: 8px 2px;
   font: inherit;
   font-size: 13px;
   font-weight: 700;
@@ -172,6 +172,7 @@ img { max-width: 100%; display: block; }
   color: var(--light-grey);
   cursor: pointer;
 }
+.nav-connect__caret { font-size: 10px; margin-left: 2px; }
 .nav-connect__btn:hover,
 .nav-connect__btn[aria-expanded="true"] { color: var(--white); }
 .nav-connect__btn:focus-visible {

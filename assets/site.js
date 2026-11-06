@@ -504,11 +504,44 @@ function initConnectMenu() {
     menu.hidden = false;
     btn.setAttribute('aria-expanded', 'true');
   }
+  function items() {
+    return Array.prototype.slice.call(menu.querySelectorAll('[role="menuitem"]'));
+  }
+  function focusItem(index) {
+    var list = items();
+    if (!list.length) return;
+    var i = ((index % list.length) + list.length) % list.length;
+    list[i].focus();
+  }
   window.FORGE_CLOSE_CONNECT = close;
+  // Click and tap toggle the menu. Hover does not. Enter, Space, and
+  // ArrowDown open it from the keyboard and move focus into the items.
   btn.addEventListener('click', function (e) {
     e.stopPropagation();
     if (menu.hidden) open();
     else close();
+  });
+  btn.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (menu.hidden) open();
+      focusItem(0);
+      return;
+    }
+    if ((e.key === 'Enter' || e.key === ' ') && menu.hidden) {
+      e.preventDefault();
+      open();
+      focusItem(0);
+    }
+  });
+  menu.addEventListener('keydown', function (e) {
+    var list = items();
+    var i = list.indexOf(document.activeElement);
+    if (e.key === 'ArrowDown') { e.preventDefault(); focusItem(i + 1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); focusItem(i < 0 ? list.length - 1 : i - 1); }
+    else if (e.key === 'Home') { e.preventDefault(); focusItem(0); }
+    else if (e.key === 'End') { e.preventDefault(); focusItem(list.length - 1); }
+    else if (e.key === 'Escape') { e.preventDefault(); close(); btn.focus(); }
   });
   document.addEventListener('click', function (e) {
     if (menu.hidden) return;
@@ -516,9 +549,8 @@ function initConnectMenu() {
     close();
   });
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && !menu.hidden) {
+    if (e.key === 'Escape' && !menu.hidden && document.activeElement === btn) {
       close();
-      btn.focus();
     }
   });
 }

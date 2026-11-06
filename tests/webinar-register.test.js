@@ -98,13 +98,21 @@ test('GET returns the session info for the pages', async () => {
   assert.equal(JSON.parse(res.body).label, 'Wednesday, November 18, 2026 at 7:00 PM CT');
 });
 
-test('pages do not hard-code a recurring weekday', () => {
+test('registration pages show the approved next session instead of coming soon', () => {
   const fs = require('fs');
   const path = require('path');
-  for (const f of ['register.html', 'registered.html', 'replay.html']) {
+  const schedule = require('../assets/js/webinar-schedule');
+  const label = schedule.sessionLabel(new Date('2026-11-06T16:00:00Z'));
+  assert.equal(label, 'Tuesday, November 17, 2026 at 8:00 PM CT');
+  for (const f of ['register.html', 'registered.html']) {
     const html = fs.readFileSync(path.join(__dirname, '..', 'webinar', f), 'utf8');
-    assert.doesNotMatch(html, /(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)s?\b/, f);
+    assert.equal(html.includes('coming up soon'), false, f);
+    assert.equal(html.includes(label), true, f);
+    assert.match(html, /\/assets\/js\/webinar-schedule\.js/, f);
+    assert.equal(/meet\.google/i.test(html), false, f);
   }
+  const replay = fs.readFileSync(path.join(__dirname, '..', 'webinar', 'replay.html'), 'utf8');
+  assert.doesNotMatch(replay, /(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)s?\b/);
 });
 
 test('existing FORGE member (paying-member tag) goes to holding page without tagging', async () => {

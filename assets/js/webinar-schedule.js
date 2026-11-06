@@ -95,6 +95,32 @@
     return null;
   }
 
+  function isValidDate(date) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date || ''))) return false;
+    var t = new Date(date + 'T12:00:00Z');
+    return !isNaN(t) && t.toISOString().slice(0, 10) === date;
+  }
+
+  function formatSession(date, time) {
+    return weekdayOf(date) + ', ' + longDateOf(date) + ' at ' + (time || TIME_LABEL);
+  }
+
+  // Visible label for the registration pages. An explicit off-list pin is
+  // shown as given (WEBINAR_NEXT_DATE). A listed pin is shown only while
+  // that session has not ended; otherwise the next approved date is used.
+  // Listed sessions are always 8:00 PM CT. There is no "coming up soon".
+  function sessionLabel(now, pinnedDate, pinnedTime) {
+    var t = now instanceof Date ? now : new Date(now);
+    if (pinnedDate && isValidDate(pinnedDate) && DATES.indexOf(pinnedDate) === -1) {
+      return formatSession(pinnedDate, pinnedTime || TIME_LABEL);
+    }
+    var session = featuredSession(t, pinnedDate);
+    if (!session) return 'Tuesdays at ' + TIME_LABEL;
+    var time = TIME_LABEL;
+    if (pinnedDate && session.date === pinnedDate && pinnedTime) time = pinnedTime;
+    return formatSession(session.date, time);
+  }
+
   function whenLabel(session) {
     return session.weekday + ', ' + session.longDate + ' at ' + TIME_LABEL;
   }
@@ -122,6 +148,30 @@
     sessions: sessions,
     featuredSession: featuredSession,
     bannerText: bannerText,
+    sessionLabel: sessionLabel,
     weekdayOf: weekdayOf
   };
 });
+
+// Registration pages include this file. Fill [data-session-label] from the
+// schedule immediately, then reconcile with GET /api/webinar-register so an
+// env pin (WEBINAR_NEXT_DATE / WEBINAR_NEXT_TIME) still wins when it should.
+if (typeof document !== 'undefined' && document.querySelector) {
+  function paintWebinarSessionLabels(info) {
+    var api = window.ForgeWebinarSchedule;
+    var nodes = document.querySelectorAll('[data-session-label]');
+    if (!nodes.length || !api) return;
+    var label = api.sessionLabel(new Date(), info && info.date, info && info.time);
+    for (var i = 0; i < nodes.length; i++) nodes[i].textContent = label;
+  }
+  function bootWebinarSessionLabels() {
+    if (!document.querySelector('[data-session-label]')) return;
+    paintWebinarSessionLabels(null);
+    if (typeof fetch !== 'function') return;
+    fetch('/api/webinar-register').then(function (r) { return r.json(); }).then(function (info) {
+      paintWebinarSessionLabels(info);
+    }).catch(function () {});
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bootWebinarSessionLabels);
+  else bootWebinarSessionLabels();
+}
