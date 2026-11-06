@@ -51,18 +51,19 @@ test('rejects FWN sources, missing src, bad phone', () => {
   assert.equal(reg.validate({ ...good, phone: '123' }, {}).ok, false);
 });
 
-test('handler upserts to FORGE location and redirects to the live session link', async () => {
+test('handler upserts to FORGE location and returns the holding page even when Meet is configured', async () => {
   const cap = {};
   const res = await reg.registerHandler({ httpMethod: 'POST', body: JSON.stringify(good) }, { env: ENV, request: fakeRequest(cap) });
   const j = JSON.parse(res.body);
   assert.equal(res.statusCode, 200);
-  assert.equal(j.redirect, 'https://meet.google.com/abc-defg-hij');
+  assert.equal(j.redirect, '/webinar/registered?date=2026-11-17');
+  assert.equal(j.redirect.includes('meet.google'), false);
   assert.equal(cap.opts.path, '/contacts/upsert');
   assert.equal(cap.body.locationId, '3dQD2B6ZsBjZVIrWF8WR');
   assert.ok(cap.body.tags.includes('forge-webinar-reg'));
 });
 
-test('handler falls back to holding page when the live session link is unset', async () => {
+test('handler returns the holding page when the live session link is unset', async () => {
   const cap = {};
   const res = await reg.registerHandler({ httpMethod: 'POST', body: JSON.stringify(good) }, { env: { ...ENV, WEBINAR_JOIN_URL: '' }, request: fakeRequest(cap) });
   assert.equal(JSON.parse(res.body).redirect, '/webinar/registered?date=2026-11-17');
@@ -136,19 +137,19 @@ test('member tag match is case-insensitive and covers member / paying-member onl
   assert.equal(reg.hasMemberTag(undefined), false);
 });
 
-test('non-member contact is tagged and sent to the live session link', async () => {
+test('non-member contact is tagged and sent to the holding page', async () => {
   const cap = {};
   const req = fakeRequest(cap, { lookupBody: { contact: { id: 'c2', tags: ['waitlist'] } } });
   const j = JSON.parse((await reg.registerHandler({ httpMethod: 'POST', body: JSON.stringify(good) }, { env: ENV, request: req })).body);
-  assert.equal(j.redirect, 'https://meet.google.com/abc-defg-hij');
+  assert.equal(j.redirect, '/webinar/registered?date=2026-11-17');
   assert.deepEqual(cap.calls.map((c) => c.method), ['GET', 'POST']);
 });
 
-test('member lookup failure fails open and still registers', async () => {
+test('member lookup failure fails open, still registers, and stays on the holding page', async () => {
   const cap = {};
   const req = fakeRequest(cap, { lookupStatus: 500 });
   const j = JSON.parse((await reg.registerHandler({ httpMethod: 'POST', body: JSON.stringify(good) }, { env: ENV, request: req })).body);
-  assert.equal(j.redirect, 'https://meet.google.com/abc-defg-hij');
+  assert.equal(j.redirect, '/webinar/registered?date=2026-11-17');
   assert.ok(cap.body.tags.includes('forge-webinar-reg'));
 });
 

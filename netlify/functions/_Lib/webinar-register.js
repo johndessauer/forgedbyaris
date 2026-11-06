@@ -2,13 +2,14 @@
 //
 // POST /api/webinar-register  { firstName, lastName, email, phone, smsConsent, src, ref }
 // Upserts the contact into FORGE GHL (GHL_LOCATION_ID, the FORGE location only)
-// with registration tags, then returns the live session link (Google Meet)
-// for the browser to redirect to. Nothing is sent to the registrant from here; any confirmation
-// or reminder sequence lives in a GHL workflow keyed off the tags.
+// with registration tags, then returns the holding page. Members and
+// non-members both land on /webinar/registered?date=<YYYY-MM-DD>. The
+// browser is not sent to the live session. Nothing is sent to the registrant
+// from here; confirmation and the session link live in a GHL workflow.
 //
 // Env vars:
 //   GHL_API_KEY, GHL_LOCATION_ID   already set for memberstack-webhook.js
-//   WEBINAR_JOIN_URL               live session link (Google Meet); holding page until set
+//   WEBINAR_JOIN_URL               official Meet link for /webinar/join only; registration does not use it
 //   WEBINAR_NEXT_DATE              YYYY-MM-DD of the next live session (default: first date in assets/js/webinar-schedule.js)
 //   WEBINAR_NEXT_TIME              display time of the next session (default "8:00 PM CT")
 //
@@ -191,10 +192,9 @@ async function registerHandler(event, options = {}) {
   const ghlOk = result.statusCode >= 200 && result.statusCode < 300;
   if (!ghlOk) console.error('webinar-register GHL upsert failed', result.statusCode || result.error || result.reason);
 
-  const joinUrl = String(env.WEBINAR_JOIN_URL || '').trim();
-  // If the live session link is not configured yet, the registrant lands on the holding page.
-  const redirect = /^https:\/\//.test(joinUrl) ? joinUrl : holding;
-  return json(200, { ok: true, ghl: ghlOk, date: v.contact.date, session: sessionInfo(env).label, redirect });
+  // Registration never opens the live session. /webinar/join is the only
+  // path that 302s to WEBINAR_JOIN_URL, and only from reminder links.
+  return json(200, { ok: true, ghl: ghlOk, date: v.contact.date, session: sessionInfo(env).label, redirect: holding });
 }
 
 // ---------------------------------------------------------------------------
