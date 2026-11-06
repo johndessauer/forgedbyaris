@@ -73,10 +73,10 @@ test('handler rejects other methods and bad input', async () => {
   assert.equal((await reg.registerHandler({ httpMethod: 'POST', body: '{}' }, { env: ENV })).statusCode, 400);
 });
 
-test('sessionInfo defaults to Tuesday, November 17, 2026 at 7:00 PM CT', () => {
+test('sessionInfo defaults to Tuesday, November 17, 2026 at 8:00 PM CT', () => {
   assert.deepEqual(reg.sessionInfo({}), {
-    date: '2026-11-17', time: '7:00 PM CT', weekday: 'Tuesday',
-    label: 'Tuesday, November 17, 2026 at 7:00 PM CT',
+    date: '2026-11-17', time: '8:00 PM CT', weekday: 'Tuesday',
+    label: 'Tuesday, November 17, 2026 at 8:00 PM CT',
   });
 });
 
@@ -84,7 +84,7 @@ test('sessionInfo computes the weekday from WEBINAR_NEXT_DATE and uses WEBINAR_N
   assert.equal(reg.sessionInfo({ WEBINAR_NEXT_DATE: '2026-11-18', WEBINAR_NEXT_TIME: '6:30 PM CT' }).label,
     'Wednesday, November 18, 2026 at 6:30 PM CT');
   assert.equal(reg.sessionInfo({ WEBINAR_NEXT_DATE: '2026-11-19' }).label,
-    'Thursday, November 19, 2026 at 7:00 PM CT');
+    'Thursday, November 19, 2026 at 8:00 PM CT');
 });
 
 test('invalid WEBINAR_NEXT_DATE falls back to the default', () => {

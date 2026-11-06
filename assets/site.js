@@ -2,45 +2,67 @@
 // FORGE — shared site script
 // ===================================================================
  
-// TODO(tomorrow): replace this placeholder with the real URL.
-// WEBINAR_URL  -> John will send the GHL webinar-registration link.
+// First-party registration page. Not a GHL/Keap form, and not /webinar/join
+// (that path is the attendance redirect for reminder links).
 window.FORGE_LINKS = {
-  WEBINAR_URL: '#webinar-link-pending',
+  WEBINAR_URL: '/webinar/register?src=site',
   DEMO_URL: 'https://api.leadconnectorhq.com/widget/booking/JlM6SoqbqCKmDois6PHx'
 };
 
-// Public announcement bar (index.html only). Edit this object to change
-// the message shown above the nav — bump `id` whenever the text changes
-// so a visitor who dismissed an earlier banner sees the new one. The CTA
-// itself is a static data-cta="demo" element in the HTML (reuses the
-// same FORGE_LINKS href + Meta Pixel event as every other CTA on the
-// site) — this object only controls the wording and whether it shows.
-window.FORGE_ANNOUNCEMENT = {
-  enabled: true,
-  id: 'group-coaching-oct15',
-  text: 'LIVE Group Coaching starts October 15, 2026.',
-  ctaLabel: 'Reserve Your Spot'
-};
+// Homepage promo bars (index.html). Each row dismisses on its own id, stored
+// separately from the retired single-banner key so a visitor who closed the
+// expired October coaching bar still sees these. Webinar wording is filled
+// from assets/js/webinar-schedule.js, then aligned to GET /api/webinar-register
+// when that pin is an approved date that has not ended.
+var ANNOUNCEMENT_DISMISS_KEY = 'forge_announcement_dismissed_ids';
+
+function readDismissedAnnouncements() {
+  try {
+    if (!window.localStorage) return [];
+    var parsed = JSON.parse(localStorage.getItem(ANNOUNCEMENT_DISMISS_KEY) || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    return [];
+  }
+}
 
 function initAnnouncementBar() {
-  var cfg = window.FORGE_ANNOUNCEMENT;
   var bar = document.getElementById('announcement-bar');
-  if (!bar || !cfg || !cfg.enabled) return;
-  try {
-    if (window.localStorage && localStorage.getItem('forge_announcement_dismissed') === cfg.id) return;
-  } catch (e) {}
-  var textEl = document.getElementById('announcementText');
-  var ctaEl = document.getElementById('announcementCta');
-  if (textEl) textEl.textContent = cfg.text;
-  if (ctaEl) ctaEl.textContent = cfg.ctaLabel + ' \u2192';
-  bar.classList.add('announcement-bar--visible');
-  var closeBtn = document.getElementById('announcementClose');
-  if (closeBtn) {
+  if (!bar) return;
+  var dismissed = readDismissedAnnouncements();
+  bar.querySelectorAll('[data-announcement-id]').forEach(function (row) {
+    var id = row.getAttribute('data-announcement-id');
+    if (dismissed.indexOf(id) !== -1) {
+      row.hidden = true;
+      return;
+    }
+    var closeBtn = row.querySelector('.announcement-bar__close');
+    if (!closeBtn) return;
     closeBtn.addEventListener('click', function () {
-      bar.classList.remove('announcement-bar--visible');
-      try { if (window.localStorage) localStorage.setItem('forge_announcement_dismissed', cfg.id); } catch (e) {}
+      row.hidden = true;
+      var next = readDismissedAnnouncements();
+      if (next.indexOf(id) === -1) next.push(id);
+      try { if (window.localStorage) localStorage.setItem(ANNOUNCEMENT_DISMISS_KEY, JSON.stringify(next)); } catch (e) {}
+    });
+  });
+
+  var webinarText = document.getElementById('webinarAnnouncementText');
+  var schedule = window.ForgeWebinarSchedule;
+  if (!webinarText || !schedule) return;
+  function apply(pinned) {
+    webinarText.textContent = schedule.bannerText(new Date(), pinned || null);
+  }
+  apply(null);
+  var webinarCta = document.getElementById('webinarAnnouncementCta');
+  if (webinarCta) {
+    webinarCta.addEventListener('click', function () {
+      if (window.fbq) fbq('track', 'Lead', { content_name: 'webinar_registration' });
     });
   }
+  fetch('/api/webinar-register').then(function (r) { return r.json(); }).then(function (s) {
+    if (!s || !s.date || schedule.DATES.indexOf(s.date) === -1) return;
+    apply(s.date);
+  }).catch(function () {});
 }
  
 document.addEventListener('DOMContentLoaded', function () {
@@ -48,7 +70,10 @@ document.addEventListener('DOMContentLoaded', function () {
   document.querySelectorAll('[data-cta]').forEach(function (el) {
     var kind = el.getAttribute('data-cta');
     if (kind === 'webinar') {
-      el.setAttribute('href', window.FORGE_LINKS.WEBINAR_URL);
+      var href = el.getAttribute('href') || '';
+      if (!href || href === '#' || href.charAt(0) === '#') {
+        el.setAttribute('href', window.FORGE_LINKS.WEBINAR_URL);
+      }
       el.addEventListener('click', function () {
         if (window.fbq) fbq('track', 'Lead', { content_name: 'webinar_registration' });
       });
@@ -74,6 +99,7 @@ document.addEventListener('DOMContentLoaded', function () {
   initArisDemo();
   initAnnouncementBar();
   initArisIntro();
+  initConnectMenu();
   initSalesChat();
   initGhlWidgetOverride();
 });
@@ -230,13 +256,12 @@ function initArisDemo() {
 // ===================================================================
 function initSalesChat() {
   var root = document.getElementById('salesChat');
-  var toggle = document.getElementById('salesChatToggle');
   var panel = document.getElementById('salesChatPanel');
   var closeBtn = document.getElementById('salesChatClose');
   var messagesEl = document.getElementById('salesChatMessages');
   var input = document.getElementById('salesChatInput');
   var sendBtn = document.getElementById('salesChatSend');
-  if (!root || !toggle || !panel || !closeBtn || !messagesEl || !input || !sendBtn) return;
+  if (!root || !panel || !closeBtn || !messagesEl || !input || !sendBtn) return;
 
   var history = [];
   var sending = false;
@@ -323,8 +348,17 @@ function initSalesChat() {
     root.classList.remove('is-open');
   }
 
-  toggle.addEventListener('click', openPanel);
   closeBtn.addEventListener('click', closePanel);
+  var ask = document.getElementById('navAskAris');
+  if (ask) {
+    ask.addEventListener('click', function () {
+      if (window.FORGE_CLOSE_CONNECT) window.FORGE_CLOSE_CONNECT();
+      var support = window.leadConnector && window.leadConnector.chatWidget;
+      if (support && typeof support.closeWidget === 'function') support.closeWidget();
+      openPanel();
+    });
+  }
+  window.FORGE_CLOSE_SALES_CHAT = closePanel;
 
   function setSending(state) {
     sending = state;
@@ -435,64 +469,115 @@ function initSalesChat() {
 }
 
 // ===================================================================
-// GHL chat widget - hide the default floating launcher (it collided
-// visually with the ARIS sales chat button) and let a nav "Contact"
-// link open the same widget instead. GHL's launcher lives inside a
-// closed-off web component's shadow DOM (<chat-widget> -> .lc_text-widget
-// -> button.lc_text-widget--bubble), so plain CSS from our stylesheet
-// can't reach it - this has to run in JS. Opening the widget is done
-// via GHL's own window.leadConnector.chatWidget.openWidget() call.
+// Connect menu (homepage nav). Ask ARIS and Support live here so the
+// corner is not shared by two launchers. Support opens the GHL chat
+// widget (the SMS opt-in surface). Its blue bubble and greeting card
+// stay hidden: they render inside <chat-widget>'s shadow DOM at
+// z-index 99999999, which page CSS cannot reach, and the shadow root
+// often does not exist yet when this script first runs.
 // ===================================================================
+var GHL_HIDE_CSS = [
+  'button.lc_text-widget--bubble,',
+  '.lc_text-widget--prompt {',
+  '  display: none !important;',
+  '  visibility: hidden !important;',
+  '  pointer-events: none !important;',
+  '}',
+  '.lc_text-widget:not(.lc_text-widget--active) {',
+  '  width: 0 !important;',
+  '  height: 0 !important;',
+  '  overflow: hidden !important;',
+  '  pointer-events: none !important;',
+  '  z-index: 0 !important;',
+  '}'
+].join('\n');
+
+function initConnectMenu() {
+  var btn = document.getElementById('navConnectBtn');
+  var menu = document.getElementById('navConnectMenu');
+  if (!btn || !menu) return;
+  function close() {
+    menu.hidden = true;
+    btn.setAttribute('aria-expanded', 'false');
+  }
+  function open() {
+    menu.hidden = false;
+    btn.setAttribute('aria-expanded', 'true');
+  }
+  window.FORGE_CLOSE_CONNECT = close;
+  btn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    if (menu.hidden) open();
+    else close();
+  });
+  document.addEventListener('click', function (e) {
+    if (menu.hidden) return;
+    if (btn.contains(e.target) || menu.contains(e.target)) return;
+    close();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !menu.hidden) {
+      close();
+      btn.focus();
+    }
+  });
+}
+
+function openSupportChat() {
+  var tries = 0;
+  function attempt() {
+    var api = window.leadConnector && window.leadConnector.chatWidget;
+    if (api && typeof api.openWidget === 'function') {
+      api.openWidget();
+      return;
+    }
+    tries += 1;
+    if (tries < 20) {
+      setTimeout(attempt, 250);
+      return;
+    }
+    window.location.href = 'mailto:support@forgedbyaris.com';
+  }
+  attempt();
+}
+
 function initGhlWidgetOverride() {
-  var contactLink = document.getElementById('navContactChat');
-  if (contactLink) {
-    contactLink.addEventListener('click', function (e) {
-      e.preventDefault();
-      if (window.leadConnector && window.leadConnector.chatWidget && typeof window.leadConnector.chatWidget.openWidget === 'function') {
-        window.leadConnector.chatWidget.openWidget();
-      }
+  var supportBtn = document.getElementById('navSupportChat');
+  if (supportBtn) {
+    supportBtn.addEventListener('click', function () {
+      if (window.FORGE_CLOSE_CONNECT) window.FORGE_CLOSE_CONNECT();
+      if (window.FORGE_CLOSE_SALES_CHAT) window.FORGE_CLOSE_SALES_CHAT();
+      openSupportChat();
     });
   }
 
-  function hideLauncher(host) {
-    if (!host || !host.shadowRoot) return false;
-    var hidAny = false;
-    var bubbleWrap = host.shadowRoot.querySelector('.lc_text-widget--bubble');
-    if (bubbleWrap) {
-      bubbleWrap.style.setProperty('display', 'none', 'important');
-      hidAny = true;
+  function arm(host) {
+    if (!host || !host.shadowRoot || host.__forgeGhlHide) return !!host && !!host.shadowRoot && !!host.__forgeGhlHide;
+    host.__forgeGhlHide = true;
+    function apply() {
+      if (!host.shadowRoot || host.shadowRoot.getElementById('forge-ghl-hide')) return;
+      var style = document.createElement('style');
+      style.id = 'forge-ghl-hide';
+      style.textContent = GHL_HIDE_CSS;
+      host.shadowRoot.appendChild(style);
     }
-    // GHL's automatic proactive greeting card (the "Hi there! Have a
-    // question?" popup) is a separate element from the bubble launcher
-    // above and shows itself a few seconds after load - it was colliding
-    // with the ARIS sales chat button the same way the bubble used to.
-    var promptCard = host.shadowRoot.querySelector('.lc_text-widget--prompt');
-    if (promptCard) {
-      promptCard.style.setProperty('display', 'none', 'important');
-      hidAny = true;
-    }
-    return hidAny;
+    apply();
+    new MutationObserver(apply).observe(host.shadowRoot, { childList: true, subtree: true });
+    return true;
   }
 
   function watch(host) {
-    hideLauncher(host);
-    if (host.shadowRoot) {
-      new MutationObserver(function () { hideLauncher(host); })
-        .observe(host.shadowRoot, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
-    }
+    if (arm(host)) return;
+    var tries = 0;
+    var timer = setInterval(function () {
+      tries += 1;
+      if (arm(host) || tries > 40) clearInterval(timer);
+    }, 250);
   }
 
-  var existing = document.querySelector('chat-widget');
-  if (existing) {
-    watch(existing);
-  } else {
-    var bodyWatcher = new MutationObserver(function () {
-      var host = document.querySelector('chat-widget');
-      if (host) {
-        bodyWatcher.disconnect();
-        watch(host);
-      }
-    });
-    bodyWatcher.observe(document.body, { childList: true, subtree: true });
+  function scan() {
+    document.querySelectorAll('chat-widget').forEach(watch);
   }
-                                   }
+  scan();
+  new MutationObserver(scan).observe(document.documentElement, { childList: true, subtree: true });
+}

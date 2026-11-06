@@ -331,9 +331,11 @@ test('webinar pages are noindex FORGE webinar enrollments and do not use the FWN
   assert.equal(read('fwn/997.html').includes('webinar-checkout.js'), false);
   assert.equal(read('fwn/997.html').includes('pln_forge-webinar'), false);
 
+  // Public pages may link to registration. They still must not link the
+  // unlisted checkout pages (/webinar/997, /webinar/1797, and the rest).
   const publicFiles = ['index.html', 'sitemap.xml', 'why-forge.html', 'about.html', 'blog.html', 'login.html'];
   for (const rel of publicFiles) {
-    assert.equal(read(rel).includes('/webinar'), false, rel);
+    assert.equal(/\/webinar\/(?!register\b)/.test(read(rel)), false, rel);
   }
   const robots = read('robots.txt');
   assert.match(robots, /Disallow: \/webinar\//);

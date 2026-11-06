@@ -160,6 +160,59 @@ img { max-width: 100%; display: block; }
   background: var(--gold);
   color: var(--navy) !important;
 }
+.nav-connect { position: relative; }
+.nav-connect__btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: var(--light-grey);
+  cursor: pointer;
+}
+.nav-connect__btn:hover,
+.nav-connect__btn[aria-expanded="true"] { color: var(--white); }
+.nav-connect__btn:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+.nav-connect__menu {
+  position: absolute;
+  top: calc(100% + 14px);
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 168px;
+  background: var(--navy);
+  border: 1px solid rgba(200, 155, 60, 0.45);
+  border-radius: 10px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  z-index: 30;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+}
+.nav-connect__menu[hidden] { display: none; }
+.nav-connect__menu button {
+  background: transparent;
+  border: none;
+  color: var(--white);
+  text-align: left;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.nav-connect__menu button:hover,
+.nav-connect__menu button:focus-visible {
+  background: rgba(200, 155, 60, 0.16);
+  color: var(--gold);
+  outline: none;
+}
 .site-nav__toggle {
   display: none;
   background: none;
@@ -189,6 +242,24 @@ img { max-width: 100%; display: block; }
   .site-nav__links a {
     padding: 16px 24px;
     border-top: 1px solid rgba(255,255,255,0.06);
+  }
+  .nav-connect { display: block; }
+  .nav-connect__btn {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 16px 24px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+  .nav-connect__menu {
+    position: static;
+    transform: none;
+    min-width: 0;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    background: transparent;
+    padding: 0 12px 8px 36px;
   }
   .site-nav__login { text-align: center; }
   .site-nav__toggle { display: inline-flex; align-items: center; justify-content: center; }
@@ -699,59 +770,88 @@ p.body-copy { font-size: 15px; color: var(--light-grey); line-height: 1.85; marg
 .blog-post-body blockquote { border-left: 3px solid var(--gold); margin: 28px 0; padding: 4px 0 4px 20px; font-style: italic; color: var(--light-grey); }
 
 /* ===================================================================
-   ANNOUNCEMENT BAR (site-wide component, currently on index.html only)
-   Dismissible strip above the nav. Content is driven by
-   window.FORGE_ANNOUNCEMENT in assets/site.js — hidden by default;
-   site.js reveals it once content is set, unless the visitor already
-   dismissed this same message (tracked by cfg.id in localStorage).
+   ANNOUNCEMENT BARS (homepage). Two stacked promos: evergreen weekly
+   Group Coaching, and the live weekly webinar. Navy bar, bold white
+   sentence, gold-outlined pill. Each row dismisses on its own.
    =================================================================== */
 .announcement-bar {
-  position: relative;
-  display: none;
   background: var(--navy);
-  border-bottom: 1px solid var(--border);
 }
-.announcement-bar.announcement-bar--visible { display: block; }
+.announcement-bar__row {
+  position: relative;
+  background: var(--navy);
+  border-bottom: 1px solid rgba(200, 155, 60, 0.55);
+}
+.announcement-bar__row[hidden] { display: none; }
 .announcement-bar__inner {
   max-width: var(--container);
   margin: 0 auto;
-  padding: 10px 44px;
+  padding: 12px 64px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 16px;
   flex-wrap: wrap;
   text-align: center;
 }
-.announcement-bar__text { font-size: 13px; color: var(--white); font-weight: 500; }
-.announcement-bar__cta {
-  font-size: 12px;
+.announcement-bar__text {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.35;
+  color: var(--white);
   font-weight: 700;
-  letter-spacing: 0.5px;
-  color: var(--gold);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 4px 14px;
-  white-space: nowrap;
 }
-.announcement-bar__cta:hover { color: var(--orange); border-color: var(--orange); }
+.announcement-bar__cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  color: var(--gold);
+  background: transparent;
+  border: 1.5px solid var(--gold);
+  border-radius: 999px;
+  padding: 6px 16px;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.announcement-bar__cta:hover,
+.announcement-bar__cta:focus-visible {
+  color: var(--gold);
+  background: rgba(200, 155, 60, 0.14);
+  border-color: var(--gold);
+}
 .announcement-bar__close {
   position: absolute;
-  right: 12px;
+  right: 8px;
   top: 50%;
   transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: none;
-  color: var(--light-grey);
-  font-size: 20px;
+  border-radius: 8px;
+  color: #D1D5DB;
+  font-size: 22px;
   line-height: 1;
   cursor: pointer;
-  padding: 4px 8px;
+  padding: 0;
 }
 .announcement-bar__close:hover { color: var(--white); }
+.announcement-bar__cta:focus-visible,
+.announcement-bar__close:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+}
 @media (max-width: 640px) {
-  .announcement-bar__inner { padding: 10px 36px; }
-  .announcement-bar__text { font-size: 12px; }
+  .announcement-bar__inner { padding: 12px 52px; gap: 10px; }
+  .announcement-bar__text { font-size: 14px; }
+  .announcement-bar__cta { font-size: 13px; white-space: normal; }
 }
 
 .blog-related { max-width: 900px; margin: 0 auto; }
