@@ -1,0 +1,264 @@
+// Speech-only text for ARIS voice, plus the currency rule shared with
+// property-analysis prompts.
+//
+// This file lives in lib/ on purpose. Netlify treats every top-level
+// file in netlify/edge-functions as an edge function and refuses to
+// deploy one that does not default-export a request handler.
+//
+// Displayed chat, calculator figures, and saved transcripts are not
+// rewritten here. Callers pass the finished utterance (ARIS Coach
+// click-to-play and Real Estate Lab auto-play both wait until the
+// message is complete). Do not run this on partial stream deltas: a
+// token split such as "AR" + "V" or "$12" + "3,000" cannot be
+// normalized safely. prepareSpeechText slices only after normalization,
+// on a whitespace boundary, so the 5000-character cap cannot cut an
+// amount or an expanded abbreviation in half.
+
+export const SPEECH_CHAR_LIMIT = 5000;
+
+// The repo documents ARIS as short for Aristotle (about-aris.html and the
+// coach prompt). It does not document a phonetic spelling. aris-voice.js
+// still sends the ElevenLabs pronunciation dictionary; that lexicon is
+// not in the repo, so an approved pronunciation may already live there.
+// Leaving the word "ARIS" untouched lets that dictionary apply. Do not
+// invent a spelling here.
+
+const CURRENCY_RULE = `CURRENCY AND UNITS:
+FORGE property and market figures are United States dollars unless the member explicitly places the property outside the United States or names another currency (for example GBP, pounds sterling, EUR, CAD, or AUD).
+- For a US property, or when no country or currency was named, write US dollars with $ or the word "dollars". Do not say "pounds" and do not use £.
+- If the member explicitly supplies a non-US currency, keep that amount in that currency. Do not convert it, and do not relabel it as dollars or change its number.
+- $ or USD marks US dollars. £, GBP, or pounds sterling marks pounds. Never swap those symbols or words in a way that presents one currency as the other.
+- Percentages, cap rates, ratios, and calculated results stay in the units given.
+- This does not depend on account age, an empty profile, saved preferences, or the browser's language. A new account with no settings is still US dollars by default.`;
+
+const NUMBER = String.raw`(?<num>\d{1,3}(?:,\d{3})+|\d+)(?:\.(?<dec>\d+))?`;
+
+const ISO_UNIT = {
+  USD: 'dollars',
+  GBP: 'pounds',
+  EUR: 'euros',
+  CAD: 'Canadian dollars',
+  AUD: 'Australian dollars',
+  NZD: 'New Zealand dollars',
+};
+
+const PREFIX_UNIT = {
+  AU: 'Australian dollars',
+  A: 'Australian dollars',
+  CA: 'Canadian dollars',
+  C: 'Canadian dollars',
+  NZ: 'New Zealand dollars',
+  HK: 'Hong Kong dollars',
+  NT: 'New Taiwan dollars',
+  S: 'Singapore dollars',
+};
+
+// Whole-word real-estate abbreviations the British TTS voice reads as
+// nonsense or as the wrong word (ROI as "roy", NOI as "noy", MAO as a name).
+// Longer tokens first. Word boundaries keep HARVARD, CARVING, NOISE, and
+// MAOIST intact. ARIS is intentionally absent.
+const ABBREVIATIONS = [
+  ['DSCRs', 'debt-service coverage ratios'],
+  ['DSCR', 'debt-service coverage ratio'],
+  ['DCRs', 'debt coverage ratios'],
+  ['DCR', 'debt coverage ratio'],
+  ['ARVs', 'after-repair values'],
+  ['ARV', 'after-repair value'],
+  ['MAOs', 'maximum allowable offers'],
+  ['MAO', 'maximum allowable offer'],
+  ['LTVs', 'loan-to-values'],
+  ['LTV', 'loan-to-value'],
+  ['LTCs', 'loan-to-costs'],
+  ['LTC', 'loan-to-cost'],
+  ['ROIs', 'returns on investment'],
+  ['ROI', 'return on investment'],
+  ['NOIs', 'net operating incomes'],
+  ['NOI', 'net operating income'],
+];
+
+const FOREIGN_DETECTORS = [
+  { code: 'GBP', re: /£|\bGBP\b|pounds?\s+sterling|\bBritish\s+pounds?\b|\bUK\s+pounds?\b|\bin\s+pounds\b|\bUnited\s+Kingdom\b|\bGreat\s+Britain\b|\bNorthern\s+Ireland\b|\bUK\b/i },
+  { code: 'EUR', re: /€|\bEUR\b|\beuros?\b/i },
+  { code: 'CAD', re: /\bCAD\b|(?<![\p{L}])CA\$|(?<![\p{L}])C\$|\bCanadian\s+dollars?\b|\bCanada\b|\bCanadian\b/iu },
+  { code: 'AUD', re: /\bAUD\b|(?<![\p{L}])AU\$|(?<![\p{L}])A\$|\bAustralian\s+dollars?\b|\bAustralia\b|\bAustralian\b/iu },
+  { code: 'NZD', re: /\bNZD\b|(?<![\p{L}])NZ\$|\bNew\s+Zealand\b/iu },
+];
+
+function contentToString(content) {
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    return content.map((block) => {
+      if (typeof block === 'string') return block;
+      if (block && typeof block.text === 'string') return block.text;
+      return '';
+    }).join('\n');
+  }
+  return '';
+}
+
+function detectForeignCodes(text) {
+  const found = [];
+  for (const detector of FOREIGN_DETECTORS) {
+    if (detector.re.test(text) && !found.includes(detector.code)) found.push(detector.code);
+  }
+  return found;
+}
+
+// Profile, preferences, and browser locale are accepted and ignored.
+// Currency follows the member's words, newest user message first.
+// Assistant text is ignored so an earlier mistaken "pounds" does not
+// stick for the rest of the session.
+export function analysisCurrencyInstruction(opts = {}) {
+  const segments = [];
+  if (Array.isArray(opts.messages)) {
+    for (const message of opts.messages) {
+      if (message && message.role === 'user') segments.push(contentToString(message.content));
+    }
+  } else if (typeof opts.text === 'string') {
+    segments.push(opts.text);
+  }
+
+  let codes = [];
+  for (let i = segments.length - 1; i >= 0; i -= 1) {
+    const found = detectForeignCodes(segments[i]);
+    if (found.length) {
+      codes = found;
+      break;
+    }
+  }
+
+  if (!codes.length) {
+    return `${CURRENCY_RULE}\nNo non-US currency was requested. Use US dollars for this analysis.`;
+  }
+  return `${CURRENCY_RULE}\nThe member explicitly used ${codes.join(', ')}. Keep each amount they gave in that currency. Do not convert it and do not relabel it as dollars. Amounts written with $ or USD stay US dollars. If they did not give a figure in ${codes.join(', ')}, do not switch the US figures to that currency.`;
+}
+
+// Same rounding and "$" prefix the Deal Analyzer has always used, with
+// en-US grouping so a browser set to en-GB or de-DE cannot change the
+// written form. The number is not converted from another currency.
+export function formatUsd(n) {
+  const value = Number(n);
+  if (!Number.isFinite(value)) return '$0';
+  return `$${Math.round(value).toLocaleString('en-US')}`;
+}
+
+export function stripMarkdownForSpeech(text) {
+  return String(text)
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/^[-*+]\s+/gm, '')
+    .replace(/^\d+\.\s+/gm, '')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/\n{2,}/g, '. ')
+    .replace(/\n/g, ' ')
+    .trim();
+}
+
+function maskProtected(text) {
+  const slots = [];
+  const re = /https?:\/\/[^\s<>]+|www\.[^\s<>]+|<\/?[a-zA-Z][^>\n]*>|\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/g;
+  const masked = text.replace(re, (match) => {
+    const token = `\uE000${slots.length}\uE001`;
+    slots.push(match);
+    return token;
+  });
+  return { masked, slots };
+}
+
+function unmask(text, slots) {
+  return text.replace(/\uE000(\d+)\uE001/g, (_, index) => slots[Number(index)] ?? '');
+}
+
+function amount(groups) {
+  if (!groups || groups.num == null) return null;
+  return groups.dec != null && groups.dec !== '' ? `${groups.num}.${groups.dec}` : groups.num;
+}
+
+function isNegative(groups) {
+  return Boolean(groups && (groups.sign || groups.sign2));
+}
+
+function spell(groups, unit) {
+  const num = amount(groups);
+  if (num == null) return null;
+  return `${isNegative(groups) ? 'negative ' : ''}${num} ${unit}`;
+}
+
+function replaceNamed(text, regex, unitFor) {
+  return text.replace(regex, (match, ...rest) => {
+    const groups = rest[rest.length - 1];
+    const unit = typeof unitFor === 'function' ? unitFor(groups, match) : unitFor;
+    if (!unit) return match;
+    const spoken = spell(groups, unit);
+    return spoken == null ? match : spoken;
+  });
+}
+
+// The minus, when present, may have a space after it ("- $100").
+// A space before the symbol is not consumed, so "rate = $100" keeps the space.
+const OPEN_SIGN = String.raw`(?<![\p{L}\d])(?<sign>[-−]\s*)?`;
+const SIGN2 = String.raw`\s*(?<sign2>[-−]\s*)?`;
+
+function symbolPattern(symbol, { trail = false } = {}) {
+  const trailSrc = trail ? String.raw`(?:\s+(?<trail>pounds?|quid|dollars?))?` : '';
+  return new RegExp(`${OPEN_SIGN}${symbol}${SIGN2}${NUMBER}${trailSrc}`, 'giu');
+}
+
+function normalizeCurrency(text) {
+  let out = text;
+
+  // Parentheses are left in place. "($315,000)" in prose is a parenthetical
+  // amount, not an accounting loss. A minus sign marks a negative.
+  out = replaceNamed(
+    out,
+    symbolPattern(String.raw`(?<prefix>AU|CA|NZ|HK|NT|A|C|S)\$`),
+    (groups) => PREFIX_UNIT[(groups.prefix || '').toUpperCase()]
+  );
+
+  out = replaceNamed(out, symbolPattern('£', { trail: true }), 'pounds');
+  out = replaceNamed(out, symbolPattern('€'), 'euros');
+
+  out = replaceNamed(
+    out,
+    new RegExp(String.raw`\b(?<code>USD|GBP|EUR|CAD|AUD|NZD)\s*\$?\s*(?<sign>[-−]\s*)?${NUMBER}`, 'giu'),
+    (groups) => ISO_UNIT[(groups.code || '').toUpperCase()]
+  );
+  // Optional $ is included so "$185,000 GBP" follows the explicit code.
+  // The digits are not converted. Bare "$185,000" is not matched here.
+  out = replaceNamed(
+    out,
+    new RegExp(String.raw`(?<![\p{L}\d])(?<sign>[-−]\s*)?(?:\$\s*)?(?<sign2>[-−]\s*)?${NUMBER}\s*(?<code>USD|GBP|EUR|CAD|AUD|NZD)\b`, 'giu'),
+    (groups) => ISO_UNIT[(groups.code || '').toUpperCase()]
+  );
+  out = replaceNamed(out, symbolPattern(String.raw`US\$`), 'dollars');
+  out = replaceNamed(out, symbolPattern(String.raw`\$`, { trail: true }), 'dollars');
+  return out;
+}
+
+function expandAbbreviations(text) {
+  let out = text;
+  for (const [abbr, phrase] of ABBREVIATIONS) {
+    out = out.replace(new RegExp(String.raw`\b${abbr}\b`, 'gi'), phrase);
+  }
+  out = out.replace(/\bcap rates\b/gi, 'capitalization rates');
+  out = out.replace(/\bcap rate\b/gi, 'capitalization rate');
+  return out;
+}
+
+export function normalizeSpeechText(raw) {
+  const stripped = stripMarkdownForSpeech(raw);
+  if (!stripped) return '';
+  const { masked, slots } = maskProtected(stripped);
+  return unmask(expandAbbreviations(normalizeCurrency(masked)), slots);
+}
+
+export function prepareSpeechText(raw, limit = SPEECH_CHAR_LIMIT) {
+  const full = normalizeSpeechText(raw);
+  if (full.length <= limit) return full;
+  const cut = full.lastIndexOf(' ', limit);
+  const end = cut > Math.floor(limit * 0.5) ? cut : limit;
+  return full.slice(0, end).trim();
+}

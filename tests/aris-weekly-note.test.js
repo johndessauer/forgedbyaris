@@ -7,9 +7,12 @@ const path = require('path');
 const { pathToFileURL } = require('url');
 
 async function run(promptKey, env, noteFetch) {
-  const src = path.join(__dirname, '..', 'netlify', 'edge-functions', 'aris-stream.js');
-  const copy = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'aris-')), 'aris-stream.mjs');
-  fs.copyFileSync(src, copy);
+  const edge = path.join(__dirname, '..', 'netlify', 'edge-functions');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aris-'));
+  const copy = path.join(dir, 'aris-stream.mjs');
+  fs.copyFileSync(path.join(edge, 'aris-stream.js'), copy);
+  fs.mkdirSync(path.join(dir, 'lib'));
+  fs.copyFileSync(path.join(edge, 'lib', 'speech-text.js'), path.join(dir, 'lib', 'speech-text.js'));
   const e = { ANTHROPIC_API_KEY: 'k', ...env };
   globalThis.Netlify = { env: { get: k => e[k] } };
   let sent = null; const noteUrls = [];

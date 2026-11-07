@@ -752,7 +752,7 @@ function fmt(n, prefix='$') {
   if (!n || n <= 0) return 'N/A';
   if (n >= 1000000) return prefix + (n/1000000).toFixed(1) + 'M';
   if (n >= 1000) return prefix + Math.round(n/1000) + 'K';
-  return prefix + n.toLocaleString();
+  return prefix + n.toLocaleString('en-US');
 }
 function fmtPct(n) { return n > 0 ? n.toFixed(1) + '%' : 'N/A'; }
 
@@ -789,7 +789,7 @@ Rental Score: ${scores.rental.score}/100 (${scores.rental.grade})
 Wholesale Score: ${scores.wholesale.score}/100 (${scores.wholesale.grade})
 ${scores.multifamily ? `Multifamily 5+ Score: ${scores.multifamily.score}/100 (${scores.multifamily.grade})` : ''}
 
-Key Data:
+Key Data (US dollars from US Census figures; do not convert them or call them pounds):
 - Median Home Value: ${fmt(marketData.medianHomeValue)}
 - Median Gross Rent: ${fmt(marketData.medianRent)}/mo
 - Median Household Income: ${fmt(marketData.medianIncome)}

@@ -739,7 +739,7 @@ function parseMoney(str) {
 function fmtM(n) {
   if (n >= 1000000) return '$' + (n/1000000).toFixed(2) + 'M';
   if (n >= 1000) return '$' + Math.round(n/1000) + 'K';
-  return '$' + Math.round(n).toLocaleString();
+  return '$' + Math.round(n).toLocaleString('en-US');
 }
 
 function fmtPct(n) { return n.toFixed(1) + '%'; }
@@ -766,7 +766,7 @@ async function runStackSuggest() {
   const totalNeeded = stackDealData.purchase + stackDealData.rehab;
 
   const whyCtx = getWhyContext();
-  const prompt = 'You are ARIS inside FORGE. Return ONLY a valid JSON array, no markdown.\n\nDeal:\n- Type: ' + type + '\n- Purchase: ' + purchase + '\n- Rehab: ' + (rehab || '$0') + '\n- ARV: ' + arv + '\n- Cash: ' + (cash || '$0') + '\n- Total Needed: $' + totalNeeded.toLocaleString() + '\n\nReturn a JSON array of 2-4 capital stack layers. Each object:\n{"type":"Hard Money","amount":140000,"rate":12.0,"term":12,"points":2.0,"note":"one sentence why"}\n\nValid types: Hard Money, Private Money, Seller Financing, Subject-To, Seller Second, HELOC / Equity, Partner Equity, Cash / Own Funds, DSCR Loan, Conventional, Bridge Loan\nTotal amounts should approximate $' + totalNeeded.toLocaleString() + '\nReturn ONLY the JSON array.';
+  const prompt = 'You are ARIS inside FORGE. Return ONLY a valid JSON array, no markdown.\n\nDeal:\n- Type: ' + type + '\n- Purchase: ' + purchase + '\n- Rehab: ' + (rehab || '$0') + '\n- ARV: ' + arv + '\n- Cash: ' + (cash || '$0') + '\n- Total Needed: $' + totalNeeded.toLocaleString('en-US') + '\nMoney is US dollars unless the deal text explicitly names another currency. Do not convert or relabel an explicit non-US amount.\n\nReturn a JSON array of 2-4 capital stack layers. Each object:\n{"type":"Hard Money","amount":140000,"rate":12.0,"term":12,"points":2.0,"note":"one sentence why"}\n\nValid types: Hard Money, Private Money, Seller Financing, Subject-To, Seller Second, HELOC / Equity, Partner Equity, Cash / Own Funds, DSCR Loan, Conventional, Bridge Loan\nTotal amounts should approximate $' + totalNeeded.toLocaleString('en-US') + '\nReturn ONLY the JSON array.';
 
   try {
     const result = await callARIS(prompt, 500);
@@ -814,7 +814,7 @@ function renderModeler() {
       '</div>' +
       '<div class="stack-layer-row-inputs">' +
         '<div class="layer-input-group"><div class="layer-input-label">Amount ($)</div>' +
-        '<input class="layer-input" type="text" value="' + layer.amount.toLocaleString() + '" onchange="updateLayer(' + layer.id + ',\'amount\',this.value)" /></div>' +
+        '<input class="layer-input" type="text" value="' + layer.amount.toLocaleString('en-US') + '" onchange="updateLayer(' + layer.id + ',\'amount\',this.value)" /></div>' +
         '<div class="layer-input-group"><div class="layer-input-label">Rate (%)</div>' +
         '<input class="layer-input" type="text" value="' + layer.rate + '" onchange="updateLayer(' + layer.id + ',\'rate\',this.value)" /></div>' +
         '<div class="layer-input-group"><div class="layer-input-label">Term (mo)</div>' +
