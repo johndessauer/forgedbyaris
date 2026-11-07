@@ -11,7 +11,8 @@ async function run(promptKey, env, noteFetch) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aris-'));
   const copy = path.join(dir, 'aris-stream.mjs');
   fs.copyFileSync(path.join(edge, 'aris-stream.js'), copy);
-  fs.copyFileSync(path.join(edge, 'speech-text.js'), path.join(dir, 'speech-text.js'));
+  fs.mkdirSync(path.join(dir, 'lib'));
+  fs.copyFileSync(path.join(edge, 'lib', 'speech-text.js'), path.join(dir, 'lib', 'speech-text.js'));
   const e = { ANTHROPIC_API_KEY: 'k', ...env };
   globalThis.Netlify = { env: { get: k => e[k] } };
   let sent = null; const noteUrls = [];

@@ -56,7 +56,7 @@ function createHandler(deps) {
     // Same rule the streaming property-analysis prompts use. Appended here
     // so Market Oracle, Capital Radar, and Deal Network stay on US dollars
     // for a new or existing member, and still keep an explicit non-US amount.
-    const { analysisCurrencyInstruction } = await import('../edge-functions/speech-text.js');
+    const { analysisCurrencyInstruction } = await import('../edge-functions/lib/speech-text.js');
     const system = [typeof body.system === 'string' ? body.system : '', analysisCurrencyInstruction({ messages: body.messages })]
       .filter(Boolean)
       .join('\n\n');

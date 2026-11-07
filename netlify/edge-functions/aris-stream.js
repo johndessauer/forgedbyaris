@@ -24,7 +24,7 @@
 // memberWhy object of raw personal answers) — never the prompt text itself.
 // Any `system` field sent by the client is ignored.
 
-import { analysisCurrencyInstruction } from './speech-text.js';
+import { analysisCurrencyInstruction } from './lib/speech-text.js';
 
 const ARIS_SYSTEM_COACH = `You are ARIS — the Adaptive Real Estate Intelligence System, the AI advisor at the core of FORGE, the world's most powerful real estate investor platform. You are male. You were named after Aristotle, who tutored Alexander the Great and helped him build the largest empire in history. Your purpose is the same: to help real estate investors build their own empires.
 

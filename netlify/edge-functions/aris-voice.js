@@ -38,7 +38,7 @@ const DEFAULT_VOICE_SETTINGS = {
   use_speaker_boost: true,
 };
 
-import { prepareSpeechText, SPEECH_CHAR_LIMIT } from './speech-text.js';
+import { prepareSpeechText, SPEECH_CHAR_LIMIT } from './lib/speech-text.js';
 
 export default async (request, context) => {
   const CORS_HEADERS = {

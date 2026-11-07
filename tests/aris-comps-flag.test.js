@@ -11,7 +11,8 @@ async function systemPromptFor(promptKey, flag) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aris-'));
   const copy = path.join(dir, 'aris-stream.mjs');
   fs.copyFileSync(path.join(edge, 'aris-stream.js'), copy);
-  fs.copyFileSync(path.join(edge, 'speech-text.js'), path.join(dir, 'speech-text.js'));
+  fs.mkdirSync(path.join(dir, 'lib'));
+  fs.copyFileSync(path.join(edge, 'lib', 'speech-text.js'), path.join(dir, 'lib', 'speech-text.js'));
   const env = { ANTHROPIC_API_KEY: 'test-key', COMPS_ARIS_LIVE: flag };
   globalThis.Netlify = { env: { get: k => env[k] } };
   let sent = null;

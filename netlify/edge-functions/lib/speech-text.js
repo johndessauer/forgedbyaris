@@ -1,6 +1,10 @@
 // Speech-only text for ARIS voice, plus the currency rule shared with
 // property-analysis prompts.
 //
+// This file lives in lib/ on purpose. Netlify treats every top-level
+// file in netlify/edge-functions as an edge function and refuses to
+// deploy one that does not default-export a request handler.
+//
 // Displayed chat, calculator figures, and saved transcripts are not
 // rewritten here. Callers pass the finished utterance (ARIS Coach
 // click-to-play and Real Estate Lab auto-play both wait until the

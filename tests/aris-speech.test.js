@@ -11,13 +11,14 @@ const ROOT = path.join(__dirname, '..');
 const EDGE = path.join(ROOT, 'netlify', 'edge-functions');
 
 async function loadSpeech() {
-  return import(pathToFileURL(path.join(EDGE, 'speech-text.js')).href);
+  return import(pathToFileURL(path.join(EDGE, 'lib', 'speech-text.js')).href);
 }
 
 async function loadEdge(file) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aris-speech-'));
   fs.copyFileSync(path.join(EDGE, file), path.join(dir, file.replace(/\.js$/, '.mjs')));
-  fs.copyFileSync(path.join(EDGE, 'speech-text.js'), path.join(dir, 'speech-text.js'));
+  fs.mkdirSync(path.join(dir, 'lib'));
+  fs.copyFileSync(path.join(EDGE, 'lib', 'speech-text.js'), path.join(dir, 'lib', 'speech-text.js'));
   return import(pathToFileURL(path.join(dir, file.replace(/\.js$/, '.mjs'))).href + '?t=' + Math.random());
 }
 
