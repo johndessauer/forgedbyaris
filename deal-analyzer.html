@@ -1626,7 +1626,7 @@ function calcMortgage(principal, annualRate, termYears) {
   return principal * r * Math.pow(1+r,n) / (Math.pow(1+r,n)-1);
 }
 
-function fmt(n) { return '$' + Math.round(n).toLocaleString(); }
+function fmt(n) { return '$' + Math.round(n).toLocaleString('en-US'); }
 function fmtPct(n) { return n.toFixed(1) + '%'; }
 
 function calcWholesale() {
@@ -3089,7 +3089,10 @@ function analyzeDeal() {
   // Build ARIS prompt from deal data
   const tabLabels = { wholesale: 'Wholesale', flip: 'Fix & Flip', rental: 'Long-Term Rental', str: 'STR/MTR', multi: '2-4 Unit Residential (Sales Comparison Approach)', commercial: '5+ Unit Commercial (Income Capitalization Approach)', storage: 'Self-Storage Facility (Income Capitalization Approach)', mhp: 'Mobile Home Park (Income Capitalization Approach)', office: 'Office & Industrial (Income Capitalization Approach)', mixeduse: 'Mixed-Use (Income Capitalization Approach)', hotel: 'Hotel & Hospitality (Income Capitalization Approach)' };
   const metricsText = data.metrics.map(m => `${m.label}: ${m.value}`).join(', ');
-  const prompt = `I just ran a ${tabLabels[currentTab]} analysis in the FORGE Deal Analyzer. Here are the results: ${metricsText}. Hold period: ${holdYears} years. Rent growth assumption: ${document.getElementById('proj-rent-growth').value}%/yr, Appreciation: ${document.getElementById('proj-appreciation').value}%/yr, Expense growth: ${document.getElementById('proj-expense-growth').value}%/yr. The calculator gives a ${data.verdictText} verdict. Give me your full analysis — deal quality, key risks, biggest lever to improve it, and your recommendation.`;
+  const addressIds = { wholesale: 'w-address', flip: 'f-address', rental: 'r-address', str: 'str-address', multi: 'multi-address', commercial: 'c-address', storage: 's-address', mhp: 'm-address', office: 'o-address', mixeduse: 'mu-address', hotel: 'h-address' };
+  const addressNode = document.getElementById(addressIds[currentTab] || '');
+  const propertyAddress = (addressNode && addressNode.value.trim()) || (data.address || '') || 'not provided';
+  const prompt = `I just ran a ${tabLabels[currentTab]} analysis in the FORGE Deal Analyzer. Property address: ${propertyAddress}. Here are the results: ${metricsText}. Hold period: ${holdYears} years. Rent growth assumption: ${document.getElementById('proj-rent-growth').value}%/yr, Appreciation: ${document.getElementById('proj-appreciation').value}%/yr, Expense growth: ${document.getElementById('proj-expense-growth').value}%/yr. The calculator gives a ${data.verdictText} verdict. The calculator figures are United States dollars, the Deal Analyzer's unit, shown with US grouping. Do not convert those figures. If I explicitly name a different currency, keep that currency's amounts as given and do not relabel them. Give me your full analysis — deal quality, key risks, biggest lever to improve it, and your recommendation.`;
 
   conversationHistory = [];
   sendToARIS(prompt, false);

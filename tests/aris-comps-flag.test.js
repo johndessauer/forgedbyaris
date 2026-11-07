@@ -7,9 +7,11 @@ const path = require('path');
 const { pathToFileURL } = require('url');
 
 async function systemPromptFor(promptKey, flag) {
-  const src = path.join(__dirname, '..', 'netlify', 'edge-functions', 'aris-stream.js');
-  const copy = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'aris-')), 'aris-stream.mjs');
-  fs.copyFileSync(src, copy);
+  const edge = path.join(__dirname, '..', 'netlify', 'edge-functions');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aris-'));
+  const copy = path.join(dir, 'aris-stream.mjs');
+  fs.copyFileSync(path.join(edge, 'aris-stream.js'), copy);
+  fs.copyFileSync(path.join(edge, 'speech-text.js'), path.join(dir, 'speech-text.js'));
   const env = { ANTHROPIC_API_KEY: 'test-key', COMPS_ARIS_LIVE: flag };
   globalThis.Netlify = { env: { get: k => env[k] } };
   let sent = null;

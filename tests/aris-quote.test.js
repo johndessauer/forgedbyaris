@@ -39,7 +39,9 @@ test('valid member → forwarded with the same response shape', async () => {
   assert.equal(r.body.content[0].text, 'ok');
   assert.equal(t.sent.length, 1);
   assert.equal(t.sent[0].headers['x-api-key'], 'test-key');
-  assert.equal(t.sent[0].body.system, 'You are ARIS.');
+  assert.ok(t.sent[0].body.system.startsWith('You are ARIS.'));
+  assert.ok(t.sent[0].body.system.includes('United States dollars'));
+  assert.ok(t.sent[0].body.system.includes('Do not convert'));
   assert.equal(t.sent[0].body.max_tokens, 800);
 });
 

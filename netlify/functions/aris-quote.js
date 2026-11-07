@@ -53,6 +53,14 @@ function createHandler(deps) {
     const requested = Number(body.max_tokens);
     const maxTokens = Number.isFinite(requested) && requested > 0 ? Math.min(Math.floor(requested), MAX_TOKENS_CAP) : DEFAULT_MAX_TOKENS;
 
+    // Same rule the streaming property-analysis prompts use. Appended here
+    // so Market Oracle, Capital Radar, and Deal Network stay on US dollars
+    // for a new or existing member, and still keep an explicit non-US amount.
+    const { analysisCurrencyInstruction } = await import('../edge-functions/speech-text.js');
+    const system = [typeof body.system === 'string' ? body.system : '', analysisCurrencyInstruction({ messages: body.messages })]
+      .filter(Boolean)
+      .join('\n\n');
+
     try {
       const response = await deps.fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -60,7 +68,7 @@ function createHandler(deps) {
         body: JSON.stringify({
           model: MODEL,
           max_tokens: maxTokens,
-          ...(body.system ? { system: body.system } : {}),
+          system,
           messages: body.messages,
         }),
       });

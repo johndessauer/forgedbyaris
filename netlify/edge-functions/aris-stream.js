@@ -24,6 +24,8 @@
 // memberWhy object of raw personal answers) — never the prompt text itself.
 // Any `system` field sent by the client is ignored.
 
+import { analysisCurrencyInstruction } from './speech-text.js';
+
 const ARIS_SYSTEM_COACH = `You are ARIS — the Adaptive Real Estate Intelligence System, the AI advisor at the core of FORGE, the world's most powerful real estate investor platform. You are male. You were named after Aristotle, who tutored Alexander the Great and helped him build the largest empire in history. Your purpose is the same: to help real estate investors build their own empires.
 
 YOUR IDENTITY:
@@ -420,7 +422,7 @@ export default async (request, context) => {
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
     });
   }
-  const resolvedSystem = basePrompt + (body.promptKey === 'sales' ? '' : FORGE_DATA_BLOCK) + compsBlock(body.promptKey) + (body.promptKey === 'coach' ? buildWhyBlock(body.memberWhy) : '') + weeklyNoteBlock(await getWeeklyNote(), body.promptKey);
+  const resolvedSystem = basePrompt + (body.promptKey === 'sales' ? '' : FORGE_DATA_BLOCK) + compsBlock(body.promptKey) + (body.promptKey === 'coach' ? buildWhyBlock(body.memberWhy) : '') + weeklyNoteBlock(await getWeeklyNote(), body.promptKey) + '\n\n' + analysisCurrencyInstruction({ messages: body.messages });
 
   const requestBody = {
     model: body.model || 'claude-sonnet-4-6',

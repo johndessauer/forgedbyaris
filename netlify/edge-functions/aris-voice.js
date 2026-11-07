@@ -38,26 +38,7 @@ const DEFAULT_VOICE_SETTINGS = {
   use_speaker_boost: true,
 };
 
-const MAX_CHARS = 5000; // sane upper bound so a runaway request can't rack up huge TTS cost
-
-// Strips markdown formatting ARIS's text responses use (bold, headers,
-// bullets, links) so ElevenLabs doesn't read punctuation/symbols aloud
-// literally. Mirrors what a human would say if reading the same text out
-// loud — the visual formatting is dropped, the words remain.
-function stripMarkdownForSpeech(text) {
-  return text
-    .replace(/```[\s\S]*?```/g, '') // code blocks — not useful spoken aloud
-    .replace(/`([^`]+)`/g, '$1')
-    .replace(/^#{1,6}\s+/gm, '')
-    .replace(/\*\*([^*]+)\*\*/g, '$1')
-    .replace(/\*([^*]+)\*/g, '$1')
-    .replace(/^[-*+]\s+/gm, '')
-    .replace(/^\d+\.\s+/gm, '')
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-    .replace(/\n{2,}/g, '. ')
-    .replace(/\n/g, ' ')
-    .trim();
-}
+import { prepareSpeechText, SPEECH_CHAR_LIMIT } from './speech-text.js';
 
 export default async (request, context) => {
   const CORS_HEADERS = {
@@ -99,7 +80,11 @@ export default async (request, context) => {
   const voiceId = typeof body.voiceId === 'string' && body.voiceId.trim() ? body.voiceId.trim() : VOICE_ID;
   const voiceSettings = voiceId === VOICE_ID ? ARIS_VOICE_SETTINGS : DEFAULT_VOICE_SETTINGS;
 
-  const speechText = stripMarkdownForSpeech(rawText).slice(0, MAX_CHARS);
+  // Full finished message, then a whitespace-safe cap. Speech text only —
+  // the chat on screen is unchanged. $ becomes "dollars" so the British
+  // RP voice does not read a US amount as pounds. £ / GBP stay pounds
+  // and the digits are not converted.
+  const speechText = prepareSpeechText(rawText, SPEECH_CHAR_LIMIT);
   if (!speechText) {
     return new Response(JSON.stringify({ error: 'Nothing left to speak after stripping formatting' }), {
       status: 400,
