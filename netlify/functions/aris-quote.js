@@ -14,6 +14,8 @@
 // The response shape is unchanged (Anthropic's JSON), so every caller keeps
 // working once it sends the member token.
 
+const { analysisCurrencyInstruction } = require('./_Lib/analysis-currency');
+
 const MODEL = 'claude-sonnet-4-6';
 const MAX_TOKENS_CAP = 2000;
 const DEFAULT_MAX_TOKENS = 1000;
@@ -53,24 +55,30 @@ function createHandler(deps) {
     const requested = Number(body.max_tokens);
     const maxTokens = Number.isFinite(requested) && requested > 0 ? Math.min(Math.floor(requested), MAX_TOKENS_CAP) : DEFAULT_MAX_TOKENS;
 
-    // Same rule the streaming property-analysis prompts use. Appended here
-    // so Market Oracle, Capital Radar, and Deal Network stay on US dollars
-    // for a new or existing member, and still keep an explicit non-US amount.
-    const { analysisCurrencyInstruction } = await import('../edge-functions/lib/speech-text.js');
-    const system = [typeof body.system === 'string' ? body.system : '', analysisCurrencyInstruction({ messages: body.messages })]
-      .filter(Boolean)
-      .join('\n\n');
+    // Same rule the streaming property-analysis prompts use. Required from
+    // _Lib so a failure to load the edge ESM module cannot crash the function
+    // outside this handler. A throw still leaves the member's own wording in
+    // the user message; Capital Stack already states that its figures are USD.
+    let currency = '';
+    try {
+      const instruct = (deps.analysisCurrencyInstruction || analysisCurrencyInstruction);
+      currency = instruct({ messages: body.messages }) || '';
+    } catch (e) {
+      currency = '';
+    }
+    const system = [typeof body.system === 'string' ? body.system : '', currency].filter(Boolean).join('\n\n');
 
     try {
+      const payload = {
+        model: MODEL,
+        max_tokens: maxTokens,
+        messages: body.messages,
+      };
+      if (system) payload.system = system;
       const response = await deps.fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({
-          model: MODEL,
-          max_tokens: maxTokens,
-          system,
-          messages: body.messages,
-        }),
+        body: JSON.stringify(payload),
       });
       const data = await response.json();
       // Same as before: always 200 with Anthropic's JSON, so callers that
