@@ -621,9 +621,13 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
   </main>
 </div>
 
+<script src="/assets/js/aris-quote-client.js"></script>
 <script>
 // ── TAB SWITCHING ──
 let memberToken = null;
+let memberAuthStarted = false;
+let resolveMemberAuth = function () {};
+const memberAuthReady = new Promise(function (resolve) { resolveMemberAuth = resolve; });
 let currentRadarTab = 'stack';
 const RADAR_TAB_LABELS = { stack: 'Capital Stack', lender: 'Lender Match', qualifier: 'Financing Qualifier', pitch: 'Private Lender Pitch' };
 
@@ -684,7 +688,29 @@ function getWhyContext() {
   } catch(e) { return ''; }
 }
 
+function beginMemberAuth() {
+  if (memberAuthStarted || !window.$memberstackDom) return;
+  memberAuthStarted = true;
+  initMemberSession();
+}
+
+async function ensureMemberToken() {
+  const client = window.ArisQuoteClient;
+  if (!client) throw new Error('Please log in again.');
+  const ready = client.usableMemberToken(memberToken);
+  if (ready) return ready;
+  beginMemberAuth();
+  let timer;
+  const timeout = new Promise(function (resolve) { timer = setTimeout(function () { resolve(null); }, 8000); });
+  await Promise.race([memberAuthReady, timeout]);
+  clearTimeout(timer);
+  return window.ArisQuoteClient.usableMemberToken(memberToken);
+}
+
 async function callARIS(prompt, maxTokens) {
+  const token = await ensureMemberToken();
+  if (!token) throw new Error('Please log in again.');
+  memberToken = token;
   const fullPrompt = prompt + getWhyContext();
   const res = await fetch('/api/aris-quote', {
     method: 'POST',
@@ -695,7 +721,11 @@ async function callARIS(prompt, maxTokens) {
       messages: [{ role: 'user', content: fullPrompt }]
     })
   });
-  if (!res.ok) throw new Error('ARIS unavailable. Try again.');
+  if (!res.ok) {
+    let body = null;
+    try { body = await res.json(); } catch (e) { body = null; }
+    throw new Error(window.ArisQuoteClient.errorFromQuoteResponse(res.status, body));
+  }
   const data = await res.json();
   if (data.content && data.content[0] && data.content[0].text) return data.content[0].text;
   throw new Error('No response from ARIS.');
@@ -1212,7 +1242,9 @@ function copyPitch() {
 }
 
 // ── MEMBERSTACK AUTH GATE ──
-window.addEventListener('load', async () => {
+// DOMContentLoaded, not window.load: pdf scripts and images must not leave
+// the Capital Stack button sending "Bearer null" while the form is usable.
+async function initMemberSession() {
   try {
     const memberstack = window.$memberstackDom;
     const { data: member } = await memberstack.getCurrentMember();
@@ -1301,7 +1333,10 @@ window.addEventListener('load', async () => {
     if (tierEl) tierEl.textContent = planName;
     memberToken = await memberstack.getMemberCookie();
   } catch(e) {}
-});
+  finally { resolveMemberAuth(memberToken); }
+}
+document.addEventListener('DOMContentLoaded', beginMemberAuth);
+window.addEventListener('load', beginMemberAuth);
 
 async function handleLogout() {
   try {
@@ -1343,8 +1378,8 @@ async function handleLogout() {
   </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
 <script>
 // ── SAVE TO DEAL (shared: Deal Analyzer / Market Oracle / Capital Radar) ──
 // Snapshots the given results element into a branded PDF and attaches it
