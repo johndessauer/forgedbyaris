@@ -12,14 +12,17 @@ function read(rel) {
 }
 
 test('approved cadence is Tuesdays at 8 PM CT, with Monday Nov 30 instead of Dec 1', () => {
-  assert.deepEqual(schedule.DATES, [
+  assert.deepEqual(schedule.DATES.slice(0, 8), [
     '2026-11-17',
-    '2026-11-24',
     '2026-11-30',
     '2026-12-08',
     '2026-12-15',
+    '2026-12-22',
+    '2026-12-29',
     '2027-01-05',
+    '2027-01-12'
   ]);
+  assert.equal(schedule.DATES.includes('2026-11-24'), false);
   assert.equal(schedule.DATES.includes('2026-12-01'), false);
   assert.equal(schedule.TIME_LABEL, '8:00 PM CT');
   assert.equal(schedule.TIME_ZONE, 'America/Chicago');

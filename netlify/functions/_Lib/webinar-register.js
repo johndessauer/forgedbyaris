@@ -59,10 +59,16 @@ function isEmail(v) {
 }
 
 function webinarDate(env) {
-  const d = String(env.WEBINAR_NEXT_DATE || DEFAULT_DATE).trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return DEFAULT_DATE;
+  const d = String(env.WEBINAR_NEXT_DATE || '').trim() || DEFAULT_DATE;
+  // Rolling: a missing, invalid or already-ended pin falls forward to the next
+  // approved session in assets/js/webinar-schedule.js, so a stale env date never
+  // tags registrants into a past or skipped session.
+  const next = schedule.featuredSession(new Date(), '');
+  const fallback = next ? next.date : DEFAULT_DATE;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return fallback;
   const t = new Date(d + 'T12:00:00Z');
-  return !isNaN(t) && t.toISOString().slice(0, 10) === d ? d : DEFAULT_DATE;
+  if (isNaN(t) || t.toISOString().slice(0, 10) !== d) return fallback;
+  return schedule.featuredSession(new Date(), d).date === d || schedule.DATES.indexOf(d) === -1 ? d : fallback;
 }
 
 function webinarTime(env) {
