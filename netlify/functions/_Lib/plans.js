@@ -29,6 +29,7 @@ const PLAN_IDS = Object.freeze({
   FWN_1797: 'pln_forge-fwn-1-797-es40xk6',
   WEBINAR_997: 'pln_forge-webinar-997-lw00b81',       // FORGE webinar — same access as FWN 997, including Empire. Not an FWN plan.
   WEBINAR_1797: 'pln_forge-webinar-1-797-uf10b07',
+  WEBINAR_997_FOUNDATION: 'pln_forge-webinar-997-foundation-ry00fq6', // FORGE webinar $997 Foundation — Foundation only, no Empire
 });
 
 // Price IDs the pages treat as Founding Member (Empire included). Note that

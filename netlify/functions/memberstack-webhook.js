@@ -50,6 +50,7 @@ const PLAN_TAG_OVERRIDES = {
   'pln_forge-fwn-1-797-es40xk6': 'FORGE 1,797',
   'pln_forge-webinar-997-lw00b81': 'FORGE Webinar 997',
   'pln_forge-webinar-1-797-uf10b07': 'FORGE Webinar 1,797',
+  'pln_forge-webinar-997-foundation-ry00fq6': 'FORGE Webinar 997 Foundation',
 };
 
 // GHL contact custom field "Referral Source" (key contact.referral_source).

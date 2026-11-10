@@ -39,11 +39,18 @@ const DEFAULTS = {
     due: 179700,
     metadataPackage: 'webinar-1797',
   },
+  '997-foundation': {
+    plan: 'pln_forge-webinar-997-foundation-ry00fq6',
+    price: 'prc_forge-webinar-997-foundation-97-i910fkd',
+    setup: 90000,
+    due: 99700,
+    metadataPackage: 'webinar-997-foundation',
+  },
 };
 
 test('each webinar price is $97/month plus its setup fee, and there is no Launch or Accelerator', () => {
   assert.equal(webinar.MONTHLY_CENTS, 9700);
-  assert.deepEqual(Object.keys(webinar.PACKAGES).sort(), ['1797', '997']);
+  assert.deepEqual(Object.keys(webinar.PACKAGES).sort(), ['1797', '997', '997-foundation']);
   for (const slug of Object.keys(DEFAULTS)) {
     const pkg = webinar.PACKAGES[slug];
     const expected = DEFAULTS[slug];
@@ -286,7 +293,7 @@ test('existing stripe webhook copies webinar attribution and does not add a pric
   assert.equal(JSON.parse(ignored.body).reason, 'not_fwn');
 });
 
-const PAGES = ['webinar/997.html', 'webinar/1797.html', 'webinar/thank-you.html'];
+const PAGES = ['webinar/997.html', 'webinar/1797.html', 'webinar/997-foundation.html', 'webinar/thank-you.html'];
 const GATED_PAGES = [
   'deal-network.html',
   'capital-radar.html',
@@ -311,7 +318,7 @@ test('webinar pages are noindex FORGE webinar enrollments and do not use the FWN
     assert.equal(/data-fwn-package|fwn-checkout\.js|\/api\/fwn-checkout/.test(html), false, rel);
     for (const re of banned) assert.equal(re.test(html), false, rel + ' matched ' + re);
   }
-  for (const rel of ['webinar/997.html', 'webinar/1797.html']) {
+  for (const rel of ['webinar/997.html', 'webinar/1797.html', 'webinar/997-foundation.html']) {
     const html = read(rel);
     assert.match(html, /FORGE webinar enrollment/);
     assert.match(html, /There is no free trial and no free months/);
@@ -404,4 +411,32 @@ test('event tags: rpm-newport-2026 plus rep tag', () => {
     ['rpm-newport-2026', 'rep-ian']);
   assert.deepEqual(webinar.eventTagsForMember({ memberJson: { webinar: { lead_source: 'other-src', rep: 'john' } } }), []);
   assert.deepEqual(webinar.eventTagsForMember({ memberJson: {} }), []);
+});
+
+
+test('997-foundation is Foundation access only: base access on gated pages, never Empire', () => {
+  const plans = require('../netlify/functions/_Lib/plans');
+  const id = 'pln_forge-webinar-997-foundation-ry00fq6';
+  assert.equal(plans.PLAN_IDS.WEBINAR_997_FOUNDATION, id);
+  const live = [{ planId: id, status: 'ACTIVE' }];
+  assert.equal(plans.hasEmpireAccess(live), false);
+  assert.equal(plans.hasCompsAccess(live), false);
+  assert.equal(plans.hasEmpireAccess([{ planId: 'pln_forge-webinar-997-lw00b81', status: 'ACTIVE' }]), true);
+  for (const rel of GATED_PAGES) {
+    const html = read(rel);
+    assert.match(html, new RegExp("const WEBINAR_997_FOUNDATION_PLAN_ID = '" + id + "'"), rel);
+    assert.match(html, /pc\.planId === FOUNDATION_PLAN_ID \|\| pc\.planId === WEBINAR_997_FOUNDATION_PLAN_ID/, rel);
+    assert.match(html, /\[WEBINAR_997_FOUNDATION_PLAN_ID\]: 'Foundation'/, rel);
+    // Never in an Empire check.
+    for (const m of html.matchAll(/hasEmpireAccess\s*=\s*[^;]*;|baseConnHasEmpireBuiltIn\s*=\s*[^;]*;/g)) {
+      assert.equal(m[0].includes('WEBINAR_997_FOUNDATION_PLAN_ID'), false, rel);
+    }
+  }
+  const hook = read('netlify/functions/memberstack-webhook.js');
+  assert.match(hook, /'pln_forge-webinar-997-foundation-ry00fq6': 'FORGE Webinar 997 Foundation'/);
+  const html = read('webinar/997-foundation.html');
+  assert.match(html, /data-webinar-package="997-foundation"/);
+  assert.match(html, /FORGE Foundation \$997/);
+  assert.match(html, /Empire tools are not included/);
+  assert.equal(webinar.isWebinarAttributionSession({ mode: 'subscription', metadata: { package: 'webinar-997-foundation', lead_source: 'fwn-webinar-2026-11-10' } }), true);
 });
