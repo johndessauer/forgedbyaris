@@ -16,6 +16,10 @@
 //   MEMBERSTACK_PRICE_WEBINAR_997=prc_forge-webinar-997-97-ui20bdr
 //   MEMBERSTACK_PLAN_WEBINAR_1797=pln_forge-webinar-1-797-uf10b07
 //   MEMBERSTACK_PRICE_WEBINAR_1797=prc_forge-webinar-1-797-97-s830bts
+//   MEMBERSTACK_PLAN_WEBINAR_997_FOUNDATION=pln_forge-webinar-997-foundation-ry00fq6
+//   MEMBERSTACK_PRICE_WEBINAR_997_FOUNDATION=prc_forge-webinar-997-foundation-97-i910fkd
+//
+// 997-foundation is Foundation access only (no Empire); 997 and 1797 include Empire.
 //
 // Attribution is saved on the member before checkout and sent as
 // metadataForCheckout, the same fields FWN uses:
@@ -23,7 +27,7 @@
 //   sold_by      cart | john | rep (?sold_by=, or rep when ?ref= is set)
 //   rep          ?ref= via assets/js/ref-capture.js
 //   ref          the same ?ref= value, also written to Stripe as metadata.ref
-//   package      webinar-997 | webinar-1797
+//   package      webinar-997 | webinar-1797 | webinar-997-foundation
 //
 // metadata.package is prefixed so the existing Stripe webhook can tell a
 // webinar session from an FWN session without relaxing FWN src rules.
@@ -35,7 +39,7 @@ const { json, preflight } = require('./http');
 const MONTHLY_CENTS = 9700;
 const FWN_LEAD_SOURCES = new Set(['fwn-virtual', 'fwn-raleigh']);
 const SOLD_BY = new Set(['cart', 'john', 'rep']);
-const METADATA_PACKAGES = new Set(['webinar-997', 'webinar-1797']);
+const METADATA_PACKAGES = new Set(['webinar-997', 'webinar-1797', 'webinar-997-foundation']);
 
 const PACKAGES = Object.freeze({
   '997': {
@@ -63,6 +67,22 @@ const PACKAGES = Object.freeze({
     priceEnv: 'MEMBERSTACK_PRICE_WEBINAR_1797',
     defaultPlanId: 'pln_forge-webinar-1-797-uf10b07',
     defaultPriceId: 'prc_forge-webinar-1-797-97-s830bts',
+  },
+  // Foundation only (no Empire). Same $900 setup + $97/month, no trial, as
+  // the 997 package, on its own Memberstack plan so the site gates it as
+  // Foundation. The existing 997 package (Empire included) is unchanged.
+  '997-foundation': {
+    slug: '997-foundation',
+    metadataPackage: 'webinar-997-foundation',
+    label: '997 Foundation',
+    dueTodayCents: 99700,
+    dueTodayLabel: '$997',
+    setupFeeCents: 90000,
+    path: '/webinar/997-foundation',
+    planEnv: 'MEMBERSTACK_PLAN_WEBINAR_997_FOUNDATION',
+    priceEnv: 'MEMBERSTACK_PRICE_WEBINAR_997_FOUNDATION',
+    defaultPlanId: 'pln_forge-webinar-997-foundation-ry00fq6',
+    defaultPriceId: 'prc_forge-webinar-997-foundation-97-i910fkd',
   },
 });
 
