@@ -821,8 +821,7 @@ function intelBlock(marketData) {
     const when = it.date ? `, ${it.date}` : '';
     return `- ${it.title} (${it.source || 'source'}${when}) ${it.url || ''}${it.summary ? ' — ' + it.summary : ''}`;
   });
-  return 'Area intel (cite only these; never invent):
-' + lines.join('\n') + '\n' + (intel.note || '');
+  return 'Area intel (cite only these; never invent):\n' + lines.join('\n') + '\n' + (intel.note || '');
 }
 
 async function callARIS(marketData, scores, location, strategy) {

@@ -279,3 +279,13 @@ test('deal-analyzer and coach prompts carry the currency rule for a new session 
     globalThis.fetch = realFetch;
   }
 });
+
+test('inline Market Oracle scripts parse as JavaScript', () => {
+  const oracle = fs.readFileSync(path.join(ROOT, 'market-oracle.html'), 'utf8');
+  const scripts = [...oracle.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)].map(m => m[1]);
+  assert.ok(scripts.length > 0);
+  const file = path.join(os.tmpdir(), 'market-oracle-inline.js');
+  fs.writeFileSync(file, scripts.join('\n;\n'));
+  const { status, stderr } = require('child_process').spawnSync(process.execPath, ['--check', file], { encoding: 'utf8' });
+  assert.equal(status, 0, stderr);
+});
