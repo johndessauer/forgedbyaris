@@ -1,225 +1,236 @@
-// Market Oracle — live data proxy (Phase II, free-tier sources only)
+// Market Oracle — live data proxy
 //
-// Pulls real government data instead of ARIS-estimated numbers:
-//   - Census ACS 5-Year estimates: median home value, median rent, median
-//     income, vacancy rate, ownership rate, total housing units
-//   - Census Geocoder (free, no key): resolves a "City, ST" query to a
-//     county FIPS code when the input isn't a ZIP code
-//   - Zippopotam.us (free, no key): resolves a ZIP code to its city/state
-//     for display, since Census ACS's own NAME field returns a raw
-//     ZCTA label (e.g. "ZCTA5 90740"), not a human place name
-//   - FRED: current 30-year fixed mortgage rate
+// Resolves a ZIP, "City, ST", US state, or neighborhood-within-ZIP, then
+// returns:
+//   - Census ACS 5-year estimates (latest vintage, currently 2024) for the
+//     primary geography, plus a ZIP comparison when a neighborhood is used
+//   - Optional RentCast radius sale/rental comps (authenticated members only,
+//     behind the existing cache + monthly budget cap)
+//   - Area intel (Census Building Permits Survey + sourced news), cached
+//     lightly, with source links and dates so ARIS never invents headlines
 //
-// IMPORTANT — this is real ACS data, not live MLS pricing. ACS 5-Year
-// estimates are a rolling average, typically 1-3 years behind current
-// market conditions. That's a real upgrade over ARIS estimating from
-// training data, but it is not the same as a live listing-price feed
-// (e.g. Rentcast/ATTOM). market-oracle.html labels this in the UI so
-// members know what they're looking at.
-//
-// Requires two free environment variables, set in Netlify:
-//   CENSUS_API_KEY — free, no billing, from census.gov/data/key_signup.html
-//   FRED_API_KEY   — free, no billing, from fred.stlouisfed.org
-//
-// If either key is missing, or if the location can't be resolved, this
-// function returns a clear error so the caller (market-oracle.html) can
-// fall back to the existing ARIS-estimated flow rather than showing
-// nothing.
+// Requires CENSUS_API_KEY (free). FRED_API_KEY is optional. RentCast is
+// optional and never called without a verified member. News search API keys
+// (TAVILY_API_KEY, BRAVE_SEARCH_API_KEY, NEWSAPI_KEY) are optional.
 
-const ACS_YEAR = 2022; // most recent 5-year ACS vintage at time of writing — bump this yearly
+const { resolveLocation } = require('./_Lib/location-resolver');
+const { fetchAcs, toMarketStats } = require('./_Lib/acs-client');
+const { loadAreaIntel } = require('./_Lib/area-intel');
+const { loadRadiusComps } = require('./_Lib/market-rentcast');
+const { createSupabaseStore } = require('./_Lib/comps-store');
 
-const ACS_VARS = [
-  'NAME',
-  'B19013_001E', // median household income
-  'B25077_001E', // median value, owner-occupied housing units
-  'B25064_001E', // median gross rent
-  'B25001_001E', // total housing units
-  'B25002_003E', // vacant housing units
-  'B25003_001E', // total occupied housing units
-  'B25003_002E', // owner-occupied units
-  // Units in Structure (B25024) — added for Market Oracle's Multifamily 5+
-  // strategy (Empire-gated). Summing the 5-9/10-19/20-49/50+ buckets gives
-  // a real Census-sourced measure of how much 5+ unit multifamily housing
-  // stock exists in this market — a genuine multifamily-specific signal,
-  // not a residential proxy like the fields above.
-  'B25024_006E', // 5 to 9 units
-  'B25024_007E', // 10 to 19 units
-  'B25024_008E', // 20 to 49 units
-  'B25024_009E'  // 50 or more units
-].join(',');
+const CORS = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': 'https://forgedbyaris.com',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
 
-// Resolves a ZIP code to "City, ST" via Zippopotam.us. Non-fatal — returns
-// null on any failure so the caller can fall back to a ZIP-only label.
-async function resolveZipCityState(zip) {
-  try {
-    const res = await fetch(`https://api.zippopotam.us/us/${zip}`);
-    if (!res.ok) return null;
-    const data = await res.json();
-    const place = data?.places?.[0];
-    if (!place) return null;
-    const city = place['place name'];
-    const state = place['state abbreviation'];
-    if (!city || !state) return null;
-    return `${city}, ${state}`;
-  } catch (e) {
-    return null;
-  }
+function reply(statusCode, body) {
+  return { statusCode, headers: CORS, body: JSON.stringify(body) };
 }
 
-exports.handler = async function (event, context) {
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: 'Method Not Allowed' };
-  }
+// Tiny in-process cache for free sources (ACS/permits/news) so a page refresh
+// during one instance does not re-hit Census. The RentCast path has its own
+// 30-day store cache.
+const memCache = new Map();
+const MEM_TTL_MS = 6 * 60 * 60 * 1000;
 
-  const CENSUS_KEY = process.env.CENSUS_API_KEY;
-  const FRED_KEY = process.env.FRED_API_KEY;
+function memGet(key, now) {
+  const row = memCache.get(key);
+  if (!row) return null;
+  if (row.expires <= now.getTime()) { memCache.delete(key); return null; }
+  return row.value;
+}
+function memSet(key, value, now, ttl) {
+  memCache.set(key, { value, expires: now.getTime() + (ttl || MEM_TTL_MS) });
+}
 
-  const CORS_HEADERS = {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': 'https://forgedbyaris.com'
-  };
-
-  if (!CENSUS_KEY) {
-    return {
-      statusCode: 500,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({ error: 'CENSUS_API_KEY not configured' })
-    };
-  }
-
-  let body;
+async function fetchFredRate(fetchImpl, key) {
+  if (!key) return { mortgageRate: null, mortgageRateAsOf: null };
   try {
-    body = JSON.parse(event.body);
-  } catch (e) {
-    return { statusCode: 400, headers: CORS_HEADERS, body: JSON.stringify({ error: 'Invalid request body' }) };
-  }
+    const url = `https://api.stlouisfed.org/fred/series/observations?series_id=MORTGAGE30US&sort_order=desc&limit=1&file_type=json&api_key=${key}`;
+    const res = await fetchImpl(url);
+    if (!res.ok) return { mortgageRate: null, mortgageRateAsOf: null };
+    const fredData = await res.json();
+    const obs = fredData && fredData.observations && fredData.observations[0];
+    if (obs && obs.value !== '.') {
+      return { mortgageRate: parseFloat(obs.value), mortgageRateAsOf: obs.date };
+    }
+  } catch (e) { /* non-fatal */ }
+  return { mortgageRate: null, mortgageRateAsOf: null };
+}
 
-  const query = (body.query || '').trim();
-  if (!query) {
-    return { statusCode: 400, headers: CORS_HEADERS, body: JSON.stringify({ error: 'Missing query' }) };
-  }
+function createHandler(deps) {
+  const d = deps || {};
+  const env = d.env || process.env;
+  const fetchImpl = d.fetch || fetch;
+  const nowFn = d.now || (() => new Date());
+  const verify = d.verifyMember || (async (event) => {
+    const { verifyMember } = require('./_Lib/verify-member');
+    return verifyMember(event);
+  });
 
-  try {
-    const isZip = /^\d{5}$/.test(query);
-    let acsRows;
-    let geoLabel;
+  return async function handler(event) {
+    if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' };
+    if (event.httpMethod !== 'POST') return reply(405, { error: 'Method Not Allowed' });
 
-    if (isZip) {
-      const url = `https://api.census.gov/data/${ACS_YEAR}/acs/acs5?get=${ACS_VARS}&for=zip%20code%20tabulation%20area:${query}&key=${CENSUS_KEY}`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error('Census ACS lookup failed for that ZIP code.');
-      acsRows = await res.json();
-      if (!acsRows || acsRows.length < 2) throw new Error('No ACS data for that ZIP code.');
-
-      // Census ACS's own NAME field for a ZCTA is a raw label like
-      // "ZCTA5 90740" — not a human place name. Resolve the real city/state
-      // separately; fall back to the ZIP-only label if that lookup fails.
-      const cityState = await resolveZipCityState(query);
-      geoLabel = cityState ? `${cityState} (${query})` : `ZIP ${query}`;
-    } else {
-      // Resolve city/state text to a county FIPS via the free Census Geocoder
-      const geoUrl = `https://geocoding.geo.census.gov/geocoder/geographies/onelineaddress?address=${encodeURIComponent(query)}&benchmark=Public_AR_Current&vintage=Current_Current&layers=Counties&format=json`;
-      const geoRes = await fetch(geoUrl);
-      if (!geoRes.ok) throw new Error('Geocoder request failed.');
-      const geoData = await geoRes.json();
-      const match = geoData?.result?.addressMatches?.[0];
-      const county = match?.geographies?.Counties?.[0];
-      if (!county) throw new Error('Could not resolve that location to a US county.');
-
-      const stateFips = county.STATE;
-      const countyFips = county.COUNTY;
-      geoLabel = `${county.BASENAME} County, ${match.addressComponents?.state || ''}`.trim();
-
-      const url = `https://api.census.gov/data/${ACS_YEAR}/acs/acs5?get=${ACS_VARS}&for=county:${countyFips}&in=state:${stateFips}&key=${CENSUS_KEY}`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error('Census ACS lookup failed for that county.');
-      acsRows = await res.json();
-      if (!acsRows || acsRows.length < 2) throw new Error('No ACS data for that county.');
+    if (!env.CENSUS_API_KEY) {
+      return reply(500, { error: 'CENSUS_API_KEY not configured' });
     }
 
-    // ACS returns [headerRow, dataRow]; map header -> value
-    const header = acsRows[0];
-    const row = acsRows[1];
-    const rec = {};
-    header.forEach((h, i) => { rec[h] = row[i]; });
-
-    const medianIncome    = parseInt(rec.B19013_001E, 10) || 0;
-    const medianHomeValue = parseInt(rec.B25077_001E, 10) || 0;
-    const medianRent      = parseInt(rec.B25064_001E, 10) || 0;
-    const totalUnits      = parseInt(rec.B25001_001E, 10) || 0;
-    const vacantUnits     = parseInt(rec.B25002_003E, 10) || 0;
-    const occupiedUnits   = parseInt(rec.B25003_001E, 10) || 0;
-    const ownerUnits      = parseInt(rec.B25003_002E, 10) || 0;
-    const units5to9       = parseInt(rec.B25024_006E, 10) || 0;
-    const units10to19     = parseInt(rec.B25024_007E, 10) || 0;
-    const units20to49     = parseInt(rec.B25024_008E, 10) || 0;
-    const units50plus     = parseInt(rec.B25024_009E, 10) || 0;
-
-    const vacancyRate   = totalUnits > 0 ? (vacantUnits / totalUnits) * 100 : 0;
-    const ownershipRate = occupiedUnits > 0 ? (ownerUnits / occupiedUnits) * 100 : 0;
-    // Share of the market's housing stock that's 5+ unit multifamily —
-    // the Market Oracle Multifamily 5+ strategy's key differentiating
-    // signal (see market-oracle.html scoreMarket()).
-    const units5Plus    = units5to9 + units10to19 + units20to49 + units50plus;
-    const pctUnits5Plus = totalUnits > 0 ? (units5Plus / totalUnits) * 100 : 0;
-
-    // ACS occasionally returns negative sentinel codes (e.g. -666666666) for
-    // suppressed/unavailable small-geography data — treat those as invalid.
-    const isSuppressed = (v) => v < 0;
-    if (isSuppressed(medianIncome) || isSuppressed(medianHomeValue) || isSuppressed(medianRent)) {
-      throw new Error('ACS data is suppressed for this geography (too small a sample). Try a broader location.');
+    let body;
+    try {
+      body = JSON.parse(event.body || '{}');
+    } catch (e) {
+      return reply(400, { error: 'Invalid request body' });
     }
+    const query = (body.query || '').trim();
+    if (!query) return reply(400, { error: 'Missing query' });
 
-    // Live 30-year mortgage rate via FRED — non-fatal if it fails, since the
-    // location data is still useful without it.
-    let mortgageRate = null;
-    let mortgageRateAsOf = null;
-    if (FRED_KEY) {
-      try {
-        const fredUrl = `https://api.stlouisfed.org/fred/series/observations?series_id=MORTGAGE30US&sort_order=desc&limit=1&file_type=json&api_key=${FRED_KEY}`;
-        const fredRes = await fetch(fredUrl);
-        if (fredRes.ok) {
-          const fredData = await fredRes.json();
-          const obs = fredData?.observations?.[0];
-          if (obs && obs.value !== '.') {
-            mortgageRate = parseFloat(obs.value);
-            mortgageRateAsOf = obs.date;
+    const now = nowFn();
+
+    try {
+      const resolved = await resolveLocation(query, { fetch: fetchImpl, now });
+      if (!resolved.ok) {
+        return reply(502, { error: resolved.error || 'Could not resolve that location.' });
+      }
+
+      const { geography, acsTargets } = resolved;
+
+      // ACS primary, and ZIP comparison when present. If the primary BG is
+      // suppressed, try the tract, then the ZIP.
+      let primary = await fetchAcs(acsTargets.primary, { fetch: fetchImpl, censusKey: env.CENSUS_API_KEY, years: d.acsYears });
+      let usedTarget = acsTargets.primary;
+      if (!primary.ok && acsTargets.primary && acsTargets.primary.kind === 'blockGroup') {
+        const tractTarget = geography.tract && {
+          kind: 'tract',
+          stateFips: geography.tract.stateFips,
+          countyFips: geography.tract.countyFips,
+          tract: geography.tract.tract,
+          geoid: geography.tract.geoid,
+        };
+        if (tractTarget) {
+          const tractAcs = await fetchAcs(tractTarget, { fetch: fetchImpl, censusKey: env.CENSUS_API_KEY, years: d.acsYears });
+          if (tractAcs.ok) {
+            primary = tractAcs;
+            usedTarget = tractTarget;
+            geography.note = (geography.note || '')
+              + ' Block-group ACS was suppressed or unavailable, so tract-level figures are shown instead.';
           }
         }
-      } catch (e) {
-        // swallow — mortgage rate is a bonus field, not required
       }
-    }
+      if (!primary.ok && acsTargets.comparison) {
+        const fallback = await fetchAcs(acsTargets.comparison, { fetch: fetchImpl, censusKey: env.CENSUS_API_KEY, years: d.acsYears });
+        if (fallback.ok) {
+          primary = fallback;
+          usedTarget = acsTargets.comparison;
+          geography.fallbackFrom = geography.fallbackFrom || geography.name || geography.type;
+          geography.resolvedAs = 'zip-fallback';
+          geography.note = (geography.note ? geography.note + ' ' : '')
+            + 'Neighborhood-level ACS was unavailable, so ZIP-level figures are shown.';
+        }
+      }
+      if (!primary.ok) {
+        return reply(502, { error: primary.error || 'Census ACS lookup failed for that location.' });
+      }
 
-    const grossRentMultiplier = medianHomeValue > 0 && medianRent > 0 ? medianHomeValue / (medianRent * 12) : 0;
-    const rentToPrice         = medianHomeValue > 0 && medianRent > 0 ? (medianRent / medianHomeValue) * 100 : 0;
+      let zipComparison = null;
+      if (acsTargets.comparison && !(usedTarget && usedTarget.kind === 'zcta' && usedTarget.zip === acsTargets.comparison.zip)) {
+        const cmp = await fetchAcs(acsTargets.comparison, { fetch: fetchImpl, censusKey: env.CENSUS_API_KEY, years: d.acsYears });
+        if (cmp.ok) {
+          zipComparison = toMarketStats(cmp.parsed, {
+            geoLabel: geography.zip ? `ZIP ${geography.zip}` : cmp.parsed.name,
+            dataSource: 'census',
+            acsVintage: cmp.year,
+          });
+        }
+      }
 
-    return {
-      statusCode: 200,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({
-        geoLabel,
-        medianHomeValue,
-        medianRent,
-        medianIncome,
-        vacancyRate,
-        ownershipRate,
-        grossRentMultiplier,
-        rentToPrice,
-        totalUnits,
-        pctUnits5Plus,
-        marketNotes: '',
+      const stats = toMarketStats(primary.parsed, { geoLabel: geography.label });
+
+      // Area intel + FRED + optional comps in parallel.
+      let memberId = null;
+      try {
+        if (d.memberId) {
+          memberId = d.memberId;
+        } else {
+          const member = await verify(event);
+          memberId = typeof member === 'string'
+            ? member
+            : (member && (member.id || member.memberstack_id || member.memberId));
+        }
+      } catch (e) {
+        if (e && e.statusCode && e.statusCode !== 401 && e.statusCode !== 403) {
+          // Unexpected verify errors: continue without comps.
+        }
+        memberId = null;
+      }
+
+      let store = d.store || null;
+      if (!store && memberId && (env.RENTCAST_API_KEY || env.RENTCAST_MOCK) && env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) {
+        try {
+          const { supabase } = require('./_Lib/supabase-client');
+          store = createSupabaseStore(supabase);
+        } catch (e) {
+          store = null;
+        }
+      }
+
+      const intelKey = `intel:${geography.type}:${geography.zip || ''}:${geography.city || ''}:${geography.state || ''}:${geography.name || ''}`;
+      let areaIntel = memGet(intelKey, now);
+      const intelPromise = areaIntel
+        ? Promise.resolve(areaIntel)
+        : loadAreaIntel(geography, { fetch: fetchImpl, env, now: nowFn }).then((val) => {
+          memSet(intelKey, val, now, 12 * 60 * 60 * 1000);
+          return val;
+        });
+
+      const [fred, intel, comps] = await Promise.all([
+        fetchFredRate(fetchImpl, env.FRED_API_KEY),
+        intelPromise,
+        loadRadiusComps(geography, {
+          fetch: fetchImpl,
+          env,
+          now: nowFn,
+          store,
+          memberId,
+          mockResponse: d.mockResponse,
+        }).catch((e) => ({
+          status: 'skipped',
+          reason: 'error',
+          message: 'Live comps could not be loaded for this area.',
+        })),
+      ]);
+      areaIntel = intel;
+
+      return reply(200, {
+        geoLabel: geography.label,
+        geography,
+        medianHomeValue: stats.medianHomeValue,
+        medianRent: stats.medianRent,
+        medianIncome: stats.medianIncome,
+        vacancyRate: stats.vacancyRate,
+        ownershipRate: stats.ownershipRate,
+        grossRentMultiplier: stats.grossRentMultiplier,
+        rentToPrice: stats.rentToPrice,
+        totalUnits: stats.totalUnits,
+        pctUnits5Plus: stats.pctUnits5Plus,
+        marketNotes: geography.note || '',
         dataSource: 'census',
-        acsVintage: ACS_YEAR,
-        mortgageRate,
-        mortgageRateAsOf
-      })
-    };
-  } catch (err) {
-    return {
-      statusCode: 502,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({ error: err.message || 'Live data lookup failed' })
-    };
-  }
-};
+        acsVintage: primary.year,
+        acsGeography: usedTarget && usedTarget.kind,
+        zipComparison,
+        comps,
+        areaIntel,
+        mortgageRate: fred.mortgageRate,
+        mortgageRateAsOf: fred.mortgageRateAsOf,
+      });
+    } catch (err) {
+      return reply(502, { error: (err && err.message) || 'Live data lookup failed' });
+    }
+  };
+}
+
+exports.handler = createHandler();
+exports.createHandler = createHandler;

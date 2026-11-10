@@ -196,6 +196,9 @@ test('deal analyzer, capital radar, and market oracle pin US grouping', () => {
   const oracle = fs.readFileSync(path.join(ROOT, 'market-oracle.html'), 'utf8');
   assert.match(oracle, /n\.toLocaleString\('en-US'\)/);
   assert.match(oracle, /US dollars from US Census figures/);
+  assert.match(oracle, /Harter Heights, 46617/);
+  assert.match(oracle, /cite only these; never invent/i);
+  assert.match(oracle, /Authorization.*Bearer/);
 });
 
 test('a fresh profile row does not store a currency or locale', () => {

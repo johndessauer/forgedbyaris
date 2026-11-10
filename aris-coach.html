@@ -1306,6 +1306,17 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
   // ── CRM TOOL DEFINITIONS (Anthropic tools schema) ──
   const CRM_TOOLS = [
     {
+      name: 'get_market_data',
+      description: "Look up live market data for a US ZIP, city and state, or a neighborhood inside a ZIP (for example 'Harter Heights, 46617' or 'South Bend, IN'). Returns Census ACS figures for the resolved geography, a ZIP comparison when the lookup is a neighborhood, a radius comps summary when the member is signed in, and sourced area intel (permits, news) with links and dates. Call this when the member asks about a specific market or neighborhood. Cite only items in areaIntel; never invent developments, employer moves, rezoning, or permits. If comps or intel are missing, say so rather than filling gaps.",
+      input_schema: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: "Location to look up: a 5-digit ZIP, 'City, ST', or a neighborhood plus city/ZIP." }
+        },
+        required: ['query']
+      }
+    },
+    {
       name: 'get_pipeline_summary',
       description: "Get a count of the member's deals in each pipeline stage (New Lead, Contacted, Qualified, Making Offer, Under Contract, Closed, Dead) and the total number of deals.",
       input_schema: { type: 'object', properties: {} }
@@ -1435,6 +1446,40 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
   // (to be JSON.stringify'd into a tool_result block).
   async function executeReadTool(name, input) {
     switch (name) {
+      case 'get_market_data': {
+        if (!input.query) return { error: 'No location query provided.' };
+        const data = await apiCallCRM('market-data', { method: 'POST', body: JSON.stringify({ query: input.query }) });
+        const sold = (data.comps && data.comps.sold) || {};
+        const rent = (data.comps && data.comps.rentals) || {};
+        return {
+          query: input.query,
+          geography: data.geography || null,
+          geoLabel: data.geoLabel,
+          acsVintage: data.acsVintage,
+          acsGeography: data.acsGeography,
+          dataSource: data.dataSource,
+          medianHomeValue: data.medianHomeValue,
+          medianRent: data.medianRent,
+          medianIncome: data.medianIncome,
+          vacancyRate: data.vacancyRate,
+          ownershipRate: data.ownershipRate,
+          rentToPrice: data.rentToPrice,
+          grossRentMultiplier: data.grossRentMultiplier,
+          mortgageRate: data.mortgageRate,
+          mortgageRateAsOf: data.mortgageRateAsOf,
+          zipComparison: data.zipComparison || null,
+          comps: data.comps ? {
+            status: data.comps.status,
+            message: data.comps.message,
+            radiusMiles: data.comps.radiusMiles,
+            lookbackDays: data.comps.lookbackDays,
+            sold: { counted: sold.counted, medianSalePrice: sold.medianSalePrice },
+            rentals: { counted: rent.counted, medianRent: rent.medianRent },
+            note: data.comps.note
+          } : null,
+          areaIntel: data.areaIntel || null
+        };
+      }
       case 'get_pipeline_summary': {
         const data = await apiCallCRM('crm-deals?action=summary');
         return data;
