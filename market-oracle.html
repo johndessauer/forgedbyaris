@@ -113,6 +113,21 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 .strategy-hint { font-size: 10px; color: var(--grey); margin-top: 1px; }
 .strategy-btn.active .strategy-hint { color: rgba(255,107,43,0.7); }
 
+
+.compare-table { width:100%; border-collapse:collapse; margin:0 0 20px; font-size:13px; }
+.compare-table th, .compare-table td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--border-sub); }
+.compare-table th { color:var(--grey); font-size:10px; letter-spacing:1.5px; text-transform:uppercase; font-weight:600; }
+.compare-table td { color:var(--white); }
+.compare-table .col-primary { color:var(--gold); font-weight:600; }
+.intel-list { list-style:none; display:flex; flex-direction:column; gap:10px; margin:0 0 20px; }
+.intel-item { background:var(--navy-light); border:1px solid var(--border-sub); border-radius:8px; padding:12px 14px; }
+.intel-item a { color:var(--gold); text-decoration:none; font-weight:600; font-size:13px; }
+.intel-item a:hover { text-decoration:underline; }
+.intel-meta { font-size:11px; color:var(--grey); margin-top:4px; }
+.intel-summary { font-size:12px; color:var(--grey-light); margin-top:6px; line-height:1.5; }
+.geo-note { font-size:11px; color:var(--grey-light); margin:-8px 0 16px; line-height:1.55; }
+.comps-sample { font-size:12px; color:var(--grey-light); margin:8px 0 0; line-height:1.55; }
+
 /* ── RESULTS PANEL ── */
 .results-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 
@@ -307,10 +322,10 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
       <div class="search-panel">
         <div class="search-inner">
           <div class="search-headline">Search Any Market</div>
-          <div class="search-desc">Enter a zip code, city, or state to get FORGE market intelligence and investment class scoring.</div>
+          <div class="search-desc">Enter a zip code, city, or neighborhood (for example Harter Heights, 46617) to get FORGE market intelligence, neighborhood vs ZIP comparison, and sourced area intel.</div>
 
           <div class="search-box">
-            <input class="search-input" id="searchInput" type="text" placeholder="Zip, city, or state..." maxlength="100" />
+            <input class="search-input" id="searchInput" type="text" placeholder="Zip, city, or neighborhood (Harter Heights, 46617)..." maxlength="120" />
             <button class="search-btn" id="searchBtn" onclick="runSearch()">Analyze</button>
           </div>
 
@@ -318,6 +333,8 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
             <div class="example-label">Try these</div>
             <div class="example-pills">
               <span class="pill" onclick="fillAndSearch('46303')">46303</span>
+              <span class="pill" onclick="fillAndSearch('Harter Heights, 46617')">Harter Heights, 46617</span>
+              <span class="pill" onclick="fillAndSearch('South Bend, IN')">South Bend, IN</span>
               <span class="pill" onclick="fillAndSearch('Indianapolis, IN')">Indianapolis</span>
               <span class="pill" onclick="fillAndSearch('Phoenix, AZ')">Phoenix</span>
               <span class="pill" onclick="fillAndSearch('Memphis, TN')">Memphis</span>
@@ -376,7 +393,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
         <div class="empty-state" id="emptyState">
           <div class="empty-icon">🔮</div>
           <div class="empty-title">Awaiting Your Market</div>
-          <div class="empty-sub">Enter a zip code, city, or state to receive FORGE Class scoring and ARIS market intelligence.</div>
+          <div class="empty-sub">Enter a zip code, city, or neighborhood to receive FORGE Class scoring, a ZIP comparison when it applies, and ARIS market intelligence.</div>
         </div>
 
         <!-- LOADING STATE -->
@@ -472,7 +489,7 @@ document.getElementById('searchInput').addEventListener('keydown', e => {
 // ── ARIS MARKET DATA FETCH (fallback — used only when live data is unavailable) ──
 async function fetchMarketDataEstimate(query) {
   const q = query.trim();
-  if (!q) throw new Error('Enter a zip code, city, or state.');
+  if (!q) throw new Error('Enter a zip code, city, or neighborhood (e.g. Harter Heights, 46617).');
 
   const prompt = `You are a real estate data engine. Return ONLY a valid JSON object — no explanation, no markdown, no preamble.
 
@@ -552,12 +569,14 @@ Return ONLY the JSON object. No other text.`;
 // if the location can't be resolved or the live-data function errors.
 async function fetchMarketData(query) {
   const q = query.trim();
-  if (!q) throw new Error('Enter a zip code, city, or state.');
+  if (!q) throw new Error('Enter a zip code, city, or neighborhood (e.g. Harter Heights, 46617).');
 
   try {
+    const headers = { 'Content-Type': 'application/json' };
+    if (memberToken) headers['Authorization'] = 'Bearer ' + memberToken;
     const res = await fetch('/api/market-data', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ query: q })
     });
 
@@ -770,6 +789,42 @@ function getWhyContext() {
   } catch(e) { return ''; }
 }
 
+
+function zipCmpBlock(marketData) {
+  const z = marketData && marketData.zipComparison;
+  if (!z) return '';
+  return `ZIP comparison (${z.geoLabel || 'ZIP'}, ACS ${z.acsVintage || ''}): median home ${fmt(z.medianHomeValue)}, rent ${fmt(z.medianRent)}/mo, income ${fmt(z.medianIncome)}, vacancy ${fmtPct(z.vacancyRate)}, ownership ${fmtPct(z.ownershipRate)}. Use this only as contrast with the primary geography.`;
+}
+
+function compsBlock(marketData) {
+  const c = marketData && marketData.comps;
+  if (!c || c.status === 'skipped' || c.status === 'budget_cap' || c.status === 'rentcast_unavailable') {
+    const msg = (c && c.message) ? c.message : 'No live radius comps were loaded for this lookup.';
+    return 'Comps: ' + msg;
+  }
+  const sold = c.sold || {};
+  const rent = c.rentals || {};
+  return `Recent comps (FORGE Cast / recorded sales and listings inside a ${c.radiusMiles || 0.5} mile radius, ${c.lookbackDays || 365}-day lookback, outliers removed${c.status === 'demo' ? ', demo data' : ''}): `
+    + (sold.counted ? `${sold.counted} sales, median ${fmt(sold.medianSalePrice)}` : 'no usable sales')
+    + (rent.counted ? `; ${rent.counted} rental listings, median ${fmt(rent.medianRent)}/mo` : '')
+    + '. These are a radius, not the official neighborhood boundary.';
+}
+
+function intelBlock(marketData) {
+  const intel = marketData && marketData.areaIntel;
+  if (!intel) return 'Area intel: none returned. Do not invent developments or news.';
+  const items = intel.items || [];
+  if (!items.length) {
+    return 'Area intel: ' + (intel.note || 'No sourced items. Do not invent developments, employer moves, rezoning, or permits.');
+  }
+  const lines = items.slice(0, 8).map(it => {
+    const when = it.date ? `, ${it.date}` : '';
+    return `- ${it.title} (${it.source || 'source'}${when}) ${it.url || ''}${it.summary ? ' — ' + it.summary : ''}`;
+  });
+  return 'Area intel (cite only these; never invent):
+' + lines.join('\n') + '\n' + (intel.note || '');
+}
+
 async function callARIS(marketData, scores, location, strategy) {
   const strategyContext = {
     all: 'all three strategies (fix & flip, rentals, and wholesaling)',
@@ -789,6 +844,10 @@ Rental Score: ${scores.rental.score}/100 (${scores.rental.grade})
 Wholesale Score: ${scores.wholesale.score}/100 (${scores.wholesale.grade})
 ${scores.multifamily ? `Multifamily 5+ Score: ${scores.multifamily.score}/100 (${scores.multifamily.grade})` : ''}
 
+Geography used: ${marketData.geography && marketData.geography.label ? marketData.geography.label : location} (${marketData.geography && marketData.geography.type ? marketData.geography.type : 'market'}${marketData.acsGeography ? ', ACS ' + marketData.acsGeography : ''})
+${marketData.geography && marketData.geography.note ? 'Geography note: ' + marketData.geography.note : ''}
+${marketData.geography && marketData.geography.fallbackFrom ? 'The named neighborhood could not be uniquely located; figures are for the fallback geography. Say that plainly.' : ''}
+
 Key Data (US dollars from US Census figures; do not convert them or call them pounds):
 - Median Home Value: ${fmt(marketData.medianHomeValue)}
 - Median Gross Rent: ${fmt(marketData.medianRent)}/mo
@@ -801,10 +860,13 @@ ${marketData.pctUnits5Plus !== undefined ? '- Share of Housing Stock in 5+ Unit 
 ${marketData.marketNotes ? '- Market Notes: ' + marketData.marketNotes : ''}
 - Data Source: ${marketData.dataSource === 'census' ? `Live U.S. Census ACS ${marketData.acsVintage} 5-Year data (real government data, 1-3 year rolling average, not live listing prices)` : 'ARIS estimate — live government data was unavailable for this location'}
 ${marketData.mortgageRate ? `- Current 30-Year Mortgage Rate: ${marketData.mortgageRate.toFixed(2)}% (live via FRED, as of ${marketData.mortgageRateAsOf})` : ''}
+${zipCmpBlock(marketData)}
+${compsBlock(marketData)}
+${intelBlock(marketData)}
 
 The member is focused on: ${strategyContext}.
 
-Give a direct 3–4 sentence ARIS market verdict. Lead with the area class and what that means for FORGE investors. Call out the single strongest opportunity and the single biggest risk. End with one specific action recommendation. Be direct, tactical, and speak in ARIS's voice — authoritative, no fluff.`;
+Give a direct 4–6 sentence ARIS market verdict. Lead with the area class and the geography you actually have (neighborhood vs ZIP vs city). If a ZIP comparison is present, say how this area differs — do not treat ZIP-wide numbers as neighborhood numbers. Call out the single strongest opportunity and the single biggest risk. If area intel items are listed, you may cite at most one or two, with source and date; if the intel section says no sourced news was returned, say you do not have sourced development/news for this area and do not invent projects, employer moves, rezoning, or permits. End with one specific action recommendation. Be direct, tactical, and speak in ARIS's voice — authoritative, no fluff.`;
 
   const fullPrompt = prompt + getWhyContext();
   const res = await fetch('/api/aris-quote', {
@@ -812,7 +874,7 @@ Give a direct 3–4 sentence ARIS market verdict. Lead with the area class and w
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + memberToken },
     body: JSON.stringify({
       model: 'claude-sonnet-4-6',
-      max_tokens: 600,
+      max_tokens: 800,
       messages: [{ role: 'user', content: fullPrompt }]
     })
   });
@@ -840,6 +902,85 @@ function dialSVG(score, color) {
 }
 
 // ── RENDER RESULTS ──
+
+function escText(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function renderCompareSection(data) {
+  const z = data.zipComparison;
+  if (!z) return '';
+  const row = (label, a, b) => `<tr><td>${label}</td><td class="col-primary">${a}</td><td>${b}</td></tr>`;
+  return `
+    <div>
+      <div class="data-section-label">Neighborhood vs ZIP</div>
+      <table class="compare-table">
+        <thead><tr><th>Metric</th><th>${escText(data.geoLabel || 'This area')}</th><th>${escText(z.geoLabel || 'ZIP')}</th></tr></thead>
+        <tbody>
+          ${row('Median home value', fmt(data.medianHomeValue), fmt(z.medianHomeValue))}
+          ${row('Median gross rent', fmt(data.medianRent) + '/mo', fmt(z.medianRent) + '/mo')}
+          ${row('Median household income', fmt(data.medianIncome), fmt(z.medianIncome))}
+          ${row('Vacancy rate', fmtPct(data.vacancyRate), fmtPct(z.vacancyRate))}
+          ${row('Ownership rate', fmtPct(data.ownershipRate), fmtPct(z.ownershipRate))}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function renderCompsSection(data) {
+  const c = data.comps;
+  if (!c) return '';
+  if (c.status === 'skipped' || c.status === 'budget_cap' || c.status === 'rentcast_unavailable') {
+    return `<div><div class="data-section-label">Recent Sales &amp; Rents Nearby</div><div class="geo-note">${escText(c.message || 'Live comps were not loaded for this lookup.')}</div></div>`;
+  }
+  const sold = c.sold || {};
+  const rent = c.rentals || {};
+  const sample = (sold.sample || []).slice(0, 5).map(s => {
+    const when = s.lastSaleDate ? String(s.lastSaleDate).slice(0, 10) : '';
+    return `${escText(s.address || 'Sale')}${s.lastSalePrice ? ' · ' + fmt(s.lastSalePrice) : ''}${when ? ' · ' + when : ''}`;
+  }).join('<br>');
+  return `
+    <div>
+      <div class="data-section-label">Recent Sales &amp; Rents Nearby</div>
+      <div class="data-grid">
+        <div class="data-cell">
+          <div class="data-cell-label">Median sale (radius)</div>
+          <div class="data-cell-value">${sold.medianSalePrice ? fmt(sold.medianSalePrice) : 'N/A'}</div>
+          <div class="data-cell-sub">${sold.counted || 0} sales · ${c.radiusMiles || 0.5} mi · ${c.lookbackDays || 365} days${c.status === 'demo' ? ' · demo' : ''}</div>
+        </div>
+        <div class="data-cell">
+          <div class="data-cell-label">Median asking rent</div>
+          <div class="data-cell-value">${rent.medianRent ? fmt(rent.medianRent) + '<span style="font-size:12px;font-family:Inter,sans-serif;color:var(--grey)">/mo</span>' : 'N/A'}</div>
+          <div class="data-cell-sub">${rent.counted || 0} listings in the same radius</div>
+        </div>
+      </div>
+      <div class="comps-sample">${sample}${c.note ? '<br>' + escText(c.note) : ''}</div>
+    </div>`;
+}
+
+function renderIntelSection(data) {
+  const intel = data.areaIntel;
+  if (!intel) return '';
+  const items = intel.items || [];
+  const lis = items.map(it => `
+    <li class="intel-item">
+      ${it.url ? `<a href="${escText(it.url)}" target="_blank" rel="noopener noreferrer">${escText(it.title)}</a>` : `<div class="intel-item a">${escText(it.title)}</div>`}
+      <div class="intel-meta">${escText([it.source, it.date, it.category].filter(Boolean).join(' · '))}</div>
+      ${it.summary ? `<div class="intel-summary">${escText(it.summary)}</div>` : ''}
+    </li>`).join('');
+  const empty = items.length ? '' : `<div class="geo-note">${escText((intel.news && intel.news.message) || intel.note || 'No sourced area intel was returned. ARIS will not invent developments or news.')}</div>`;
+  return `
+    <div>
+      <div class="data-section-label">Area Intel for Investors</div>
+      ${items.length ? `<ul class="intel-list">${lis}</ul>` : empty}
+      ${intel.note && items.length ? `<div class="geo-note">${escText(intel.note)}</div>` : ''}
+    </div>`;
+}
+
 function renderResults(data, scores, location) {
   const rs = document.getElementById('resultsScroll');
 
@@ -860,7 +1001,7 @@ function renderResults(data, scores, location) {
       <button class="fdoc-save-trigger" onclick="openSaveToDealModal('market_oracle','resultsScroll', () => window._fdocTitle)">💾 Save to Deal</button>
     </div>
 
-    ${data.dataSource === 'census' ? `<div style="font-size:11px;color:var(--grey-light);margin:-8px 0 16px;">Census 5-Year estimates are a rolling average, typically 1-3 years behind current market conditions — not live listing prices.</div>` : `<div style="font-size:11px;color:var(--grey-light);margin:-8px 0 16px;">Could not resolve live government data for this location — figures below are ARIS's best estimate based on its training data, not a live source.</div>`}
+    ${data.dataSource === 'census' ? `<div class="geo-note">Census ACS ${data.acsVintage} 5-Year estimates are a rolling average, typically 1-3 years behind current market conditions — not live listing prices.${data.geography && data.geography.note ? ' ' + escText(data.geography.note) : ''}${data.acsGeography ? ' Primary geography: ' + escText(data.acsGeography) + '.' : ''}</div>` : `<div class="geo-note">Could not resolve live government data for this location — figures below are ARIS's best estimate based on its training data, not a live source.</div>`}
 
     <!-- Overall Score -->
     <div class="score-card">
@@ -981,6 +1122,10 @@ function renderResults(data, scores, location) {
       </div>
     </div>
 
+    ${renderCompareSection(data)}
+    ${renderCompsSection(data)}
+    ${renderIntelSection(data)}
+
     <!-- ARIS Panel -->
     <div class="aris-panel" id="arisPanel">
       <div class="aris-panel-header">
@@ -1049,7 +1194,7 @@ async function runSearch() {
     document.getElementById('emptyState').innerHTML = `
       <div class="empty-icon">⚠️</div>
       <div class="empty-title">Could Not Load Market</div>
-      <div class="empty-sub">${err.message || 'Try a zip code, or "City, ST" format (e.g. Memphis, TN).'}</div>
+      <div class="empty-sub">${err.message || 'Try a 5-digit ZIP, “City, ST”, or a neighborhood plus a ZIP (e.g. Harter Heights, 46617).'}</div>
     `;
   } finally {
     btn.disabled = false;
