@@ -83,8 +83,10 @@ export default async (request, context) => {
   // Full finished message, then a whitespace-safe cap. Speech text only —
   // the chat on screen is unchanged. $ becomes "dollars" so the British
   // RP voice does not read a US amount as pounds. £ / GBP stay pounds
-  // and the digits are not converted. A postal abbreviation in a city,
-  // address, or market is spoken as the state name ("Dallas, TX" → Texas).
+  // and the amount is not converted to another currency. Amounts are
+  // then spoken as words; ZIP codes, phone numbers, and property IDs
+  // are spoken as digits. A postal abbreviation in a city, address, or
+  // market is spoken as the state name ("Dallas, TX" → Texas).
   const speechText = prepareSpeechText(rawText, SPEECH_CHAR_LIMIT);
   if (!speechText) {
     return new Response(JSON.stringify({ error: 'Nothing left to speak after stripping formatting' }), {

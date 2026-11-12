@@ -13,7 +13,11 @@
 // normalized safely. prepareSpeechText slices only after normalization,
 // on a whitespace boundary, so the 5000-character cap cannot cut an
 // amount or an expanded abbreviation in half. US postal abbreviations
-// are expanded to state names in that same spoken copy.
+// are expanded to state names in that same spoken copy. Amounts are
+// then spoken as American conversational words, with no "and" inside
+// the number ("and" only between dollars and cents). ZIP codes, phone
+// numbers, and property IDs are spoken one digit at a time ("oh" for
+// zero). Street numbers and years stay written digits.
 
 export const SPEECH_CHAR_LIMIT = 5000;
 
@@ -182,6 +186,9 @@ function isNegative(groups) {
   return Boolean(groups && (groups.sign || groups.sign2));
 }
 
+// The symbol or code becomes a number plus a unit. pronounceNumbers
+// spells that number later, after state names are chosen, so a ZIP is
+// still digits while "TX 78701" is resolved.
 function spell(groups, unit) {
   const num = amount(groups);
   if (num == null) return null;
@@ -353,6 +360,8 @@ function zipConfirms(text, start, end, code) {
     const prev = before.match(/([A-Za-z][A-Za-z.'’\-]*)\s+$/);
     if (!prev) return false;
     const word = prev[1].replace(/\./g, '');
+    // "property ID 83702" is an identifier. "Boise ID 83702" is still Idaho.
+    if (word.toLowerCase() === 'property') return false;
     if (word.length < 3 || !/[A-Z]/.test(word) || DISCOURSE.has(word.toLowerCase())) return false;
   }
   return true;
@@ -449,11 +458,312 @@ function expandStateAbbreviations(text) {
   return out;
 }
 
+const ONES = [
+  'zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine',
+  'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen',
+];
+const TENS = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+const SCALES = ['', 'thousand', 'million', 'billion', 'trillion'];
+const DIGIT_OH = ['oh', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
+const DIGIT_ZERO = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
+
+// Longest first so "Canadian dollars" wins over "dollars".
+const SPOKEN_UNITS = [
+  'New Zealand dollars',
+  'Australian dollars',
+  'Hong Kong dollars',
+  'New Taiwan dollars',
+  'Singapore dollars',
+  'Canadian dollars',
+  'dollars',
+  'pounds',
+  'euros',
+];
+
+const RATIO_TERMS = [
+  'debt-service coverage ratios',
+  'debt-service coverage ratio',
+  'debt coverage ratios',
+  'debt coverage ratio',
+  'after-repair values',
+  'after-repair value',
+  'maximum allowable offers',
+  'maximum allowable offer',
+  'loan-to-values',
+  'loan-to-value',
+  'loan-to-costs',
+  'loan-to-cost',
+  'returns on investment',
+  'return on investment',
+  'net operating incomes',
+  'net operating income',
+  'capitalization rates',
+  'capitalization rate',
+];
+
+const STREET_TAIL = String.raw`(?:(?:N|S|E|W|NE|NW|SE|SW|North|South|East|West)\.?\s+)?(?:[A-Za-z0-9.'’\-]+\s+){0,5}(?:street|st|avenue|ave|road|rd|drive|dr|lane|ln|boulevard|blvd|court|ct|way|place|pl|terrace|ter|circle|cir|highway|hwy|parkway|pkwy|trail|trl)\b`;
+const ORDINAL_STREET_TAIL = String.raw`(?:N|S|E|W|NE|NW|SE|SW|North|South|East|West)\.?\s+\d{1,4}(?:st|nd|rd|th)\b`;
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function twoDigitWords(n) {
+  if (n < 20) return ONES[n];
+  const ten = Math.floor(n / 10);
+  const one = n % 10;
+  return one ? `${TENS[ten]}-${ONES[one]}` : TENS[ten];
+}
+
+function threeDigitWords(n) {
+  const hundred = Math.floor(n / 100);
+  const rest = n % 100;
+  if (!hundred) return twoDigitWords(rest);
+  if (!rest) return `${ONES[hundred]} hundred`;
+  return `${ONES[hundred]} hundred ${twoDigitWords(rest)}`;
+}
+
+// American conversational form. No "and" inside the number.
+function integerToWords(raw) {
+  const digits = String(raw).replace(/[^\d]/g, '').replace(/^0+/, '');
+  if (!digits) return 'zero';
+  const groups = [];
+  for (let i = digits.length; i > 0; i -= 3) {
+    groups.push(digits.slice(Math.max(0, i - 3), i));
+  }
+  if (groups.length > SCALES.length) return null;
+  const parts = [];
+  for (let i = groups.length - 1; i >= 0; i -= 1) {
+    const n = Number(groups[i]);
+    if (!n) continue;
+    const scale = SCALES[i];
+    parts.push(scale ? `${threeDigitWords(n)} ${scale}` : threeDigitWords(n));
+  }
+  return parts.join(' ');
+}
+
+function speakDigits(digits) {
+  return [...digits].map((digit) => DIGIT_OH[digit]).join(' ');
+}
+
+function speakPointDigits(digits) {
+  return [...digits].map((digit) => DIGIT_ZERO[digit]).join(' ');
+}
+
+function canonicalUnit(captured) {
+  const lower = captured.toLowerCase();
+  return SPOKEN_UNITS.find((unit) => unit.toLowerCase() === lower) || captured;
+}
+
+function singularUnit(unit) {
+  if (unit.endsWith('dollars')) return unit.slice(0, -1);
+  if (unit === 'pounds') return 'pound';
+  if (unit === 'euros') return 'euro';
+  return unit;
+}
+
+function minorUnit(unit, count) {
+  const lower = unit.toLowerCase();
+  if (lower.endsWith('dollar') || lower.endsWith('dollars') || lower === 'euro' || lower === 'euros') {
+    return count === 1 ? 'cent' : 'cents';
+  }
+  if (lower === 'pound' || lower === 'pounds') return count === 1 ? 'penny' : 'pence';
+  return null;
+}
+
+function centsFrom(dec) {
+  const digits = `${dec}000`.slice(0, 3);
+  let cents = Number(digits.slice(0, 2));
+  if (digits[2] >= '5') cents += 1;
+  return cents;
+}
+
+function incrementDigits(raw) {
+  const chars = String(raw).replace(/[^\d]/g, '').replace(/^0+/, '').split('');
+  if (!chars.length) return '1';
+  let carry = 1;
+  for (let i = chars.length - 1; i >= 0 && carry; i -= 1) {
+    const sum = (chars[i].charCodeAt(0) - 48) + carry;
+    chars[i] = String(sum % 10);
+    carry = sum >= 10 ? 1 : 0;
+  }
+  if (carry) chars.unshift('1');
+  return chars.join('');
+}
+
+function speakMoney(prefix, intPart, decPart, unit) {
+  const canonical = canonicalUnit(unit);
+  let digits = String(intPart).replace(/[^\d]/g, '');
+  let cents = null;
+  if (decPart && minorUnit(canonical, 2)) {
+    cents = centsFrom(decPart);
+    if (cents >= 100) {
+      digits = incrementDigits(digits);
+      cents -= 100;
+    }
+  }
+  const words = integerToWords(digits);
+  if (!words) return null;
+  const spokenUnit = /^0*1$/.test(digits) ? singularUnit(canonical) : canonical;
+  let spoken = `${prefix || ''}${words} ${spokenUnit}`;
+  if (cents) {
+    const centWords = integerToWords(String(cents));
+    spoken += ` and ${centWords} ${minorUnit(canonical, cents)}`;
+  }
+  return spoken;
+}
+
+function speakPlainNumber(intPart, decPart) {
+  const words = integerToWords(intPart);
+  if (!words) return null;
+  if (!decPart) return words;
+  return `${words} point ${speakPointDigits(decPart)}`;
+}
+
+function speakRatio(num) {
+  const [intPart, decPart] = String(num).split('.');
+  const words = integerToWords(intPart);
+  if (!words || decPart == null || decPart === '') return null;
+  return `${words} point ${speakPointDigits(decPart)}`;
+}
+
+function speakPercent(intPart, decPart) {
+  const words = integerToWords(intPart);
+  if (!words) return null;
+  const trimmed = decPart ? String(decPart).replace(/0+$/, '') : '';
+  if (!trimmed) return `${words} percent`;
+  return `${words} point ${speakPointDigits(trimmed)} percent`;
+}
+
+function speakPhone(match) {
+  const digits = match.replace(/\D/g, '');
+  let parts;
+  if (digits.length === 11 && digits.startsWith('1')) {
+    parts = [digits.slice(0, 1), digits.slice(1, 4), digits.slice(4, 7), digits.slice(7)];
+  } else if (digits.length === 10) {
+    parts = [digits.slice(0, 3), digits.slice(3, 6), digits.slice(6)];
+  } else {
+    return null;
+  }
+  return parts.map(speakDigits).join(', ');
+}
+
+function streetNumberFollows(text, end) {
+  const rest = text.slice(end);
+  if (new RegExp(String.raw`^\s+${STREET_TAIL}`, 'i').test(rest)) return true;
+  return new RegExp(String.raw`^\s+${ORDINAL_STREET_TAIL}`, 'i').test(rest);
+}
+
+// Skip digits that are only the index inside a protected-span token.
+function replaceGuarded(text, regex, replacer) {
+  return text.replace(regex, (...args) => {
+    const match = args[0];
+    const offset = args[args.length - 2];
+    const source = args[args.length - 1];
+    if (typeof offset !== 'number' || typeof source !== 'string') return match;
+    if (source[offset - 1] === '\uE000') return match;
+    const next = replacer(args, offset, source);
+    return next == null ? match : next;
+  });
+}
+
+// Phones first so a grouped number cannot be read as a quantity
+// ("555-123-4567" must not become "five hundred fifty-five...").
+function pronouncePhones(text) {
+  const re = /(?<![\p{L}\d])(?:\+?1[\s.-]\s*)?(?:\(\s*\d{3}\s*\)\s*|\d{3}[\s.-])\d{3}[\s.-]\d{4}(?![\p{L}\d])/gu;
+  return replaceGuarded(text, re, (args) => speakPhone(args[0]));
+}
+
+function pronouncePropertyIds(text) {
+  const units = SPOKEN_UNITS.map(escapeRegExp).join('|');
+  const re = new RegExp(
+    String.raw`\b((?:property\s+)?)(ID)\s+(\d+)\b(?!\s+(?:${units})\b)`,
+    'giu'
+  );
+  return replaceGuarded(text, re, (args) => `${args[1]}${args[2]} ${speakDigits(args[3])}`);
+}
+
+function pronounceMoney(text) {
+  const units = SPOKEN_UNITS.map(escapeRegExp).join('|');
+  const re = new RegExp(
+    String.raw`(?<![\p{L}\d.,])((?:negative)\s+)?(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d+))?\s+(${units})\b`,
+    'giu'
+  );
+  return replaceGuarded(text, re, (args) => speakMoney(args[1], args[2], args[3], args[4]));
+}
+
+function pronouncePercents(text) {
+  const re = /(?<![\p{L}\d.,])(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d+))?\s*%/gu;
+  return replaceGuarded(text, re, (args) => speakPercent(args[1], args[2]));
+}
+
+function pronounceRatios(text) {
+  const term = RATIO_TERMS.join('|');
+  const units = SPOKEN_UNITS.map(escapeRegExp).join('|');
+  const after = new RegExp(
+    String.raw`\b(${term})\b(\s*(?:=|of|is|:)?\s*)(\d{1,3}\.\d{1,4})\b(?!\s+(?:${units})\b)`,
+    'giu'
+  );
+  const before = new RegExp(
+    String.raw`(?<![\p{L}\d.,])(\d{1,3}\.\d{1,4})\b(\s+)(?=(?:${term})\b)`,
+    'giu'
+  );
+  const withTermFirst = replaceGuarded(text, after, (args) => {
+    const spoken = speakRatio(args[3]);
+    return spoken == null ? null : `${args[1]}${args[2]}${spoken}`;
+  });
+  return replaceGuarded(withTermFirst, before, (args) => {
+    const spoken = speakRatio(args[1]);
+    return spoken == null ? null : `${spoken}${args[2]}`;
+  });
+}
+
+function pronounceZips(text) {
+  const re = /(?<![\p{L}\d.])(\d{5})(?:-(\d{4}))?(?![\p{L}\d])/gu;
+  return replaceGuarded(text, re, (args, offset) => {
+    const end = offset + args[0].length;
+    const source = args[args.length - 1];
+    if (streetNumberFollows(source, end)) return null;
+    const spoken = speakDigits(args[1]);
+    return args[2] ? `${spoken}, ${speakDigits(args[2])}` : spoken;
+  });
+}
+
+function pronounceCommaNumbers(text) {
+  const units = SPOKEN_UNITS.map(escapeRegExp).join('|');
+  const re = new RegExp(
+    String.raw`(?<![\p{L}\d.,])([-−]\s*)?(\d{1,3}(?:,\d{3})+)(?:\.(\d+))?(?![\p{L}\d])(?!\s+(?:${units})\b)`,
+    'gu'
+  );
+  return replaceGuarded(text, re, (args, offset) => {
+    const source = args[args.length - 1];
+    if (streetNumberFollows(source, offset + args[0].length)) return null;
+    const words = speakPlainNumber(args[2], args[3]);
+    if (!words) return null;
+    return `${args[1] ? 'negative ' : ''}${words}`;
+  });
+}
+
+// Runs after state expansion. ZIPs must still be digits until a postal
+// abbreviation has been confirmed; phones are rewritten before any
+// amount so a hyphenated number is not read as hundreds or thousands.
+function pronounceNumbers(text) {
+  let out = pronouncePhones(text);
+  out = pronouncePropertyIds(out);
+  out = pronounceMoney(out);
+  out = pronouncePercents(out);
+  out = pronounceRatios(out);
+  out = pronounceZips(out);
+  out = pronounceCommaNumbers(out);
+  return out;
+}
+
 export function normalizeSpeechText(raw) {
   const stripped = stripMarkdownForSpeech(raw);
   if (!stripped) return '';
   const { masked, slots } = maskProtected(stripped);
-  return unmask(expandStateAbbreviations(expandAbbreviations(normalizeCurrency(masked))), slots);
+  const normalized = expandStateAbbreviations(expandAbbreviations(normalizeCurrency(masked)));
+  return unmask(pronounceNumbers(normalized), slots);
 }
 
 export function prepareSpeechText(raw, limit = SPEECH_CHAR_LIMIT) {
