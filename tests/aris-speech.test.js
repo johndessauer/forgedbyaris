@@ -161,7 +161,7 @@ test('abbreviations expand on word boundaries and leave ARIS, URLs, HTML, and lo
   assert.match(spoken, /capitalization rate six point five percent/);
   assert.match(
     normalizeSpeechText('NOI / cap rate = $1,200,000 and LTV = 0.75.'),
-    /net operating income \/ capitalization rate = one million two hundred thousand dollars and loan-to-value = zero point seven five\./
+    /net operating income divided by capitalization rate equals one million two hundred thousand dollars and loan-to-value equals zero point seven five\./
   );
   assert.match(spoken, /HARVARD CARVING NOISE MAOIST capacity recap rate/);
   assert.match(spoken, /https:\/\/example\.com\/ARV\?price=\$100/);
@@ -247,6 +247,51 @@ test('spoken numbers follow the approved pronunciation list', async () => {
   assert.equal(minor, 'fifty cents');
   const phone = normalizeSpeechText('555-123-4567');
   assert.doesNotMatch(phone, /hundred|thousand|fifty/);
+});
+
+test('formulas speak math operators and leave prose hyphens alone', async () => {
+  const { normalizeSpeechText } = await loadSpeech();
+  const cap = 'Example: A property generates $18,000 NOI and you paid $200,000.\n$18,000 ÷ $200,000 = 9% cap rate';
+  assert.equal(
+    normalizeSpeechText(cap),
+    'Example: A property generates eighteen thousand dollars net operating income and you paid two hundred thousand dollars. eighteen thousand dollars divided by two hundred thousand dollars equals nine percent capitalization rate'
+  );
+
+  const cases = [
+    ['$18,000 / $200,000 = 9% cap rate', 'eighteen thousand dollars divided by two hundred thousand dollars equals nine percent capitalization rate'],
+    ['$18,000 ÷ $200,000', 'eighteen thousand dollars divided by two hundred thousand dollars'],
+    ['NOI divided by the purchase price', 'net operating income divided by the purchase price'],
+    ['Divide the NOI. The income was divided. It is divided by the price.', 'Divide the net operating income. The income was divided. It is divided by the price.'],
+    ['$18,000 × $2', 'eighteen thousand dollars times two dollars'],
+    ['$18,000 * $2', 'eighteen thousand dollars times two dollars'],
+    ['$18,000 · $2', 'eighteen thousand dollars times two dollars'],
+    ['Multiply the rent. Rent is multiplied by twelve. Twelve times the rent.', 'Multiply the rent. Rent is multiplied by twelve. Twelve times the rent.'],
+    ['The lot is 50 x 100.', 'The lot is 50 x 100.'],
+    ['$200,000 - $18,000', 'two hundred thousand dollars minus eighteen thousand dollars'],
+    ['$200,000 − $18,000', 'two hundred thousand dollars minus eighteen thousand dollars'],
+    ['$200,000 – $18,000', 'two hundred thousand dollars minus eighteen thousand dollars'],
+    ['200,000 - 18,000', 'two hundred thousand minus eighteen thousand'],
+    ['Subtract repairs. The price minus repairs. A subtracted fee is less than the ARV.', 'Subtract repairs. The price minus repairs. A subtracted fee is less than the after-repair value.'],
+    ['the spread - which is the risk', 'the spread - which is the risk'],
+    ['a well-known plan', 'a well-known plan'],
+    ['1998-2026', '1998-2026'],
+    ['1998 - 2026', '1998 - 2026'],
+    ['123-125 Main St', '123-125 Main St'],
+    ['$18,000 + $2,000 = $20,000', 'eighteen thousand dollars plus two thousand dollars equals twenty thousand dollars'],
+    ['Add the fee. Added value is a plus.', 'Add the fee. Added value is a plus.'],
+    ['2 * 3 * 4', '2 times 3 times 4'],
+    ['*NOI*', 'net operating income'],
+    ['and/or the NOI', 'and/or the net operating income'],
+    ['w/ the seller', 'w/ the seller'],
+    ['closed on 11/12/2026', 'closed on 11/12/2026'],
+    ['See https://example.com/ARV?price=$100', 'See https://example.com/ARV?price=$100'],
+    ['512-555-0123', 'five one two, five five five, oh one two three'],
+    ['property ID 83702', 'property ID eight three seven oh two'],
+    ['123 Main St, Austin, TX 78701', '123 Main St, Austin, Texas seven eight seven oh one'],
+  ];
+  for (const [input, expected] of cases) {
+    assert.equal(normalizeSpeechText(input), expected, input);
+  }
 });
 
 test('deal analyzer, capital radar, and market oracle pin US grouping', () => {
