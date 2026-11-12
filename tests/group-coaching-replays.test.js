@@ -58,6 +58,8 @@ function loadCoaching(hash) {
     '  renderCoachingFeatured,',
     '  renderCoachingReplays,',
     '  renderCoachingGrid,',
+    '  coachingBriefHtml,',
+    '  toggleCoachingBrief,',
     '  setMembership(v) { membershipVerified = v; },',
     '  setRendered(v) { coachingRendered = v; },',
     '  setCurrent(index, clip) { coachingCurrent = index; coachingCurrentClip = clip; },',
@@ -145,6 +147,7 @@ test('session dates, studio durations, and video ids stay on the published uploa
   assert.equal(s2.date, '2026-10-21');
   assert.equal(s2.duration, '58:52');
   assert.equal(s2.summary, undefined);
+  assert.equal(s2.description, 'John covers wholesaling, fix-and-flip, BRRRR, and rental strategy choices; a live market analysis with ARIS and how to make offers using deal numbers; backup offers, creative finance, and the due-on-sale clause; and the four ways real estate pays you, so you can choose your starting lane.');
   assert.deepEqual(json(s2.chapters), [
     ['0:00', 'Welcome and homework review'],
     ['3:24', 'Wholesaling: strategy and considerations'],
@@ -195,6 +198,8 @@ test('session dates, studio durations, and video ids stay on the published uploa
     ['49:35', 'Where to Find Replays'],
   ]);
 
+  assert.equal(replays.some((s) => s.session === 5), false);
+  assert.equal(html.includes('Never Split the Difference'), false);
   assert.equal(html.includes('2026-10-18'), false);
   assert.equal(html.includes('Wholesaling: buyers, leads and local rules'), false);
   assert.equal(html.includes('Homework: choose your starting lane'), false);
@@ -247,6 +252,14 @@ test('each replay shows one topic list, and a short summary does not duplicate a
   const empty = api.coachingTopicItems({});
   assert.equal(empty.placeholder, true);
   assert.equal(topicBlockCount(api.coachingTopicsBlock({})), 1);
+
+  assert.equal(api.coachingBriefHtml({}), '');
+  assert.equal(api.coachingBriefHtml({ description: '   ' }), '');
+  const brief = api.coachingBriefHtml({ description: 'One paragraph recap.' });
+  assert.equal((brief.match(/Group Coaching Call Brief/g) || []).length, 1);
+  assert.equal((brief.match(/One paragraph recap\./g) || []).length, 1);
+  assert.match(brief, /<p [^>]*hidden>/);
+  assert.doesNotMatch(brief, /<ul|<li/);
 });
 
 test('member gate still hides replays, and a verified player renders one summary with captions off', () => {
@@ -271,6 +284,7 @@ test('member gate still hides replays, and a verified player renders one summary
   assert.match(featured, /Build your capital stack with Capital Radar/);
   assert.match(featured, /Oct 14, 2026/);
   assert.match(featured, /re-recorded this short lesson/);
+  assert.equal((featured.match(/re-recorded this short lesson/g) || []).length, 1);
   assert.match(featured, /5:16/);
   assert.match(featured, /youtube-nocookie\.com\/embed\/SxgQqVXivNI\?/);
   assert.match(featured, /cc_load_policy=0/);
@@ -282,6 +296,9 @@ test('member gate still hides replays, and a verified player renders one summary
   assert.match(card, /Oct 14, 2026/);
   assert.equal(topicBlockCount(card), 4);
   assert.equal((card.match(/coaching-topics-placeholder/g) || []).length, 0);
+  assert.equal(card.includes('Group Coaching Call Brief'), false);
+  assert.equal(card.includes('re-recorded this short lesson'), false);
+  assert.equal(card.includes('choose your starting lane'), false);
 
   for (const replay of open.api.GROUP_COACHING_REPLAYS) {
     open.api.setCurrent(open.api.GROUP_COACHING_REPLAYS.indexOf(replay), null);
@@ -297,7 +314,26 @@ test('member gate still hides replays, and a verified player renders one summary
     } else {
       assert.doesNotMatch(view, /coaching-chip/);
     }
+    const briefAt = view.indexOf('>Group Coaching Call Brief<');
+    const iframeAt = view.indexOf('<iframe');
+    const titleAt = view.indexOf('coaching-title');
+    assert.ok(iframeAt >= 0 && briefAt > iframeAt, `session ${replay.session} brief sits under the player`);
+    assert.ok(titleAt > briefAt, `session ${replay.session} brief is not in the title column`);
+    assert.equal((view.match(/Group Coaching Call Brief/g) || []).length, 1);
+    assert.match(view, /id="coaching-call-brief"[^>]*hidden/);
+    assert.equal((view.match(/class="coaching-desc/g) || []).length, 1);
+    const paragraph = replay.description.replace(/"/g, '&quot;');
+    assert.equal(view.split(paragraph).length - 1, 1);
   }
+
+  open.elements['coaching-call-brief'] = { hidden: true };
+  const link = { setAttribute(name, value) { this[name] = value; } };
+  open.api.toggleCoachingBrief(link);
+  assert.equal(open.elements['coaching-call-brief'].hidden, false);
+  assert.equal(link['aria-expanded'], 'true');
+  open.api.toggleCoachingBrief(link);
+  assert.equal(open.elements['coaching-call-brief'].hidden, true);
+  assert.equal(link['aria-expanded'], 'false');
 
   const embed = open.api.coachingEmbedUrl('SxgQqVXivNI', { start: 42 });
   assert.equal(embed.includes('cc_load_policy=0'), true);

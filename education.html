@@ -438,6 +438,11 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 }
 .coaching-embed { position: relative; width: 100%; aspect-ratio: 16/9; background: black; border-radius: 8px; overflow: hidden; }
 .coaching-embed iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: none; }
+.coaching-brief-wrap { margin-top: 8px; }
+.coaching-brief-link { color: var(--orange); font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+.coaching-brief-link:hover { color: var(--gold); }
+.coaching-brief { margin-top: 8px; margin-bottom: 0; }
+.coaching-brief[hidden] { display: none; }
 .coaching-tag-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
 .coaching-tag { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--gold); opacity: 0.9; }
 .coaching-pill { font-size: 9px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; padding: 2px 7px; border-radius: 4px; background: var(--orange-dim); color: var(--orange); border: 1px solid rgba(255,107,43,0.3); }
@@ -848,6 +853,7 @@ const GROUP_COACHING_REPLAYS = [
     title: 'Full Coaching Replay',
     date: '2026-10-21',
     duration: '58:52',
+    description: 'John covers wholesaling, fix-and-flip, BRRRR, and rental strategy choices; a live market analysis with ARIS and how to make offers using deal numbers; backup offers, creative finance, and the due-on-sale clause; and the four ways real estate pays you, so you can choose your starting lane.',
     topics: [
       'The truth about flipping houses today',
       'Why contractors can ruin your flip',
@@ -912,6 +918,25 @@ function coachingTopicsBlock(s) {
   const { placeholder, items } = coachingTopicItems(s);
   const lis = items.map(t => `<li${placeholder ? ' class="coaching-topics-placeholder"' : ''}>${escapeHtml(t)}</li>`).join('');
   return `<div class="coaching-section-label">Topics covered</div><ul class="coaching-topics">${lis}</ul>`;
+}
+
+// Paragraph recap for the link under the player. Hidden until opened.
+// Not used on session cards, and never a second topic list.
+function coachingBriefHtml(s) {
+  const text = String((s && s.description) || '').trim();
+  if (!text) return '';
+  return `<div class="coaching-brief-wrap">
+    <a href="#coaching-call-brief" class="coaching-brief-link" data-brief="1" aria-expanded="false" aria-controls="coaching-call-brief">Group Coaching Call Brief</a>
+    <p id="coaching-call-brief" class="coaching-desc coaching-brief" hidden>${escapeHtml(text)}</p>
+  </div>`;
+}
+
+function toggleCoachingBrief(link) {
+  const panel = document.getElementById('coaching-call-brief');
+  if (!panel) return;
+  const open = panel.hidden;
+  panel.hidden = !open;
+  if (link) link.setAttribute('aria-expanded', open ? 'true' : 'false');
 }
 
 function coachingTopicsCard(s) {
@@ -1000,7 +1025,10 @@ function renderCoachingFeatured(autoplay) {
       </button>`).join('');
   document.getElementById('coaching-featured-container').innerHTML = `
     <div class="coaching-featured">
-      <div class="coaching-embed" id="coaching-embed">${coachingIframe(s, opts)}</div>
+      <div class="coaching-player">
+        <div class="coaching-embed" id="coaching-embed">${coachingIframe(s, opts)}</div>
+        ${coachingBriefHtml(s)}
+      </div>
       <div>
         <div class="coaching-tag-row">
           <span class="coaching-tag">🎥 Group Coaching${s.session != null ? ' · Session ' + escapeHtml(s.session) : ''}</span>
@@ -1011,7 +1039,6 @@ function renderCoachingFeatured(autoplay) {
         <div class="coaching-title">${escapeHtml(clip ? clip.title : s.title)}</div>
         ${coachingDateHtml(s)}
         ${meta ? `<div class="coaching-meta">${meta}</div>` : ''}
-        ${!clip && s.description ? `<div class="coaching-desc">${escapeHtml(s.description)}</div>` : ''}
         ${coachingTopicsBlock(s)}
         ${chips ? `<div class="coaching-section-label">Chapters</div><div class="coaching-chips">${chips}</div>` : ''}
       </div>
@@ -1091,6 +1118,12 @@ function selectCoachingSession(index, clip, autoplay) {
 // One delegated click handler for chips, clips, cards (no inline onclick strings).
 document.addEventListener('click', (e) => {
   if (!e.target.closest('#view-coaching')) return;
+  const briefLink = e.target.closest('[data-brief]');
+  if (briefLink) {
+    e.preventDefault();
+    toggleCoachingBrief(briefLink);
+    return;
+  }
   const chip = e.target.closest('[data-seek]');
   if (chip) {
     // Chapters always seek within the FULL session.
