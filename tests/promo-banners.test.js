@@ -12,23 +12,26 @@ function read(rel) {
 }
 
 test('approved cadence is Tuesdays at 8 PM CT, with Monday Nov 30 instead of Dec 1', () => {
-  assert.deepEqual(schedule.DATES, [
+  assert.deepEqual(schedule.DATES.slice(0, 8), [
     '2026-11-17',
-    '2026-11-24',
     '2026-11-30',
     '2026-12-08',
     '2026-12-15',
+    '2026-12-22',
+    '2026-12-29',
     '2027-01-05',
+    '2027-01-12'
   ]);
+  assert.equal(schedule.DATES.includes('2026-11-24'), false);
   assert.equal(schedule.DATES.includes('2026-12-01'), false);
   assert.equal(schedule.TIME_LABEL, '8:00 PM CT');
   assert.equal(schedule.TIME_ZONE, 'America/Chicago');
   const weekdays = schedule.sessions().map((s) => s.weekday);
-  assert.deepEqual(weekdays, ['Tuesday', 'Tuesday', 'Monday', 'Tuesday', 'Tuesday', 'Tuesday']);
+  assert.deepEqual(weekdays, ['Tuesday', 'Monday'].concat(Array(schedule.DATES.length - 2).fill('Tuesday')));
   assert.equal(schedule.weekdayOf('2026-12-01'), 'Tuesday');
   // 8:00 PM CST (UTC-6) after the November DST change.
   assert.equal(schedule.sessions()[0].startsAt.toISOString(), '2026-11-18T02:00:00.000Z');
-  assert.equal(schedule.sessions()[2].startsAt.toISOString(), '2026-12-01T02:00:00.000Z');
+  assert.equal(schedule.sessions()[1].startsAt.toISOString(), '2026-12-01T02:00:00.000Z');
 });
 
 test('registration default date and time come from the same schedule', () => {
@@ -46,10 +49,6 @@ test('banner names the Nov 17 start, then the next session, and keeps the Monday
     'Live Weekly Webinar: Tuesday, November 17, 2026 at 8:00 PM CT.'
   );
   assert.equal(
-    schedule.bannerText(new Date('2026-11-18T04:00:00Z')),
-    'Next Live Weekly Webinar: Tuesday, November 24, 2026 at 8:00 PM CT.'
-  );
-  assert.equal(
     schedule.bannerText(new Date('2026-11-25T04:00:00Z')),
     'Next Live Weekly Webinar: Monday, November 30, 2026 at 8:00 PM CT.'
   );
@@ -57,7 +56,7 @@ test('banner names the Nov 17 start, then the next session, and keeps the Monday
     schedule.bannerText(new Date('2026-12-01T04:00:00Z')),
     'Next Live Weekly Webinar: Tuesday, December 8, 2026 at 8:00 PM CT.'
   );
-  const afterSeries = schedule.bannerText(new Date('2027-01-06T04:00:00Z'));
+  const afterSeries = schedule.bannerText(new Date('2027-07-01T04:00:00Z'));
   assert.equal(afterSeries, 'Live Weekly Webinars, Tuesdays at 8:00 PM CT.');
   assert.equal(/\d{4}/.test(afterSeries), false);
 });
@@ -67,7 +66,7 @@ test('registration label follows the approved sessions and an env pin', () => {
   assert.equal(schedule.sessionLabel(early), 'Tuesday, November 17, 2026 at 8:00 PM CT');
   assert.equal(
     schedule.sessionLabel(new Date('2026-11-18T04:00:00Z')),
-    'Tuesday, November 24, 2026 at 8:00 PM CT'
+    'Monday, November 30, 2026 at 8:00 PM CT'
   );
   assert.equal(
     schedule.sessionLabel(new Date('2026-11-25T04:00:00Z')),
@@ -83,9 +82,9 @@ test('registration label follows the approved sessions and an env pin', () => {
   );
   assert.equal(
     schedule.sessionLabel(new Date('2026-12-16T04:00:00Z')),
-    'Tuesday, January 5, 2027 at 8:00 PM CT'
+    'Tuesday, December 22, 2026 at 8:00 PM CT'
   );
-  assert.equal(schedule.sessionLabel(new Date('2027-01-06T04:00:00Z')), 'Tuesdays at 8:00 PM CT');
+  assert.equal(schedule.sessionLabel(new Date('2027-07-01T04:00:00Z')), 'Tuesdays at 8:00 PM CT');
   assert.equal(
     schedule.sessionLabel(early, '2026-11-30'),
     'Monday, November 30, 2026 at 8:00 PM CT'

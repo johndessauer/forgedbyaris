@@ -1,6 +1,7 @@
 /* Public non-FWN live webinar cadence.
- * Tuesdays at 8:00 PM America/Chicago, except Monday, November 30, 2026
- * (that week is not Tuesday, December 1).
+ * Tuesdays at 8:00 PM America/Chicago, except: Tuesday, November 24, 2026 is
+ * skipped (Thanksgiving week) and Monday, November 30, 2026 replaces Tuesday,
+ * December 1. Dec 22 and Dec 29 run as normal Tuesdays.
  *
  * This list is the schedule the homepage banner reads. Registration still
  * pins a single next date with WEBINAR_NEXT_DATE (default: the first date
@@ -21,11 +22,37 @@
   // is the Monday exception and must not be replaced by 2026-12-01.
   var DATES = [
     '2026-11-17',
-    '2026-11-24',
     '2026-11-30',
     '2026-12-08',
     '2026-12-15',
-    '2027-01-05'
+    '2026-12-22',
+    '2026-12-29',
+    '2027-01-05',
+    '2027-01-12',
+    '2027-01-19',
+    '2027-01-26',
+    '2027-02-02',
+    '2027-02-09',
+    '2027-02-16',
+    '2027-02-23',
+    '2027-03-02',
+    '2027-03-09',
+    '2027-03-16',
+    '2027-03-23',
+    '2027-03-30',
+    '2027-04-06',
+    '2027-04-13',
+    '2027-04-20',
+    '2027-04-27',
+    '2027-05-04',
+    '2027-05-11',
+    '2027-05-18',
+    '2027-05-25',
+    '2027-06-01',
+    '2027-06-08',
+    '2027-06-15',
+    '2027-06-22',
+    '2027-06-29'
   ];
 
   function weekdayOf(date) {
