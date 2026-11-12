@@ -17,11 +17,11 @@
 // and objective never reach the client at any point — only the scenario's
 // title/description are exposed by lab-scenarios.js's public list.
 //
-// KNOWN GAP (same as aris-stream.js, not new here): no member auth check.
-// Protected only by CORS/URL obscurity, same as the existing pattern this
-// mirrors. Worth hardening across all three ARIS/Lab edge functions in a
-// future pass — flagged, not silently fixed here, to stay consistent with
-// the established precedent rather than introduce inconsistent behavior.
+// Membership: a live FORGE plan is required before Anthropic is called.
+// The Empire-only scenario is refused unless that plan includes Empire.
+// The member id is taken from the verified token, not the request body.
+
+import { requireEdgeMembership, EMPIRE_SCENARIO_TITLE } from './lib/membership.js';
 
 const ROLEPLAY_GUARDRAILS = `
 
@@ -34,8 +34,8 @@ function buildSystemPrompt(rolePrompt) {
   return rolePrompt + ROLEPLAY_GUARDRAILS;
 }
 
-async function fetchScenarioRolePrompt(scenarioId, supabaseUrl, serviceKey) {
-  const url = `${supabaseUrl}/rest/v1/lab_scenarios?id=eq.${scenarioId}&published=eq.true&select=role_prompt`;
+async function fetchScenario(scenarioId, supabaseUrl, serviceKey) {
+  const url = `${supabaseUrl}/rest/v1/lab_scenarios?id=eq.${encodeURIComponent(scenarioId)}&published=eq.true&select=role_prompt,title`;
   const res = await fetch(url, {
     headers: {
       'apikey': serviceKey,
@@ -44,13 +44,13 @@ async function fetchScenarioRolePrompt(scenarioId, supabaseUrl, serviceKey) {
   });
   if (!res.ok) return null;
   const rows = await res.json();
-  return rows?.[0]?.role_prompt || null;
+  return rows?.[0] || null;
 }
 
 export default async (request, context) => {
   const CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
   };
 
@@ -75,6 +75,14 @@ export default async (request, context) => {
   const SUPABASE_URL = Netlify.env.get('SUPABASE_URL');
   const SUPABASE_SERVICE_KEY = Netlify.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
+  const access = await requireEdgeMembership(request, { origin: new URL(request.url).origin, need: 'member' });
+  if (!access.ok) {
+    return new Response(JSON.stringify({ error: access.error || 'Active membership required' }), {
+      status: access.status || 401,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+    });
+  }
+
   if (!API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
     return new Response(JSON.stringify({ error: 'Server configuration error' }), {
       status: 500,
@@ -92,10 +100,17 @@ export default async (request, context) => {
   // The client sends scenarioId only — never sees the role_prompt. This
   // lookup happens fresh on every message (not cached client-side) so a
   // scenario edited or unpublished mid-session takes effect immediately.
-  const rolePrompt = await fetchScenarioRolePrompt(body.scenarioId, SUPABASE_URL, SUPABASE_SERVICE_KEY);
+  const scenario = await fetchScenario(body.scenarioId, SUPABASE_URL, SUPABASE_SERVICE_KEY);
+  const rolePrompt = scenario && scenario.role_prompt;
   if (!rolePrompt) {
     return new Response(JSON.stringify({ error: 'Scenario not found or not published' }), {
       status: 404,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+    });
+  }
+  if (scenario.title === EMPIRE_SCENARIO_TITLE && !access.empire) {
+    return new Response(JSON.stringify({ error: 'Empire membership required' }), {
+      status: 403,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     });
   }

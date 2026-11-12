@@ -19,6 +19,8 @@ async function loadEdge(file) {
   fs.copyFileSync(path.join(EDGE, file), path.join(dir, file.replace(/\.js$/, '.mjs')));
   fs.mkdirSync(path.join(dir, 'lib'));
   fs.copyFileSync(path.join(EDGE, 'lib', 'speech-text.js'), path.join(dir, 'lib', 'speech-text.js'));
+  fs.copyFileSync(path.join(EDGE, 'lib', 'membership.js'), path.join(dir, 'lib', 'membership.js'));
+  globalThis.__forgeTestMembership = async () => ({ ok: true, status: 200, memberId: 'mem_test', active: true, empire: true });
   return import(pathToFileURL(path.join(dir, file.replace(/\.js$/, '.mjs'))).href + '?t=' + Math.random());
 }
 

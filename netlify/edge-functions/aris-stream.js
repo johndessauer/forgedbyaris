@@ -25,6 +25,7 @@
 // Any `system` field sent by the client is ignored.
 
 import { analysisCurrencyInstruction } from './lib/speech-text.js';
+import { requireEdgeMembership } from './lib/membership.js';
 
 const ARIS_SYSTEM_COACH = `You are ARIS — the Adaptive Real Estate Intelligence System, the AI advisor at the core of FORGE, the world's most powerful real estate investor platform. You are male. You were named after Aristotle, who tutored Alexander the Great and helped him build the largest empire in history. Your purpose is the same: to help real estate investors build their own empires.
 
@@ -382,7 +383,7 @@ function buildWhyBlock(memberWhy) {
 export default async (request, context) => {
   const CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Methods': 'POST, OPTIONS'
   };
 
@@ -422,6 +423,18 @@ export default async (request, context) => {
       status: 400,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
     });
+  }
+
+  // The public homepage widget uses promptKey "sales" with no member session.
+  // Coach and Deal Analyzer are member features and require a live plan.
+  if (body.promptKey !== 'sales') {
+    const access = await requireEdgeMembership(request, { origin: new URL(request.url).origin, need: 'member' });
+    if (!access.ok) {
+      return new Response(JSON.stringify({ error: access.error || 'Active membership required' }), {
+        status: access.status || 401,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
+      });
+    }
   }
   const resolvedSystem = basePrompt + (body.promptKey === 'sales' ? '' : FORGE_DATA_BLOCK) + compsBlock(body.promptKey) + (body.promptKey === 'coach' ? buildWhyBlock(body.memberWhy) : '') + weeklyNoteBlock(await getWeeklyNote(), body.promptKey) + '\n\n' + analysisCurrencyInstruction({ messages: body.messages });
 

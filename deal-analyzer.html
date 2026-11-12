@@ -3122,7 +3122,7 @@ async function sendToARIS(userText, showUserBubble = true) {
   try {
     const res = await fetch('/api/aris-stream', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(memberToken ? { Authorization: 'Bearer ' + memberToken } : {}) },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 2200,
@@ -3779,6 +3779,7 @@ window.addEventListener('load', async () => {
 });
 
 async function handleLogout() {
+  document.cookie = 'forge_ms=; Path=/; Max-Age=0; SameSite=Lax';
   try {
     const memberstack = window.$memberstackDom;
     await memberstack.logout();

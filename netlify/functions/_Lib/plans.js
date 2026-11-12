@@ -74,4 +74,77 @@ function hasCompsAccess(planConnections) {
   return hasEmpireAccess(planConnections);
 }
 
-module.exports = { PLAN_IDS, FOUNDING_MEMBER_PRICE_IDS, isLive, hasEmpireAccess, hasCompsAccess };
+// Base member access, matching the browser hasActiveMembership check on
+// Education, Property Search, CRM, calculators, ARIS, and the other member
+// pages (Oct 2026). ACTIVE or TRIALING only. Empire-by-itself is not enough:
+// the pages send that member to signup.html. Do not add plans here that the
+// pages do not already allow.
+const MEMBER_PLAN_IDS = new Set([
+  PLAN_IDS.FORGE_ZERO,
+  PLAN_IDS.FOUNDATION,
+  PLAN_IDS.FOUNDATION_180,
+  PLAN_IDS.FOUNDATION_EMPIRE,
+  PLAN_IDS.FOUNDATION_EMPIRE_MANUAL,
+  PLAN_IDS.FOUNDING_MEMBER,
+  PLAN_IDS.FOUNDING_MEMBER_VIP,
+  PLAN_IDS.FORTIVA_1997,
+  PLAN_IDS.FORTIVA_1497,
+  PLAN_IDS.FWN_LAUNCH,
+  PLAN_IDS.FWN_ACCELERATOR,
+  PLAN_IDS.FWN_997,
+  PLAN_IDS.FWN_1797,
+  PLAN_IDS.WEBINAR_997,
+  PLAN_IDS.WEBINAR_1797,
+  PLAN_IDS.WEBINAR_997_FOUNDATION,
+]);
+
+function hasActiveMembership(planConnections) {
+  return (planConnections || []).some(pc => isLive(pc) && (
+    MEMBER_PLAN_IDS.has(pc.planId) ||
+    FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment && pc.payment.priceId)
+  ));
+}
+
+// Education categories the pages lock behind Empire. Match education.html.
+const EMPIRE_CATEGORIES = Object.freeze([
+  'Build-to-Rent',
+  'Hotels & Hospitality',
+  'Mixed-Use',
+  'Mobile Home Parks',
+  'Multifamily 5+',
+  'New Construction',
+  'Office & Industrial',
+  'Self-Storage',
+  'Syndication',
+]);
+
+function isEmpireCategory(category) {
+  const name = String(category || '').toLowerCase();
+  return EMPIRE_CATEGORIES.some(c => c.toLowerCase() === name);
+}
+
+// Real Estate Lab scenario the page locks behind Empire.
+const EMPIRE_SCENARIO_TITLE = 'Pitching a Commercial Loan Officer on a 5+ Unit Acquisition';
+
+// Deal Analyzer tabs inside the Commercial category. Residential tabs
+// (wholesale, flip, rental, str, multi) stay on Foundation.
+const EMPIRE_ANALYZER_TABS = new Set(['commercial', 'storage', 'mhp', 'office', 'mixeduse', 'hotel']);
+
+function isEmpireAnalyzerTab(tab) {
+  return EMPIRE_ANALYZER_TABS.has(String(tab || '').toLowerCase());
+}
+
+module.exports = {
+  PLAN_IDS,
+  FOUNDING_MEMBER_PRICE_IDS,
+  MEMBER_PLAN_IDS,
+  EMPIRE_CATEGORIES,
+  EMPIRE_SCENARIO_TITLE,
+  EMPIRE_ANALYZER_TABS,
+  isLive,
+  hasEmpireAccess,
+  hasCompsAccess,
+  hasActiveMembership,
+  isEmpireCategory,
+  isEmpireAnalyzerTab,
+};

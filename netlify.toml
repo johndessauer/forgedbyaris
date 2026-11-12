@@ -58,6 +58,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/membership-check"
+  to = "/.netlify/functions/membership-check"
+  status = 200
+
+[[redirects]]
   from = "/api/education-admin"
   to = "/.netlify/functions/education-admin"
   status = 200

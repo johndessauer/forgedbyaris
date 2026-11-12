@@ -39,11 +39,12 @@ const DEFAULT_VOICE_SETTINGS = {
 };
 
 import { prepareSpeechText, SPEECH_CHAR_LIMIT } from './lib/speech-text.js';
+import { requireEdgeMembership } from './lib/membership.js';
 
 export default async (request, context) => {
   const CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
   };
 
@@ -53,6 +54,14 @@ export default async (request, context) => {
 
   if (request.method !== 'POST') {
     return new Response('Method Not Allowed', { status: 405, headers: CORS_HEADERS });
+  }
+
+  const access = await requireEdgeMembership(request, { origin: new URL(request.url).origin, need: 'member' });
+  if (!access.ok) {
+    return new Response(JSON.stringify({ error: access.error || 'Active membership required' }), {
+      status: access.status || 401,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+    });
   }
 
   let body;

@@ -12,13 +12,15 @@
 // product, tracked separately for a later phase). This is turn-based:
 // record, release, transcribe, respond.
 
+import { requireEdgeMembership } from './lib/membership.js';
+
 const MODEL_ID = 'scribe_v1'; // general-purpose, reliable starting model per ElevenLabs' own guidance
 const MAX_AUDIO_BYTES = 15 * 1024 * 1024; // ~15MB — generous for a spoken practice turn, guards against abuse
 
 export default async (request, context) => {
   const CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
   };
 
@@ -28,6 +30,14 @@ export default async (request, context) => {
 
   if (request.method !== 'POST') {
     return new Response('Method Not Allowed', { status: 405, headers: CORS_HEADERS });
+  }
+
+  const access = await requireEdgeMembership(request, { origin: new URL(request.url).origin, need: 'member' });
+  if (!access.ok) {
+    return new Response(JSON.stringify({ error: access.error || 'Active membership required' }), {
+      status: access.status || 401,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+    });
   }
 
   const API_KEY = Netlify.env.get('ELEVENLABS_API_KEY');

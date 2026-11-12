@@ -8,47 +8,27 @@
 // Lists/deletes them for the Documents panel on the deal detail view in
 // crm.html.
 //
-// NOTE ON AUTH: this verifies the Memberstack Bearer token directly via
-// @memberstack/admin rather than importing a shared helper (e.g.
-// _lib/verify-member.js), since I don't have that file's exact export
-// signature to match against. Functionally this does the same thing every
-// other classic function in this codebase does (validate the token, scope
-// every query to the resulting memberstack_id). If you have a shared helper,
-// swap the block marked below for your existing import — it's a one-line
-// change, everything after it (memberstackId) stays the same.
+// Auth: enforceMembership (verified memberstack_id + a live FORGE plan).
+// Every query is still scoped to that id.
 //
 // Requires env vars already present in this project: MEMBERSTACK_SECRET_KEY,
 // SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY.
 
 const { createClient } = require('@supabase/supabase-js');
-const memberstackAdmin = require('@memberstack/admin');
+const { enforceMembership } = require('./_Lib/membership');
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-const memberstack = memberstackAdmin.init(process.env.MEMBERSTACK_SECRET_KEY);
 
 const VALID_SOURCE_TOOLS = ['deal_analyzer', 'market_oracle', 'capital_radar', 'manual_upload', 'document_vault', 'comp_report'];
-
-async function verifyMemberstackId(event) {
-  // ── AUTH BLOCK — swap this for your shared helper if you have one ──
-  const authHeader = event.headers.authorization || event.headers.Authorization || '';
-  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-  if (!token) return null;
-  try {
-    const { id } = await memberstack.verifyToken({ token });
-    return id || null;
-  } catch (e) {
-    return null;
-  }
-  // ── end auth block ──
-}
 
 exports.handler = async (event) => {
   const headers = { 'Content-Type': 'application/json' };
 
-  const memberstackId = await verifyMemberstackId(event);
-  if (!memberstackId) {
-    return { statusCode: 401, headers, body: JSON.stringify({ error: 'Not authenticated' }) };
+  const gate = await enforceMembership(event);
+  if (gate.response) {
+    return { statusCode: gate.response.statusCode, headers, body: gate.response.body };
   }
+  const memberstackId = gate.access.memberId;
 
   try {
     if (event.httpMethod === 'GET') {

@@ -247,6 +247,7 @@ html, body { min-height: 100vh; background: var(--black); color: var(--white); f
         if (existingEmail && existingEmail === email.toLowerCase()) {
           member = existingMember;
         } else {
+          document.cookie = 'forge_ms=; Path=/; Max-Age=0; SameSite=Lax';
           await memberstack.logout();
         }
       }

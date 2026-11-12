@@ -7,7 +7,7 @@
 // Routes:
 //   GET ?action=list&type=<lesson|recorded_call|all> -> published videos, newest first
 
-const { verifyMember, AuthError } = require('./_Lib/verify-member');
+const { enforceMembership } = require('./_Lib/membership');
 const { supabase } = require('./_Lib/supabase-client');
 const { json, preflight } = require('./_Lib/http');
 
@@ -16,12 +16,8 @@ const VALID_TYPES = new Set(['lesson', 'recorded_call']);
 exports.handler = async function (event, context) {
   if (event.httpMethod === 'OPTIONS') return preflight();
 
-  try {
-    await verifyMember(event);
-  } catch (err) {
-    if (err instanceof AuthError) return json(err.statusCode, { error: err.message });
-    return json(401, { error: 'Authentication failed' });
-  }
+  const gate = await enforceMembership(event);
+  if (gate.response) return gate.response;
 
   try {
     if (event.httpMethod === 'GET') {

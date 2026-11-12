@@ -8,6 +8,9 @@ const path = require('path');
 function loadPropertySearch() {
   const stubs = {
     [path.join(__dirname, '../netlify/functions/_Lib/verify-member.js')]: { verifyMember: async () => 'mem_1', AuthError: class extends Error {} },
+    [path.join(__dirname, '../netlify/functions/_Lib/membership.js')]: {
+      enforceMembership: async () => ({ access: { memberId: 'mem_1', active: true, empire: true, comps: true } }),
+    },
     [path.join(__dirname, '../netlify/functions/_Lib/supabase-client.js')]: { supabase: {} },
   };
   const orig = Module._load;
