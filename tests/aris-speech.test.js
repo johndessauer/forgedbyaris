@@ -211,6 +211,125 @@ test('a fresh profile row does not store a currency or locale', () => {
   assert.match(src, /preferences: \{\}/);
 });
 
+const POSTAL_NAMES = {
+  AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California',
+  CO: 'Colorado', CT: 'Connecticut', DE: 'Delaware', FL: 'Florida', GA: 'Georgia',
+  HI: 'Hawaii', ID: 'Idaho', IL: 'Illinois', IN: 'Indiana', IA: 'Iowa', KS: 'Kansas',
+  KY: 'Kentucky', LA: 'Louisiana', ME: 'Maine', MD: 'Maryland', MA: 'Massachusetts',
+  MI: 'Michigan', MN: 'Minnesota', MS: 'Mississippi', MO: 'Missouri', MT: 'Montana',
+  NE: 'Nebraska', NV: 'Nevada', NH: 'New Hampshire', NJ: 'New Jersey', NM: 'New Mexico',
+  NY: 'New York', NC: 'North Carolina', ND: 'North Dakota', OH: 'Ohio', OK: 'Oklahoma',
+  OR: 'Oregon', PA: 'Pennsylvania', RI: 'Rhode Island', SC: 'South Carolina',
+  SD: 'South Dakota', TN: 'Tennessee', TX: 'Texas', UT: 'Utah', VT: 'Vermont',
+  VA: 'Virginia', WA: 'Washington', WV: 'West Virginia', WI: 'Wisconsin', WY: 'Wyoming',
+  DC: 'District of Columbia',
+};
+
+test('city/state pairs for all 50 states and DC are spoken as names', async () => {
+  const { normalizeSpeechText } = await loadSpeech();
+  assert.equal(Object.keys(POSTAL_NAMES).length, 51);
+  for (const [abbr, name] of Object.entries(POSTAL_NAMES)) {
+    assert.equal(normalizeSpeechText(`Springfield, ${abbr}`), `Springfield, ${name}`, abbr);
+    assert.equal(normalizeSpeechText(`Springfield, ${abbr}.`), `Springfield, ${name}.`, abbr);
+  }
+});
+
+test('addresses, ZIPs, and market phrases use the state name', async () => {
+  const { normalizeSpeechText } = await loadSpeech();
+  assert.equal(normalizeSpeechText('Dallas, TX'), 'Dallas, Texas');
+  assert.equal(normalizeSpeechText('Dallas, Tx'), 'Dallas, Texas');
+  assert.equal(normalizeSpeechText('DALLAS, TX'), 'DALLAS, Texas');
+  assert.equal(normalizeSpeechText('SOUTH BEND, IN'), 'SOUTH BEND, Indiana');
+  assert.equal(normalizeSpeechText('Miami, FL 33101'), 'Miami, Florida 33101');
+  assert.equal(normalizeSpeechText('Miami, FL 33101-1234'), 'Miami, Florida 33101-1234');
+  assert.equal(
+    normalizeSpeechText('Property address: 123 Main St, Austin, TX 78701. ARV: $185,000, MAO: $120,500.50.'),
+    'Property address: 123 Main St, Austin, Texas 78701. after-repair value: 185,000 dollars, maximum allowable offer: 120,500.50 dollars.'
+  );
+  assert.equal(normalizeSpeechText('St. Louis, MO'), 'St. Louis, Missouri');
+  assert.equal(normalizeSpeechText('Winston-Salem, NC'), 'Winston-Salem, North Carolina');
+  assert.equal(normalizeSpeechText("O'Fallon, IL"), "O'Fallon, Illinois");
+  assert.equal(normalizeSpeechText('Fort Worth, TX'), 'Fort Worth, Texas');
+  assert.equal(normalizeSpeechText('Washington, DC'), 'Washington, District of Columbia');
+  assert.equal(normalizeSpeechText('Washington, D.C.'), 'Washington, District of Columbia');
+  assert.equal(normalizeSpeechText('Washington, D.C. 20001'), 'Washington, District of Columbia 20001');
+  assert.equal(normalizeSpeechText('Crown Point, IN 46307'), 'Crown Point, Indiana 46307');
+  assert.equal(normalizeSpeechText('South Bend, IN'), 'South Bend, Indiana');
+  assert.equal(normalizeSpeechText('123 main st, south bend, IN'), '123 main st, south bend, Indiana');
+  assert.equal(normalizeSpeechText('Portland, OR'), 'Portland, Oregon');
+  assert.equal(normalizeSpeechText('Portland, OR 97201'), 'Portland, Oregon 97201');
+  assert.equal(normalizeSpeechText('Portland, ME'), 'Portland, Maine');
+  assert.equal(normalizeSpeechText('Tulsa, OK'), 'Tulsa, Oklahoma');
+  assert.equal(normalizeSpeechText('Honolulu, HI 96813'), 'Honolulu, Hawaii 96813');
+  assert.equal(normalizeSpeechText('Baltimore, MD 21201'), 'Baltimore, Maryland 21201');
+  assert.equal(normalizeSpeechText('New Orleans, LA 70112'), 'New Orleans, Louisiana 70112');
+  assert.equal(normalizeSpeechText('Denver, CO'), 'Denver, Colorado');
+  assert.equal(normalizeSpeechText('Seattle, WA'), 'Seattle, Washington');
+  assert.equal(normalizeSpeechText('Boise, ID 83702'), 'Boise, Idaho 83702');
+  assert.equal(normalizeSpeechText('Boise ID 83702'), 'Boise Idaho 83702');
+  assert.equal(normalizeSpeechText('Omaha, NE 68102'), 'Omaha, Nebraska 68102');
+  assert.equal(normalizeSpeechText('Hartford, CT'), 'Hartford, Connecticut');
+  assert.equal(normalizeSpeechText('Little Rock, AR'), 'Little Rock, Arkansas');
+  assert.equal(normalizeSpeechText('Columbus, OH'), 'Columbus, Ohio');
+  assert.equal(normalizeSpeechText('the TX market and markets in FL'), 'the Texas market and markets in Florida');
+  assert.equal(normalizeSpeechText('the IN market'), 'the Indiana market');
+  assert.equal(normalizeSpeechText('Investors across WA'), 'Investors across Washington');
+  assert.equal(normalizeSpeechText('the state of LA'), 'the state of Louisiana');
+  assert.equal(normalizeSpeechText('CT 06103'), 'Connecticut 06103');
+  assert.equal(normalizeSpeechText('LA 70112'), 'Louisiana 70112');
+  assert.equal(normalizeSpeechText('Compare Dallas, TX with Miami, FL.'), 'Compare Dallas, Texas with Miami, Florida.');
+});
+
+test('two-letter words and lookalikes are not spoken as states', async () => {
+  const { normalizeSpeechText } = await loadSpeech();
+  const prose = normalizeSpeechText('Buy or sell in Dallas, call me, and say hi if the deal is OK.');
+  assert.equal(prose, 'Buy or sell in Dallas, call me, and say hi if the deal is OK.');
+  assert.equal(normalizeSpeechText('The AR'), 'The AR');
+  assert.equal(normalizeSpeechText('See Smith et al. and ET AL today.'), 'See Smith et al. and ET AL today.');
+  assert.equal(
+    normalizeSpeechText('Compare Phoenix, AZ, OR Dallas, TX.'),
+    'Compare Phoenix, Arizona, OR Dallas, Texas.'
+  );
+  assert.equal(
+    normalizeSpeechText('Compare NOI, OR ARV, before Portland, OR.'),
+    'Compare net operating income, OR after-repair value, before Portland, Oregon.'
+  );
+  assert.equal(normalizeSpeechText('BUY, WATCH, OR AVOID'), 'BUY, WATCH, OR AVOID');
+  assert.equal(normalizeSpeechText('Sounds good, OK.'), 'Sounds good, OK.');
+  assert.equal(normalizeSpeechText('OK, the ARV is $100.'), 'OK, the after-repair value is 100 dollars.');
+  assert.equal(normalizeSpeechText('HI there.'), 'HI there.');
+  assert.equal(normalizeSpeechText('Oh, Columbus, OH is different.'), 'Oh, Columbus, Ohio is different.');
+  assert.equal(
+    normalizeSpeechText('Markets in the South, IN particular, differ from South Bend, IN.'),
+    'Markets in the South, IN particular, differ from South Bend, Indiana.'
+  );
+  assert.equal(normalizeSpeechText('Markets, IN my view, are softer.'), 'Markets, IN my view, are softer.');
+  assert.equal(normalizeSpeechText('The plan, IN order to close, needs cash.'), 'The plan, IN order to close, needs cash.');
+  assert.equal(
+    normalizeSpeechText('123 NE Main St, Seattle, WA 98101'),
+    '123 NE Main St, Seattle, Washington 98101'
+  );
+  assert.equal(normalizeSpeechText('100 NE 68102'), '100 NE 68102');
+  assert.equal(normalizeSpeechText('123 Oak Ct, Hartford, CT'), '123 Oak Ct, Hartford, Connecticut');
+  assert.equal(normalizeSpeechText('123 Oak CT 06103'), '123 Oak CT 06103');
+  assert.equal(normalizeSpeechText('property ID 46307'), 'property ID 46307');
+  assert.equal(normalizeSpeechText('property ID 83702'), 'property ID 83702');
+  assert.equal(normalizeSpeechText('See ID 83702'), 'See ID 83702');
+  assert.equal(normalizeSpeechText('LA 90001'), 'LA 90001');
+  assert.equal(normalizeSpeechText('Los Angeles, LA'), 'Los Angeles, LA');
+  assert.equal(normalizeSpeechText('Los Angeles, LA 90001'), 'Los Angeles, LA 90001');
+  assert.equal(
+    normalizeSpeechText('A rental in LA, not New Orleans, LA.'),
+    'A rental in LA, not New Orleans, Louisiana.'
+  );
+  assert.equal(normalizeSpeechText('the LA market'), 'the LA market');
+  assert.equal(normalizeSpeechText('near ME, unlike Portland, ME'), 'near ME, unlike Portland, Maine');
+  assert.equal(normalizeSpeechText('believe in ME'), 'believe in ME');
+  assert.equal(normalizeSpeechText('ACME CO reported'), 'ACME CO reported');
+  assert.equal(normalizeSpeechText('A$185,000 and C$90 and CA$10.'), '185,000 Australian dollars and 90 Canadian dollars and 10 Canadian dollars.');
+  assert.equal(normalizeSpeechText('code D.C.A stays'), 'code D.C.A stays');
+});
+
 test('voice request normalizes speech and still sends the pronunciation dictionary', async () => {
   const mod = await loadEdge('aris-voice.js');
   let sent = null;
@@ -224,7 +343,9 @@ test('voice request normalizes speech and still sends the pronunciation dictiona
     const res = await mod.default(new Request('https://x/api/aris-voice', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: '**ARV** is $185,000. The UK price is £250,000. ARIS agrees.' }),
+      body: JSON.stringify({
+        text: '**ARV** is $185,000 in Dallas, TX. The UK price is £250,000. ARIS agrees. Buy or sell.',
+      }),
     }), {});
     assert.equal(res.status, 200);
   } finally {
@@ -232,11 +353,16 @@ test('voice request normalizes speech and still sends the pronunciation dictiona
   }
   assert.ok(sent.url.includes('/text-to-speech/'));
   assert.match(sent.body.text, /after-repair value is 185,000 dollars/);
+  assert.match(sent.body.text, /Dallas, Texas/);
   assert.match(sent.body.text, /250,000 pounds/);
   assert.match(sent.body.text, /ARIS agrees/);
+  assert.match(sent.body.text, /Buy or sell/);
   assert.equal(sent.body.text.includes('$'), false);
+  assert.equal(sent.body.text.includes('TX'), false);
   assert.equal(sent.body.pronunciation_dictionary_locators[0].pronunciation_dictionary_id, 'xnEmPYZk1ReyZxXJB0I4');
+  assert.equal(sent.body.pronunciation_dictionary_locators[0].version_id, 'K4NSU6bIVNNrQHZl1PDT');
   assert.equal(sent.body.model_id, 'eleven_flash_v2_5');
+  assert.equal(sent.body.voice_settings.stability, 0.58);
 });
 
 test('deal-analyzer and coach prompts carry the currency rule for a new session and a resumed one', async () => {
