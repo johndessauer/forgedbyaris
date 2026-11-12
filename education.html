@@ -438,6 +438,11 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 }
 .coaching-embed { position: relative; width: 100%; aspect-ratio: 16/9; background: black; border-radius: 8px; overflow: hidden; }
 .coaching-embed iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: none; }
+.coaching-brief-wrap { margin-top: 8px; }
+.coaching-brief-link { color: var(--orange); font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+.coaching-brief-link:hover { color: var(--gold); }
+.coaching-brief { margin-top: 8px; margin-bottom: 0; }
+.coaching-brief[hidden] { display: none; }
 .coaching-tag-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
 .coaching-tag { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--gold); opacity: 0.9; }
 .coaching-pill { font-size: 9px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; padding: 2px 7px; border-radius: 4px; background: var(--orange-dim); color: var(--orange); border: 1px solid rgba(255,107,43,0.3); }
@@ -767,8 +772,12 @@ const WEBINAR_HIGHLIGHT_VIDEOS = [
 //   session     number shown on the card; also the URL (#group-coaching/session-N)
 //   youtubeId   the id from the YouTube link (youtu.be/<id>)
 //   title, date (YYYY-MM-DD), duration ("m:ss"), description
-//   topics      ['Topic', ...] shown as a bulleted "Topics covered" list on the card and player.
-//               Leave it off when the repo has no topic list; the UI shows a placeholder.
+//   duration    YouTube Studio length of the published upload, when that length is known.
+//               Leave it off when the edited timeline is not validated. Do not invent one.
+//   topics      Longer ['Topic', ...] list. Shown as the one "Topics covered" list
+//               on the card and the player when present.
+//   summary     Short bullets used only when topics is absent, so a replay never
+//               renders two topic lists. Leave it off when topics is already set.
 //   chapters    [['0:00', 'Label'], ...]  always shown as chips
 //   clips       OPTIONAL short training clips cut from the same video:
 //               [{ title, start: '2:04', end: '3:06', topic: 'Strategy' }, ...]
@@ -810,7 +819,7 @@ const GROUP_COACHING_REPLAYS = [
     youtubeId: 'Dp8cqmMoHg4',
     title: 'How to Choose the Right Real Estate Market: Data, Classes & Strategies | FORGE Group Coaching',
     date: '2026-10-28',
-    duration: '15:54',
+    duration: '15:55',
     description: 'Choosing your market. Grade any market with Buy / Watch / Avoid, the 5 data points Market Oracle uses (median income, home value, rent, vacancy, mortgage rates), a live Crown Point, IN (46307) verdict, Class A/B/C strategies, and where to find replays inside FORGE. (The live call was not recorded, so John re-recorded the core lesson.)',
     topics: [
       'Buy, Watch, Avoid framework',
@@ -834,9 +843,14 @@ const GROUP_COACHING_REPLAYS = [
     session: 1,
     youtubeId: 'SxgQqVXivNI',
     title: 'Session 1: Strategy, Market, Money - Build Your Investor Foundation',
-    date: '2026-10-18',
-    duration: '5:15',
-    description: 'Every investor needs a foundation built on three pillars. Strategy: pick your lane and set your "Why" with ARIS, your AI coach. Market: choose where to invest with Market Oracle. Money: build your capital stack and find lenders with Capital Radar.',
+    date: '2026-10-14',
+    duration: '5:16',
+    description: 'Every investor needs a foundation built on three pillars. Strategy: pick your lane and set your "Why" with ARIS, your AI coach. Market: choose where to invest with Market Oracle. Money: build your capital stack and find lenders with Capital Radar. (The Oct 14 live call was not recorded, so John re-recorded this short lesson.)',
+    summary: [
+      'Choose your investing strategy and set your Why with ARIS',
+      'Evaluate your market with Market Oracle',
+      'Build your capital stack with Capital Radar',
+    ],
     chapters: [
       ['0:00', 'Welcome'],
       ['0:42', 'Building Your Investor Foundation'],
@@ -846,7 +860,8 @@ const GROUP_COACHING_REPLAYS = [
       ['4:19', 'Money: Capital Radar'],
       ['4:59', 'Wrap-Up'],
     ],
-    // No topics list exists for this session. Chapter labels above are seek points, not a topics list.
+    // Chapter labels above are seek points. There is no longer topics list,
+    // so the short summary is the one list members see.
     clips: [],
   },
   {
@@ -854,6 +869,8 @@ const GROUP_COACHING_REPLAYS = [
     youtubeId: 'hUWw3BUte5Y',
     title: 'Full Coaching Replay',
     date: '2026-10-21',
+    duration: '58:52',
+    description: 'John covers wholesaling, fix-and-flip, BRRRR, and rental strategy choices; a live market analysis with ARIS and how to make offers using deal numbers; backup offers, creative finance, and the due-on-sale clause; and the four ways real estate pays you, so you can choose your starting lane.',
     topics: [
       'The truth about flipping houses today',
       'Why contractors can ruin your flip',
@@ -862,7 +879,20 @@ const GROUP_COACHING_REPLAYS = [
       'The backup-offer trick to beat other wholesalers',
       'Subject-to and the due-on-sale clause',
     ],
-    chapters: [],
+    // Published replay timeline (58:52). These are not the earlier raw-edit estimates.
+    chapters: [
+      ['0:00', 'Welcome and homework review'],
+      ['3:24', 'Wholesaling: strategy and considerations'],
+      ['10:43', 'Fix-and-flip: active income, costs and risks'],
+      ['19:41', 'Working with contractors'],
+      ['21:03', 'Live ARIS market analysis'],
+      ['28:01', 'Maximum allowable offer and deal preparation'],
+      ['32:26', 'Making offers and following up'],
+      ['38:12', 'BRRRR and rental strategies'],
+      ['44:27', 'Four ways real estate pays you'],
+      ['49:44', 'Lease options and subject-to discussion'],
+      ['54:53', 'FORGE education updates and action steps'],
+    ],
     clips: [],
   },
 ];
@@ -886,9 +916,18 @@ function coachingDate(d) {
   return d ? new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
 }
 
+function coachingBulletList(value) {
+  return Array.isArray(value) ? value.map(t => String(t || '').trim()).filter(Boolean) : [];
+}
+
+// One visible topic list per replay. A longer topics list wins. A short
+// summary fills in only when that list is missing, so the two never render
+// as duplicate blocks on the player or the card.
 function coachingTopicItems(s) {
-  const topics = Array.isArray(s.topics) ? s.topics.map(t => String(t || '').trim()).filter(Boolean) : [];
+  const topics = coachingBulletList(s && s.topics);
   if (topics.length) return { placeholder: false, items: topics };
+  const summary = coachingBulletList(s && s.summary);
+  if (summary.length) return { placeholder: false, items: summary };
   return { placeholder: true, items: ['Placeholder: topics for this session are not in the repo yet.'] };
 }
 
@@ -896,6 +935,25 @@ function coachingTopicsBlock(s) {
   const { placeholder, items } = coachingTopicItems(s);
   const lis = items.map(t => `<li${placeholder ? ' class="coaching-topics-placeholder"' : ''}>${escapeHtml(t)}</li>`).join('');
   return `<div class="coaching-section-label">Topics covered</div><ul class="coaching-topics">${lis}</ul>`;
+}
+
+// Paragraph recap for the link under the player. Hidden until opened.
+// Not used on session cards, and never a second topic list.
+function coachingBriefHtml(s) {
+  const text = String((s && s.description) || '').trim();
+  if (!text) return '';
+  return `<div class="coaching-brief-wrap">
+    <a href="#coaching-call-brief" class="coaching-brief-link" data-brief="1" aria-expanded="false" aria-controls="coaching-call-brief">Group Coaching Call Brief</a>
+    <p id="coaching-call-brief" class="coaching-desc coaching-brief" hidden>${escapeHtml(text)}</p>
+  </div>`;
+}
+
+function toggleCoachingBrief(link) {
+  const panel = document.getElementById('coaching-call-brief');
+  if (!panel) return;
+  const open = panel.hidden;
+  panel.hidden = !open;
+  if (link) link.setAttribute('aria-expanded', open ? 'true' : 'false');
 }
 
 function coachingTopicsCard(s) {
@@ -984,7 +1042,10 @@ function renderCoachingFeatured(autoplay) {
       </button>`).join('');
   document.getElementById('coaching-featured-container').innerHTML = `
     <div class="coaching-featured">
-      <div class="coaching-embed" id="coaching-embed">${coachingIframe(s, opts)}</div>
+      <div class="coaching-player">
+        <div class="coaching-embed" id="coaching-embed">${coachingIframe(s, opts)}</div>
+        ${coachingBriefHtml(s)}
+      </div>
       <div>
         <div class="coaching-tag-row">
           <span class="coaching-tag">🎥 Group Coaching${s.session != null ? ' · Session ' + escapeHtml(s.session) : ''}</span>
@@ -995,7 +1056,6 @@ function renderCoachingFeatured(autoplay) {
         <div class="coaching-title">${escapeHtml(clip ? clip.title : s.title)}</div>
         ${coachingDateHtml(s)}
         ${meta ? `<div class="coaching-meta">${meta}</div>` : ''}
-        ${!clip && s.description ? `<div class="coaching-desc">${escapeHtml(s.description)}</div>` : ''}
         ${coachingTopicsBlock(s)}
         ${chips ? `<div class="coaching-section-label">Chapters</div><div class="coaching-chips">${chips}</div>` : ''}
       </div>
@@ -1022,6 +1082,7 @@ function coachingMatches(s) {
   const hay = [
     s.title, s.description, s.date, 'session ' + s.session,
     ...(s.topics || []),
+    ...(s.summary || []),
     ...(s.chapters || []).map(c => c[1]),
     ...(s.clips || []).flatMap(c => [c.title, c.topic]),
   ].join(' ').toLowerCase();
@@ -1074,6 +1135,12 @@ function selectCoachingSession(index, clip, autoplay) {
 // One delegated click handler for chips, clips, cards (no inline onclick strings).
 document.addEventListener('click', (e) => {
   if (!e.target.closest('#view-coaching')) return;
+  const briefLink = e.target.closest('[data-brief]');
+  if (briefLink) {
+    e.preventDefault();
+    toggleCoachingBrief(briefLink);
+    return;
+  }
   const chip = e.target.closest('[data-seek]');
   if (chip) {
     // Chapters always seek within the FULL session.
