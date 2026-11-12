@@ -12,15 +12,18 @@
 //   MEMBERSTACK_APP_ID       optional. Passed as the verifyToken audience
 //                            by verify-member.js when set.
 //
-// The browser may still redirect to login.html / signup.html for UX.
-// It is not the source of truth: functions and the page edge gate call
-// this before content is returned.
+// The browser may still redirect for UX: login.html when signed out,
+// billing.html when a signed-in plan is not ACTIVE or TRIALING, and
+// signup.html when a signed-in member has no plan yet. It is not the
+// source of truth: functions and the page edge gate call this before
+// content is returned.
 
 const { json } = require('./http');
 const {
   hasActiveMembership,
   hasEmpireAccess,
   hasCompsAccess,
+  hasNonLivePlan,
   isEmpireCategory,
   isEmpireAnalyzerTab,
   EMPIRE_SCENARIO_TITLE,
@@ -86,7 +89,13 @@ async function requireMembership(event, opts) {
   }
 
   const access = accessFromMember(memberId, member);
-  if (!access.active) throw new AuthError('Active membership required', 403);
+  if (!access.active) {
+    const err = new AuthError('Active membership required', 403);
+    // Tells the page gate to open billing instead of the signup form.
+    // The ACTIVE/TRIALING rule above is unchanged.
+    err.paymentIssue = hasNonLivePlan(access.planConnections);
+    throw err;
+  }
   if ((need === 'empire' || need === 'comps') && !access.empire) {
     throw new AuthError('Empire membership required', 403);
   }
@@ -98,7 +107,9 @@ async function enforceMembership(event, opts) {
     return { access: await requireMembership(event, opts) };
   } catch (err) {
     const status = err && err.statusCode ? err.statusCode : 401;
-    return { response: json(status, { error: err.message || 'Authentication failed' }) };
+    const body = { error: (err && err.message) || 'Authentication failed' };
+    if (status === 403) body.paymentIssue = !!(err && err.paymentIssue);
+    return { response: json(status, body) };
   }
 }
 

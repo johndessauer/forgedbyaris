@@ -52,6 +52,9 @@ export async function requireEdgeMembership(request, options) {
       error: body.error || 'Active membership required',
       active: false,
       empire: false,
+      // Only a signed-in member whose plan is not ACTIVE/TRIALING. A 401
+      // is still "not signed in" and must not look like a failed payment.
+      paymentIssue: status === 403 && !!body.paymentIssue,
     };
   }
   if (opts.need === 'empire' && !body.empire) {

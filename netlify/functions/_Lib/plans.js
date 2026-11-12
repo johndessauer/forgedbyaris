@@ -48,6 +48,14 @@ function isLive(pc) {
   return !!pc && LIVE_STATUSES.has(String(pc.status || '').toUpperCase());
 }
 
+// A plan connection that exists but is not ACTIVE or TRIALING: the card
+// failed (REQUIRES_PAYMENT), the invoice is past due, or the plan ended.
+// No connections at all is not this case — that member has not purchased,
+// and the pages still send them to signup.html.
+function hasNonLivePlan(planConnections) {
+  return (planConnections || []).some(pc => !!pc && !isLive(pc));
+}
+
 // Empire access exactly as property-search.html computes hasEmpireAccess.
 function hasEmpireAccess(planConnections) {
   return (planConnections || []).some(pc => isLive(pc) && (
@@ -76,9 +84,11 @@ function hasCompsAccess(planConnections) {
 
 // Base member access, matching the browser hasActiveMembership check on
 // Education, Property Search, CRM, calculators, ARIS, and the other member
-// pages (Oct 2026). ACTIVE or TRIALING only. Empire-by-itself is not enough:
-// the pages send that member to signup.html. Do not add plans here that the
-// pages do not already allow.
+// pages (Oct 2026). ACTIVE or TRIALING only. Empire-by-itself is not enough
+// and still does not count as base access. Do not add plans here that the
+// pages do not already allow. A signed-in member who fails this check
+// because a plan is not ACTIVE or TRIALING is sent to billing.html.
+// Someone with no plan is still sent to signup.html.
 const MEMBER_PLAN_IDS = new Set([
   PLAN_IDS.FORGE_ZERO,
   PLAN_IDS.FOUNDATION,
@@ -142,6 +152,7 @@ module.exports = {
   EMPIRE_SCENARIO_TITLE,
   EMPIRE_ANALYZER_TABS,
   isLive,
+  hasNonLivePlan,
   hasEmpireAccess,
   hasCompsAccess,
   hasActiveMembership,
