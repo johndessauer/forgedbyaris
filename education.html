@@ -612,12 +612,18 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
         </div>
       </div>
 
-      <!-- LIVE COACHING CLIPS (rendered from LIVE_COACHING_VIDEOS after the membership check) -->
+      <!-- LIVE COACHING CLIPS (rendered from LIVE_COACHING_VIDEOS after the membership check).
+           Nov 10, 2026 webinar highlights sit in their own group below those clips. -->
       <div id="view-live" style="display:none;">
         <div class="library-section">
           <div class="library-section-head">🔴 Live Coaching Clips</div>
           <div class="coaching-intro">Live coaching clips from the FORGE team. Watch them in order.</div>
           <div id="live-coaching-container"></div>
+        </div>
+        <div class="library-section" id="nov-10-2026-webinar-highlights">
+          <div class="library-section-head">Nov 10, 2026 webinar highlights</div>
+          <div class="coaching-intro">Highlight clips from the Nov 10, 2026 FORGE webinar.</div>
+          <div id="webinar-highlights-container"></div>
         </div>
       </div>
 
@@ -742,6 +748,17 @@ let liveCoachingRendered = false;
 function liveCoachingEmbedUrl(youtubeId) {
   return 'https://www.youtube.com/embed/' + encodeURIComponent(youtubeId) + '?cc_load_policy=0&rel=0';
 }
+
+// Nov 10, 2026 FORGE webinar highlight clips. Marketing cuts, not Group Coaching replays,
+// so they stay out of GROUP_COACHING_REPLAYS. Same player as Live Coaching: captions off.
+const WEBINAR_HIGHLIGHT_VIDEOS = [
+  { youtubeId: 'USZkgk7Lw5o', title: 'The mission: build a family empire' },
+  { youtubeId: 'o5iNOCp7Yzg', title: 'Motivation beats price' },
+  { youtubeId: 'qmynDxeGRVc', title: 'Wholesaling explained in plain English' },
+  { youtubeId: 'S-Jle-4qM-k', title: 'Deal Analyzer: a 37-unit offering memorandum analyzed in seconds' },
+  { youtubeId: '0wstE49_aXA', title: 'Market Oracle grades a zip code live' },
+  { youtubeId: '3k4sLL0J1GU', title: 'ARIS answers out loud' },
+];
 
 // ── GROUP COACHING REPLAYS ──
 // GROUP_COACHING_REPLAYS is the single source of truth for this tab.
@@ -1606,11 +1623,13 @@ function closeVideoLightbox() {
 
 function renderLiveCoaching() {
   const container = document.getElementById('live-coaching-container');
+  const highlights = document.getElementById('webinar-highlights-container');
   if (!container) return;
   // Same gate as the Video Lesson Library: nothing renders until the
   // Memberstack plan check in initEducationPage() has passed.
   if (!membershipVerified) {
     container.innerHTML = '<div style="color:var(--grey);font-size:13px;">Loading live coaching clips...</div>';
+    if (highlights) highlights.innerHTML = '<div style="color:var(--grey);font-size:13px;">Loading webinar highlights...</div>';
     return;
   }
   if (liveCoachingRendered) return;
@@ -1629,6 +1648,25 @@ function renderLiveCoaching() {
           </div>
         </div>`).join('')}
     </div>`;
+  if (!highlights) return;
+  highlights.innerHTML = `
+    <div class="video-grid">
+      ${WEBINAR_HIGHLIGHT_VIDEOS.map((v, i) => `
+        <div class="video-card">
+          <div class="video-card-thumb-wrap">
+            <iframe src="${liveCoachingEmbedUrl(v.youtubeId)}" title="${escapeHtml(v.title)}"
+              allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
+          </div>
+          <div class="video-card-body">
+            <div class="video-card-type-tag">Nov 10, 2026 webinar highlights · ${i + 1}</div>
+            <div class="video-card-title">${escapeHtml(v.title)}</div>
+          </div>
+        </div>`).join('')}
+    </div>`;
+  if (/nov-10-2026-webinar-highlights/.test(window.location.hash)) {
+    const section = document.getElementById('nov-10-2026-webinar-highlights');
+    if (section) setTimeout(() => section.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  }
 }
 
 async function initEducationPage() {
