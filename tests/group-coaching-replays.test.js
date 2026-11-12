@@ -269,7 +269,7 @@ test('member gate still hides replays, and a verified player renders one summary
   locked.api.renderCoachingReplays();
   assert.match(locked.elements['coaching-featured-container'].innerHTML, /Loading replays/);
   assert.equal(locked.elements['coaching-featured-container'].innerHTML.includes('Topics covered'), false);
-  assert.match(html, /if \(!hasActiveMembership\) \{ window\.location\.href = 'signup\.html'; return; \}/);
+  assert.match(html, /planNeedsPayment \? 'billing\.html\?payment=failed' : 'signup\.html'/);
   assert.match(html, /pln_foundation--s11cv0hs9/);
   assert.match(html, /prc_empire-plan--401c10a7h/);
 

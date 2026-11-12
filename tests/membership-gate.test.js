@@ -12,11 +12,12 @@ const {
   PLAN_IDS,
   hasActiveMembership,
   hasEmpireAccess,
+  hasNonLivePlan,
   isEmpireCategory,
   isEmpireAnalyzerTab,
   EMPIRE_SCENARIO_TITLE,
 } = require('../netlify/functions/_Lib/plans');
-const { requireMembership, empireLessonPayload } = require('../netlify/functions/_Lib/membership');
+const { requireMembership, enforceMembership, empireLessonPayload } = require('../netlify/functions/_Lib/membership');
 const { createHandler: createQuote } = require('../netlify/functions/aris-quote');
 
 function pc(planId, status, priceId) {
@@ -37,6 +38,11 @@ test('live plan rules match the member pages and do not widen Empire', () => {
     assert.equal(hasActiveMembership([pc(id, 'TRIALING')]), true, id);
     assert.equal(hasActiveMembership([pc(id, 'CANCELED')]), false, id);
     assert.equal(hasActiveMembership([pc(id, 'PAST_DUE')]), false, id);
+    assert.equal(hasActiveMembership([pc(id, 'REQUIRES_PAYMENT')]), false, id);
+    assert.equal(hasNonLivePlan([pc(id, 'REQUIRES_PAYMENT')]), true, id);
+    assert.equal(hasNonLivePlan([pc(id, 'PAST_DUE')]), true, id);
+    assert.equal(hasNonLivePlan([pc(id, 'ACTIVE')]), false, id);
+    assert.equal(hasNonLivePlan([pc(id, 'TRIALING')]), false, id);
   }
 
   const both = [
@@ -62,11 +68,18 @@ test('live plan rules match the member pages and do not widen Empire', () => {
   assert.equal(hasEmpireAccess([pc('pln_other', 'ACTIVE', 'prc_497-97-3m13d01j8')]), true);
   assert.equal(hasActiveMembership([pc('pln_other', 'CANCELED', 'prc_497-97-3m13d01j8')]), false);
 
-  // Empire add-on alone is not base access. The pages send that member to signup.
+  // Empire add-on alone is not base access. It is a live plan, so it is not
+  // a failed payment — the pages still send that member to signup.
   assert.equal(hasActiveMembership([pc(PLAN_IDS.EMPIRE, 'ACTIVE')]), false);
   assert.equal(hasEmpireAccess([pc(PLAN_IDS.EMPIRE, 'ACTIVE')]), true);
+  assert.equal(hasNonLivePlan([pc(PLAN_IDS.EMPIRE, 'ACTIVE')]), false);
   assert.equal(hasActiveMembership([]), false);
   assert.equal(hasActiveMembership(null), false);
+  assert.equal(hasNonLivePlan([]), false);
+  assert.equal(hasNonLivePlan(null), false);
+  assert.equal(hasNonLivePlan([pc(PLAN_IDS.FOUNDING_MEMBER, 'REQUIRES_PAYMENT')]), true);
+  assert.equal(hasNonLivePlan([pc(PLAN_IDS.FOUNDING_MEMBER, 'past_due')]), true);
+  assert.equal(hasActiveMembership([pc(PLAN_IDS.FOUNDING_MEMBER, 'REQUIRES_PAYMENT')]), false);
 
   assert.equal(isEmpireCategory('Syndication'), true);
   assert.equal(isEmpireCategory('hotels & hospitality'), true);
@@ -113,7 +126,31 @@ test('requireMembership uses the verified memberstack id and the live plan', asy
       verifyMember: async () => 'mem_lapsed',
       getMember: async () => ({ planConnections: [pc(PLAN_IDS.FOUNDATION_EMPIRE, 'CANCELED')] }),
     }),
-    (e) => e.statusCode === 403 && /Active membership/.test(e.message)
+    (e) => e.statusCode === 403 && e.paymentIssue === true && /Active membership/.test(e.message)
+  );
+
+  await assert.rejects(
+    () => requireMembership({}, {
+      verifyMember: async () => 'mem_card',
+      getMember: async () => ({ planConnections: [pc(PLAN_IDS.FOUNDING_MEMBER, 'REQUIRES_PAYMENT')] }),
+    }),
+    (e) => e.statusCode === 403 && e.paymentIssue === true
+  );
+
+  await assert.rejects(
+    () => requireMembership({}, {
+      verifyMember: async () => 'mem_new',
+      getMember: async () => ({ planConnections: [] }),
+    }),
+    (e) => e.statusCode === 403 && e.paymentIssue === false
+  );
+
+  await assert.rejects(
+    () => requireMembership({}, {
+      verifyMember: async () => 'mem_empire_only',
+      getMember: async () => ({ planConnections: [pc(PLAN_IDS.EMPIRE, 'ACTIVE')] }),
+    }),
+    (e) => e.statusCode === 403 && e.paymentIssue === false
   );
 
   const empire = await requireMembership({}, {
@@ -306,15 +343,111 @@ test('a live plan receives the page; foundation does not receive deal network', 
     assert.equal(await open.text(), 'DEAL NETWORK');
 
     flags.empire = false;
-    globalThis.fetch = async () => new Response(JSON.stringify({ error: 'Active membership required' }), { status: 403 });
+    globalThis.fetch = async () => new Response(JSON.stringify({ error: 'Active membership required', paymentIssue: false }), { status: 403 });
     const signup = await mod.default(new Request('https://preview.example/crm.html', {
       headers: { cookie: 'forge_ms=jwt' },
     }), { next: async () => new Response('CRM') });
     assert.equal(signup.status, 302);
     assert.equal(signup.headers.get('location'), 'https://preview.example/signup.html');
+
+    let servedBilling = false;
+    globalThis.fetch = async () => new Response(JSON.stringify({ error: 'Active membership required', paymentIssue: true }), { status: 403 });
+    const billing = await mod.default(new Request('https://preview.example/dashboard.html', {
+      headers: { cookie: 'forge_ms=jwt' },
+    }), { next: async () => { servedBilling = true; return new Response('DASHBOARD'); } });
+    assert.equal(servedBilling, false);
+    assert.equal(billing.status, 302);
+    assert.equal(billing.headers.get('location'), 'https://preview.example/billing.html?payment=failed');
+
+    globalThis.fetch = async () => new Response(JSON.stringify({ error: 'expired', paymentIssue: true }), { status: 401 });
+    const retry = await mod.default(new Request('https://preview.example/dashboard.html', {
+      headers: { cookie: 'forge_ms=stale' },
+    }), { next: async () => new Response('DASHBOARD') });
+    assert.equal(retry.status, 200);
+    assert.match(await retry.text(), /Checking your membership/);
+    assert.equal(retry.headers.get('location'), null);
   } finally {
     globalThis.fetch = realFetch;
   }
+});
+
+test('a non-live plan is a payment issue and an empty plan list is not', async () => {
+  const failed = await enforceMembership({}, {
+    verifyMember: async () => 'mem_card',
+    getMember: async () => ({ planConnections: [pc(PLAN_IDS.FOUNDING_MEMBER, 'REQUIRES_PAYMENT')] }),
+  });
+  assert.equal(failed.response.statusCode, 403);
+  const failedBody = JSON.parse(failed.response.body);
+  assert.equal(failedBody.paymentIssue, true);
+  assert.match(failedBody.error, /Active membership/);
+
+  const pastDue = await enforceMembership({}, {
+    verifyMember: async () => 'mem_due',
+    getMember: async () => ({ planConnections: [pc(PLAN_IDS.FOUNDING_MEMBER, 'PAST_DUE')] }),
+  });
+  assert.equal(JSON.parse(pastDue.response.body).paymentIssue, true);
+
+  const none = await enforceMembership({}, {
+    verifyMember: async () => 'mem_new',
+    getMember: async () => ({ planConnections: [] }),
+  });
+  assert.equal(JSON.parse(none.response.body).paymentIssue, false);
+
+  const live = await enforceMembership({}, {
+    verifyMember: async () => 'mem_ok',
+    getMember: async () => ({ planConnections: [pc(PLAN_IDS.FOUNDING_MEMBER, 'TRIALING')] }),
+  });
+  assert.equal(live.access.active, true);
+  assert.equal(live.response, undefined);
+});
+
+test('first visit with a failed payment is sent to billing, not the signup form', async () => {
+  delete globalThis.__forgeTestMembership;
+  const mod = await loadEdge('member-page.js');
+  const bootstrap = await mod.default(new Request('https://preview.example/dashboard.html'), {
+    next: async () => new Response('SECRET PAGE'),
+  });
+  const text = await bootstrap.text();
+  assert.equal(bootstrap.status, 200);
+  assert.equal(text.includes('SECRET PAGE'), false);
+  assert.match(text, /if \(!member\) \{ location\.replace\('\/login\.html'\)/);
+  assert.match(text, /gate\.paymentIssue \? '\/billing\.html\?payment=failed' : '\/signup\.html'/);
+  assert.match(text, /if \(!res\.ok\) \{ location\.replace\('\/login\.html'\)/);
+  assert.equal(mod.config.path.some(p => String(p).includes('billing')), false);
+});
+
+test('billing page states the payment failure and can open the portal', () => {
+  const billing = fs.readFileSync(path.join(__dirname, '../billing.html'), 'utf8');
+  const message = 'Your payment did not go through. You may need to add an alternative payment method.';
+  assert.ok(billing.includes(message));
+  assert.match(billing, /\[hidden\] \{ display: none !important; \}/);
+  assert.match(billing, /launchStripeCustomerPortal/);
+  assert.match(billing, /get\('payment'\) === 'failed'/);
+  const show = billing.indexOf("go.textContent = 'Add a payment method'");
+  const auto = billing.indexOf('await openPortal(ms)');
+  assert.ok(show !== -1 && auto !== -1 && show < auto);
+  assert.match(billing.slice(show, auto), /return;/);
+});
+
+test('member pages send a non-live plan to billing and leave the live-plan rule alone', () => {
+  const pages = [
+    'dashboard.html', 'crm.html', 'deal-analyzer.html', 'deal-network.html',
+    'capital-radar.html', 'market-oracle.html', 'education.html',
+    'document-vault.html', 'aris-coach.html', 'profile.html',
+    'property-search.html', 'real-estate-lab.html',
+  ];
+  const redirect = /planNeedsPayment \? 'billing\.html\?payment=failed' : 'signup\.html'/;
+  for (const name of pages) {
+    const html = fs.readFileSync(path.join(__dirname, '..', name), 'utf8');
+    assert.match(html, redirect, name);
+    assert.match(html, /status === 'ACTIVE' \|\| .*status === 'TRIALING'/, name);
+    assert.equal(html.includes("window.location.href = 'signup.html'"), false, name);
+    assert.ok(html.includes('pln_founding-member-a1p70rff'), name);
+  }
+  const sales = fs.readFileSync(path.join(__dirname, '../founding-member.html'), 'utf8');
+  assert.match(sales, /href="signup\.html"/);
+  const login = fs.readFileSync(path.join(__dirname, '../login.html'), 'utf8');
+  assert.match(login, /window\.location\.href = 'dashboard\.html'/);
 });
 
 test('coach and voice require a plan; the public sales widget does not', async () => {

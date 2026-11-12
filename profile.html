@@ -865,7 +865,14 @@ async function initProfilePage() {
     );
     const hasActiveMembership = !!activeConn;
     if (!hasActiveMembership) {
-      window.location.href = 'signup.html';
+      // REQUIRES_PAYMENT, past due, and any other non-live status. A member
+      // with no plan at all still goes to the signup form.
+      const planNeedsPayment = (member.planConnections || []).some(pc => {
+        if (!pc) return false;
+        const status = String(pc.status || '').toUpperCase();
+        return status !== 'ACTIVE' && status !== 'TRIALING';
+      });
+      window.location.href = planNeedsPayment ? 'billing.html?payment=failed' : 'signup.html';
       return;
     }
     // Empire access check — grandfathered legacy members (already in FOUNDING_MEMBER_PRICE_IDS)

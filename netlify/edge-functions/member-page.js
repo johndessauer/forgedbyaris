@@ -5,11 +5,15 @@
 // JWT, stores it as forge_ms, and reloads. The reload is what actually
 // receives the page.
 //
-// Unsigned visitors end on /login.html. Signed-in visitors without a live
-// plan end on /signup.html. Deal Network is Empire-only: a Foundation
-// member gets a short lock page, not the tool.
+// Unsigned visitors end on /login.html. Signed-in visitors whose plan is
+// not ACTIVE or TRIALING (card failed, past due, or any other non-live
+// status) end on /billing.html. Signed-in visitors with no plan yet still
+// end on /signup.html. Deal Network is Empire-only: a Foundation member
+// gets a short lock page, not the tool.
 
 import { requireEdgeMembership, tokenFromRequest } from './lib/membership.js';
+
+const BILLING_RECOVERY = '/billing.html?payment=failed';
 
 const MEMBER_APP = 'app_cmr41qq5500q80tsx94pj61rc';
 
@@ -49,7 +53,12 @@ function bootstrapHtml() {
     var secure = location.protocol === 'https:' ? '; Secure' : '';
     document.cookie = 'forge_ms=' + encodeURIComponent(token) + '; Path=/; Max-Age=43200; SameSite=Lax' + secure;
     var res = await fetch('/.netlify/functions/membership-check', { headers: { Authorization: 'Bearer ' + token } });
-    if (res.status === 403) { location.replace('/signup.html'); return; }
+    var gate = {};
+    try { gate = await res.json(); } catch (err) { gate = {}; }
+    if (res.status === 403) {
+      location.replace(gate.paymentIssue ? '${BILLING_RECOVERY}' : '/signup.html');
+      return;
+    }
     if (!res.ok) { location.replace('/login.html'); return; }
     // One reload. If the cookie cannot be stored, the next hit within 15s
     // goes to login instead of reloading forever. A later visit can try again.
@@ -110,6 +119,10 @@ export default async function handler(request, context) {
 
   const access = await requireEdgeMembership(request, { origin, need: 'member' });
   if (!access.ok) {
+    if (access.status === 403 && access.paymentIssue) {
+      return Response.redirect(origin + BILLING_RECOVERY, 302);
+    }
+    // Signed in, but no plan yet (or only a plan that is not base access).
     if (access.status === 403) return Response.redirect(origin + '/signup.html', 302);
     // Expired cookie: bootstrap can replace it from the live Memberstack session.
     return htmlResponse(bootstrapHtml());

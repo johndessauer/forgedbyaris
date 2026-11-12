@@ -10,12 +10,17 @@
 <style>
 body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; background:#0D1B2A; color:#fff; font-family:Inter,Arial,sans-serif; }
 .card { max-width:440px; padding:32px; background:#162840; border-radius:12px; text-align:center; }
+h1 { font-size:22px; font-weight:650; margin:0 0 12px; letter-spacing:0.2px; }
+#msg { color:#c9d2dc; line-height:1.5; margin:0; }
+.notice { margin:0 0 16px; padding:12px 14px; border-radius:8px; background:rgba(200,155,60,0.12); border:1px solid rgba(200,155,60,0.4); color:#F4E4BC; line-height:1.5; font-size:15px; }
 a, button { display:inline-block; margin-top:16px; padding:12px 22px; border:0; border-radius:8px; background:#FF6B2B; color:#fff; font-weight:600; text-decoration:none; cursor:pointer; font-size:15px; }
+[hidden] { display: none !important; }
 </style>
 </head>
 <body>
 <div class="card">
-  <h1 style="font-size:22px">Update your FORGE payment method</h1>
+  <h1 id="title">Update your FORGE payment method</h1>
+  <p id="payment-notice" class="notice" hidden>Your payment did not go through. You may need to add an alternative payment method.</p>
   <p id="msg">Opening your secure billing page…</p>
   <button id="go" hidden>Open billing</button>
   <a id="login" href="/login.html" hidden>Log in to continue</a>
@@ -24,6 +29,11 @@ a, button { display:inline-block; margin-top:16px; padding:12px 22px; border:0; 
 // Stable link for the FORGE Past-Due Dunning emails and texts. A signed-in
 // member is sent to the Stripe customer portal Memberstack manages, where
 // they can update their card. Signed-out visitors log in first.
+//
+// ?payment=failed is the membership gate: a signed-in member whose plan is
+// not ACTIVE or TRIALING (card failed, past due, or any other non-live
+// status). The message stays on screen until they choose to open billing.
+// This page is not plan-gated, so they can reach the portal while past due.
 function waitForMemberstack(maxWaitMs, intervalMs) {
   return new Promise(function (resolve, reject) {
     var start = Date.now();
@@ -37,21 +47,43 @@ function waitForMemberstack(maxWaitMs, intervalMs) {
 function openPortal(ms) {
   return ms.launchStripeCustomerPortal({ returnUrl: window.location.origin + '/dashboard.html' });
 }
+var paymentFailed = false;
+try {
+  paymentFailed = new URLSearchParams(window.location.search).get('payment') === 'failed';
+} catch (e) {}
+if (paymentFailed) {
+  document.getElementById('payment-notice').hidden = false;
+  document.getElementById('msg').hidden = true;
+}
 (async function () {
   var msg = document.getElementById('msg');
   try {
     var ms = await waitForMemberstack(8000, 100);
     var res = await ms.getCurrentMember();
     if (!res || !res.data) {
-      msg.textContent = 'Log in to your FORGE account, then come back to this link to update your card.';
+      msg.hidden = false;
+      msg.textContent = paymentFailed
+        ? 'Log in to your FORGE account, then you can add another way to pay.'
+        : 'Log in to your FORGE account, then come back to this link to update your card.';
       document.getElementById('login').hidden = false;
       return;
     }
     var go = document.getElementById('go');
-    go.onclick = function () { openPortal(ms).catch(function () { msg.textContent = 'We could not open billing. Reply to our email and we will help.'; }); };
+    go.onclick = function () {
+      openPortal(ms).catch(function () {
+        msg.hidden = false;
+        msg.textContent = 'We could not open billing. Reply to our email and we will help.';
+      });
+    };
+    if (paymentFailed) {
+      go.textContent = 'Add a payment method';
+      go.hidden = false;
+      return;
+    }
     try { await openPortal(ms); }
     catch (e) { msg.textContent = 'Click below to open your billing page.'; go.hidden = false; }
   } catch (e) {
+    msg.hidden = false;
     msg.textContent = 'We could not load billing right now. Reply to our email and we will help.';
   }
 })();

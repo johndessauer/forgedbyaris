@@ -3695,7 +3695,14 @@ window.addEventListener('load', async () => {
       pc => (FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) || pc.planId === FORGE_ZERO_PLAN_ID || pc.planId === FOUNDATION_PLAN_ID || pc.planId === WEBINAR_997_FOUNDATION_PLAN_ID || pc.planId === FOUNDATION_180_PLAN_ID || pc.planId === FOUNDATION_EMPIRE_PLAN_ID || pc.planId === FOUNDATION_EMPIRE_MANUAL_PLAN_ID || pc.planId === FORTIVA_1997_PLAN_ID || pc.planId === FORTIVA_1497_PLAN_ID || pc.planId === FOUNDING_MEMBER_PLAN_ID || pc.planId === FOUNDING_MEMBER_VIP_PLAN_ID || pc.planId === FWN_LAUNCH_PLAN_ID || pc.planId === FWN_ACCELERATOR_PLAN_ID || pc.planId === FWN_997_PLAN_ID || pc.planId === FWN_1797_PLAN_ID || pc.planId === WEBINAR_997_PLAN_ID || pc.planId === WEBINAR_1797_PLAN_ID) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
     );
     if (!hasActiveMembership) {
-      window.location.href = 'signup.html';
+      // REQUIRES_PAYMENT, past due, and any other non-live status. A member
+      // with no plan at all still goes to the signup form.
+      const planNeedsPayment = (member.planConnections || []).some(pc => {
+        if (!pc) return false;
+        const status = String(pc.status || '').toUpperCase();
+        return status !== 'ACTIVE' && status !== 'TRIALING';
+      });
+      window.location.href = planNeedsPayment ? 'billing.html?payment=failed' : 'signup.html';
       return;
     }
     const activeConn = (member.planConnections || []).find(
