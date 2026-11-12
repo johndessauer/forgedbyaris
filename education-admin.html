@@ -881,6 +881,7 @@ function escapeHtml(str) {
 function escapeAttr(str) { return escapeHtml(str).replace(/"/g, '&quot;'); }
 
 async function handleLogout() {
+  document.cookie = 'forge_ms=; Path=/; Max-Age=0; SameSite=Lax';
   try { await waitForMemberstack(); await window.$memberstackDom.logout(); } catch (err) { console.error(err); }
   window.location.href = '/';
 }

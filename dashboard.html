@@ -952,6 +952,7 @@ window.onload = async () => {
 };
 
 async function handleLogout() {
+  document.cookie = 'forge_ms=; Path=/; Max-Age=0; SameSite=Lax';
   try {
     const memberstack = window.$memberstackDom;
     await memberstack.logout();

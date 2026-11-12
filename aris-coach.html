@@ -1002,7 +1002,7 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
     try {
       const res = await fetch('/api/aris-voice', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(currentMemberToken ? { Authorization: 'Bearer ' + currentMemberToken } : {}) },
         body: JSON.stringify({ text }),
       });
       if (!res.ok) throw new Error(`Voice request failed (${res.status})`);
@@ -1136,7 +1136,7 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
       try {
         const res = await fetch('/api/aris-transcribe', {
           method: 'POST',
-          headers: { 'Content-Type': mimeType },
+          headers: { 'Content-Type': mimeType, ...(currentMemberToken ? { Authorization: 'Bearer ' + currentMemberToken } : {}) },
           body: blob,
         });
         if (!res.ok) throw new Error(`Transcription failed (${res.status})`);
@@ -1701,7 +1701,7 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
 
     const res = await fetch('/api/aris-stream', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(currentMemberToken ? { Authorization: 'Bearer ' + currentMemberToken } : {}) },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 2200,
@@ -2080,6 +2080,7 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
 })();
 
 async function handleLogout() {
+  document.cookie = 'forge_ms=; Path=/; Max-Age=0; SameSite=Lax';
   try { await window.$memberstackDom.logout(); } catch(e) {}
   window.location.href = 'login.html';
 }

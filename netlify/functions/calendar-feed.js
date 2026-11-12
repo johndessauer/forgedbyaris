@@ -71,6 +71,22 @@ exports.handler = async function (event, context) {
     if (!profile) return json(404, { error: 'Invalid or expired calendar link' });
 
     const memberId = profile.memberstack_id;
+    // The feed URL is a bearer credential, so calendar apps cannot send a
+    // Memberstack header. Re-check the plan for this memberstack_id before
+    // listing deal dates. Fail closed if Memberstack cannot be reached.
+    try {
+      const { requireMembership } = require('./_Lib/membership');
+      await requireMembership(
+        { headers: {} },
+        {
+          verifyMember: async () => memberId,
+          need: 'member',
+        }
+      );
+    } catch (err) {
+      const status = err && err.statusCode ? err.statusCode : 403;
+      return json(status === 503 ? 503 : 403, { error: 'Active membership required' });
+    }
     const dtstamp = nowStamp();
     const events = [];
 

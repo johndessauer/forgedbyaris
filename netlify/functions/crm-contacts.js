@@ -11,7 +11,7 @@
 //   POST { action: 'create', name, type, phone, email }
 //   POST { action: 'update', id, ...fields to change }
 
-const { verifyMember, AuthError } = require('./_Lib/verify-member');
+const { enforceMembership } = require('./_Lib/membership');
 const { supabase } = require('./_Lib/supabase-client');
 const { json, preflight } = require('./_Lib/http');
 
@@ -20,13 +20,9 @@ const VALID_TYPES = ['seller', 'buyer', 'lender', 'contractor'];
 exports.handler = async function (event, context) {
   if (event.httpMethod === 'OPTIONS') return preflight();
 
-  let memberId;
-  try {
-    memberId = await verifyMember(event);
-  } catch (err) {
-    if (err instanceof AuthError) return json(err.statusCode, { error: err.message });
-    return json(401, { error: 'Authentication failed' });
-  }
+  const gate = await enforceMembership(event);
+  if (gate.response) return gate.response;
+  const memberId = gate.access.memberId;
 
   try {
     if (event.httpMethod === 'GET') {

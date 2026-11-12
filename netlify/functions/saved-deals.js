@@ -14,7 +14,7 @@
 //   POST { action: 'add_to_pipeline', id }    -> creates a real CRM deal from this saved analysis,
 //                                                 records the link, returns the new CRM deal
 
-const { verifyMember, AuthError } = require('./_Lib/verify-member');
+const { enforceMembership, isEmpireAnalyzerTab } = require('./_Lib/membership');
 const { supabase } = require('./_Lib/supabase-client');
 const { json, preflight } = require('./_Lib/http');
 
@@ -39,13 +39,10 @@ const TAB_TO_CRM_DEAL_TYPE = {
 exports.handler = async function (event, context) {
   if (event.httpMethod === 'OPTIONS') return preflight();
 
-  let memberId;
-  try {
-    memberId = await verifyMember(event);
-  } catch (err) {
-    if (err instanceof AuthError) return json(err.statusCode, { error: err.message });
-    return json(401, { error: 'Authentication failed' });
-  }
+  const gate = await enforceMembership(event);
+  if (gate.response) return gate.response;
+  const memberId = gate.access.memberId;
+  const access = gate.access;
 
   try {
     if (event.httpMethod === 'GET') {
@@ -73,6 +70,9 @@ exports.handler = async function (event, context) {
           tab, verdict, verdictText, dealData, photos, docs, chatHistory
         } = payload;
         if (!displayName || !tab) return json(400, { error: 'displayName and tab are required' });
+        if (isEmpireAnalyzerTab(tab) && !access.empire) {
+          return json(403, { error: 'Empire membership required' });
+        }
 
         const { data, error } = await supabase
           .from('saved_deal_analyses')
@@ -125,6 +125,9 @@ exports.handler = async function (event, context) {
           .maybeSingle();
         if (fetchError) throw fetchError;
         if (!saved) return json(404, { error: 'Saved deal not found' });
+        if (isEmpireAnalyzerTab(saved.tab) && !access.empire) {
+          return json(403, { error: 'Empire membership required' });
+        }
 
         if (saved.crm_deal_id) {
           return json(400, { error: 'This deal has already been added to the pipeline' });

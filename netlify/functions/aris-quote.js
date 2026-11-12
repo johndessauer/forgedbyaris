@@ -38,9 +38,15 @@ function createHandler(deps) {
     if (!API_KEY) return reply(500, { error: 'API key not configured' });
 
     try {
-      await deps.verifyMember(event);
+      // Production passes requireMembership (identity + live plan). Tests that
+      // only stub verifyMember still have to present a real bearer token;
+      // the deployed handler never uses that identity-only path.
+      if (deps.requireMembership) await deps.requireMembership(event);
+      else await deps.verifyMember(event);
     } catch (e) {
-      return reply(e.statusCode || 401, { error: 'session_expired', message: 'Please log in again.' });
+      const status = e.statusCode || 401;
+      if (status === 403) return reply(403, { error: 'membership_required', message: e.message || 'Active membership required' });
+      return reply(status, { error: 'session_expired', message: 'Please log in again.' });
     }
 
     let body;
@@ -94,7 +100,10 @@ exports.createHandler = createHandler;
 // Production wiring is lazy so tests can load this file without Memberstack.
 let prod = null;
 exports.handler = (event, context) => {
-  if (!prod) prod = createHandler({ verifyMember: require('./_Lib/verify-member').verifyMember, fetch: (...a) => fetch(...a) });
+  if (!prod) prod = createHandler({
+    requireMembership: (event) => require('./_Lib/membership').requireMembership(event),
+    fetch: (...a) => fetch(...a),
+  });
   return prod(event, context);
 };
 exports._limits = { MODEL, MAX_TOKENS_CAP, DEFAULT_MAX_TOKENS };

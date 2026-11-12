@@ -13,6 +13,8 @@ async function systemPromptFor(promptKey, flag) {
   fs.copyFileSync(path.join(edge, 'aris-stream.js'), copy);
   fs.mkdirSync(path.join(dir, 'lib'));
   fs.copyFileSync(path.join(edge, 'lib', 'speech-text.js'), path.join(dir, 'lib', 'speech-text.js'));
+  fs.copyFileSync(path.join(edge, 'lib', 'membership.js'), path.join(dir, 'lib', 'membership.js'));
+  globalThis.__forgeTestMembership = async () => ({ ok: true, status: 200, memberId: 'mem_test', active: true, empire: true });
   const env = { ANTHROPIC_API_KEY: 'test-key', COMPS_ARIS_LIVE: flag };
   globalThis.Netlify = { env: { get: k => env[k] } };
   let sent = null;
@@ -21,7 +23,7 @@ async function systemPromptFor(promptKey, flag) {
   try {
     const mod = await import(pathToFileURL(copy).href + '?t=' + Math.random());
     await mod.default(new Request('https://x/', { method: 'POST', body: JSON.stringify({ promptKey, messages: [{ role: 'user', content: 'hi' }] }) }), {});
-  } finally { globalThis.fetch = realFetch; }
+  } finally { globalThis.fetch = realFetch; delete globalThis.__forgeTestMembership; }
   return sent && sent.system;
 }
 

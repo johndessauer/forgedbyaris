@@ -1360,6 +1360,7 @@ function showToast(msg) {
 }
 
 async function handleLogout() {
+  document.cookie = 'forge_ms=; Path=/; Max-Age=0; SameSite=Lax';
   try {
     await waitForMemberstack();
     await window.$memberstackDom.logout();

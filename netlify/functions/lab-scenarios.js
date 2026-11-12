@@ -7,19 +7,16 @@
 // functions. This mirrors education-data.js never sending correct_index
 // to the client before a quiz is submitted.
 
-const { verifyMember, AuthError } = require('./_Lib/verify-member');
+const { enforceMembership, EMPIRE_SCENARIO_TITLE } = require('./_Lib/membership');
 const { supabase } = require('./_Lib/supabase-client');
 const { json, preflight } = require('./_Lib/http');
 
 exports.handler = async function (event, context) {
   if (event.httpMethod === 'OPTIONS') return preflight();
 
-  try {
-    await verifyMember(event);
-  } catch (err) {
-    if (err instanceof AuthError) return json(err.statusCode, { error: err.message });
-    return json(401, { error: 'Authentication failed' });
-  }
+  const gate = await enforceMembership(event);
+  if (gate.response) return gate.response;
+  const access = gate.access;
 
   try {
     if (event.httpMethod === 'GET') {
@@ -32,7 +29,22 @@ exports.handler = async function (event, context) {
           .eq('published', true)
           .order('order_index', { ascending: true });
         if (error) throw error;
-        return json(200, { scenarios: data || [] });
+        const scenarios = (data || []).map((s) => {
+          if (s.title === EMPIRE_SCENARIO_TITLE && !access.empire) {
+            return {
+              id: s.id,
+              title: s.title,
+              description: s.description,
+              category: s.category,
+              counterparty_role: s.counterparty_role,
+              counterparty_gender: s.counterparty_gender,
+              order_index: s.order_index,
+              locked: true,
+            };
+          }
+          return s;
+        });
+        return json(200, { scenarios });
       }
 
       return json(400, { error: 'Unknown action' });

@@ -102,9 +102,33 @@ function post(handler, query, headers) {
 }
 
 const env = { CENSUS_API_KEY: 'census-key', FRED_API_KEY: 'fred-key' };
+const foundationMember = { planConnections: [{ planId: 'pln_foundation--s11cv0hs9', status: 'ACTIVE' }] };
+const empireMember = { planConnections: [{ planId: 'pln_foundation-empire-eh1bv0h3e', status: 'ACTIVE' }] };
+
+function withMember(member, extra) {
+  return createHandler(Object.assign({
+    env,
+    fetch: makeFetch(),
+    now: () => new Date('2026-11-10T18:00:00Z'),
+    verifyMember: async () => 'mem_test',
+    getMember: async () => member,
+  }, extra || {}));
+}
+
+test('market-data: unsigned request is rejected before census is called', async () => {
+  const handler = createHandler({ env, fetch: makeFetch(), now: () => new Date('2026-11-10T18:00:00Z'), verifyMember: async () => { throw Object.assign(new Error('no auth'), { statusCode: 401 }); } });
+  const res = await post(handler, '46617');
+  assert.equal(res.statusCode, 401);
+});
+
+test('market-data: a lapsed plan is rejected', async () => {
+  const handler = withMember({ planConnections: [{ planId: 'pln_foundation--s11cv0hs9', status: 'CANCELED' }] });
+  const res = await post(handler, '46617');
+  assert.equal(res.statusCode, 403);
+});
 
 test('market-data: ZIP 46617 returns ACS 2024 zip figures and a geo label', async () => {
-  const handler = createHandler({ env, fetch: makeFetch(), now: () => new Date('2026-11-10T18:00:00Z'), verifyMember: async () => { throw Object.assign(new Error('no auth'), { statusCode: 401 }); } });
+  const handler = withMember(foundationMember);
   const res = await post(handler, '46617');
   assert.equal(res.statusCode, 200);
   const body = JSON.parse(res.body);
@@ -120,7 +144,7 @@ test('market-data: ZIP 46617 returns ACS 2024 zip figures and a geo label', asyn
 });
 
 test('market-data: South Bend, IN resolves to city/place ACS, not a county-geocoder error', async () => {
-  const handler = createHandler({ env, fetch: makeFetch(), now: () => new Date('2026-11-10T18:00:00Z'), verifyMember: async () => { throw Object.assign(new Error('no auth'), { statusCode: 401 }); } });
+  const handler = withMember(foundationMember);
   const res = await post(handler, 'South Bend, IN');
   assert.equal(res.statusCode, 200, res.body);
   const body = JSON.parse(res.body);
@@ -131,7 +155,7 @@ test('market-data: South Bend, IN resolves to city/place ACS, not a county-geoco
 });
 
 test('market-data: Harter Heights 46617 returns neighborhood BG stats vs ZIP comparison and sourced intel', async () => {
-  const handler = createHandler({ env, fetch: makeFetch(), now: () => new Date('2026-11-10T18:00:00Z'), verifyMember: async () => { throw Object.assign(new Error('no auth'), { statusCode: 401 }); } });
+  const handler = withMember(foundationMember);
   const res = await post(handler, 'Harter Heights 46617');
   assert.equal(res.statusCode, 200, res.body);
   const body = JSON.parse(res.body);
@@ -147,17 +171,14 @@ test('market-data: Harter Heights 46617 returns neighborhood BG stats vs ZIP com
   assert.equal(body.areaIntel.news.items[0].title, 'Riverfront project breaks ground');
   assert.ok(body.areaIntel.news.items[0].url);
   assert.ok(body.areaIntel.permits);
-  // No member: comps skipped, no RentCast spend.
+  // Foundation plan: census is included, comps are not.
   assert.equal(body.comps.status, 'skipped');
 });
 
-test('market-data: signed-in member gets mock radius comps on the neighborhood', async () => {
+test('market-data: signed-in Empire member gets mock radius comps on the neighborhood', async () => {
   const store = createMemoryStore();
-  const handler = createHandler({
+  const handler = withMember(empireMember, {
     env: { ...env, RENTCAST_MOCK: '1' },
-    fetch: makeFetch(),
-    now: () => new Date('2026-11-10T18:00:00Z'),
-    verifyMember: async () => 'mem_test',
     store,
     mockResponse: (id) => ({
       ok: true,

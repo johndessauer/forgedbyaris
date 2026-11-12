@@ -9,9 +9,10 @@
 // response rather than a stream — Edge Functions aren't limited to
 // streaming use cases, this just keeps the same safety margin.
 //
-// KNOWN GAP (same as aris-stream.js and lab-stream.js): no member auth
-// check, protected only by CORS/URL obscurity — flagged for a future
-// hardening pass across all three, not fixed here.
+// Membership: a live FORGE plan is required. The session row is stored
+// under the verified memberstack_id, not a client-supplied id.
+
+import { requireEdgeMembership, EMPIRE_SCENARIO_TITLE } from './lib/membership.js';
 
 const DEBRIEF_SYSTEM_PROMPT = `You are ARIS, providing a structured debrief on a real estate negotiation roleplay a member just completed. You are NOT in character as the roleplay counterparty here — you are ARIS, the direct, no-fluff advisor, reviewing their performance.
 
@@ -31,7 +32,7 @@ Keep strengths and areasToImprove to 2-4 items each. Every point must reference 
 export default async (request, context) => {
   const CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
   };
 
@@ -63,9 +64,19 @@ export default async (request, context) => {
     });
   }
 
-  const { scenarioId, memberId, transcript } = body;
-  if (!scenarioId || !memberId || !Array.isArray(transcript) || !transcript.length) {
-    return new Response(JSON.stringify({ error: 'scenarioId, memberId, and a non-empty transcript array are required' }), {
+  const access = await requireEdgeMembership(request, { origin: new URL(request.url).origin, need: 'member' });
+  if (!access.ok) {
+    return new Response(JSON.stringify({ error: access.error || 'Active membership required' }), {
+      status: access.status || 401,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+    });
+  }
+  // The member id written to lab_sessions is the verified token subject.
+  // A client-supplied memberId is ignored.
+  const memberId = access.memberId;
+  const { scenarioId, transcript } = body;
+  if (!scenarioId || !Array.isArray(transcript) || !transcript.length) {
+    return new Response(JSON.stringify({ error: 'scenarioId and a non-empty transcript array are required' }), {
       status: 400,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     });
@@ -76,11 +87,18 @@ export default async (request, context) => {
   let objective;
   try {
     const scenarioRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/lab_scenarios?id=eq.${scenarioId}&select=objective`,
+      `${SUPABASE_URL}/rest/v1/lab_scenarios?id=eq.${encodeURIComponent(scenarioId)}&select=objective,title`,
       { headers: { 'apikey': SUPABASE_SERVICE_KEY, 'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}` } }
     );
     const rows = await scenarioRes.json();
-    objective = rows?.[0]?.objective;
+    const row = rows?.[0];
+    if (row && row.title === EMPIRE_SCENARIO_TITLE && !access.empire) {
+      return new Response(JSON.stringify({ error: 'Empire membership required' }), {
+        status: 403,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      });
+    }
+    objective = row?.objective;
   } catch (err) {
     return new Response(JSON.stringify({ error: 'Failed to look up scenario objective' }), {
       status: 502,

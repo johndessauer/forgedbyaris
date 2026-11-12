@@ -580,7 +580,7 @@ async function sendMessage() {
   try {
     const res = await fetch('/api/lab-stream', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(memberToken ? { Authorization: 'Bearer ' + memberToken } : {}) },
       body: JSON.stringify({
         scenarioId: currentScenario.id,
         messages: conversationHistory,
@@ -664,7 +664,7 @@ async function playCarolVoice(text) {
   try {
     const res = await fetch('/api/aris-voice', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(memberToken ? { Authorization: 'Bearer ' + memberToken } : {}) },
       body: JSON.stringify({ text, voiceId: getVoiceIdForScenario() }),
     });
     if (!res.ok) throw new Error(`Voice request failed (${res.status})`);
@@ -776,7 +776,7 @@ async function toggleVoiceInput() {
     try {
       const res = await fetch('/api/aris-transcribe', {
         method: 'POST',
-        headers: { 'Content-Type': mimeType },
+        headers: { 'Content-Type': mimeType, ...(memberToken ? { Authorization: 'Bearer ' + memberToken } : {}) },
         body: blob,
       });
       if (!res.ok) throw new Error(`Transcription failed (${res.status})`);
@@ -815,7 +815,7 @@ async function endSession() {
   try {
     const res = await fetch('/api/lab-debrief', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(memberToken ? { Authorization: 'Bearer ' + memberToken } : {}) },
       body: JSON.stringify({
         scenarioId: currentScenario.id,
         memberId: currentMemberId,
@@ -851,6 +851,7 @@ function renderDebrief(d) {
 }
 
 async function handleLogout() {
+  document.cookie = 'forge_ms=; Path=/; Max-Age=0; SameSite=Lax';
   try {
     await waitForMemberstack();
     await window.$memberstackDom.logout();

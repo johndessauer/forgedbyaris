@@ -88,6 +88,29 @@ function createHandler(deps) {
     const query = (body.query || '').trim();
     if (!query) return reply(400, { error: 'Missing query' });
 
+    // Market Oracle is a member feature. Census figures are not returned
+    // until the caller has a live plan. RentCast comps stay Empire-only.
+    let access;
+    try {
+      if (d.requireMembership) {
+        access = await d.requireMembership(event);
+      } else if (d.getMember) {
+        const { accessFromMember } = require('./_Lib/membership');
+        const memberId = await verify(event);
+        access = accessFromMember(memberId, await d.getMember(memberId));
+        if (!access.active) {
+          const err = new Error('Active membership required');
+          err.statusCode = 403;
+          throw err;
+        }
+      } else {
+        const { requireMembership } = require('./_Lib/membership');
+        access = await requireMembership(event, { verifyMember: verify });
+      }
+    } catch (e) {
+      return reply(e.statusCode || 401, { error: e.message || 'Active membership required' });
+    }
+
     const now = nowFn();
 
     try {
@@ -150,22 +173,8 @@ function createHandler(deps) {
       const stats = toMarketStats(primary.parsed, { geoLabel: geography.label });
 
       // Area intel + FRED + optional comps in parallel.
-      let memberId = null;
-      try {
-        if (d.memberId) {
-          memberId = d.memberId;
-        } else {
-          const member = await verify(event);
-          memberId = typeof member === 'string'
-            ? member
-            : (member && (member.id || member.memberstack_id || member.memberId));
-        }
-      } catch (e) {
-        if (e && e.statusCode && e.statusCode !== 401 && e.statusCode !== 403) {
-          // Unexpected verify errors: continue without comps.
-        }
-        memberId = null;
-      }
+      // Comps spend RentCast money and are Empire / FORGE Zero / Beta only.
+      const memberId = access.comps ? access.memberId : null;
 
       let store = d.store || null;
       if (!store && memberId && (env.RENTCAST_API_KEY || env.RENTCAST_MOCK) && env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) {

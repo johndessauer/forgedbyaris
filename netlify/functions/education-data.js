@@ -18,7 +18,7 @@
 //   POST { action: 'submit_quiz', moduleId, tier, answers: [indices] } -> grades that tier's quiz, saves progress,
 //         returns score + per-question correctness + whether the next tier is now unlocked
 
-const { verifyMember, AuthError } = require('./_Lib/verify-member');
+const { enforceMembership, isEmpireCategory, empireLessonPayload } = require('./_Lib/membership');
 const { supabase } = require('./_Lib/supabase-client');
 const { json, preflight } = require('./_Lib/http');
 
@@ -57,17 +57,18 @@ function priorTier(tier) {
 exports.handler = async function (event, context) {
   if (event.httpMethod === 'OPTIONS') return preflight();
 
-  let memberId;
-  try {
-    memberId = await verifyMember(event);
-  } catch (err) {
-    if (err instanceof AuthError) return json(err.statusCode, { error: err.message });
-    return json(401, { error: 'Authentication failed' });
-  }
+  const gate = await enforceMembership(event);
+  if (gate.response) return gate.response;
+  const memberId = gate.access.memberId;
+  const access = gate.access;
 
   try {
     if (event.httpMethod === 'GET') {
       const action = (event.queryStringParameters || {}).action;
+
+      if (action === 'empire_lessons') {
+        return json(200, { modules: empireLessonPayload(access) });
+      }
 
       if (action === 'list') {
         const { data: modules, error: modError } = await supabase
@@ -128,6 +129,9 @@ exports.handler = async function (event, context) {
           .maybeSingle();
         if (modError) throw modError;
         if (!mod) return json(404, { error: 'Module not found' });
+        if (isEmpireCategory(mod.category) && !access.empire) {
+          return json(403, { error: 'Empire membership required' });
+        }
 
         const { data: questions, error: qError } = await supabase
           .from('education_quiz_questions')
@@ -165,6 +169,16 @@ exports.handler = async function (event, context) {
         }
         const effectiveTier = tier || 'rookie';
         if (!VALID_TIERS.has(effectiveTier)) return json(400, { error: 'Invalid tier' });
+
+        const { data: quizMod, error: quizModError } = await supabase
+          .from('education_modules')
+          .select('category')
+          .eq('id', moduleId)
+          .maybeSingle();
+        if (quizModError) throw quizModError;
+        if (isEmpireCategory(quizMod && quizMod.category) && !access.empire) {
+          return json(403, { error: 'Empire membership required' });
+        }
 
         // Server-side gating enforcement — the real security boundary.
         // The UI hides locked tabs, but this check is what actually
