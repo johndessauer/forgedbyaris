@@ -12,7 +12,8 @@
 // token split such as "AR" + "V" or "$12" + "3,000" cannot be
 // normalized safely. prepareSpeechText slices only after normalization,
 // on a whitespace boundary, so the 5000-character cap cannot cut an
-// amount or an expanded abbreviation in half.
+// amount or an expanded abbreviation in half. US postal abbreviations
+// are expanded to state names in that same spoken copy.
 
 export const SPEECH_CHAR_LIMIT = 5000;
 
@@ -248,11 +249,211 @@ function expandAbbreviations(text) {
   return out;
 }
 
+// Spoken names for the 50 states and DC. The chat on screen keeps the
+// postal abbreviation; only the ElevenLabs text is rewritten.
+const STATE_NAMES = {
+  AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California',
+  CO: 'Colorado', CT: 'Connecticut', DE: 'Delaware', FL: 'Florida', GA: 'Georgia',
+  HI: 'Hawaii', ID: 'Idaho', IL: 'Illinois', IN: 'Indiana', IA: 'Iowa', KS: 'Kansas',
+  KY: 'Kentucky', LA: 'Louisiana', ME: 'Maine', MD: 'Maryland', MA: 'Massachusetts',
+  MI: 'Michigan', MN: 'Minnesota', MS: 'Mississippi', MO: 'Missouri', MT: 'Montana',
+  NE: 'Nebraska', NV: 'Nevada', NH: 'New Hampshire', NJ: 'New Jersey', NM: 'New Mexico',
+  NY: 'New York', NC: 'North Carolina', ND: 'North Dakota', OH: 'Ohio', OK: 'Oklahoma',
+  OR: 'Oregon', PA: 'Pennsylvania', RI: 'Rhode Island', SC: 'South Carolina',
+  SD: 'South Dakota', TN: 'Tennessee', TX: 'Texas', UT: 'Utah', VT: 'Vermont',
+  VA: 'Virginia', WA: 'Washington', WV: 'West Virginia', WI: 'Wisconsin', WY: 'Wyoming',
+  DC: 'District of Columbia',
+};
+
+// Two-letter tokens that are also ordinary words, directionals, street
+// suffixes, or other abbreviations. These become a state name only with a
+// place cue (city/state, address, ZIP, or a market phrase). Bare "OR",
+// "IN", "OK", "The AR", and "et al" stay as written.
+const CONTEXT_ONLY = new Set([
+  'AR', 'CO', 'CT', 'DE', 'HI', 'ID', 'IN', 'LA', 'MA', 'MD', 'ME', 'NE', 'OH', 'OK', 'OR', 'PA', 'WA',
+]);
+
+// "LA market" and "in LA" are Los Angeles in this product, not Louisiana.
+// "in ME" is usually the pronoun. Louisiana and Maine still expand from
+// "New Orleans, LA" / "Portland, ME" and from a confirming ZIP.
+const NO_MARKET = new Set(['LA']);
+const NO_PREPOSITION = new Set(['LA', 'ME']);
+
+// Last word before a comma when that word is not a city. "Sounds good, OK",
+// "WATCH, OR AVOID", "the South, IN particular", "cap rate, OR NOI".
+const DISCOURSE = new Set(`
+  a an and or nor but ok okay hi hello hey thanks thank yes no well so wait please
+  also fine good great right sure wow cool nice perfect exactly absolutely agreed
+  noted ready done watch buy avoid go caution proceed me oh dr mr mrs ms miss prof
+  md st vs versus plus then that this it if is be we my do up at to of on by as the
+  for from with not just very really too into over under than out off all any can
+  may let see now here there what when your our its help look listen sorry dear
+  folks team everyone guys sir buddy friend note warning tip remember however
+  therefore instead otherwise anyway alright call stop
+  north south east west
+  rate rates ratio ratios income coverage offer offers spread cash flow profit loss
+  cap loan loans return returns value values dollar dollars pound pounds percent
+`.split(/\s+/).filter(Boolean));
+
+// USPS 3-digit ZIP prefixes. Confirmation only: an unknown or border ZIP
+// does not block an unambiguous abbreviation such as TX. DC is 200 and
+// 202–205; 201 is Virginia.
+const ZIP_PREFIX_RANGES = [
+  ['AK', 995, 999], ['AL', 350, 369], ['AR', 716, 729], ['AZ', 850, 865],
+  ['CA', 900, 961], ['CO', 800, 816], ['CT', 60, 69],
+  ['DC', 200, 200], ['DC', 202, 205], ['DE', 197, 199],
+  ['FL', 320, 349], ['GA', 300, 319], ['GA', 398, 399],
+  ['HI', 967, 968], ['IA', 500, 528], ['ID', 832, 838], ['IL', 600, 629],
+  ['IN', 460, 479], ['KS', 660, 679], ['KY', 400, 427], ['LA', 700, 714],
+  ['MA', 10, 27], ['MA', 55, 55], ['MD', 206, 219], ['ME', 39, 49],
+  ['MI', 480, 499], ['MN', 550, 567], ['MO', 630, 658], ['MS', 386, 397],
+  ['MT', 590, 599], ['NC', 270, 289], ['ND', 580, 588], ['NE', 680, 693],
+  ['NH', 30, 38], ['NJ', 70, 89], ['NM', 870, 884], ['NV', 889, 898],
+  ['NY', 5, 5], ['NY', 100, 149], ['OH', 430, 459], ['OK', 730, 749],
+  ['OR', 970, 979], ['PA', 150, 196], ['RI', 28, 29], ['SC', 290, 299],
+  ['SD', 570, 577], ['TN', 370, 385], ['TX', 750, 799], ['TX', 885, 885],
+  ['UT', 840, 847], ['VA', 201, 201], ['VA', 220, 246],
+  ['VT', 50, 54], ['VT', 56, 59], ['WA', 980, 994], ['WI', 530, 549],
+  ['WV', 247, 268], ['WY', 820, 831],
+];
+
+const STREET_RE = /\b\d{1,6}\s+(?:[NSEW]\.?\s+)?(?:[A-Za-z0-9.'’\-]+\s+){0,5}(?:street|st|avenue|ave|road|rd|drive|dr|lane|ln|boulevard|blvd|court|ct|way|place|pl|terrace|ter|circle|cir|highway|hwy|parkway|pkwy|trail|trl)\b/i;
+
+function zipPrefixState(zip) {
+  const n = Number(zip.slice(0, 3));
+  for (const [code, lo, hi] of ZIP_PREFIX_RANGES) {
+    if (n >= lo && n <= hi) return code;
+  }
+  return null;
+}
+
+function followingZip(text, end) {
+  const m = text.slice(end).match(/^\s+(\d{5})(?:-\d{4})?\b/);
+  return m ? m[1] : null;
+}
+
+function zipConflicts(text, end, code) {
+  const zip = followingZip(text, end);
+  if (!zip) return false;
+  const owner = zipPrefixState(zip);
+  return owner != null && owner !== code;
+}
+
+function zipConfirms(text, start, end, code) {
+  const zip = followingZip(text, end);
+  if (!zip || zipPrefixState(zip) !== code) return false;
+  const before = text.slice(0, start);
+  const comma = /,\s*$/.test(before);
+  // "100 NE 45th" and "123 Oak CT" are a directional and a court, not a state,
+  // even when the next number happens to be five digits.
+  if (code === 'NE' && !comma && /\d\s+$/.test(before)) return false;
+  if (code === 'CT' && !comma && /\d/.test(before.slice(-48))) return false;
+  // "property ID 83702" is an identifier. "Boise, ID 83702" is Idaho.
+  if (code === 'ID' && !comma) {
+    const prev = before.match(/([A-Za-z][A-Za-z.'’\-]*)\s+$/);
+    if (!prev) return false;
+    const word = prev[1].replace(/\./g, '');
+    if (word.length < 3 || !/[A-Z]/.test(word) || DISCOURSE.has(word.toLowerCase())) return false;
+  }
+  return true;
+}
+
+function introducesPlace(text, end) {
+  return /^\s+[A-Z][a-zA-Z.'’\-]{2,}/.test(text.slice(end));
+}
+
+// "in" as a word: "in my view", "in order", "in fact". A city/state pair
+// is "South Bend, IN" or "South Bend, IN is", which does not use these.
+const IN_AS_WORD = new Set(`
+  my your his her their our its this that particular general fact order addition
+  contrast turn short brief other practice theory reality effect terms part which
+  whom whose most many such
+`.split(/\s+/).filter(Boolean));
+
+function inWordFollower(text, end) {
+  const m = text.slice(end).match(/^\s+([A-Za-z]+)/);
+  return Boolean(m && IN_AS_WORD.has(m[1].toLowerCase()));
+}
+
+function prepositionCue(text, start) {
+  return /(?:\b(?:in|across|throughout|inside|outside|near|around|within|into)\s+)$/i.test(text.slice(0, start));
+}
+
+function stateOfCue(text, start) {
+  return /\bstate\s+of\s+$/i.test(text.slice(0, start));
+}
+
+function marketCue(text, start, end) {
+  if (/^\s+(?:markets?|metro|metros|area)\b/i.test(text.slice(end))) return true;
+  return /\b(?:markets?|metro)\s+(?:in|of)\s+$/i.test(text.slice(0, start));
+}
+
+function commaPlace(text, start) {
+  const before = text.slice(0, start);
+  const m = before.match(/([A-Za-z][A-Za-z.'’\-]*(?:\s+[A-Za-z][A-Za-z.'’\-]*){0,4})\s*,\s*$/);
+  if (!m) return false;
+  const words = m[1].split(/\s+/);
+  const last = words[words.length - 1].replace(/\./g, '');
+  if (last.length < 3) return false;
+  if (DISCOURSE.has(last.toLowerCase())) return false;
+  if (/^[A-Z]{2}$/.test(last) && STATE_NAMES[last]) return false;
+  if (/[A-Z]/.test(last)) return true;
+  return STREET_RE.test(before);
+}
+
+function shouldExpandState(text, start, end, raw, code) {
+  const allUpper = raw === code;
+  const allLower = raw === code.toLowerCase();
+  const titled = raw[0] === code[0] && raw[1] === code[1].toLowerCase();
+  if (!allUpper && !allLower && !titled) return false;
+  // "in", "or", "me", "ok" are words. "IN" and "Or" can still be states.
+  if (allLower && CONTEXT_ONLY.has(code)) return false;
+  if (code === 'AL' && /\bet\s+$/i.test(text.slice(0, start))) return false;
+  if (code === 'LA' && /Los\s+Angeles\s*,\s*$/i.test(text.slice(0, start))) return false;
+  if (CONTEXT_ONLY.has(code) && zipConflicts(text, end, code)) return false;
+
+  if (allUpper && zipConfirms(text, start, end, code)) return true;
+
+  // "Phoenix, AZ, OR Dallas" is the word or, not Oregon.
+  // "IN my view" and "IN order" are the word in, not Indiana.
+  // "South Bend, IN" has neither cue and still expands below.
+  const joiningPlaces = (code === 'OR' || code === 'IN') && introducesPlace(text, end);
+  const inAsWord = code === 'IN' && inWordFollower(text, end);
+  const holdAmbiguous = joiningPlaces || inAsWord;
+  if (!holdAmbiguous && !NO_MARKET.has(code) && marketCue(text, start, end)) return true;
+  if (!holdAmbiguous && !NO_PREPOSITION.has(code) && prepositionCue(text, start)) return true;
+  if (stateOfCue(text, start)) return true;
+  if (!holdAmbiguous && commaPlace(text, start)) return true;
+  if (allUpper && !CONTEXT_ONLY.has(code)) return true;
+  return false;
+}
+
+function expandStateAbbreviations(text) {
+  // "Washington, D.C." is the same postal abbreviation as DC. Leave "D.C.A" alone.
+  const prepared = text.replace(/D\.C\.(?![A-Za-z])|D\.C(?![A-Za-z.])/g, 'District of Columbia');
+  const re = /\b([A-Za-z]{2})\b/g;
+  let out = '';
+  let last = 0;
+  for (const match of prepared.matchAll(re)) {
+    const raw = match[1];
+    const code = raw.toUpperCase();
+    const name = STATE_NAMES[code];
+    if (!name) continue;
+    const start = match.index;
+    const end = start + raw.length;
+    if (!shouldExpandState(prepared, start, end, raw, code)) continue;
+    out += prepared.slice(last, start) + name;
+    last = end;
+  }
+  out += prepared.slice(last);
+  return out;
+}
+
 export function normalizeSpeechText(raw) {
   const stripped = stripMarkdownForSpeech(raw);
   if (!stripped) return '';
   const { masked, slots } = maskProtected(stripped);
-  return unmask(expandAbbreviations(normalizeCurrency(masked)), slots);
+  return unmask(expandStateAbbreviations(expandAbbreviations(normalizeCurrency(masked))), slots);
 }
 
 export function prepareSpeechText(raw, limit = SPEECH_CHAR_LIMIT) {
