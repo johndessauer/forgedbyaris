@@ -14,7 +14,7 @@
 //   POST { action: 'add_to_pipeline', id }    -> creates a real CRM deal from this saved analysis,
 //                                                 records the link, returns the new CRM deal
 
-const { enforceMembership, isEmpireAnalyzerTab } = require('./_Lib/membership');
+const { enforceMembership, requiresEmpireAnalyzer } = require('./_Lib/membership');
 const { supabase } = require('./_Lib/supabase-client');
 const { json, preflight } = require('./_Lib/http');
 
@@ -34,6 +34,11 @@ const TAB_TO_CRM_DEAL_TYPE = {
   office: 'commercial_5plus',
   mixeduse: 'commercial_5plus',
   hotel: 'commercial_5plus',
+  // Creative finance stays on the rental CRM type until the deal_type
+  // enum grows. Residential and commercial sections both use it.
+  'lease-option': 'lt_rental',
+  'subject-to': 'lt_rental',
+  assumption: 'lt_rental',
 };
 
 exports.handler = async function (event, context) {
@@ -70,7 +75,7 @@ exports.handler = async function (event, context) {
           tab, verdict, verdictText, dealData, photos, docs, chatHistory
         } = payload;
         if (!displayName || !tab) return json(400, { error: 'displayName and tab are required' });
-        if (isEmpireAnalyzerTab(tab) && !access.empire) {
+        if (requiresEmpireAnalyzer(tab, dealData) && !access.empire) {
           return json(403, { error: 'Empire membership required' });
         }
 
@@ -125,7 +130,7 @@ exports.handler = async function (event, context) {
           .maybeSingle();
         if (fetchError) throw fetchError;
         if (!saved) return json(404, { error: 'Saved deal not found' });
-        if (isEmpireAnalyzerTab(saved.tab) && !access.empire) {
+        if (requiresEmpireAnalyzer(saved.tab, saved.deal_data) && !access.empire) {
           return json(403, { error: 'Empire membership required' });
         }
 

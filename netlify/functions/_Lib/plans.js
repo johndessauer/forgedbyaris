@@ -137,11 +137,35 @@ function isEmpireCategory(category) {
 const EMPIRE_SCENARIO_TITLE = 'Pitching a Commercial Loan Officer on a 5+ Unit Acquisition';
 
 // Deal Analyzer tabs inside the Commercial category. Residential tabs
-// (wholesale, flip, rental, str, multi) stay on Foundation.
+// (wholesale, flip, rental, str, multi, and the residential view of
+// lease-option, subject-to, and assumption) stay on Foundation.
 const EMPIRE_ANALYZER_TABS = new Set(['commercial', 'storage', 'mhp', 'office', 'mixeduse', 'hotel']);
+
+// Creative-finance tabs live on the residential bar. The commercial
+// section inside each one is Empire-only. The tab name alone is not
+// enough: the saved payload has to say propertyClass commercial.
+const CREATIVE_FINANCE_TABS = new Set(['lease-option', 'subject-to', 'assumption']);
 
 function isEmpireAnalyzerTab(tab) {
   return EMPIRE_ANALYZER_TABS.has(String(tab || '').toLowerCase());
+}
+
+function creativeFinancePropertyClass(dealData) {
+  if (!dealData || typeof dealData !== 'object') return '';
+  const nested = dealData.inputs && dealData.inputs.propertyClass;
+  return String(dealData.propertyClass || nested || '').toLowerCase();
+}
+
+function isCreativeFinanceCommercial(tab, dealData) {
+  const name = String(tab || '').toLowerCase();
+  if (!CREATIVE_FINANCE_TABS.has(name)) return false;
+  return creativeFinancePropertyClass(dealData) === 'commercial';
+}
+
+// True when this save or pipeline add needs Empire: a commercial-category
+// tab, or a creative-finance tab whose payload is the commercial section.
+function requiresEmpireAnalyzer(tab, dealData) {
+  return isEmpireAnalyzerTab(tab) || isCreativeFinanceCommercial(tab, dealData);
 }
 
 module.exports = {
@@ -158,4 +182,7 @@ module.exports = {
   hasActiveMembership,
   isEmpireCategory,
   isEmpireAnalyzerTab,
+  isCreativeFinanceCommercial,
+  requiresEmpireAnalyzer,
+  CREATIVE_FINANCE_TABS,
 };

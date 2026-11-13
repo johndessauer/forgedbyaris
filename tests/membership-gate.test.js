@@ -15,6 +15,8 @@ const {
   hasNonLivePlan,
   isEmpireCategory,
   isEmpireAnalyzerTab,
+  isCreativeFinanceCommercial,
+  requiresEmpireAnalyzer,
   EMPIRE_SCENARIO_TITLE,
 } = require('../netlify/functions/_Lib/plans');
 const { requireMembership, enforceMembership, empireLessonPayload } = require('../netlify/functions/_Lib/membership');
@@ -88,6 +90,36 @@ test('live plan rules match the member pages and do not widen Empire', () => {
   assert.equal(isEmpireAnalyzerTab('hotel'), true);
   assert.equal(isEmpireAnalyzerTab('wholesale'), false);
   assert.equal(isEmpireAnalyzerTab('multi'), false);
+  assert.equal(isEmpireAnalyzerTab('lease-option'), false);
+  assert.equal(isEmpireAnalyzerTab('subject-to'), false);
+  assert.equal(isEmpireAnalyzerTab('assumption'), false);
+
+  // Residential creative-finance views stay on Foundation. The commercial
+  // section is Empire-only, judged from the saved payload.
+  for (const tab of ['lease-option', 'subject-to', 'assumption']) {
+    assert.equal(requiresEmpireAnalyzer(tab, { propertyClass: 'residential' }), false, tab);
+    assert.equal(requiresEmpireAnalyzer(tab, { propertyClass: 'commercial' }), true, tab);
+    assert.equal(isCreativeFinanceCommercial(tab, { inputs: { propertyClass: 'commercial' } }), true, tab);
+    assert.equal(requiresEmpireAnalyzer(tab, null), false, tab);
+  }
+  assert.equal(requiresEmpireAnalyzer('hotel', { propertyClass: 'residential' }), true);
+  assert.equal(requiresEmpireAnalyzer('wholesale', { propertyClass: 'commercial' }), false);
+});
+
+test('creative finance tabs are residential, and the page wires them by data-tab', () => {
+  const html = fs.readFileSync(path.join(__dirname, '../deal-analyzer.html'), 'utf8');
+  const saved = fs.readFileSync(path.join(__dirname, '../netlify/functions/saved-deals.js'), 'utf8');
+  assert.match(html, /data-tab="lease-option"/);
+  assert.match(html, /data-tab="subject-to"/);
+  assert.match(html, /data-tab="assumption"/);
+  assert.match(html, /VA loans are assumable/);
+  assert.match(html, /creative-finance-calc\.js/);
+  assert.match(html, /querySelector\('#' \+ groupId \+ ' \.tab-btn\[data-tab="/);
+  assert.equal(html.includes('tabMap[tab]'), false);
+  assert.match(saved, /requiresEmpireAnalyzer/);
+  assert.match(saved, /'lease-option': 'lt_rental'/);
+  assert.match(saved, /'subject-to': 'lt_rental'/);
+  assert.match(saved, /assumption: 'lt_rental'/);
 });
 
 test('requireMembership uses the verified memberstack id and the live plan', async () => {
