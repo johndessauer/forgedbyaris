@@ -125,13 +125,13 @@ test('education inline script still parses', () => {
 test('session dates, studio durations, and video ids stay on the published uploads', () => {
   const { api } = loadCoaching('');
   const replays = api.GROUP_COACHING_REPLAYS;
-  assert.deepEqual(json(replays.map((s) => s.session)), [5, 4, 3, 1, 2]);
+  assert.deepEqual(json(replays.map((s) => s.session)), [5, 4, 3, 2, 1]);
   assert.deepEqual(json(replays.map((s) => s.youtubeId)), [
     't-PRLfCXFTc',
     'F5NGUHBeAQw',
     'Dp8cqmMoHg4',
-    'SxgQqVXivNI',
     'hUWw3BUte5Y',
+    'SxgQqVXivNI',
   ]);
 
   const s1 = session(api, 1);
