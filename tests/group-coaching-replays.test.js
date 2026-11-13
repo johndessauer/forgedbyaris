@@ -125,8 +125,9 @@ test('education inline script still parses', () => {
 test('session dates, studio durations, and video ids stay on the published uploads', () => {
   const { api } = loadCoaching('');
   const replays = api.GROUP_COACHING_REPLAYS;
-  assert.deepEqual(json(replays.map((s) => s.session)), [4, 3, 1, 2]);
+  assert.deepEqual(json(replays.map((s) => s.session)), [5, 4, 3, 1, 2]);
   assert.deepEqual(json(replays.map((s) => s.youtubeId)), [
+    't-PRLfCXFTc',
     'F5NGUHBeAQw',
     'Dp8cqmMoHg4',
     'SxgQqVXivNI',
@@ -198,8 +199,62 @@ test('session dates, studio durations, and video ids stay on the published uploa
     ['49:35', 'Where to Find Replays'],
   ]);
 
-  assert.equal(replays.some((s) => s.session === 5), false);
-  assert.equal(html.includes('Never Split the Difference'), false);
+  const s5 = session(api, 5);
+  assert.equal(s5.date, '2026-11-11');
+  assert.equal(api.coachingDate(s5.date), 'Nov 11, 2026');
+  assert.equal(s5.duration, '1:05:01');
+  assert.equal(s5.summary, undefined);
+  assert.deepEqual(json(s5.clips), []);
+  assert.equal(s5.description, 'FORGE Group Coaching Session 5 (Nov 11, 2026): finding motivated sellers and distressed property leads. You\'ll learn what makes a motivated seller, why pre-foreclosures (notice of default, roughly 80–90 days to auction) and tax delinquencies signal urgency — including commercial properties where taxes usually aren\'t escrowed — plus absentee owners, divorce vs probate, and why cash (or capital you can access fast) wins. John covers vacant properties and "the worst house on the best block" (a C property in a B market, never a B property in a C market), the soil-and-crops way to match your strategy to your market, and stacking distress indicators. Member Q&A covers marketing to tax-delinquent commercial owners (professional letters, not postcards, with 5+ weekly touches), where to find tax data, and a word-for-word door-knocking opener. Then the negotiation: empathy, asking questions and listening, the "If I could, would you?" line from Chris Voss\'s Never Split the Difference, a live role-play lab, the three things that make a deal, the four negotiator types, and why capital readiness is what lets you commit to a tight close. Wrap-up: log seller notes in FORGE CRM and have ARIS draft your "If I could, would you?" scripts.');
+  assert.deepEqual(json(s5.chapters), [
+    ['0:00', 'Welcome'],
+    ['1:25', 'What Makes a Motivated Seller'],
+    ['2:41', 'Pre-Foreclosures & Tax Delinquencies'],
+    ['5:00', 'Absentee Owners & the Finance Pattern'],
+    ['6:23', 'Why Cash Offers Win'],
+    ['8:56', 'Divorce vs Probate'],
+    ['12:54', 'Vacant Properties'],
+    ['14:58', 'Worst House on the Best Block'],
+    ['18:10', 'Soil & Crops: Match Strategy to Market'],
+    ['24:02', 'Stacking Distress Indicators'],
+    ['25:30', 'Q&A: Marketing to Tax-Delinquent Commercial'],
+    ['30:27', 'Letters, Not Postcards: 5+ Touches'],
+    ['34:27', 'Where to Find Tax-Delinquency Data'],
+    ['37:23', 'Door-Knocking Scripts'],
+    ['41:25', 'Members\' Door-Knocking Experience'],
+    ['46:13', 'Empathy, Ask Questions & Listen'],
+    ['50:00', '“If I Could, Would You?”'],
+    ['53:12', 'Role-Play Lab'],
+    ['54:46', 'Three Things That Make a Deal'],
+    ['59:32', 'Four Negotiator Types'],
+    ['1:01:25', 'Committing to a Close Date: Capital Is Key'],
+    ['1:02:38', 'Notes in FORGE CRM & ARIS Scripts'],
+    ['1:04:08', 'Wrap-Up & Where to Find Replays'],
+  ]);
+  const s5Gaps = s5.chapters.map(([time]) => time.split(':').reduce((acc, part) => acc * 60 + Number(part), 0));
+  assert.equal(s5Gaps[0], 0);
+  for (let i = 1; i < s5Gaps.length; i += 1) assert.ok(s5Gaps[i] - s5Gaps[i - 1] >= 10);
+  assert.ok(s5Gaps[s5Gaps.length - 1] < (65 * 60 + 1));
+
+  assert.equal(html.includes('Never Split the Difference'), true);
+  const liveStart = html.indexOf('const LIVE_COACHING_VIDEOS');
+  const liveEnd = html.indexOf('let liveCoachingRendered');
+  const liveBlock = html.slice(liveStart, liveEnd);
+  const session5Clips = [
+    ['2K6LyqD_lF8', 'What Makes a Motivated Seller? Pre-Foreclosures, Tax Delinquencies & Absentee Owners'],
+    ['lf5IhK51e3A', 'Worst House on the Best Block: Why You Buy a C Property in a B Market'],
+    ['J-w9DM0w_no', 'Door-Knocking a Tax-Delinquent Commercial Property: What to Say'],
+    ['8DPxw0SpcSM', '"If I Could, Would You?" The Negotiation Line That Closes Motivated Sellers'],
+  ];
+  let clipAt = liveBlock.indexOf('BF0AMw5my64');
+  assert.ok(clipAt > 0);
+  for (const [id, title] of session5Clips) {
+    const at = liveBlock.indexOf(id);
+    assert.ok(at > clipAt, id);
+    assert.ok(liveBlock.includes(title), title);
+    clipAt = at;
+  }
+  assert.ok(html.indexOf('id="nov-10-2026-webinar-highlights"') < html.indexOf('id="live-coaching-container"'));
   assert.equal(html.includes('2026-10-18'), false);
   assert.equal(html.includes('Wholesaling: buyers, leads and local rules'), false);
   assert.equal(html.includes('Homework: choose your starting lane'), false);
@@ -230,7 +285,10 @@ test('each replay shows one topic list, and a short summary does not duplicate a
     }
     if (s.topics) {
       assert.deepEqual(json(items.items), json(s.topics));
-      for (const line of PROPOSED[s.session]) assert.equal(block.includes(line), false);
+      const proposed = PROPOSED[s.session];
+      if (proposed) {
+        for (const line of proposed) assert.equal(block.includes(line), false);
+      }
     } else {
       assert.deepEqual(json(items.items), PROPOSED[s.session]);
     }
@@ -294,7 +352,7 @@ test('member gate still hides replays, and a verified player renders one summary
   const card = open.elements['coaching-grid'].innerHTML;
   assert.match(card, /Session 1/);
   assert.match(card, /Oct 14, 2026/);
-  assert.equal(topicBlockCount(card), 4);
+  assert.equal(topicBlockCount(card), 5);
   assert.equal((card.match(/coaching-topics-placeholder/g) || []).length, 0);
   assert.equal(card.includes('Group Coaching Call Brief'), false);
   assert.equal(card.includes('re-recorded this short lesson'), false);
@@ -322,7 +380,11 @@ test('member gate still hides replays, and a verified player renders one summary
     assert.equal((view.match(/Group Coaching Call Brief/g) || []).length, 1);
     assert.match(view, /id="coaching-call-brief"[^>]*hidden/);
     assert.equal((view.match(/class="coaching-desc/g) || []).length, 1);
-    const paragraph = replay.description.replace(/"/g, '&quot;');
+    const paragraph = replay.description
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
     assert.equal(view.split(paragraph).length - 1, 1);
   }
 
