@@ -26,6 +26,8 @@ const {
   hasNonLivePlan,
   isEmpireCategory,
   isEmpireAnalyzerTab,
+  isCreativeFinanceCommercial,
+  requiresEmpireAnalyzer,
   EMPIRE_SCENARIO_TITLE,
 } = require('./plans');
 
@@ -131,5 +133,7 @@ module.exports = {
   empireLessonPayload,
   isEmpireCategory,
   isEmpireAnalyzerTab,
+  isCreativeFinanceCommercial,
+  requiresEmpireAnalyzer,
   EMPIRE_SCENARIO_TITLE,
 };

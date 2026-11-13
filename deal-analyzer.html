@@ -98,6 +98,22 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 .tab-btn { font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.5px; padding: 8px 14px; border-radius: 6px 6px 0 0; border: 1px solid transparent; border-bottom: none; cursor: pointer; white-space: nowrap; transition: all 0.15s; background: none; color: var(--grey); }
 .tab-btn:hover { color: var(--white); background: var(--border-sub); }
 .tab-btn.active { background: var(--navy-light); border-color: var(--border-sub); color: var(--orange); border-bottom: 2px solid var(--orange); }
+.cf-class-toggle { display: flex; gap: 6px; margin-bottom: 14px; }
+.cf-class-btn { flex: 1; font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border-sub); background: none; color: var(--grey-light); cursor: pointer; }
+.cf-class-btn.active { border-color: var(--gold); color: var(--gold); background: var(--gold-dim); }
+.cf-empire-tag { font-size: 9px; letter-spacing: 0.6px; }
+.cf-va-banner { background: rgba(200,155,60,0.12); border: 1px solid var(--gold); border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; font-size: 12px; line-height: 1.55; color: var(--grey-light); }
+.cf-va-banner strong { display: block; color: var(--gold); font-size: 13px; margin-bottom: 4px; }
+.cf-check { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; color: var(--grey-light); line-height: 1.45; margin-top: 8px; }
+.cf-check input { margin-top: 2px; }
+.cf-disclaimer { font-size: 11px; color: var(--grey); margin: 8px 0 12px; }
+.risk-strip { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 14px; }
+.risk-flag { border-radius: 6px; padding: 8px 10px; font-size: 12px; line-height: 1.45; }
+.risk-flag.standing { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.4); }
+.risk-flag.warn, .risk-flag.block { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.4); }
+.risk-flag.clear { background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.35); }
+.risk-flag-title { font-weight: 700; color: var(--white); margin-bottom: 2px; }
+.risk-flag-detail { color: var(--grey-light); }
 
 /* form scroll area */
 .form-scroll { flex: 1; overflow-y: auto; padding: 20px; }
@@ -557,20 +573,23 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
         </div>
 
         <div class="analyzer-tabs" id="tabs-residential">
-          <button class="tab-btn active" onclick="switchTab('wholesale',this)">Wholesale</button>
-          <button class="tab-btn" onclick="switchTab('flip',this)">Fix &amp; Flip</button>
-          <button class="tab-btn" onclick="switchTab('rental',this)">LT Rental</button>
-          <button class="tab-btn" onclick="switchTab('str',this)">STR / MTR</button>
-          <button class="tab-btn" onclick="switchTab('multi',this)">2–4 Units</button>
+          <button class="tab-btn active" data-tab="wholesale" onclick="switchTab('wholesale',this)">Wholesale</button>
+          <button class="tab-btn" data-tab="flip" onclick="switchTab('flip',this)">Fix &amp; Flip</button>
+          <button class="tab-btn" data-tab="rental" onclick="switchTab('rental',this)">LT Rental</button>
+          <button class="tab-btn" data-tab="str" onclick="switchTab('str',this)">STR / MTR</button>
+          <button class="tab-btn" data-tab="multi" onclick="switchTab('multi',this)">2–4 Units</button>
+          <button class="tab-btn" data-tab="lease-option" onclick="switchTab('lease-option',this)">Lease Option</button>
+          <button class="tab-btn" data-tab="subject-to" onclick="switchTab('subject-to',this)">Subject-To</button>
+          <button class="tab-btn" data-tab="assumption" onclick="switchTab('assumption',this)">Loan Assumption</button>
         </div>
 
         <div class="analyzer-tabs" id="tabs-commercial" style="display:none">
-          <button class="tab-btn" onclick="switchTab('commercial',this)">Apartments <span style="font-size:9px;opacity:0.6;font-weight:400;letter-spacing:0;text-transform:none;">5+ Units</span></button>
-          <button class="tab-btn" onclick="switchTab('storage',this)">Self-Storage</button>
-          <button class="tab-btn" onclick="switchTab('mhp',this)">Mobile Home Parks</button>
-          <button class="tab-btn" onclick="switchTab('office',this)">Office &amp; Industrial</button>
-          <button class="tab-btn" onclick="switchTab('mixeduse',this)">Mixed-Use</button>
-          <button class="tab-btn" onclick="switchTab('hotel',this)">Hotels &amp; Hospitality</button>
+          <button class="tab-btn" data-tab="commercial" onclick="switchTab('commercial',this)">Apartments <span style="font-size:9px;opacity:0.6;font-weight:400;letter-spacing:0;text-transform:none;">5+ Units</span></button>
+          <button class="tab-btn" data-tab="storage" onclick="switchTab('storage',this)">Self-Storage</button>
+          <button class="tab-btn" data-tab="mhp" onclick="switchTab('mhp',this)">Mobile Home Parks</button>
+          <button class="tab-btn" data-tab="office" onclick="switchTab('office',this)">Office &amp; Industrial</button>
+          <button class="tab-btn" data-tab="mixeduse" onclick="switchTab('mixeduse',this)">Mixed-Use</button>
+          <button class="tab-btn" data-tab="hotel" onclick="switchTab('hotel',this)">Hotels &amp; Hospitality</button>
         </div>
 
         <div class="form-scroll" id="form-scroll">
@@ -1271,6 +1290,243 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
             </div>
           </div>
 
+          <!-- LEASE OPTION -->
+          <div id="form-lease-option" class="form-body" style="display:none" data-property-class="residential">
+            <div class="cf-class-toggle">
+              <button type="button" class="cf-class-btn active" data-cf-target="residential" onclick="setCreativeClass(this)">Residential</button>
+              <button type="button" class="cf-class-btn" data-cf-target="commercial" onclick="setCreativeClass(this)">Commercial <span class="cf-empire-tag">Empire</span></button>
+            </div>
+            <div class="form-section">
+              <div class="form-row single"><div class="field"><label>Property Name / Address</label><input type="text" id="lo-address" placeholder="e.g. 123 Main St"></div></div>
+            </div>
+            <div data-cf-class="residential">
+              <div class="form-section">
+                <div class="form-section-label">Structure</div>
+                <div class="form-row">
+                  <div class="field"><label>Structure</label><select id="lo-structure"><option value="sandwich">Sandwich</option><option value="straight">Straight option</option></select></div>
+                  <div class="field"><label>Market value</label><input type="number" id="lo-value" placeholder="$0"></div>
+                </div>
+                <div class="form-row">
+                  <div class="field"><label>Option fee you pay</label><input type="number" id="lo-fee-paid" placeholder="$0"></div>
+                  <div class="field"><label>Option fee you collect</label><input type="number" id="lo-fee-collected" placeholder="$0"><div class="hint">Sandwich only. Zero for a straight option.</div></div>
+                </div>
+                <div class="form-row">
+                  <div class="field"><label>Monthly rent you pay</label><input type="number" id="lo-rent-paid" placeholder="$0"></div>
+                  <div class="field"><label>Monthly rent you collect</label><input type="number" id="lo-rent-collected" placeholder="$0"></div>
+                </div>
+                <div class="form-row">
+                  <div class="field"><label>Rent credit / month</label><input type="number" id="lo-credit" placeholder="$0"></div>
+                  <div class="field"><label>Term (months)</label><input type="number" id="lo-term" placeholder="36"></div>
+                </div>
+                <div class="form-row">
+                  <div class="field"><label>Your strike</label><input type="number" id="lo-your-strike" placeholder="$0"><div class="hint">Price you can buy at</div></div>
+                  <div class="field"><label>Tenant-buyer strike</label><input type="number" id="lo-tenant-strike" placeholder="$0"><div class="hint">Sandwich only</div></div>
+                </div>
+                <div class="form-row">
+                  <div class="field"><label>Repairs you fund</label><input type="number" id="lo-repairs" placeholder="$0"></div>
+                  <div class="field"><label>Closing costs if exercised</label><input type="number" id="lo-closing" placeholder="$0"></div>
+                </div>
+                <label class="cf-check"><input type="checkbox" id="lo-occupant"> Occupant is the end buyer. Flag a possible consumer-credit issue. This is not a legal conclusion.</label>
+              </div>
+            </div>
+            <div data-cf-class="commercial" style="display:none">
+              <div class="form-section">
+                <div class="form-section-label">Master lease / commercial option</div>
+                <div class="form-row">
+                  <div class="field"><label>Master lease rent / month</label><input type="number" id="lo-master-rent" placeholder="$0"></div>
+                  <div class="field"><label>Income you collect / month</label><input type="number" id="lo-sublease" placeholder="$0"></div>
+                </div>
+                <div class="form-row">
+                  <div class="field"><label>Annual NOI</label><input type="number" id="lo-noi" placeholder="$0"><div class="hint">Used for the cap-rate value if monthly income is blank</div></div>
+                  <div class="field"><label>Option consideration</label><input type="number" id="lo-consideration" placeholder="$0"></div>
+                </div>
+                <div class="form-row">
+                  <div class="field"><label>Exercise price</label><input type="number" id="lo-exercise" placeholder="$0"></div>
+                  <div class="field"><label>Exercise cap rate %</label><input type="number" id="lo-cap" placeholder="7"></div>
+                </div>
+                <div class="form-row">
+                  <div class="field"><label>Term (months)</label><input type="number" id="lo-com-term" placeholder="60"></div>
+                  <div class="field"><label>Lease type</label><select id="lo-lease-type"><option value="nnn">NNN</option><option value="gross">Gross</option></select></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SUBJECT-TO -->
+          <div id="form-subject-to" class="form-body" style="display:none" data-property-class="residential">
+            <div class="cf-class-toggle">
+              <button type="button" class="cf-class-btn active" data-cf-target="residential" onclick="setCreativeClass(this)">Residential</button>
+              <button type="button" class="cf-class-btn" data-cf-target="commercial" onclick="setCreativeClass(this)">Commercial <span class="cf-empire-tag">Empire</span></button>
+            </div>
+            <div class="form-section">
+              <div class="form-row single"><div class="field"><label>Property Name / Address</label><input type="text" id="st-address" placeholder="e.g. 123 Main St"></div></div>
+            </div>
+            <div class="form-section">
+              <div class="form-section-label">Existing loan</div>
+              <div class="form-row">
+                <div class="field"><label>Market value</label><input type="number" id="st-value" placeholder="$0"></div>
+                <div class="field"><label>Price</label><input type="number" id="st-price" placeholder="$0"></div>
+              </div>
+              <div class="form-row">
+                <div class="field"><label>Loan balance</label><input type="number" id="st-balance" placeholder="$0"></div>
+                <div class="field"><label>Rate %</label><input type="number" id="st-rate" placeholder="4"></div>
+              </div>
+              <div class="form-row">
+                <div class="field"><label>Remaining term (years)</label><input type="number" id="st-term" placeholder="27"></div>
+                <div class="field"><label>Current market rate %</label><input type="number" id="st-market-rate" placeholder="7"><div class="hint">Compared with a new loan on this balance. It does not clear due-on-sale.</div></div>
+              </div>
+              <div class="form-row">
+                <div class="field"><label>Tax / month</label><input type="number" id="st-tax" placeholder="$0"></div>
+                <div class="field"><label>Insurance / month</label><input type="number" id="st-ins" placeholder="$0"></div>
+              </div>
+              <div class="form-row">
+                <div class="field"><label>HOA / month</label><input type="number" id="st-hoa" placeholder="$0"></div>
+                <div class="field"><label>Or full monthly PITI</label><input type="number" id="st-piti" placeholder=""><div class="hint">Leave blank to add the pieces above</div></div>
+              </div>
+            </div>
+            <div class="form-section">
+              <div class="form-section-label">Cash to close</div>
+              <div class="form-row">
+                <div class="field"><label>Arrears / reinstatement</label><input type="number" id="st-arrears" placeholder="$0"></div>
+                <div class="field"><label>Escrow shortage</label><input type="number" id="st-escrow" placeholder="$0"></div>
+              </div>
+              <div class="form-row">
+                <div class="field"><label>Cash to seller</label><input type="number" id="st-cash-seller" placeholder="$0"></div>
+                <div class="field"><label>Closing costs</label><input type="number" id="st-closing" placeholder="$0"></div>
+              </div>
+              <div class="form-row">
+                <div class="field"><label>Balloon in (months)</label><input type="number" id="st-balloon" placeholder=""><div class="hint">Blank if the loan does not balloon</div></div>
+                <div class="field"></div>
+              </div>
+            </div>
+            <div data-cf-class="residential">
+              <div class="form-section">
+                <div class="form-section-label">Rent</div>
+                <div class="form-row">
+                  <div class="field"><label>Monthly rent</label><input type="number" id="st-rent" placeholder="$0"></div>
+                  <div class="field"><label>Vacancy %</label><input type="number" id="st-vacancy" placeholder="5"></div>
+                </div>
+                <div class="form-row single"><div class="field"><label>Other expenses / month</label><input type="number" id="st-other" placeholder="$0"></div></div>
+                <label class="cf-check"><input type="checkbox" id="st-consumer"> This file creates a new loan to a consumer. Flag Dodd-Frank / SAFE Act for a lawyer. Not a compliance worksheet.</label>
+              </div>
+            </div>
+            <div data-cf-class="commercial" style="display:none">
+              <div class="form-section">
+                <div class="form-section-label">Commercial debt</div>
+                <div class="form-row">
+                  <div class="field"><label>Annual NOI</label><input type="number" id="st-noi" placeholder="$0"></div>
+                  <div class="field"><label>Recourse</label><select id="st-recourse"><option value="unknown">Unknown</option><option value="full">Full recourse</option><option value="non-recourse">Non-recourse</option><option value="carveout">Carveouts</option></select></div>
+                </div>
+                <label class="cf-check"><input type="checkbox" id="st-prepay"> Loan has a prepay or defeasance penalty</label>
+                <div class="form-row single" style="margin-top:10px"><div class="field"><label>Prepay / defeasance penalty</label><input type="number" id="st-prepay-penalty" placeholder="$0"></div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- LOAN ASSUMPTION -->
+          <div id="form-assumption" class="form-body" style="display:none" data-property-class="residential">
+            <div class="cf-va-banner">
+              <strong>VA loans are assumable.</strong>
+              A non-veteran can assume a VA loan only with servicer approval, and the seller’s entitlement stays used until the loan is paid off or a veteran substitutes entitlement. FHA and USDA loans are assumable with servicer credit approval. Conventional loans generally are not, unless that lender agrees in writing. Lender or servicer approval is required on every assumption. It is not optional. Education, not legal advice.
+            </div>
+            <div class="cf-class-toggle">
+              <button type="button" class="cf-class-btn active" data-cf-target="residential" onclick="setCreativeClass(this)">Residential</button>
+              <button type="button" class="cf-class-btn" data-cf-target="commercial" onclick="setCreativeClass(this)">Commercial <span class="cf-empire-tag">Empire</span></button>
+            </div>
+            <div class="form-section">
+              <div class="form-row single"><div class="field"><label>Property Name / Address</label><input type="text" id="as-address" placeholder="e.g. 123 Main St"></div></div>
+            </div>
+            <div data-cf-class="residential">
+              <div class="form-section">
+                <div class="form-section-label">Assumable loan</div>
+                <div class="form-row">
+                  <div class="field"><label>Loan type</label><select id="as-loan-type"><option value="va" selected>VA</option><option value="fha">FHA</option><option value="usda">USDA</option><option value="conventional">Conventional</option><option value="other">Other</option></select></div>
+                  <div class="field"><label>Market value</label><input type="number" id="as-value" placeholder="$0"></div>
+                </div>
+                <div class="form-row">
+                  <div class="field"><label>Price</label><input type="number" id="as-price" placeholder="$0"></div>
+                  <div class="field"><label>Assumable balance</label><input type="number" id="as-balance" placeholder="$0"></div>
+                </div>
+                <div class="form-row">
+                  <div class="field"><label>Rate %</label><input type="number" id="as-rate" placeholder="3.5"></div>
+                  <div class="field"><label>Remaining term (years)</label><input type="number" id="as-term" placeholder="28"></div>
+                </div>
+                <div class="form-row">
+                  <div class="field"><label>Tax / month</label><input type="number" id="as-tax" placeholder="$0"></div>
+                  <div class="field"><label>Insurance / month</label><input type="number" id="as-ins" placeholder="$0"></div>
+                </div>
+                <div class="form-row">
+                  <div class="field"><label>Current market rate %</label><input type="number" id="as-market-rate" placeholder="7"><div class="hint">Same balance, new amortizing loan. Savings must be positive for a GO.</div></div>
+                  <div class="field"><label>Assumption fee</label><input type="number" id="as-fee" placeholder=""><div class="hint">Blank is missing. Zero is a real fee.</div></div>
+                </div>
+                <label class="cf-check"><input type="checkbox" id="as-veteran"> Veteran assumer will substitute entitlement</label>
+                <label class="cf-check"><input type="checkbox" id="as-agreed"> Lender agreed in writing (required for conventional)</label>
+              </div>
+              <div class="form-section">
+                <div class="form-section-label">Equity gap</div>
+                <div class="form-row">
+                  <div class="field"><label>Cash toward the gap</label><input type="number" id="as-gap-cash" placeholder=""><div class="hint">Blank uses cash for whatever the seller second does not cover</div></div>
+                  <div class="field"><label>Closing costs</label><input type="number" id="as-closing" placeholder="$0"></div>
+                </div>
+                <div class="form-row">
+                  <div class="field"><label>Seller second amount</label><input type="number" id="as-second-amount" placeholder="$0"></div>
+                  <div class="field"><label>Seller second rate %</label><input type="number" id="as-second-rate" placeholder="8"></div>
+                </div>
+                <div class="form-row">
+                  <div class="field"><label>Seller second term (years)</label><input type="number" id="as-second-term" placeholder="10"></div>
+                  <div class="field"><label class="cf-check"><input type="checkbox" id="as-second-io"> Interest-only second</label></div>
+                </div>
+              </div>
+              <div class="form-section">
+                <div class="form-section-label">Rent</div>
+                <div class="form-row">
+                  <div class="field"><label>Monthly rent</label><input type="number" id="as-rent" placeholder=""><div class="hint">Leave blank to score the rate only</div></div>
+                  <div class="field"><label>Vacancy %</label><input type="number" id="as-vacancy" placeholder="0"></div>
+                </div>
+                <div class="form-row single"><div class="field"><label>Other expenses / month</label><input type="number" id="as-other" placeholder="$0"></div></div>
+              </div>
+            </div>
+            <div data-cf-class="commercial" style="display:none">
+              <div class="form-section">
+                <div class="form-section-label">Commercial assumption</div>
+                <div class="form-row">
+                  <div class="field"><label>Loan type</label><select id="as-com-type"><option value="agency">Agency</option><option value="cmbs">CMBS</option><option value="bank">Bank</option><option value="sba-7a">SBA 7(a)</option><option value="sba-504">SBA 504</option></select></div>
+                  <div class="field"><label>Price</label><input type="number" id="as-com-price" placeholder="$0"></div>
+                </div>
+                <div class="form-row">
+                  <div class="field"><label>Assumable balance</label><input type="number" id="as-com-balance" placeholder="$0"></div>
+                  <div class="field"><label>Rate %</label><input type="number" id="as-com-rate" placeholder="5.5"></div>
+                </div>
+                <div class="form-row">
+                  <div class="field"><label>Remaining term (years)</label><input type="number" id="as-com-term" placeholder="25"></div>
+                  <div class="field"><label>Annual NOI</label><input type="number" id="as-com-noi" placeholder="$0"></div>
+                </div>
+                <div class="form-row">
+                  <div class="field"><label>Assumption fee %</label><input type="number" id="as-fee-pct" placeholder="1"></div>
+                  <div class="field"><label>Cash toward the gap</label><input type="number" id="as-com-gap" placeholder=""></div>
+                </div>
+                <div class="form-row">
+                  <div class="field"><label>Legal costs</label><input type="number" id="as-legal" placeholder="$0"></div>
+                  <div class="field"><label>Lender costs</label><input type="number" id="as-lender-costs" placeholder="$0"></div>
+                </div>
+                <div class="form-row">
+                  <div class="field"><label>Closing costs</label><input type="number" id="as-com-closing" placeholder="$0"></div>
+                  <div class="field"><label>Reset rate %</label><input type="number" id="as-reset-rate" placeholder=""><div class="hint">Only if the rate resets</div></div>
+                </div>
+                <div class="form-row">
+                  <div class="field"><label>Seller second amount</label><input type="number" id="as-com-second-amount" placeholder="$0"></div>
+                  <div class="field"><label>Seller second rate %</label><input type="number" id="as-com-second-rate" placeholder="8"></div>
+                </div>
+                <div class="form-row">
+                  <div class="field"><label>Seller second term (years)</label><input type="number" id="as-com-second-term" placeholder="10"></div>
+                  <div class="field"><label class="cf-check"><input type="checkbox" id="as-com-second-io"> Interest-only second</label></div>
+                </div>
+                <label class="cf-check"><input type="checkbox" id="as-rate-reset"> The rate resets at assumption</label>
+                <label class="cf-check"><input type="checkbox" id="as-released"> Seller is released from recourse</label>
+              </div>
+            </div>
+          </div>
+
           <!-- PROPERTY PHOTOS -->
           <div class="prop-photo-section">
             <div class="prop-photo-label">Property Photos</div>
@@ -1459,6 +1715,8 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
   </div>
 </div>
 
+<script src="/assets/js/creative-finance-calc.js"></script>
+<script src="/assets/js/creative-finance-panel.js"></script>
 <script>
 // ── PROPERTY PHOTOS ──
 let propPhotos = []; // [{ name, dataUrl }]
@@ -1553,12 +1811,36 @@ window.addEventListener('beforeunload', (e) => {
 // promptKey: 'deal-analyzer'. Client no longer sends prompt text.
 
 // ── TAB SWITCHING ──
+const CREATIVE_TAB_LABELS = {
+  'lease-option': 'Lease Option',
+  'subject-to': 'Subject-To',
+  assumption: 'Loan Assumption',
+};
+function withCreativeLabels(map) {
+  return Object.assign({}, map, CREATIVE_TAB_LABELS);
+}
+
 function switchTab(tab, btn) {
   document.querySelectorAll('.form-body').forEach(f => f.style.display = 'none');
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('form-' + tab).style.display = 'block';
-  btn.classList.add('active');
+  if (btn) btn.classList.add('active');
   currentTab = tab;
+}
+
+function setCreativeClass(btn) {
+  const form = btn.closest('.form-body');
+  const next = btn.getAttribute('data-cf-target');
+  if (next === 'commercial' && !hasEmpireAccess) {
+    showEmpireLockModal();
+    return;
+  }
+  form.dataset.propertyClass = next;
+  form.querySelectorAll('[data-cf-class]').forEach(section => {
+    section.style.display = section.getAttribute('data-cf-class') === next ? '' : 'none';
+  });
+  form.querySelectorAll('.cf-class-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
 }
 
 function switchCategory(cat, btn) {
@@ -3049,11 +3331,17 @@ function buildProjectionTable(baseData) {
 
 // ── MAIN ANALYZE FUNCTION ──
 function analyzeDeal() {
+  const creative = window.ForgeCreativePanel && ForgeCreativePanel.isCreative(currentTab);
+  if (creative && ForgeCreativePanel.propertyClass(currentTab) === 'commercial' && !hasEmpireAccess) {
+    showEmpireLockModal();
+    return;
+  }
   const calcMap = { wholesale: calcWholesale, flip: calcFlip, rental: calcRental, str: calcSTR, multi: calcMulti, commercial: calcCommercial, storage: calcStorage, mhp: calcMHP, office: calcOffice, mixeduse: calcMixedUse, hotel: calcHotel };
-  const calc = calcMap[currentTab];
-  if (!calc) return;
+  const calc = creative ? null : calcMap[currentTab];
+  if (!creative && !calc) return;
 
-  const data = calc();
+  const data = creative ? ForgeCreativePanel.run(currentTab, { holdYears: holdYears }) : calc();
+  if (!data) return;
   lastDealData = { tab: currentTab, data, timestamp: new Date().toISOString() };
 
   // Build metrics HTML
@@ -3061,7 +3349,17 @@ function analyzeDeal() {
     `<div class="metric-item"><div class="metric-label">${m.label}</div><div class="metric-value ${m.cls}">${m.value}</div></div>`
   ).join('');
 
-  const projTable = buildProjectionTable(data);
+  const rentGrowth = +document.getElementById('proj-rent-growth').value || 3;
+  const appreciation = +document.getElementById('proj-appreciation').value || 4;
+  const expenseGrowth = +document.getElementById('proj-expense-growth').value || 2;
+  const projTable = creative
+    ? ForgeCreativePanel.projectionHtml(data, { holdYears: holdYears, rentGrowth: rentGrowth, appreciation: appreciation, expenseGrowth: expenseGrowth })
+    : buildProjectionTable(data);
+  const projLabel = !creative
+    ? (holdYears + '-YEAR PROJECTION')
+    : (currentTab === 'lease-option' ? 'OPTION SPREAD' : 'LOAN BALANCE');
+  const riskHtml = creative ? ForgeCreativePanel.riskHtml(data.flags) : '';
+  const disclaimer = data.disclaimer ? `<div class="cf-disclaimer">${escapeHtml(data.disclaimer)}</div>` : '';
 
   // Render verdict card in messages
   const messages = document.getElementById('messages');
@@ -3079,7 +3377,9 @@ function analyzeDeal() {
           <div class="verdict-badge ${data.verdict}">${data.verdictText}</div>
         </div>
         <div class="metrics-grid">${metricsHTML}</div>
-        <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:6px;font-weight:600;">${holdYears}-YEAR PROJECTION</div>
+        ${disclaimer}
+        ${riskHtml}
+        <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:6px;font-weight:600;">${projLabel}</div>
         ${projTable}
       </div>
     </div>
@@ -3087,12 +3387,14 @@ function analyzeDeal() {
   messages.appendChild(cardRow);
 
   // Build ARIS prompt from deal data
-  const tabLabels = { wholesale: 'Wholesale', flip: 'Fix & Flip', rental: 'Long-Term Rental', str: 'STR/MTR', multi: '2-4 Unit Residential (Sales Comparison Approach)', commercial: '5+ Unit Commercial (Income Capitalization Approach)', storage: 'Self-Storage Facility (Income Capitalization Approach)', mhp: 'Mobile Home Park (Income Capitalization Approach)', office: 'Office & Industrial (Income Capitalization Approach)', mixeduse: 'Mixed-Use (Income Capitalization Approach)', hotel: 'Hotel & Hospitality (Income Capitalization Approach)' };
+  const tabLabels = withCreativeLabels({ wholesale: 'Wholesale', flip: 'Fix & Flip', rental: 'Long-Term Rental', str: 'STR/MTR', multi: '2-4 Unit Residential (Sales Comparison Approach)', commercial: '5+ Unit Commercial (Income Capitalization Approach)', storage: 'Self-Storage Facility (Income Capitalization Approach)', mhp: 'Mobile Home Park (Income Capitalization Approach)', office: 'Office & Industrial (Income Capitalization Approach)', mixeduse: 'Mixed-Use (Income Capitalization Approach)', hotel: 'Hotel & Hospitality (Income Capitalization Approach)' });
   const metricsText = data.metrics.map(m => `${m.label}: ${m.value}`).join(', ');
-  const addressIds = { wholesale: 'w-address', flip: 'f-address', rental: 'r-address', str: 'str-address', multi: 'multi-address', commercial: 'c-address', storage: 's-address', mhp: 'm-address', office: 'o-address', mixeduse: 'mu-address', hotel: 'h-address' };
+  const addressIds = { wholesale: 'w-address', flip: 'f-address', rental: 'r-address', str: 'str-address', multi: 'multi-address', commercial: 'c-address', storage: 's-address', mhp: 'm-address', office: 'o-address', mixeduse: 'mu-address', hotel: 'h-address', 'lease-option': 'lo-address', 'subject-to': 'st-address', assumption: 'as-address' };
   const addressNode = document.getElementById(addressIds[currentTab] || '');
   const propertyAddress = (addressNode && addressNode.value.trim()) || (data.address || '') || 'not provided';
-  const prompt = `I just ran a ${tabLabels[currentTab]} analysis in the FORGE Deal Analyzer. Property address: ${propertyAddress}. Here are the results: ${metricsText}. Hold period: ${holdYears} years. Rent growth assumption: ${document.getElementById('proj-rent-growth').value}%/yr, Appreciation: ${document.getElementById('proj-appreciation').value}%/yr, Expense growth: ${document.getElementById('proj-expense-growth').value}%/yr. The calculator gives a ${data.verdictText} verdict. The calculator figures are United States dollars, the Deal Analyzer's unit, shown with US grouping. Do not convert those figures. If I explicitly name a different currency, keep that currency's amounts as given and do not relabel them. Give me your full analysis — deal quality, key risks, biggest lever to improve it, and your recommendation.`;
+  const flagText = (data.flags || []).filter(f => f.on).map(f => (f.title || f.id) + ': ' + (f.detail || '')).join(' | ');
+  const classText = data.propertyClass ? ` Section: ${data.propertyClass}.` : '';
+  const prompt = `I just ran a ${tabLabels[currentTab]} analysis in the FORGE Deal Analyzer. Property address: ${propertyAddress}.${classText} Here are the results: ${metricsText}. Hold period: ${holdYears} years. Rent growth assumption: ${rentGrowth}%/yr, Appreciation: ${appreciation}%/yr, Expense growth: ${expenseGrowth}%/yr. The calculator gives a ${data.verdictText} verdict. Standing risk flags: ${flagText || 'none'}. The calculator figures are United States dollars, the Deal Analyzer's unit, shown with US grouping. Do not convert those figures. If I explicitly name a different currency, keep that currency's amounts as given and do not relabel them. Explain this result. A GO is about the numbers. It does not clear a standing risk flag. Education, not legal advice. Do not describe how to hide a transfer from a lender. Give me your full analysis — deal quality, key risks, biggest lever to improve it, and your recommendation.`;
 
   conversationHistory = [];
   sendToARIS(prompt, false);
@@ -3242,7 +3544,7 @@ function formatMarkdown(text) {
 function getTime() { return new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); }
 
 function exportPDF() {
-  const tabLabels = { wholesale: 'Wholesale', flip: 'Fix & Flip', rental: 'Long-Term Rental', str: 'STR / MTR', multi: '2-4 Unit Residential', commercial: 'Commercial — 5+ Units', storage: 'Self-Storage Facility', mhp: 'Mobile Home Park', office: 'Office & Industrial', mixeduse: 'Mixed-Use', hotel: 'Hotels & Hospitality' };
+  const tabLabels = withCreativeLabels({ wholesale: 'Wholesale', flip: 'Fix & Flip', rental: 'Long-Term Rental', str: 'STR / MTR', multi: '2-4 Unit Residential', commercial: 'Commercial — 5+ Units', storage: 'Self-Storage Facility', mhp: 'Mobile Home Park', office: 'Office & Industrial', mixeduse: 'Mixed-Use', hotel: 'Hotels & Hospitality' });
   const dealLabel = lastDealData ? tabLabels[lastDealData.tab] || 'Deal Analysis' : 'Deal Analyzer';
   const address = (lastDealData && lastDealData.data && lastDealData.data.address) ? lastDealData.data.address : '';
   const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -3478,7 +3780,7 @@ async function renderDrawer() {
     body.innerHTML = `<div class="drawer-empty">No saved deals yet.<br>Run an analysis and hit <strong>Save Deal</strong> to store it here.</div>`;
     return;
   }
-  const tabLabels = { wholesale:'Wholesale', flip:'Fix & Flip', rental:'LT Rental', str:'STR/MTR', multi:'2-4 Units (Residential)', commercial:'Commercial — 5+ Units', storage:'Self-Storage Facility', mhp:'Mobile Home Park', office:'Office & Industrial', mixeduse:'Mixed-Use', hotel:'Hotels & Hospitality' };
+  const tabLabels = withCreativeLabels({ wholesale:'Wholesale', flip:'Fix & Flip', rental:'LT Rental', str:'STR/MTR', multi:'2-4 Units (Residential)', commercial:'Commercial — 5+ Units', storage:'Self-Storage Facility', mhp:'Mobile Home Park', office:'Office & Industrial', mixeduse:'Mixed-Use', hotel:'Hotels & Hospitality' });
 
   body.innerHTML = saved.map((d) => {
     const thumbs = (d.photos||[]).slice(0,3).map(p =>
@@ -3504,6 +3806,7 @@ async function renderDrawer() {
         ${docLinks ? `<div class="deal-card-doc-row">${docLinks}</div>` : ''}
         <div class="saved-deal-actions">
           <button class="deal-action-btn" onclick="openDetail('${d.id}')">View</button>
+          <button class="deal-action-btn" onclick="reopenSavedDeal('${d.id}')">Reopen</button>
           ${(d.chat_history && d.chat_history.length) ? `<button class="deal-action-btn" onclick="resumeConversation('${d.id}')">Resume Chat</button>` : ''}
           ${pipelineBtn}
           <button class="deal-action-btn del" onclick="deleteDeal('${d.id}')">Delete</button>
@@ -3534,7 +3837,7 @@ async function addToPipeline(id) {
 function openDetail(id) {
   const d = savedDealsCache.find(x => x.id === id);
   if (!d) return;
-  const tabLabels = { wholesale:'Wholesale', flip:'Fix & Flip', rental:'LT Rental', str:'STR/MTR', multi:'2-4 Units (Residential)', commercial:'Commercial — 5+ Units', storage:'Self-Storage Facility', mhp:'Mobile Home Park', office:'Office & Industrial', mixeduse:'Mixed-Use', hotel:'Hotels & Hospitality' };
+  const tabLabels = withCreativeLabels({ wholesale:'Wholesale', flip:'Fix & Flip', rental:'LT Rental', str:'STR/MTR', multi:'2-4 Units (Residential)', commercial:'Commercial — 5+ Units', storage:'Self-Storage Facility', mhp:'Mobile Home Park', office:'Office & Industrial', mixeduse:'Mixed-Use', hotel:'Hotels & Hospitality' });
 
   document.getElementById('detail-title').textContent = d.display_name || 'Deal Detail';
 
@@ -3627,9 +3930,11 @@ window.onload = () => {
 function preFillFromTransfer(transfer) {
   const { tab, fields } = transfer;
   if (!tab || !fields) return;
+  if (transfer.propertyClass === 'commercial' && !hasEmpireAccess) {
+    showEmpireLockModal();
+    return;
+  }
 
-  // Determine which category this tab lives in and switch to it first,
-  // so the toggle/tab group visibility matches the tab we're about to activate
   const commercialTabs = ['commercial', 'storage', 'mhp', 'office', 'mixeduse', 'hotel'];
   const targetCategory = commercialTabs.includes(tab) ? 'commercial' : 'residential';
   const categoryBtn = document.querySelector('.category-btn[data-category="' + targetCategory + '"]');
@@ -3637,31 +3942,55 @@ function preFillFromTransfer(transfer) {
     switchCategory(targetCategory, categoryBtn);
   }
 
-  // Switch to the correct tab within that category's button group
   const groupId = targetCategory === 'commercial' ? 'tabs-commercial' : 'tabs-residential';
-  const tabMap = targetCategory === 'commercial'
-    ? { commercial: 0, storage: 1, mhp: 2 }
-    : { wholesale: 0, flip: 1, rental: 2, str: 3, multi: 4 };
-  const tabBtns = document.querySelectorAll('#' + groupId + ' .tab-btn');
-  const tabIdx = tabMap[tab];
-  if (tabIdx !== undefined && tabBtns[tabIdx]) {
-    switchTab(tab, tabBtns[tabIdx]);
+  const tabBtn = document.querySelector('#' + groupId + ' .tab-btn[data-tab="' + tab + '"]');
+  if (tabBtn) switchTab(tab, tabBtn);
+
+  const form = document.getElementById('form-' + tab);
+  if (transfer.propertyClass === 'commercial' || transfer.propertyClass === 'residential') {
+    const classBtn = form && form.querySelector('.cf-class-btn[data-cf-target="' + transfer.propertyClass + '"]');
+    if (classBtn) setCreativeClass(classBtn);
+  }
+  if (transfer.source === 'saved' && form) {
+    form.querySelectorAll('input').forEach(node => {
+      if (node.type === 'checkbox') node.checked = false;
+      else node.value = '';
+    });
   }
 
-  // Pre-fill fields
   Object.entries(fields).forEach(([id, val]) => {
-    const el = document.getElementById(id);
-    if (el) el.value = val;
+    const node = document.getElementById(id);
+    if (!node) return;
+    if (node.type === 'checkbox') node.checked = !!val;
+    else node.value = val;
   });
 
-  // Toast + ARIS message
   const fromComps = transfer.source === 'comps';
-  showToast(fromComps ? 'Numbers transferred from your comp report' : 'Deal numbers transferred from ARIS');
-  setTimeout(() => {
-    const fieldCount = Object.keys(fields).length;
-    const tabLabels = { wholesale:'Wholesale', flip:'Fix & Flip', rental:'Long-Term Rental', str:'STR/MTR', multi:'2-4 Units (Residential)', commercial:'Commercial — 5+ Units', storage:'Self-Storage Facility', mhp:'Mobile Home Park', office:'Office & Industrial', mixeduse:'Mixed-Use', hotel:'Hotels & Hospitality' };
-    appendMsg('aris', `I transferred ${fieldCount} field${fieldCount !== 1 ? 's' : ''} ${fromComps ? 'from your comp report' : 'from our conversation'} into the **${tabLabels[tab] || tab}** analyzer. Review the numbers on the left — fill in anything that's missing — then hit **Analyze Deal** and I'll give you the full verdict.`);
-  }, 400);
+  const fromSaved = transfer.source === 'saved';
+  showToast(fromComps ? 'Numbers transferred from your comp report' : fromSaved ? 'Saved deal reopened' : 'Deal numbers transferred from ARIS');
+  if (!fromSaved) {
+    setTimeout(() => {
+      const fieldCount = Object.keys(fields).length;
+      const tabLabels = withCreativeLabels({ wholesale:'Wholesale', flip:'Fix & Flip', rental:'Long-Term Rental', str:'STR/MTR', multi:'2-4 Units (Residential)', commercial:'Commercial — 5+ Units', storage:'Self-Storage Facility', mhp:'Mobile Home Park', office:'Office & Industrial', mixeduse:'Mixed-Use', hotel:'Hotels & Hospitality' });
+      appendMsg('aris', `I transferred ${fieldCount} field${fieldCount !== 1 ? 's' : ''} ${fromComps ? 'from your comp report' : 'from our conversation'} into the **${tabLabels[tab] || tab}** analyzer. Review the numbers on the left — fill in anything that's missing — then hit **Analyze Deal** and I'll give you the full verdict.`);
+    }, 400);
+  }
+}
+
+function reopenSavedDeal(id) {
+  const d = savedDealsCache.find(x => x.id === id);
+  if (!d || !d.deal_data || !d.deal_data.fields) {
+    alert('This saved deal has no inputs to reopen. Run it again and save.');
+    return;
+  }
+  closeDrawer();
+  preFillFromTransfer({
+    tab: d.tab,
+    fields: d.deal_data.fields,
+    propertyClass: d.deal_data.propertyClass,
+    source: 'saved',
+    timestamp: Date.now(),
+  });
 }
 
 // ── MEMBERSTACK AUTH GATE ──
@@ -3838,7 +4167,7 @@ let fdocDealsCache = null;
 let fdocPending = null; // { sourceTool, elementId, getTitle }
 
 function fdocDealAnalyzerTitle() {
-  const tabLabels = { wholesale:'Wholesale', flip:'Fix & Flip', rental:'LT Rental', str:'STR/MTR', multi:'2-4 Units (Residential)', commercial:'Commercial — 5+ Units', storage:'Self-Storage Facility', mhp:'Mobile Home Park', office:'Office & Industrial', mixeduse:'Mixed-Use', hotel:'Hotels & Hospitality' };
+  const tabLabels = withCreativeLabels({ wholesale:'Wholesale', flip:'Fix & Flip', rental:'LT Rental', str:'STR/MTR', multi:'2-4 Units (Residential)', commercial:'Commercial — 5+ Units', storage:'Self-Storage Facility', mhp:'Mobile Home Park', office:'Office & Industrial', mixeduse:'Mixed-Use', hotel:'Hotels & Hospitality' });
   const tab = lastDealData ? lastDealData.tab : null;
   return 'Deal Analysis — ' + (tabLabels[tab] || 'Report');
 }
