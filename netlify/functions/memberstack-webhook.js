@@ -36,6 +36,8 @@ const https = require('https');
 const { json, preflight } = require('./_Lib/http');
 const { notifyFwnPlanAdded } = require('./_Lib/fwn');
 const { eventTagsForMember } = require('./_Lib/webinar');
+const { sanitize } = require('../../assets/js/ref-capture');
+const { syncPayingMember } = require('./_Lib/ghl-contact');
 
 const memberstack = memberstackAdmin.init(process.env.MEMBERSTACK_SECRET_KEY);
 
@@ -57,7 +59,53 @@ const PLAN_TAG_OVERRIDES = {
 // The "FORGE - Fortiva Referral Tagging" workflow tags fortiva-7525 off this.
 const GHL_REFERRAL_SOURCE_FIELD_ID = '4UsHzTuolKkrrtBov1hM';
 
-function upsertGhlContact({ email, firstName, lastName, planName, referralSource, extraTags }) {
+function ghlRequest(apiKey, method, path, payload) {
+  const body = payload ? JSON.stringify(payload) : '';
+  return new Promise((resolve) => {
+    const headers = {
+      Authorization: `Bearer ${apiKey}`,
+      Version: '2021-07-28',
+    };
+    if (body) {
+      headers['Content-Type'] = 'application/json';
+      headers['Content-Length'] = Buffer.byteLength(body);
+    }
+    const req = https.request({
+      hostname: 'services.leadconnectorhq.com',
+      path: path,
+      method: method,
+      headers: headers,
+    }, (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        console.log('GoHighLevel response:', res.statusCode, data);
+        resolve({ statusCode: res.statusCode, data });
+      });
+    });
+    req.on('error', (err) => {
+      console.error('GoHighLevel request error:', err);
+      resolve({ error: err.message });
+    });
+    if (body) req.write(body);
+    req.end();
+  });
+}
+
+function presentGhl(outcome) {
+  if (!outcome || !outcome.ok) {
+    const failed = (outcome && (outcome.tags || outcome.upsert)) || { error: 'ghl failed' };
+    return Object.assign({}, failed, {
+      tagsApplied: false,
+      contactId: outcome && outcome.contactId || undefined,
+    });
+  }
+  return Object.assign({}, outcome.upsert, { tagsApplied: true, contactId: outcome.contactId });
+}
+
+// Upsert does not include tags. Tags are added with POST /contacts/{id}/tags
+// so an Empire upgrade cannot erase rs-5050, fortiva-7525, or earlier plan tags.
+function upsertGhlContact({ email, firstName, lastName, planName, referralSource, salesRep, extraTags }) {
   const API_KEY = process.env.GHL_API_KEY;
   const LOCATION_ID = process.env.GHL_LOCATION_ID;
 
@@ -66,54 +114,19 @@ function upsertGhlContact({ email, firstName, lastName, planName, referralSource
     return Promise.resolve({ skipped: true, reason: 'missing GHL env vars' });
   }
 
-  const tags = ['member', 'paying-member'];
-  if (planName) {
-    tags.push(planName);
-    if (PLAN_TAG_OVERRIDES[planName]) tags.push(PLAN_TAG_OVERRIDES[planName]);
-  }
-  (extraTags || []).forEach((tag) => { if (tag && !tags.includes(tag)) tags.push(tag); });
-
-  const payload = JSON.stringify({
-    email,
-    firstName: firstName || undefined,
-    lastName: lastName || undefined,
+  return syncPayingMember({
+    email: email,
+    firstName: firstName,
+    lastName: lastName,
     locationId: LOCATION_ID,
-    tags,
-    ...(referralSource && {
-      customFields: [{ id: GHL_REFERRAL_SOURCE_FIELD_ID, field_value: referralSource }],
-    }),
-  });
-
-  return new Promise((resolve) => {
-    const options = {
-      hostname: 'services.leadconnectorhq.com',
-      path: '/contacts/upsert',
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${API_KEY}`,
-        'Content-Type': 'application/json',
-        'Version': '2021-07-28',
-        'Content-Length': Buffer.byteLength(payload),
-      },
-    };
-
-    const req = https.request(options, (res) => {
-      let data = '';
-      res.on('data', (chunk) => { data += chunk; });
-      res.on('end', () => {
-        console.log('GoHighLevel response:', res.statusCode, data);
-        resolve({ statusCode: res.statusCode, data });
-      });
-    });
-
-    req.on('error', (err) => {
-      console.error('GoHighLevel request error:', err);
-      resolve({ error: err.message });
-    });
-
-    req.write(payload);
-    req.end();
-  });
+    planName: planName,
+    extraTags: extraTags,
+    salesRep: salesRep,
+    referralSource: referralSource,
+    referralFieldId: GHL_REFERRAL_SOURCE_FIELD_ID,
+    salesRepFieldId: process.env.GHL_SALES_REP_FIELD_ID,
+    planTagOverrides: PLAN_TAG_OVERRIDES,
+  }, (req) => ghlRequest(API_KEY, req.method, req.path, req.payload)).then(presentGhl);
 }
 
 exports.handler = async function (event, context) {
@@ -209,6 +222,14 @@ exports.handler = async function (event, context) {
   const firstName = customFields['first-name'] || metaData['first-name'] || metaData.firstName || undefined;
   const lastName = customFields['last-name'] || metaData['last-name'] || metaData.lastName || undefined;
   const referralSource = (customFields['referral-source'] || metaData['referral-source'] || '').trim().toLowerCase() || undefined;
+  const salesRep = sanitize(
+    customFields['sales-rep']
+    || metaData['sales-rep']
+    || (memberJson && memberJson.fwn && memberJson.fwn.sales_rep)
+    || (memberJson && memberJson.webinar && memberJson.webinar.sales_rep)
+    || (memberJson && memberJson.sales_rep)
+    || ''
+  );
   const planName = payload?.planConnection?.planId || undefined;
 
   let extraTags = [];
@@ -218,7 +239,7 @@ exports.handler = async function (event, context) {
     console.error('Event tag lookup failed (continuing):', err?.message || err);
   }
 
-  const ghlResult = await upsertGhlContact({ email, firstName, lastName, planName, referralSource, extraTags });
+  const ghlResult = await upsertGhlContact({ email, firstName, lastName, planName, referralSource, salesRep, extraTags });
 
   // FWN plans already include the setup fee on the Memberstack price.
   // When one of those plans is attached, also POST the buyer to the FWN

@@ -2,7 +2,8 @@
 //
 // POST /api/webinar-register  { firstName, lastName, email, phone, smsConsent, src, ref }
 // Upserts the contact into FORGE GHL (GHL_LOCATION_ID, the FORGE location only)
-// with registration tags, then returns the holding page. Members and
+// without a tags field, then adds registration tags with POST /contacts/{id}/tags
+// so existing tags are kept. Members and
 // non-members both land on /webinar/registered?date=<YYYY-MM-DD>. The
 // browser is not sent to the live session. Nothing is sent to the registrant
 // from here; confirmation and the session link live in a GHL workflow.
@@ -25,6 +26,7 @@
 const https = require('https');
 const { json, preflight } = require('./http');
 const schedule = require('../../../assets/js/webinar-schedule');
+const { upsertThenAddTags } = require('./ghl-contact');
 
 const DEFAULT_DATE = schedule.FIRST_DATE;
 const DEFAULT_TIME = schedule.TIME_LABEL;
@@ -96,6 +98,7 @@ function validate(body, env) {
   const smsConsent = body.smsConsent === true || body.smsConsent === 'true';
   const src = sanitize(body.src);
   const ref = sanitize(body.ref);
+  const rep = sanitize(body.rep);
 
   if (!firstName) errors.push('firstName required');
   if (!isEmail(email)) errors.push('valid email required');
@@ -107,12 +110,13 @@ function validate(body, env) {
   const tags = ['forge-webinar-reg', `webinar-${date}`];
   if (src) tags.push(`src-${src}`);
   if (ref) tags.push(`ref-${ref}`);
+  if (rep) tags.push(`rep-${rep}`);
   if (smsConsent) tags.push('sms-consent');
 
   return {
     ok: errors.length === 0,
     errors,
-    contact: { firstName, lastName, email, phone, smsConsent, src, ref, tags, date },
+    contact: { firstName, lastName, email, phone, smsConsent, src, ref, rep, tags, date },
   };
 }
 
@@ -124,8 +128,8 @@ function buildPayload(contact, locationId) {
     email: contact.email,
     phone: contact.phone,
     source: `forge-webinar:${contact.src}`,
-    tags: contact.tags,
     // DND stays untouched unless consent was given; GHL keeps opt-out state.
+    // Tags are not sent here. POST /contacts/{id}/tags adds them after upsert.
   };
 }
 
@@ -194,9 +198,16 @@ async function registerHandler(event, options = {}) {
     return json(200, { ok: true, member: true, ghl: false, date: v.contact.date, session: sessionInfo(env).label, redirect: holding });
   }
 
-  const result = await ghlUpsert(buildPayload(v.contact, env.GHL_LOCATION_ID), env, options.request);
-  const ghlOk = result.statusCode >= 200 && result.statusCode < 300;
-  if (!ghlOk) console.error('webinar-register GHL upsert failed', result.statusCode || result.error || result.reason);
+  const outcome = await upsertThenAddTags(
+    (req) => ghlRequest(req, env, options.request),
+    buildPayload(v.contact, env.GHL_LOCATION_ID),
+    v.contact.tags
+  );
+  const ghlOk = outcome.ok;
+  if (!ghlOk) {
+    const failed = outcome.tags || outcome.upsert || {};
+    console.error('webinar-register GHL upsert failed', failed.statusCode || failed.error || failed.reason);
+  }
 
   // Registration never opens the live session. /webinar/join is the only
   // path that 302s to WEBINAR_JOIN_URL, and only from reminder links.
