@@ -17,8 +17,10 @@
 //         + quiz questions for the REQUESTED tier only + this member's progress across all tiers for this module
 //   POST { action: 'submit_quiz', moduleId, tier, answers: [indices] } -> grades that tier's quiz, saves progress,
 //         returns score + per-question correctness + whether the next tier is now unlocked
+//   GET  ?action=empire_lessons             -> Apartment Confidential path (titles only without Empire)
+//   GET  ?action=creative_finance_lessons    -> commercial creative-finance video ids (Empire only)
 
-const { enforceMembership, isEmpireCategory, empireLessonPayload } = require('./_Lib/membership');
+const { enforceMembership, isEmpireCategory, empireLessonPayload, creativeFinanceLessonPayload } = require('./_Lib/membership');
 const { supabase } = require('./_Lib/supabase-client');
 const { json, preflight } = require('./_Lib/http');
 const { TIER_ORDER, badgesFromProgress, levelsToRecord } = require('./_Lib/education-badges');
@@ -69,6 +71,10 @@ exports.handler = async function (event, context) {
 
       if (action === 'empire_lessons') {
         return json(200, { modules: empireLessonPayload(access) });
+      }
+
+      if (action === 'creative_finance_lessons') {
+        return json(200, creativeFinanceLessonPayload(access));
       }
 
       if (action === 'list') {

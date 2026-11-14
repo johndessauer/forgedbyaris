@@ -125,12 +125,38 @@ function empireLessonPayload(access) {
   }));
 }
 
+// Commercial creative-finance videos. Residential lessons are not in this
+// payload. Pass `videos` only from tests; the live map is the empty-id
+// catalog in creative-finance-lessons.js until a video is published.
+function creativeFinanceLessonPayload(access, videos) {
+  const source = videos || require('./creative-finance-lessons').CREATIVE_FINANCE_COMMERCIAL_VIDEOS;
+  const empire = !!(access && access.empire);
+  const paths = {};
+  for (const [key, youtubeId] of Object.entries(source || {})) {
+    const splitAt = String(key).lastIndexOf(':');
+    if (splitAt <= 0) continue;
+    const pathKey = String(key).slice(0, splitAt);
+    const n = Number(String(key).slice(splitAt + 1));
+    if (!pathKey || !Number.isInteger(n) || n <= 0) continue;
+    if (!paths[pathKey]) paths[pathKey] = [];
+    const lesson = { n: n, empire: true };
+    const id = typeof youtubeId === 'string' ? youtubeId.trim() : '';
+    if (empire && id) lesson.youtubeId = id;
+    paths[pathKey].push(lesson);
+  }
+  for (const pathKey of Object.keys(paths)) {
+    paths[pathKey].sort((a, b) => a.n - b.n);
+  }
+  return { paths };
+}
+
 module.exports = {
   AuthError,
   accessFromMember,
   requireMembership,
   enforceMembership,
   empireLessonPayload,
+  creativeFinanceLessonPayload,
   isEmpireCategory,
   isEmpireAnalyzerTab,
   isCreativeFinanceCommercial,

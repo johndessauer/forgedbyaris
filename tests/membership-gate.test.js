@@ -19,7 +19,8 @@ const {
   requiresEmpireAnalyzer,
   EMPIRE_SCENARIO_TITLE,
 } = require('../netlify/functions/_Lib/plans');
-const { requireMembership, enforceMembership, empireLessonPayload } = require('../netlify/functions/_Lib/membership');
+const { requireMembership, enforceMembership, empireLessonPayload, creativeFinanceLessonPayload } = require('../netlify/functions/_Lib/membership');
+const { CREATIVE_FINANCE_COMMERCIAL_VIDEOS } = require('../netlify/functions/_Lib/creative-finance-lessons');
 const { createHandler: createQuote } = require('../netlify/functions/aris-quote');
 
 function pc(planId, status, priceId) {
@@ -219,6 +220,48 @@ test('empire lesson video ids are served only with empire and are not in the pag
   assert.ok(edge.includes(EMPIRE_SCENARIO_TITLE));
 });
 
+test('creative finance commercial lesson ids are not returned without Empire', () => {
+  const keys = ['lease-option:7', 'lease-option:8', 'subject-to:11', 'assumption:8'];
+  assert.deepEqual(Object.keys(CREATIVE_FINANCE_COMMERCIAL_VIDEOS).sort(), keys.slice().sort());
+  for (const key of keys) assert.equal(CREATIVE_FINANCE_COMMERCIAL_VIDEOS[key], '', key);
+
+  const injected = {
+    'lease-option:7': 'SECRET_LEASE_7',
+    'lease-option:8': 'SECRET_LEASE_8',
+    'subject-to:11': 'SECRET_SUBJECT_11',
+    'assumption:8': 'SECRET_ASSUMPTION_8',
+  };
+  for (const access of [null, undefined, { empire: false, active: true }, { active: true }]) {
+    const body = JSON.stringify(creativeFinanceLessonPayload(access, injected));
+    for (const id of Object.values(injected)) assert.equal(body.includes(id), false, id);
+    assert.equal(body.includes('youtubeId'), false);
+  }
+
+  const empire = creativeFinanceLessonPayload({ empire: true }, injected);
+  assert.equal(empire.paths['lease-option'].find((l) => l.n === 7).youtubeId, 'SECRET_LEASE_7');
+  assert.equal(empire.paths['lease-option'].find((l) => l.n === 8).youtubeId, 'SECRET_LEASE_8');
+  assert.equal(empire.paths['subject-to'].find((l) => l.n === 11).youtubeId, 'SECRET_SUBJECT_11');
+  assert.equal(empire.paths.assumption.find((l) => l.n === 8).youtubeId, 'SECRET_ASSUMPTION_8');
+  assert.equal(empire.paths['lease-option'].every((l) => l.empire === true), true);
+
+  const blank = creativeFinanceLessonPayload({ empire: true }, { 'assumption:8': '   ' });
+  assert.equal(blank.paths.assumption[0].youtubeId, undefined);
+
+  const shipped = creativeFinanceLessonPayload({ empire: true });
+  assert.equal(JSON.stringify(shipped).includes('youtubeId'), false);
+  assert.deepEqual(shipped.paths['lease-option'].map((l) => l.n), [7, 8]);
+  assert.deepEqual(shipped.paths['subject-to'].map((l) => l.n), [11]);
+  assert.deepEqual(shipped.paths.assumption.map((l) => l.n), [8]);
+
+  const html = fs.readFileSync(path.join(__dirname, '../education.html'), 'utf8');
+  for (const id of Object.values(injected)) assert.equal(html.includes(id), false, id);
+  assert.match(html, /action=creative_finance_lessons/);
+  assert.match(html, /creative-finance-lessons\.js/);
+  const edu = fs.readFileSync(path.join(__dirname, '../netlify/functions/education-data.js'), 'utf8');
+  assert.match(edu, /creative_finance_lessons/);
+  assert.match(edu, /creativeFinanceLessonPayload\(access\)/);
+});
+
 test('member content functions call the shared gate', () => {
   const root = path.join(__dirname, '../netlify/functions');
   const files = [
@@ -258,6 +301,12 @@ test('education get refuses an empire category unless the plan includes empire',
       enforceMembership: async () => ({ access: { memberId: 'mem_1', active: true, empire: state.empire, comps: state.empire } }),
       isEmpireCategory: (c) => String(c || '').toLowerCase() === 'syndication',
       empireLessonPayload: () => [{ module: 1, title: 'Locked', lessons: [{ n: 1, title: 'T' }] }],
+      creativeFinanceLessonPayload: (access) => creativeFinanceLessonPayload(access, {
+        'lease-option:7': 'SECRET_LEASE_7',
+        'lease-option:8': 'SECRET_LEASE_8',
+        'subject-to:11': 'SECRET_SUBJECT_11',
+        'assumption:8': 'SECRET_ASSUMPTION_8',
+      }),
     },
     [sbPath]: { supabase: { from() { return chain(); } } },
   };
@@ -289,6 +338,28 @@ test('education get refuses an empire category unless the plan includes empire',
     const lessons = await mod.handler({ ...event, queryStringParameters: { action: 'empire_lessons' } });
     assert.equal(lessons.statusCode, 200);
     assert.equal(JSON.parse(lessons.body).modules[0].title, 'Locked');
+
+    state.empire = false;
+    const hiddenVideos = await mod.handler({ ...event, queryStringParameters: { action: 'creative_finance_lessons' } });
+    assert.equal(hiddenVideos.statusCode, 200);
+    assert.equal(hiddenVideos.body.includes('SECRET_LEASE_7'), false);
+    assert.equal(hiddenVideos.body.includes('SECRET_LEASE_8'), false);
+    assert.equal(hiddenVideos.body.includes('SECRET_SUBJECT_11'), false);
+    assert.equal(hiddenVideos.body.includes('SECRET_ASSUMPTION_8'), false);
+    assert.equal(hiddenVideos.body.includes('youtubeId'), false);
+    const hiddenJson = JSON.parse(hiddenVideos.body);
+    assert.deepEqual(hiddenJson.paths['lease-option'].map((l) => l.n), [7, 8]);
+    assert.equal(hiddenJson.paths['subject-to'][0].n, 11);
+    assert.equal(hiddenJson.paths.assumption[0].n, 8);
+
+    state.empire = true;
+    const shownVideos = await mod.handler({ ...event, queryStringParameters: { action: 'creative_finance_lessons' } });
+    assert.equal(shownVideos.statusCode, 200);
+    const shownJson = JSON.parse(shownVideos.body);
+    assert.equal(shownJson.paths['lease-option'].find((l) => l.n === 7).youtubeId, 'SECRET_LEASE_7');
+    assert.equal(shownJson.paths['lease-option'].find((l) => l.n === 8).youtubeId, 'SECRET_LEASE_8');
+    assert.equal(shownJson.paths['subject-to'].find((l) => l.n === 11).youtubeId, 'SECRET_SUBJECT_11');
+    assert.equal(shownJson.paths.assumption.find((l) => l.n === 8).youtubeId, 'SECRET_ASSUMPTION_8');
   } finally {
     Module._load = orig;
     delete require.cache[require.resolve('../netlify/functions/education-data')];
