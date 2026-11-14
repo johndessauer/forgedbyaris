@@ -42,6 +42,21 @@ test('invoice.paid and payment_succeeded remove the tag', async () => {
   }
 });
 
+test('a failed GHL tag write asks Stripe to retry', async () => {
+  const res = await fwn.webhookHandler(signed({ type: 'invoice.payment_failed', data: { object: invoice } }), {
+    env: ENV,
+    nowSec: TS,
+    ghlRequest: async (key, method, path) => {
+      if (String(path).startsWith('/contacts/search/duplicate')) {
+        return { statusCode: 200, body: { contact: { id: 'c1' } } };
+      }
+      return { statusCode: 500, body: {} };
+    },
+  });
+  assert.equal(res.statusCode, 500);
+  assert.equal(JSON.parse(res.body).dunning, 'ghl_failed');
+});
+
 test('non-subscription invoice, unknown contact, and bad signature are ignored', async () => {
   const calls = [];
   let res = await fwn.webhookHandler(signed({ type: 'invoice.payment_failed', data: { object: { customer_email: 'a@b.co' } } }),

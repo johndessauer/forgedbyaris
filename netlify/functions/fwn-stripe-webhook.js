@@ -3,10 +3,13 @@
 // is the referral code. FWN sessions also keep lead_source, sold_by, rep, and
 // package on the subscription. FORGE webinar sessions do the same when
 // metadata.package is webinar-997, webinar-1797 or webinar-997-foundation and lead_source is not an
-// FWN source. This does not add a price or charge the customer. Configure
-// a dedicated endpoint for checkout.session.completed and
-// checkout.session.async_payment_succeeded. Do not replace the webhook
-// Memberstack already uses.
+// FWN source. The same endpoint also handles subscription dunning:
+// invoice.payment_failed adds the GHL tag payment-failed, and invoice.paid
+// or invoice.payment_succeeded removes it. This does not add a price or
+// charge the customer. Configure a dedicated endpoint for
+// checkout.session.completed, checkout.session.async_payment_succeeded,
+// invoice.payment_failed, invoice.paid, and invoice.payment_succeeded.
+// Do not replace the webhook Memberstack already uses.
 
 const { webhookHandler } = require('./_Lib/fwn');
 
