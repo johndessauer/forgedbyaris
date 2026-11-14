@@ -21,7 +21,8 @@
 const { enforceMembership, isEmpireCategory, empireLessonPayload } = require('./_Lib/membership');
 const { supabase } = require('./_Lib/supabase-client');
 const { json, preflight } = require('./_Lib/http');
-const { TIER_ORDER, badgesFromProgress } = require('./_Lib/education-badges');
+const { TIER_ORDER, badgesFromProgress, levelsToRecord } = require('./_Lib/education-badges');
+const { loadAwards, recordAwards, persistNewlyEarned } = require('./_Lib/education-awards');
 const { progressAfterPass, scheduleUnlockTags } = require('./_Lib/unlock-tags');
 
 // Pass threshold per tier, expressed as exact fractions of question count —
@@ -98,12 +99,11 @@ exports.handler = async function (event, context) {
           progress: progressByModule[m.id] || null,
         }));
 
-        // Tier badges: a badge is earned once this member has PASSED that
-        // tier on every currently published module, not just one. Same
-        // helper the book download uses, so a new topic re-requires the
-        // badge in both places.
+        // A level sticks once it is stored. Until then it is every published
+        // topic this member is allowed to take — Empire topics only count
+        // for Empire. The book download uses the same helper.
         const totalModules = (modules || []).length;
-        const badges = badgesFromProgress(modules, progress);
+        const badges = await persistNewlyEarned(supabase, memberId, modules || [], progress || [], access);
 
         return json(200, { modules: enriched, badges, totalModules });
       }
@@ -217,7 +217,7 @@ exports.handler = async function (event, context) {
           try {
             const { data: published, error: publishedError } = await supabase
               .from('education_modules')
-              .select('id')
+              .select('id, category')
               .eq('published', true);
             if (publishedError) throw publishedError;
             const { data: priorRows, error: rowsError } = await supabase
@@ -225,7 +225,12 @@ exports.handler = async function (event, context) {
               .select('module_id, tier, passed')
               .eq('memberstack_id', memberId);
             if (rowsError) throw rowsError;
-            badgeSnapshot = { modules: published || [], progress: priorRows || [] };
+            const awards = await loadAwards(supabase, memberId);
+            badgeSnapshot = {
+              modules: published || [],
+              progress: priorRows || [],
+              awards: awards.rows,
+            };
           } catch (snapshotErr) {
             console.error('unlock badge snapshot failed:', snapshotErr && snapshotErr.message);
           }
@@ -249,12 +254,22 @@ exports.handler = async function (event, context) {
         if (upsertError) throw upsertError;
 
         if (passed && badgeSnapshot) {
-          const before = badgesFromProgress(badgeSnapshot.modules, badgeSnapshot.progress);
+          const before = badgesFromProgress(
+            badgeSnapshot.modules,
+            badgeSnapshot.progress,
+            badgeSnapshot.awards,
+            access
+          );
           const after = badgesFromProgress(
             badgeSnapshot.modules,
-            progressAfterPass(badgeSnapshot.progress, moduleId, effectiveTier)
+            progressAfterPass(badgeSnapshot.progress, moduleId, effectiveTier),
+            badgeSnapshot.awards,
+            access
           );
+          // Stored levels are already true in `before`, so a new topic
+          // cannot schedule the unlock tag a second time.
           scheduleUnlockTags(memberId, before, after);
+          await recordAwards(supabase, memberId, levelsToRecord(after, badgeSnapshot.awards));
         }
 
         const nextTier = passed ? getNextTier(effectiveTier) : null;
