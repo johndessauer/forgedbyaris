@@ -16,6 +16,7 @@
 
 const crypto = require('crypto');
 const { enforceMembership } = require('./_Lib/membership');
+const { applyPreferencePatch } = require('./_Lib/member-preferences');
 const { supabase } = require('./_Lib/supabase-client');
 const { json, preflight } = require('./_Lib/http');
 
@@ -159,7 +160,18 @@ exports.handler = async function (event, context) {
         if (payload.primaryStrategy !== undefined) updates.primary_strategy = payload.primaryStrategy || null;
         if (payload.biggestObstacle !== undefined) updates.biggest_obstacle = payload.biggestObstacle || null;
 
-        if (payload.preferences !== undefined) updates.preferences = payload.preferences;
+        if (payload.preferences !== undefined) {
+          if (!payload.preferences || typeof payload.preferences !== 'object' || Array.isArray(payload.preferences)) {
+            return json(400, { error: 'preferences must be an object' });
+          }
+          const { data: existingRow, error: existingError } = await supabase
+            .from('member_profiles')
+            .select('preferences')
+            .eq('memberstack_id', memberId)
+            .maybeSingle();
+          if (existingError) throw existingError;
+          updates.preferences = applyPreferencePatch(existingRow && existingRow.preferences, payload.preferences);
+        }
         if (payload.buyBox !== undefined) updates.buy_box = payload.buyBox;
 
         if (Object.keys(updates).length === 1) {

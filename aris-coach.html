@@ -704,6 +704,7 @@
 </style>
 <script src="https://static.memberstack.com/scripts/v1/memberstack.js" data-memberstack-app="app_cmr41qq5500q80tsx94pj61rc" defer></script>
 <script src="/assets/js/ref-capture.js"></script>
+<script src="/assets/js/member-preferences.js"></script>
 </head>
 <body>
 
@@ -970,6 +971,17 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
   // currently playing and resets that button back to idle.
   let currentVoiceAudio = null;
   let currentVoiceBtn = null;
+  let arisVoiceReplies = true;
+
+  async function loadArisVoicePreference() {
+    if (!window.ForgePreferences || !currentMemberToken) return;
+    try {
+      const prefs = await window.ForgePreferences.load(currentMemberToken);
+      arisVoiceReplies = window.ForgePreferences.voiceRepliesOn(prefs);
+    } catch (err) {
+      console.error('Could not load ARIS voice preference:', err);
+    }
+  }
 
   function resetVoiceBtn(btn) {
     btn.classList.remove('loading', 'playing');
@@ -1040,6 +1052,7 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
   // avoids any risk of quotes/special characters in ARIS's text breaking
   // inline event-handler syntax.
   function attachVoiceButton(metaEl, text) {
+    if (!arisVoiceReplies) return;
     const btn = document.createElement('button');
     btn.className = 'voice-btn';
     btn.type = 'button';
@@ -2065,6 +2078,7 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
     } catch (e) {
       console.error('Could not retrieve Memberstack token for CRM tool access:', e);
     }
+    await loadArisVoicePreference();
     // ── UPDATE SESSION COUNT (server-side, syncs across devices) ──
     // Previously a localStorage counter — didn't sync across devices, and
     // also incorrectly incremented once per Dashboard page load in

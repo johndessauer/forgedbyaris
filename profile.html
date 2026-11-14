@@ -459,6 +459,8 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 .pw-forgot { font-size: 12px; color: var(--gold); text-decoration: none; }
 .pw-forgot:hover { text-decoration: underline; }
 .pw-msg { display: none; font-size: 13px; line-height: 1.5; padding: 10px 14px; border-radius: 8px; max-width: 460px; }
+#preferences-section .pw-show { text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--white); margin-bottom: 0; }
+#preferences-section select.pw-input { color-scheme: dark; }
 .pw-msg.error { display: block; background: var(--red-dim); border: 1px solid rgba(239,68,68,0.35); color: #fca5a5; }
 .pw-msg.success { display: block; background: var(--green-dim); border: 1px solid rgba(34,197,94,0.35); color: #86efac; }
 @media (max-width: 500px) {
@@ -493,6 +495,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 </style>
 <script src="https://static.memberstack.com/scripts/v1/memberstack.js" data-memberstack-app="app_cmr41qq5500q80tsx94pj61rc" defer></script>
 <script src="/assets/js/ref-capture.js"></script>
+<script src="/assets/js/member-preferences.js"></script>
 </head>
 <body>
 <div class="app">
@@ -665,10 +668,35 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
         </div>
       </div>
 
-      <!-- PREFERENCES (placeholder) -->
-      <div class="profile-card">
-        <div class="profile-card-label coming-soon">Preferences — Coming Soon</div>
-        <div class="coming-soon-body">Notification and ARIS behavior preferences will live here in a future update.</div>
+      <!-- PREFERENCES -->
+      <div class="profile-card" id="preferences-section">
+        <div class="profile-card-label">Preferences</div>
+        <p class="pw-intro">Saved on your profile. Voice and follow-up settings apply the next time you open Coach, the Lab, or the CRM. Your default market fills Market Oracle and Property Search.</p>
+        <form class="pw-form" id="pref-form" novalidate onsubmit="savePreferences(event)">
+          <div class="pw-field">
+            <label for="pref-voice">ARIS voice replies</label>
+            <label class="pw-show" for="pref-voice"><input type="checkbox" id="pref-voice" checked /> Play ARIS's spoken replies</label>
+            <div class="pw-hint">Coach puts a play button on each reply, and the Lab speaks the other person in a roleplay. Turn this off to keep both in text. The microphone still works.</div>
+          </div>
+          <div class="pw-field">
+            <label for="pref-nudge">Follow-up reminders</label>
+            <select class="pw-input" id="pref-nudge">
+              <option value="frequent">Sooner</option>
+              <option value="default" selected>Standard</option>
+              <option value="relaxed">Later</option>
+            </select>
+            <div class="pw-hint">How soon a quiet deal in the CRM is flagged for follow-up. Standard is the usual schedule.</div>
+          </div>
+          <div class="pw-field">
+            <label for="pref-market">Default market</label>
+            <input class="pw-input" id="pref-market" type="text" maxlength="80" placeholder="City, ST or ZIP" autocomplete="off" />
+            <div class="pw-hint">City and state, or a ZIP code. Market Oracle waits for you to search. Property Search uses this location for the search it runs when the page opens.</div>
+          </div>
+          <div class="pw-msg" id="pref-msg" role="status" aria-live="polite"></div>
+          <div class="pw-actions">
+            <button type="submit" class="pw-submit" id="pref-submit">Save Preferences</button>
+          </div>
+        </form>
       </div>
 
     </div><!-- end dashboard-scroll -->
@@ -1029,6 +1057,7 @@ async function loadProfileData() {
     renderWhyDisplay(profile.why_q1, profile.why_q2, profile.why_q3, profile.experience_level, profile.primary_strategy, profile.biggest_obstacle);
     renderPhoneDisplay(profile.phone);
     renderCalendarSync(profile.calendar_feed_token);
+    renderPreferences(profile.preferences);
   } catch (err) {
     console.error('loadProfileData failed:', err);
     loadWhyFromLocalFallback();
@@ -1137,6 +1166,51 @@ async function saveWhyEdit() {
   } catch (err) {
     console.error('saveWhyEdit failed:', err);
     showToast('Could not save — check your connection and try again.');
+  }
+}
+
+function renderPreferences(preferences) {
+  const prefs = preferences && typeof preferences === 'object' ? preferences : {};
+  const api = window.ForgePreferences;
+  if (!api) return;
+  document.getElementById('pref-voice').checked = api.voiceRepliesOn(prefs);
+  document.getElementById('pref-nudge').value = api.nudgeSensitivity(prefs);
+  document.getElementById('pref-market').value = api.defaultMarket(prefs);
+}
+
+function showPreferenceMessage(type, msg) {
+  const el = document.getElementById('pref-msg');
+  el.className = 'pw-msg' + (type ? ' ' + type : '');
+  el.textContent = msg || '';
+}
+
+async function savePreferences(e) {
+  e.preventDefault();
+  const btn = document.getElementById('pref-submit');
+  const voiceReplies = document.getElementById('pref-voice').checked;
+  const nudgeSensitivity = document.getElementById('pref-nudge').value;
+  const defaultMarket = document.getElementById('pref-market').value;
+  showPreferenceMessage(null, '');
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+  try {
+    const res = await fetch('/api/profile-data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${memberToken}` },
+      body: JSON.stringify({ action: 'save', preferences: { voiceReplies, nudgeSensitivity, defaultMarket } }),
+    });
+    if (!res.ok) throw new Error('Save failed');
+    const { profile } = await res.json();
+    currentProfile = profile;
+    renderPreferences(profile.preferences);
+    showPreferenceMessage('success', 'Preferences saved.');
+    showToast('Preferences saved');
+  } catch (err) {
+    console.error('savePreferences failed:', err);
+    showPreferenceMessage('error', 'Could not save preferences. Check your connection and try again.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Save Preferences';
   }
 }
 

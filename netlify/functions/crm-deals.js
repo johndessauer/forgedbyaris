@@ -13,6 +13,7 @@
 //   POST { action: 'link_contact', deal_id, contact_id, role }
 
 const { enforceMembership } = require('./_Lib/membership');
+const { nudgeMultiplier } = require('./_Lib/member-preferences');
 const { supabase } = require('./_Lib/supabase-client');
 const { json, preflight } = require('./_Lib/http');
 
@@ -91,9 +92,7 @@ exports.handler = async function (event, context) {
         .select('preferences')
         .eq('memberstack_id', memberId)
         .maybeSingle();
-      const NUDGE_SENSITIVITY_MULTIPLIERS = { frequent: 0.5, default: 1, relaxed: 1.75 };
-      const sensitivity = profileRow?.preferences?.nudgeSensitivity;
-      const sensitivityMultiplier = NUDGE_SENSITIVITY_MULTIPLIERS[sensitivity] ?? 1;
+      const sensitivityMultiplier = nudgeMultiplier(profileRow?.preferences);
 
       // Enrich each deal with a last_activity_at (latest note, or the deal's
       // own updated_at if it has no notes), a stale flag, and — when
