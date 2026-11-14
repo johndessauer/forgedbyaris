@@ -75,6 +75,15 @@ const PROPERTYRADAR_FIELDS = [
 
 const PROPERTYRADAR_API_BASE = 'https://api.propertyradar.com/v1'; // Confirmed correct: PropertyRadar's endpoint reference documents POST /v1/properties off base https://api.propertyradar.com
 
+// Production page size. John capped each purchase at 25 records
+// (Sept 22, 2026). "Load 25 More" requests the next window with Start.
+const PAGE_SIZE = 25;
+
+function pageOf(list, start) {
+  const offset = Math.max(0, Number(start) || 0);
+  return list.slice(offset, offset + PAGE_SIZE);
+}
+
 function isLiveModeEnabled() {
   return !!process.env.PROPERTYRADAR_API_KEY;
 }
@@ -203,7 +212,7 @@ async function searchPropertyRadar(location, playIds, start = 0) {
   // per-record billing as the first page, no separate cap yet).
   const qs = new URLSearchParams({
     Purchase: '1',
-    Limit: '25',
+    Limit: String(PAGE_SIZE),
     Start: String(start),
     Fields: PROPERTYRADAR_FIELDS.join(','),
   });
@@ -303,7 +312,9 @@ exports.handler = async function (event, context) {
 
         if (!isLiveModeEnabled()) {
           const demoResults = buildDemoResults(playIds);
-          return json(200, { results: demoResults, total: demoResults.length, demo: true });
+          // Same Start window as a live search, so a later page cannot
+          // append the rows the first page already returned.
+          return json(200, { results: pageOf(demoResults, start), total: demoResults.length, demo: true });
         }
 
         try {
@@ -312,7 +323,7 @@ exports.handler = async function (event, context) {
         } catch (err) {
           console.error('PropertyRadar live search failed, falling back to demo data:', err);
           const demoResults = buildDemoResults(playIds);
-          return json(200, { results: demoResults, total: demoResults.length, demo: true, liveError: 'Live data temporarily unavailable.' });
+          return json(200, { results: pageOf(demoResults, start), total: demoResults.length, demo: true, liveError: 'Live data temporarily unavailable.' });
         }
       }
 
