@@ -411,10 +411,25 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 .path-lock-thumb { position: relative; flex-shrink: 0; width: 96px; aspect-ratio: 16/9; border-radius: 5px; background: var(--navy-mid); border: 1px solid var(--border-sub); display: flex; align-items: center; justify-content: center; font-size: 18px; }
 .path-lock-thumb .coaching-card-duration { right: 3px; bottom: 3px; font-size: 9px; padding: 1px 4px; }
 .path-locked-banner { border-color: var(--gold); }
+.path-soon-thumb {
+  position: relative; flex-shrink: 0; width: 96px; aspect-ratio: 16/9; border-radius: 5px;
+  background: var(--navy-mid); border: 1px dashed rgba(200,155,60,0.55);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; color: var(--gold);
+}
+.path-soon-stage {
+  min-width: 0; width: 100%; aspect-ratio: 16/9; box-sizing: border-box;
+  background: var(--navy-mid); border: 1px dashed rgba(200,155,60,0.55); border-radius: 8px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; padding: 16px; gap: 6px; overflow: hidden;
+}
+.path-player > div:last-child { min-width: 0; }
+.path-soon-kicker { font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 2px; color: var(--gold); line-height: 1; }
+.path-soon-stage p { margin: 0; max-width: 280px; font-size: 12px; line-height: 1.5; color: var(--grey-light); }
 @media (max-width: 1100px) { .path-modules { grid-template-columns: 1fr; } }
 @media (max-width: 600px) {
   .edu-section-tabs { flex-wrap: wrap; }
-  .path-thumb { width: 80px; }
+  .path-thumb, .path-soon-thumb { width: 80px; }
   .path-progress-top .path-btn { width: 100%; }
 }
 /* ── VIDEO LESSON LIBRARY SECTIONS (Coaching Lessons path on top, video grid below) ── */
@@ -609,6 +624,22 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
           <div class="library-section-head">🏷️ FORGE Wholesaling Coaching Lessons</div>
           <div class="coaching-intro">A step-by-step, by-the-book wholesaling path: 18 lessons in 6 modules, coached by ARIS. Education only, not legal advice. Always check your state and municipal laws.</div>
           <div id="wholesaling-path-container"></div>
+        </div>
+        <div class="section-band" role="heading" aria-level="2"><span class="section-band-label">Creative Finance</span></div>
+        <div id="view-lease-option-path" class="library-section">
+          <div class="library-section-head">🔑 FORGE Lease Option Lessons</div>
+          <div class="coaching-intro">Eight lessons on lease options for real estate deals, coached by ARIS. Residential lessons are included with Foundation. Commercial lessons are part of FORGE Empire. Education only, not legal advice. This is not a loan-assumption approval, and not a promise about what any lender or servicer will do. Use your own real estate attorney and, on a specific loan, the servicer's written answer.</div>
+          <div id="lease-option-path-container"></div>
+        </div>
+        <div id="view-subject-to-path" class="library-section">
+          <div class="library-section-head">📜 FORGE Subject-To Lessons</div>
+          <div class="coaching-intro">Eleven lessons on buying real estate deals subject to the existing loan, coached by ARIS. The lessons cover the due-on-sale clause, the Garn-St Germain Act of 1982, and the use of a trust. Residential lessons are included with Foundation. The commercial lesson is part of FORGE Empire. Education only, not legal advice. This is not a loan-assumption approval, and not a promise about what any lender or servicer will do. Use your own real estate attorney and, on a specific loan, the servicer's written answer.</div>
+          <div id="subject-to-path-container"></div>
+        </div>
+        <div id="view-assumption-path" class="library-section">
+          <div class="library-section-head">🏦 FORGE Loan Assumption Lessons</div>
+          <div class="coaching-intro">Eight lessons on loan assumption for real estate deals, coached by ARIS. VA loans are assumable. Residential lessons are included with Foundation. The commercial lesson is part of FORGE Empire. Education only, not legal advice. This is not a loan-assumption approval, and not a promise about what any lender or servicer will do. Use your own real estate attorney and, on a specific loan, the servicer's written answer.</div>
+          <div id="assumption-path-container"></div>
         </div>
         <div class="library-section">
           <div class="library-section-head">🎬 More Video Lessons &amp; Recorded Calls</div>
@@ -1356,6 +1387,98 @@ const FORGE_WHOLESALING_LESSONS = [
   ] },
 ];
 
+// ── CREATIVE FINANCE LESSON PATHS ──
+// Foundation members get the residential lessons. The last lessons in each
+// path (empire: true) are commercial and stay locked without Empire.
+// Every lesson ships with no youtubeId, so the player shows Coming soon.
+//
+// Where to add a YouTube id later:
+//   Residential (no empire flag): add youtubeId: "VIDEO_ID" on that lesson
+//   object below. One line. Coming soon becomes the player.
+//   Commercial (empire: true): do not put the id in this file. Set the
+//   empty string in netlify/functions/_Lib/creative-finance-lessons.js
+//   (CREATIVE_FINANCE_COMMERCIAL_VIDEOS). The server sends it only to Empire.
+const FORGE_LEASE_OPTION_LESSONS = [
+  { module: 1, title: "Two Contracts", lessons: [
+      { n: 1, title: "The lease and the option are two contracts",
+        description: "Separate the right to occupy from the right to buy, and say who holds each one." },
+      { n: 2, title: "Fee, rent, rent credit, strike, term",
+        description: "Read a term sheet and see which number pays whom: fee, rent, rent credit, strike, and term." },
+      { n: 3, title: "Straight option versus sandwich",
+        description: "Know when you never take title, and when the only cash in is the option fee." },
+  ] },
+  { module: 2, title: "Numbers, Rules, and the Exit", lessons: [
+      { n: 4, title: "Run the spread in the analyzer",
+        description: "Reject a negative spread, a rent credit larger than the spread, and a strike above the value you are using." },
+      { n: 5, title: "Insurance, disclosures, and state rules",
+        description: "Leave with a question list for a local real estate attorney. A lease that includes an option to purchase is not the lease of three years or less in the due-on-sale statute (12 U.S.C. § 1701j-3(d)(4)), because that item excludes a lease with an option to purchase. State law can also treat a lease option as an equitable mortgage. This lesson does not conclude the law of any state." },
+      { n: 6, title: "Exercise, assign, or walk away",
+        description: "Pick the exit before the term starts, including what happens to the option fee." },
+  ] },
+  { module: 3, title: "Commercial Lease Options", lessons: [
+      { n: 7, empire: true, title: "Commercial lease options",
+        description: "Price a purchase option on a commercial real estate deal against NOI and a cap rate, and name landlord consent." },
+      { n: 8, empire: true, title: "Master lease options",
+        description: "Underwrite the spread between master rent and the income you collect, and name consent, SNDA, and estoppel as open items, not boxes you check off inside the calculator." },
+  ] },
+];
+const FORGE_SUBJECT_TO_LESSONS = [
+  { module: 1, title: "The Deed and the Loan", lessons: [
+      { n: 1, title: "The deed moves, the loan stays",
+        description: "Say who holds title and who is still the borrower on the note. The payment does not move the debt into the buyer's name." },
+      { n: 2, title: "Balance, rate, PITI, arrears, escrow",
+        description: "Build cash to close from the statement: reinstatement, escrow shortage, cash to the seller, and closing costs. Do not build it from the asking price alone." },
+      { n: 3, title: "Cash to the seller and two kinds of equity",
+        description: "Separate equity in the property (value minus the loan balance) from equity you are paying for (price minus the loan balance). They are not the same number." },
+      { n: 4, title: "Cash flow and the payment versus a new loan",
+        description: "Compare the existing PITI with a new amortizing payment at today's rate on the same balance. The difference is information. It is not permission to transfer the real estate deal." },
+  ] },
+  { module: 2, title: "Due-on-Sale, the Statute, and the Trust", lessons: [
+      { n: 5, title: "The due-on-sale clause",
+        description: "A due-on-sale clause lets the lender, at its option, call the loan due if the property or an interest in it is transferred without the lender's prior written consent (12 U.S.C. § 1701j-3(a)(1)). The loan does not accelerate on its own. If the lender calls it, the remaining balance can be demanded, and the seller is still the borrower. No one can promise that a lender will leave the loan alone." },
+      { n: 6, title: "Garn-St Germain Act of 1982",
+        description: "The Garn-St Germain Act of 1982 is the Garn-St Germain Depository Institutions Act of 1982. 12 U.S.C. § 1701j-3 preempts due-on-sale prohibitions. It is not a subject-to protection statute. An investor purchase is not one of the narrow exemptions in subsection (d), and those exemptions do not cover a loan secured by five or more dwelling units." },
+      { n: 7, title: "A trust is for privacy and title holding, not a shield from due-on-sale",
+        description: "A land trust or title-holding trust is for privacy and for who holds title. The use of a trust is not a shield from due-on-sale. The only trust transfer in the statute is 12 U.S.C. § 1701j-3(d)(8): the borrower parks the property in their own inter vivos trust, remains a beneficiary, and does not transfer occupancy. A buyer's trust is not that transfer, and this lesson does not teach anyone how to make a transfer look like (d)(8)." },
+  ] },
+  { module: 3, title: "Insurance, Servicing, and the Exit", lessons: [
+      { n: 8, title: "Insurance and servicing",
+        description: "Name the two operational risks beside due-on-sale. The insurer has to cover the owner who holds the property. The servicer has to be paid, and the seller is still the borrower if a payment is missed. This lesson does not describe a way to leave the seller's old policy in place so the transfer stays quiet." },
+      { n: 9, title: "When the file becomes a consumer loan",
+        description: "Recognize that a new loan to an occupant can raise Dodd-Frank and SAFE Act questions, and stop for a lawyer. This lesson identifies the issue. It is not a compliance worksheet." },
+      { n: 10, title: "Hold, refinance, or sell",
+        description: "Choose an exit that still works if the lender exercises the due-on-sale clause. Hoping the lender will not notice is not an exit." },
+  ] },
+  { module: 4, title: "Commercial Debt", lessons: [
+      { n: 11, empire: true, title: "Commercial debt",
+        description: "Read a transfer restriction, a balloon, recourse or carveouts, and prepay or defeasance on a commercial real estate deal. Consent is required. The subsection (d) exemptions are not a five-unit-and-up safe harbor. If a payoff penalty is larger than the rate savings, do not sell the real estate deal on the savings." },
+  ] },
+];
+const FORGE_ASSUMPTION_LESSONS = [
+  { module: 1, title: "Who Must Approve", lessons: [
+      { n: 1, title: "Assumption versus subject-to versus a new loan",
+        description: "Say who must approve. An assumption asks the lender to accept a new borrower. Subject-to does not. The Garn-St Germain Act of 1982 encourages assumptions. It does not require them. VA loans are assumable under the VA program's own rules, with servicer approval. FHA and USDA assumability comes from those programs, not from a general right in that Act." },
+      { n: 2, title: "Which loans can be assumed",
+        description: "VA loans are assumable with servicer credit approval. FHA and USDA loans are assumable with servicer credit approval. A conventional loan generally cannot be assumed unless that lender has agreed in writing." },
+      { n: 3, title: "VA entitlement",
+        description: "A veteran can substitute entitlement. A non-veteran may be allowed to assume a VA loan, and the seller's entitlement can stay used until the loan is paid off or a substituting veteran restores it. Approval is still required." },
+  ] },
+  { module: 2, title: "The Gap and the Payment", lessons: [
+      { n: 4, title: "The equity gap",
+        description: "Cover price minus the assumable balance with cash, an amortizing seller second, or an interest-only seller second, and read the blended payment. A gap that is not covered does not pass." },
+      { n: 5, title: "Payment saved versus today's rate",
+        description: "Compare the assumed payment with a new amortizing loan at the market rate on the same balance. If the assumed payment is not cheaper, the verdict cannot be a GO." },
+      { n: 6, title: "Fees, timeline, and servicer approval",
+        description: "Put the assumption fee and the wait into the cost of the real estate deal. Entered zero is a real fee. Leaving the fee blank is not the same thing. Approval is not a box the buyer can waive." },
+      { n: 7, title: "Run it in the analyzer",
+        description: "Produce a verdict from the gap, the savings, and, when the property is a rental, the cash flow." },
+  ] },
+  { module: 3, title: "Commercial Assumptions", lessons: [
+      { n: 8, empire: true, title: "Agency, CMBS, and SBA assumptions",
+        description: "Budget the fee, the legal cost, and the months on a commercial real estate deal, and say whether the seller is released from recourse. CMBS goes through a special servicer. SBA 7(a) and 504 need SBA approval and a buyer who fits the program. A rate reset with no new rate means the calculator will not call the real estate deal a GO and will not claim payment savings. No release of recourse means the seller may still be on the note." },
+  ] },
+];
+
 // Shared numbered-path component. One instance per path; each has its own
 // data, container, hash prefix, and localStorage key.
 function createLessonPath(cfg) {
@@ -1364,6 +1487,12 @@ function createLessonPath(cfg) {
     cfg, storageKey: cfg.storagePrefix + 'anon', rendered: false, current: null,
     lessons: LESSONS,
     locked() { return !!(cfg.isLocked && cfg.isLocked()); },
+    // A path can lock every lesson, or just the ones cfg.isLessonLocked marks.
+    // Commercial creative-finance lessons use the second form.
+    lessonLocked(lesson) {
+      if (!lesson || P.locked()) return false;
+      return !!(cfg.isLessonLocked && cfg.isLessonLocked(lesson));
+    },
     setMember(id) { P.storageKey = cfg.storagePrefix + (id || 'member'); },
     load() {
       try {
@@ -1384,8 +1513,12 @@ function createLessonPath(cfg) {
     isDone(state, n) { return state.done.includes(n); },
     // Continue = the last lesson opened if it isn't finished, otherwise the first unfinished lesson.
     nextUp(state) {
-      if (state.last && !P.isDone(state, state.last) && P.lesson(state.last)) return state.last;
-      const next = LESSONS.find(l => !P.isDone(state, l.n));
+      const openable = (n) => {
+        const l = P.lesson(n);
+        return !!(l && !P.lessonLocked(l));
+      };
+      if (state.last && !P.isDone(state, state.last) && openable(state.last)) return state.last;
+      const next = LESSONS.find(l => !P.isDone(state, l.n) && !P.lessonLocked(l));
       return next ? next.n : null;
     },
     parseHash() {
@@ -1407,7 +1540,7 @@ function createLessonPath(cfg) {
       if (!P.rendered) {
         P.rendered = true;
         const h = P.parseHash();
-        if (h && h.n && !P.locked()) P.current = h.n;
+        if (h && h.n && !P.locked() && !P.lessonLocked(P.lesson(h.n))) P.current = h.n;
       }
       P.renderAll(false);
     },
@@ -1443,71 +1576,130 @@ function createLessonPath(cfg) {
     renderAll(autoplay) {
       if (P.locked()) { P.current = null; P.renderLocked(); return; }
       const state = P.load();
-      const total = LESSONS.length;
-      if (!total) {
+      const catalogTotal = LESSONS.length;
+      if (!catalogTotal) {
         document.getElementById(cfg.containerId).innerHTML = '<div class="coaching-empty">Lessons could not be loaded. Refresh to try again.</div>';
         return;
       }
-      const doneCount = state.done.length;
-      const pct = Math.round((doneCount / total) * 100);
+      const openLessons = LESSONS.filter(l => !P.lessonLocked(l));
+      const total = openLessons.length;
+      const doneCount = openLessons.filter(l => P.isDone(state, l.n)).length;
+      const pct = total ? Math.round((doneCount / total) * 100) : 0;
       const next = P.nextUp(state);
       const nextL = next ? P.lesson(next) : null;
-      const cur = P.current ? P.lesson(P.current) : null;
+      const cur = P.current && !P.lessonLocked(P.lesson(P.current)) ? P.lesson(P.current) : null;
+      if (!cur) P.current = null;
+      const lockedLeft = LESSONS.some(l => P.lessonLocked(l));
 
       let player = '';
       if (cur && cur.youtubeId) {
         const isDone = P.isDone(state, cur.n);
         const after = P.lesson(cur.n + 1);
+        const afterOpen = after && !P.lessonLocked(after);
         player = `
     <div class="coaching-featured path-player" id="${cfg.playerId}">
       <div class="coaching-embed">${coachingIframe(cur, { autoplay })}</div>
       <div>
         <div class="coaching-tag-row">
           <span class="coaching-tag">${cfg.icon} Module ${cur.module} · ${escapeHtml(cur.moduleTitle)}</span>
-          <span class="coaching-pill">Lesson ${cur.n} of ${total}</span>
+          <span class="coaching-pill">Lesson ${cur.n} of ${catalogTotal}</span>
         </div>
         <div class="coaching-title">${escapeHtml(cur.title)}</div>
         <div class="coaching-meta">${escapeHtml(cur.duration)} &nbsp;·&nbsp; Coached by ARIS</div>
         ${cur.description ? `<div class="coaching-desc">${escapeHtml(cur.description)}</div>` : ''}
         <div class="path-actions">
           <button type="button" class="path-btn${isDone ? ' done' : ''}" data-path-toggle="${cur.n}">${isDone ? '✓ Completed' : 'Mark complete'}</button>
-          ${after ? `<button type="button" class="path-btn ghost" data-path-open="${after.n}">Next: Lesson ${after.n} →</button>` : ''}
+          ${afterOpen ? `<button type="button" class="path-btn ghost" data-path-open="${after.n}">Next: Lesson ${after.n} →</button>` : ''}
         </div>
+      </div>
+    </div>`;
+      } else if (cur) {
+        const after = P.lesson(cur.n + 1);
+        const afterOpen = after && !P.lessonLocked(after);
+        player = `
+    <div class="coaching-featured path-player" id="${cfg.playerId}">
+      <div class="path-soon-stage" role="status">
+        <div class="path-soon-kicker">Coming soon</div>
+        <p>This video is not recorded yet. It will play here when it is ready.</p>
+      </div>
+      <div>
+        <div class="coaching-tag-row">
+          <span class="coaching-tag">${cfg.icon} Module ${cur.module} · ${escapeHtml(cur.moduleTitle)}</span>
+          <span class="coaching-pill">Lesson ${cur.n} of ${catalogTotal}</span>
+          <span class="coaching-pill">Coming soon</span>
+        </div>
+        <div class="coaching-title">${escapeHtml(cur.title)}</div>
+        <div class="coaching-meta">Coached by ARIS</div>
+        ${cur.description ? `<div class="coaching-desc">${escapeHtml(cur.description)}</div>` : ''}
+        ${afterOpen ? `<div class="path-actions"><button type="button" class="path-btn ghost" data-path-open="${after.n}">Next: Lesson ${after.n} →</button></div>` : ''}
       </div>
     </div>`;
       }
 
       const modules = cfg.modules.map(m => {
-        const mDone = m.lessons.filter(l => P.isDone(state, l.n)).length;
+        const openRows = m.lessons.filter(l => !P.lessonLocked(l));
+        const mDone = openRows.filter(l => P.isDone(state, l.n)).length;
+        const countLabel = openRows.length === 0
+          ? `🔒 ${m.lessons.length} ${m.lessons.length === 1 ? 'lesson' : 'lessons'}`
+          : `${mDone}/${m.lessons.length}`;
         const rows = m.lessons.map(l => {
+          if (P.lessonLocked(l)) {
+            const duration = l.duration ? `<span class="coaching-card-duration">${escapeHtml(l.duration)}</span>` : '';
+            return `
+        <div class="path-row locked">
+          <button type="button" class="path-row-main" data-path-locked="1" aria-label="Lesson ${l.n}: ${escapeHtml(l.title)} (Empire only)">
+            <span class="path-lock-thumb">🔒${duration}</span>
+            <span class="path-num">${l.n}</span>
+            <span class="path-row-title">${escapeHtml(l.title)}</span>
+          </button>
+        </div>`;
+          }
           const d = P.isDone(state, l.n);
-          const cls = ['path-row', d ? 'done' : '', l.n === P.current ? 'active' : ''].filter(Boolean).join(' ');
+          const cls = ['path-row', d ? 'done' : '', !l.youtubeId ? 'soon' : '', l.n === P.current ? 'active' : ''].filter(Boolean).join(' ');
+          const thumb = l.youtubeId
+            ? `<span class="path-thumb"><img src="https://i.ytimg.com/vi/${encodeURIComponent(l.youtubeId)}/mqdefault.jpg" alt="" loading="lazy" /><span class="coaching-card-duration">${escapeHtml(l.duration)}</span></span>`
+            : '<span class="path-soon-thumb">Soon</span>';
+          const pills = `${!l.youtubeId ? ' <span class="coaching-pill">Coming soon</span>' : ''}${l.n === next && !d ? ' <span class="coaching-pill">Up next</span>' : ''}`;
+          const check = l.youtubeId
+            ? `<button type="button" class="path-check${d ? ' on' : ''}" data-path-toggle="${l.n}" aria-pressed="${d}" title="${d ? 'Mark as not complete' : 'Mark complete'}">${d ? '✓' : ''}</button>`
+            : '';
+          const label = l.youtubeId
+            ? `Play lesson ${l.n}: ${escapeHtml(l.title)}`
+            : `Lesson ${l.n}: ${escapeHtml(l.title)} (coming soon)`;
           return `
         <div class="${cls}">
-          <button type="button" class="path-row-main" data-path-open="${l.n}" aria-label="Play lesson ${l.n}: ${escapeHtml(l.title)}">
-            ${l.youtubeId ? `<span class="path-thumb"><img src="https://i.ytimg.com/vi/${encodeURIComponent(l.youtubeId)}/mqdefault.jpg" alt="" loading="lazy" /><span class="coaching-card-duration">${escapeHtml(l.duration)}</span></span>` : `<span class="path-lock-thumb">🔒<span class="coaching-card-duration">${escapeHtml(l.duration)}</span></span>`}
+          <button type="button" class="path-row-main" data-path-open="${l.n}" aria-label="${label}">
+            ${thumb}
             <span class="path-num">${d ? '✓' : l.n}</span>
-            <span class="path-row-title">${escapeHtml(l.title)}${l.n === next && !d ? ' <span class="coaching-pill">Up next</span>' : ''}</span>
+            <span class="path-row-title">${escapeHtml(l.title)}${pills}</span>
           </button>
-          <button type="button" class="path-check${d ? ' on' : ''}" data-path-toggle="${l.n}" aria-pressed="${d}" title="${d ? 'Mark as not complete' : 'Mark complete'}">${d ? '✓' : ''}</button>
+          ${check}
         </div>`;
         }).join('');
         return `
       <div class="path-module">
         <div class="path-module-head">
           <span class="path-module-name">Module ${m.module} · ${escapeHtml(m.title)}</span>
-          <span class="path-module-count">${mDone}/${m.lessons.length}</span>
+          <span class="path-module-count">${countLabel}</span>
         </div>
         ${rows}
       </div>`;
       }).join('');
 
+      const progressAction = nextL
+        ? `<button type="button" class="path-btn" data-path-open="${nextL.n}">${doneCount || state.last ? 'Continue' : 'Start'}: Lesson ${nextL.n} →</button>`
+        : (lockedLeft
+            ? '<button type="button" class="path-btn" data-path-unlock="1">Unlock with FORGE Empire →</button>'
+            : '<span class="coaching-pill clip">Path complete 🎉</span>');
+      const progressLabel = total
+        ? `<span class="path-progress-count">${doneCount} of ${total}</span> lessons complete`
+        : `<span class="path-progress-count">🔒 ${catalogTotal}</span> Empire lessons`;
+
       document.getElementById(cfg.containerId).innerHTML = `
     <div class="path-progress">
       <div class="path-progress-top">
-        <div><span class="path-progress-count">${doneCount} of ${total}</span> lessons complete</div>
-        ${nextL ? `<button type="button" class="path-btn" data-path-open="${nextL.n}">${doneCount || state.last ? 'Continue' : 'Start'}: Lesson ${nextL.n} →</button>`
-                : '<span class="coaching-pill clip">Path complete 🎉</span>'}
+        <div>${progressLabel}</div>
+        ${progressAction}
       </div>
       <div class="path-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${doneCount}"><div style="width:${pct}%"></div></div>
     </div>
@@ -1515,7 +1707,8 @@ function createLessonPath(cfg) {
     <div class="path-modules">${modules}</div>`;
     },
     open(n, autoplay) {
-      if (P.locked() || !P.lesson(n)) return;
+      const lesson = P.lesson(n);
+      if (P.locked() || !lesson || P.lessonLocked(lesson)) return;
       P.current = n;
       const state = P.load(); state.last = n; P.save(state);
       P.setHash();
@@ -1524,7 +1717,8 @@ function createLessonPath(cfg) {
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     },
     toggle(n) {
-      if (P.locked()) return;
+      const lesson = P.lesson(n);
+      if (P.locked() || !lesson || P.lessonLocked(lesson) || !lesson.youtubeId) return;
       const state = P.load();
       state.done = P.isDone(state, n) ? state.done.filter(x => x !== n) : [...state.done, n].sort((a, b) => a - b);
       P.save(state);
@@ -1554,7 +1748,7 @@ function createLessonPath(cfg) {
     if (!h) return;
     // Both lesson paths live in the Video Lesson Library tab.
     if (document.getElementById('view-videos').style.display !== 'block') switchEduSection('videos');
-    if (!P.locked() && h.n && h.n !== P.current) { P.current = h.n; P.renderAll(false); }
+    if (!P.locked() && h.n && h.n !== P.current && !P.lessonLocked(P.lesson(h.n))) { P.current = h.n; P.renderAll(false); }
     P.scrollIntoViewIfDeepLinked();
   });
 
@@ -1583,8 +1777,70 @@ const wholesalingPath = createLessonPath({
   containerId: 'wholesaling-path-container', sectionId: 'view-wholesaling-path', playerId: 'wholesaling-path-player', icon: '🏷️',
   scrollOnDeepLink: true,
 });
+const leaseOptionPath = createLessonPath({
+  modules: FORGE_LEASE_OPTION_LESSONS, hash: 'lease-option-lessons', storagePrefix: 'forge_lease_option_lessons_v1:',
+  containerId: 'lease-option-path-container', sectionId: 'view-lease-option-path', playerId: 'lease-option-path-player', icon: '🔑',
+  scrollOnDeepLink: true,
+  isLessonLocked: (lesson) => !!(lesson && lesson.empire && !hasEmpireAccess),
+});
+const subjectToPath = createLessonPath({
+  modules: FORGE_SUBJECT_TO_LESSONS, hash: 'subject-to-lessons', storagePrefix: 'forge_subject_to_lessons_v1:',
+  containerId: 'subject-to-path-container', sectionId: 'view-subject-to-path', playerId: 'subject-to-path-player', icon: '📜',
+  scrollOnDeepLink: true,
+  isLessonLocked: (lesson) => !!(lesson && lesson.empire && !hasEmpireAccess),
+});
+const assumptionPath = createLessonPath({
+  modules: FORGE_ASSUMPTION_LESSONS, hash: 'assumption-lessons', storagePrefix: 'forge_assumption_lessons_v1:',
+  containerId: 'assumption-path-container', sectionId: 'view-assumption-path', playerId: 'assumption-path-player', icon: '🏦',
+  scrollOnDeepLink: true,
+  isLessonLocked: (lesson) => !!(lesson && lesson.empire && !hasEmpireAccess),
+});
+const CREATIVE_FINANCE_PATHS = {
+  'lease-option': leaseOptionPath,
+  'subject-to': subjectToPath,
+  'assumption': assumptionPath,
+};
+function applyCreativeFinanceVideos(data) {
+  // Commercial YouTube ids are Empire-only. Ignore the payload unless this
+  // plan includes Empire, so a Foundation response cannot attach an id.
+  if (!hasEmpireAccess || !data || !data.paths) return;
+  Object.keys(CREATIVE_FINANCE_PATHS).forEach((key) => {
+    const path = CREATIVE_FINANCE_PATHS[key];
+    const updates = Array.isArray(data.paths[key]) ? data.paths[key] : [];
+    if (!path || !updates.length) return;
+    const byN = {};
+    updates.forEach((u) => {
+      if (u && typeof u.youtubeId === 'string' && u.youtubeId.trim()) byN[u.n] = u.youtubeId.trim();
+    });
+    if (!Object.keys(byN).length) return;
+    path.replaceModules(path.cfg.modules.map((m) => ({
+      module: m.module,
+      title: m.title,
+      lessons: (m.lessons || []).map((l) => (
+        l.empire && byN[l.n] ? { ...l, youtubeId: byN[l.n] } : l
+      )),
+    })));
+  });
+}
+async function loadCreativeFinanceLessonVideos() {
+  try {
+    const res = await fetch('/api/education-data?action=creative_finance_lessons', {
+      headers: { Authorization: 'Bearer ' + memberToken },
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    applyCreativeFinanceVideos(data);
+  } catch (err) {
+    console.error('Creative finance lessons failed to load', err);
+  }
+}
 const PATH_LESSONS = h2oPath.lessons; // kept for any older references
-function renderCoachingLessons() { h2oPath.render(); empirePath.render(); wholesalingPath.render(); empirePath.scrollIntoViewIfDeepLinked(); wholesalingPath.scrollIntoViewIfDeepLinked(); }
+function renderCoachingLessons() {
+  h2oPath.render(); empirePath.render(); wholesalingPath.render();
+  leaseOptionPath.render(); subjectToPath.render(); assumptionPath.render();
+  empirePath.scrollIntoViewIfDeepLinked(); wholesalingPath.scrollIntoViewIfDeepLinked();
+  leaseOptionPath.scrollIntoViewIfDeepLinked(); subjectToPath.scrollIntoViewIfDeepLinked(); assumptionPath.scrollIntoViewIfDeepLinked();
+}
 
 function switchEduSection(section) {
   document.getElementById('edu-tab-lessons').classList.toggle('active', section === 'lessons');
@@ -1867,7 +2123,11 @@ async function initEducationPage() {
     h2oPath.setMember(member.id);
     empirePath.setMember(member.id);
     wholesalingPath.setMember(member.id);
+    leaseOptionPath.setMember(member.id);
+    subjectToPath.setMember(member.id);
+    assumptionPath.setMember(member.id);
     await loadEmpireLessonCatalog();
+    await loadCreativeFinanceLessonVideos();
     membershipVerified = true;
     // Deep link: education.html#coaching-lessons (or #coaching-lessons/lesson-N) opens the
     // Video Lesson Library tab, where the lesson path sits at the top (and opens lesson N).
@@ -1876,6 +2136,10 @@ async function initEducationPage() {
     if (/^#empire-lessons(\/|$)/.test(window.location.hash)) switchEduSection('videos');
     // Deep link: #wholesaling-lessons (or #wholesaling-lessons/lesson-N), same tab.
     if (/^#wholesaling-lessons(\/|$)/.test(window.location.hash)) switchEduSection('videos');
+    // Deep link: creative-finance paths, same tab. Commercial lessons stay locked without Empire.
+    if (/^#lease-option-lessons(\/|$)/.test(window.location.hash)) switchEduSection('videos');
+    if (/^#subject-to-lessons(\/|$)/.test(window.location.hash)) switchEduSection('videos');
+    if (/^#assumption-lessons(\/|$)/.test(window.location.hash)) switchEduSection('videos');
     // Deep link: education.html#group-coaching opens the replays tab directly.
     // Also accepts #group-coaching/session-N and #group-coaching/session-N/clip-K.
     if (/^#group-coaching(\/|$)/.test(window.location.hash)) switchEduSection('coaching');
