@@ -21,8 +21,7 @@
 const { enforceMembership, isEmpireCategory, empireLessonPayload } = require('./_Lib/membership');
 const { supabase } = require('./_Lib/supabase-client');
 const { json, preflight } = require('./_Lib/http');
-
-const TIER_ORDER = ['rookie', 'investor', 'mogul'];
+const { TIER_ORDER, badgesFromProgress } = require('./_Lib/education-badges');
 
 // Pass threshold per tier, expressed as exact fractions of question count —
 // NOT rounded decimals. All three tiers now have exactly 12 questions per
@@ -99,18 +98,11 @@ exports.handler = async function (event, context) {
         }));
 
         // Tier badges: a badge is earned once this member has PASSED that
-        // tier on every currently published module, not just one. This is
-        // computed fresh from the live published-module list each time, so
-        // adding a new topic later automatically re-requires it for anyone
-        // who already held a badge — no separate badge-tracking table to
-        // keep in sync, no risk of a stale badge surviving a new topic.
+        // tier on every currently published module, not just one. Same
+        // helper the book download uses, so a new topic re-requires the
+        // badge in both places.
         const totalModules = (modules || []).length;
-        const badges = {};
-        for (const tier of TIER_ORDER) {
-          badges[tier] =
-            totalModules > 0 &&
-            (modules || []).every((m) => !!(progressByModule[m.id] && progressByModule[m.id][tier] && progressByModule[m.id][tier].passed));
-        }
+        const badges = badgesFromProgress(modules, progress);
 
         return json(200, { modules: enriched, badges, totalModules });
       }

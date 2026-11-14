@@ -405,6 +405,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 </style>
 <script src="https://static.memberstack.com/scripts/v1/memberstack.js" data-memberstack-app="app_cmr41qq5500q80tsx94pj61rc" defer></script>
 <script src="/assets/js/ref-capture.js"></script>
+<script src="/assets/js/level-unlocks.js"></script>
 </head>
 <body>
 <div class="app">
@@ -475,6 +476,8 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
         <div class="tier-badges-card-label">Your FORGE Badges</div>
         <div class="tier-badges-row" id="tier-badges-row"></div>
       </div>
+
+      <div id="level-unlocks" hidden></div>
 
       <!-- ARIS DAILY QUOTE -->
       <div class="quote-banner" id="quote-banner">
@@ -1094,6 +1097,7 @@ async function loadEducationBadges() {
     if (!res.ok) throw new Error('Failed to load education badges');
     const { badges } = await res.json();
     renderTierBadges(badges);
+    if (window.ForgeLevelUnlocks) ForgeLevelUnlocks.render(document.getElementById('level-unlocks'), badges, localStorage);
   } catch (e) {
     console.error('Failed to load education badges:', e);
     // Non-critical widget — leave the badge row empty rather than

@@ -1,0 +1,85 @@
+/* Member book unlock pages. Navy and gold, same FORGE palette as the app. */
+:root {
+  --black: #0D1B2A;
+  --navy: #0f2035;
+  --gold: #C89B3C;
+  --white: #fff;
+  --grey: #6B7280;
+  --grey-light: #9CA3AF;
+  --border: rgba(200, 155, 60, 0.45);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; background: var(--black); color: var(--white); font-family: Inter, sans-serif; }
+body { min-height: 100vh; }
+a { color: var(--gold); }
+.glow {
+  position: fixed; width: 640px; height: 640px; border-radius: 50%; pointer-events: none; z-index: 0;
+  background: radial-gradient(circle, rgba(200, 155, 60, 0.16) 0%, transparent 68%);
+  top: -220px; right: -160px;
+}
+.page { position: relative; z-index: 1; max-width: 980px; margin: 0 auto; padding: 28px 20px 72px; }
+.top { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 28px; }
+.logo { width: 148px; height: auto; display: block; }
+.top-links { display: flex; gap: 14px; font-size: 13px; }
+.top-links a { color: var(--grey-light); text-decoration: none; }
+.top-links a:hover { color: var(--gold); }
+.hero {
+  display: grid; grid-template-columns: 220px 1fr; gap: 36px; align-items: center;
+  background: var(--navy); border: 1px solid var(--border); border-radius: 18px; padding: 36px;
+  box-shadow: 0 24px 60px rgba(200, 155, 60, 0.08);
+}
+.kicker { font-size: 12px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; color: var(--gold); margin-bottom: 10px; }
+h1 {
+  font-family: 'Bebas Neue', sans-serif; font-weight: 400; font-size: clamp(40px, 6vw, 64px);
+  letter-spacing: 1px; line-height: 0.95; margin: 0 0 14px;
+}
+.lede { font-size: 16px; line-height: 1.6; color: #d6dae0; max-width: 46ch; margin: 0 0 22px; }
+.download {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 52px; padding: 12px 22px;
+  border: 0; border-radius: 10px; background: var(--gold); color: var(--black); cursor: pointer;
+  font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 1.4px;
+}
+.download:disabled { opacity: 0.6; cursor: wait; }
+.status { min-height: 1.4em; margin: 12px 0 0; font-size: 13px; color: var(--grey-light); }
+.cover, .cover-placeholder {
+  width: 220px; border-radius: 8px; background: #fff;
+}
+.cover img { display: block; width: 100%; height: auto; border-radius: 6px; }
+.cover-placeholder {
+  height: 330px; background: linear-gradient(180deg, #162840 0%, #0f2035 100%);
+  border: 1px solid var(--border); display: flex; flex-direction: column; justify-content: flex-end;
+  padding: 22px 18px; color: var(--white);
+}
+.cover-placeholder span { font-size: 11px; letter-spacing: 1.8px; text-transform: uppercase; color: var(--gold); }
+.cover-placeholder strong {
+  font-family: 'Bebas Neue', sans-serif; font-weight: 400; font-size: 34px; letter-spacing: 1px; line-height: 0.95; margin-top: 8px;
+}
+.panel { margin-top: 18px; background: var(--navy); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 24px 26px; }
+.panel h2 { font-family: 'Bebas Neue', sans-serif; font-weight: 400; letter-spacing: 1px; font-size: 28px; margin: 0 0 10px; }
+.panel p, .panel li { font-size: 15px; line-height: 1.6; color: #d6dae0; }
+.flag {
+  display: inline-block; margin-bottom: 10px; padding: 4px 8px; border-radius: 999px;
+  border: 1px dashed var(--border); color: var(--gold); font-size: 11px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase;
+}
+.call-card { border-color: var(--border); box-shadow: 0 18px 40px rgba(200, 155, 60, 0.08); }
+.call-card .flag { display: table; }
+.call-card .book-call { margin-top: 14px; }
+.call-count { font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 1px; color: var(--gold); margin: 8px 0; }
+.book-call {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 10px 18px;
+  border-radius: 10px; background: var(--gold); color: var(--black); text-decoration: none;
+  font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 1.2px; border: 0; cursor: pointer;
+}
+.book-call:disabled, button.book-call[disabled] {
+  background: transparent; color: var(--grey); border: 1px solid rgba(200,155,60,0.35); cursor: not-allowed;
+  font-family: Inter, sans-serif; font-size: 14px; font-weight: 600; letter-spacing: 0;
+}
+.locked, .loading { padding: 48px 8px; }
+.locked h1 { font-size: 42px; }
+#ira-bonus { margin-top: 18px; }
+#ira-bonus[hidden] { display: none !important; }
+@media (max-width: 720px) {
+  .hero { grid-template-columns: 1fr; padding: 22px; }
+  .cover, .cover-placeholder { width: 160px; }
+  .cover-placeholder { height: 240px; }
+}

@@ -512,6 +512,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 </style>
 <script src="https://static.memberstack.com/scripts/v1/memberstack.js" data-memberstack-app="app_cmr41qq5500q80tsx94pj61rc" defer></script>
 <script src="/assets/js/ref-capture.js"></script>
+<script src="/assets/js/level-unlocks.js"></script>
 </head>
 <body>
 <div class="app">
@@ -568,6 +569,8 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 
     <!-- SCROLL AREA -->
     <div class="dashboard-scroll">
+
+      <div id="level-unlocks" hidden></div>
 
       <!-- TOP-LEVEL SECTION SWITCHER (always visible, not part of showView) -->
       <div class="edu-section-tabs">
@@ -1918,6 +1921,7 @@ async function loadModules() {
   const { modules, badges } = await res.json();
 
   renderTierBadges(badges);
+  if (window.ForgeLevelUnlocks) ForgeLevelUnlocks.render(document.getElementById('level-unlocks'), badges, localStorage);
   allModules = modules;
   renderIncomeFilterTabs();
   renderModuleList();
