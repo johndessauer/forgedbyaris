@@ -115,6 +115,8 @@ test('book cards open the member unlock pages and do not use the public PDF', ()
   assert.equal(h2o.external, false);
   const h2oHtml = unlocks.cardMarkup(h2o);
   assert.match(h2oHtml, /href="\/unlocks\/rookie"/);
+  assert.match(h2oHtml, /src="\/assets\/real-estate-h2o-cover\.jpg"/);
+  assert.match(h2oHtml, /alt="Cover of Real Estate H2O by John Dessauer: a marina and glass towers under the title Real Estate H2O"/);
   assert.doesNotMatch(h2oHtml, /target="_blank"/);
   assert.equal(h2oHtml.includes('apartment-confidential.pdf'), false);
 
@@ -124,7 +126,10 @@ test('book cards open the member unlock pages and do not use the public PDF', ()
   assert.equal(book.external, false);
   const html = unlocks.cardMarkup(book);
   assert.match(html, /href="\/unlocks\/investor"/);
+  assert.match(html, /src="\/assets\/apartment-confidential-cover-3d\.jpg"/);
+  assert.match(html, /alt="3D cover of Apartment Confidential, a black hardcover by John Dessauer"/);
   assert.equal(html.includes('/assets/apartment-confidential.pdf'), false);
+  assert.equal(html.includes('apartment-confidential-cover.jpg'), false);
   assert.doesNotMatch(html, /target="_blank"/);
   assert.equal(unlocks.markupFor({ rookie: true }, memoryStorage()).includes('apartment-confidential'), false);
   assert.match(unlocks.markupFor({ investor: true }, memoryStorage()), /data-unlock-id="apartment-confidential"/);

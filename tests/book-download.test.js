@@ -176,9 +176,18 @@ test('the coaching link stays out of public pages and public scripts', () => {
   assert.equal(/<a[^>]*coaching-book-btn/.test(investor), false);
   assert.match(investor, /You've unlocked Apartment Confidential/);
   assert.match(investor, /data-level="investor"/);
+  assert.match(investor, /src="\/assets\/apartment-confidential-cover-3d\.jpg"/);
+  assert.match(investor, /alt="3D cover of Apartment Confidential, a black hardcover by John Dessauer"/);
+  assert.equal(investor.includes('apartment-confidential-cover.jpg'), false);
+  const publicBook = read('apartment-confidential.html');
+  assert.match(publicBook, /src="\/assets\/apartment-confidential-cover\.jpg"/);
+  assert.match(publicBook, /href="\/assets\/apartment-confidential\.pdf"/);
 
   const rookie = read('unlocks/rookie.html');
   assert.match(rookie, /You've unlocked Real Estate H2O/);
+  assert.match(rookie, /src="\/assets\/real-estate-h2o-cover\.jpg"/);
+  assert.match(rookie, /alt="Cover of Real Estate H2O by John Dessauer: a marina and glass towers under the title Real Estate H2O"/);
+  assert.equal(rookie.includes('cover-placeholder'), false);
   assert.match(rookie, /data-level="rookie"/);
   assert.match(rookie, /Placeholder copy\. John has to approve this wording\./);
   assert.match(rookie, /id="ira-bonus"/);

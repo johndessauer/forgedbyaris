@@ -41,19 +41,16 @@ h1 {
 }
 .download:disabled { opacity: 0.6; cursor: wait; }
 .status { min-height: 1.4em; margin: 12px 0 0; font-size: 13px; color: var(--grey-light); }
-.cover, .cover-placeholder {
-  width: 220px; border-radius: 8px; background: #fff;
+.cover-flat { width: min(240px, 100%); }
+.cover-flat img {
+  display: block; width: 100%; height: auto; border-radius: 4px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
 }
-.cover img { display: block; width: 100%; height: auto; border-radius: 6px; }
-.cover-placeholder {
-  height: 330px; background: linear-gradient(180deg, #162840 0%, #0f2035 100%);
-  border: 1px solid var(--border); display: flex; flex-direction: column; justify-content: flex-end;
-  padding: 22px 18px; color: var(--white);
+.cover-3d {
+  width: min(280px, 100%); background: #fff; border-radius: 16px; padding: 10px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
 }
-.cover-placeholder span { font-size: 11px; letter-spacing: 1.8px; text-transform: uppercase; color: var(--gold); }
-.cover-placeholder strong {
-  font-family: 'Bebas Neue', sans-serif; font-weight: 400; font-size: 34px; letter-spacing: 1px; line-height: 0.95; margin-top: 8px;
-}
+.cover-3d img { display: block; width: 100%; height: auto; border-radius: 10px; }
 .panel { margin-top: 18px; background: var(--navy); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 24px 26px; }
 .panel h2 { font-family: 'Bebas Neue', sans-serif; font-weight: 400; letter-spacing: 1px; font-size: 28px; margin: 0 0 10px; }
 .panel p, .panel li { font-size: 15px; line-height: 1.6; color: #d6dae0; }
@@ -79,7 +76,8 @@ h1 {
 #ira-bonus { margin-top: 18px; }
 #ira-bonus[hidden] { display: none !important; }
 @media (max-width: 720px) {
-  .hero { grid-template-columns: 1fr; padding: 22px; }
-  .cover, .cover-placeholder { width: 160px; }
-  .cover-placeholder { height: 240px; }
+  .hero { grid-template-columns: 1fr; padding: 22px; justify-items: stretch; }
+  .cover-flat, .cover-3d { justify-self: center; }
+  .cover-flat { width: min(200px, 62vw); }
+  .cover-3d { width: min(230px, 72vw); }
 }

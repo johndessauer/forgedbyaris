@@ -8,8 +8,10 @@
  * Book cards open the member unlock pages. The PDF itself is not linked
  * here. Download goes through /api/book-download, which reads Netlify Blobs
  * after checking the same education badge.
- * Real Estate H2O has no cover or PDF in the repo. Apartment Confidential's
- * public PDF stays on apartment-confidential.html and is not the member download.
+ * Covers: /assets/real-estate-h2o-cover.jpg on the Rookie book card, and
+ * /assets/apartment-confidential-cover-3d.jpg on the Investor book card.
+ * The public page apartment-confidential.html keeps its own cover file.
+ * Apartment Confidential's public PDF is not the member download.
  * The Empire lesson path stays behind the Empire plan.
  */
 (function (root, factory) {
@@ -52,6 +54,13 @@
       dismiss: '',
       href: '/unlocks/rookie',
       external: false,
+      cover: {
+        src: '/assets/real-estate-h2o-cover.jpg',
+        alt: 'Cover of Real Estate H2O by John Dessauer: a marina and glass towers under the title Real Estate H2O',
+        width: 800,
+        height: 997,
+        kind: 'flat',
+      },
     },
     {
       id: 'apartment-confidential',
@@ -67,6 +76,13 @@
       dismiss: '',
       href: '/unlocks/investor',
       external: false,
+      cover: {
+        src: '/assets/apartment-confidential-cover-3d.jpg',
+        alt: '3D cover of Apartment Confidential, a black hardcover by John Dessauer',
+        width: 800,
+        height: 1032,
+        kind: '3d',
+      },
     },
   ];
 
@@ -121,6 +137,17 @@
       escapeHtml(unlock.cta) + '</a>';
   }
 
+  function coverMarkup(unlock) {
+    if (!unlock.cover) return '';
+    var kindClass = unlock.cover.kind === '3d' ? ' level-unlock-card__cover--3d' : '';
+    var img = '<img class="level-unlock-card__cover' + kindClass + '" src="' + escapeHtml(unlock.cover.src) +
+      '" alt="' + escapeHtml(unlock.cover.alt) + '" width="' + unlock.cover.width + '" height="' + unlock.cover.height + '">';
+    if (unlock.href && !unlock.external) {
+      return '<a class="level-unlock-card__cover-link" href="' + escapeHtml(unlock.href) + '">' + img + '</a>';
+    }
+    return img;
+  }
+
   function cardMarkup(unlock) {
     var placeholder = unlock.kind === 'placeholder' || !unlock.href;
     var disclosure = unlock.disclosure
@@ -132,6 +159,7 @@
       : '';
     return '<article class="level-unlock-card" data-unlock-id="' + escapeHtml(unlock.id) + '" data-level="' +
       escapeHtml(unlock.level) + '"' + (placeholder ? ' data-placeholder="true"' : '') + '>' +
+      coverMarkup(unlock) +
       '<div class="level-unlock-card__copy">' +
         '<div class="level-unlock-card__eyebrow">' + escapeHtml(unlock.eyebrow) + '</div>' +
         '<h2 class="level-unlock-card__title">' + escapeHtml(unlock.title) + '</h2>' +
@@ -149,8 +177,12 @@
   var CSS = [
     '#level-unlocks[hidden]{display:none !important;}',
     '#level-unlocks{display:flex;flex-direction:column;gap:12px;margin:0 0 18px;}',
-    '.level-unlock-card{display:flex;flex-wrap:wrap;gap:16px 24px;align-items:center;justify-content:space-between;',
-    'background:var(--navy,#0f2035);border:1px solid rgba(200,155,60,0.45);border-radius:12px;padding:18px 20px;}',
+    '.level-unlock-card{display:flex;flex-wrap:wrap;gap:16px 20px;align-items:center;justify-content:space-between;',
+    'background:var(--navy,#0f2035);border:1px solid rgba(200,155,60,0.45);border-radius:12px;padding:16px 18px;}',
+    '.level-unlock-card__cover-link{flex:0 0 auto;line-height:0;}',
+    '.level-unlock-card__cover{display:block;width:74px;height:auto;border-radius:3px;box-shadow:0 8px 18px rgba(0,0,0,0.4);}',
+    '.level-unlock-card__cover--3d{width:86px;background:#fff;border-radius:8px;padding:4px;box-shadow:0 8px 18px rgba(0,0,0,0.28);}',
+    '@media (max-width:640px){.level-unlock-card__cover{width:64px}.level-unlock-card__cover--3d{width:74px}.level-unlock-card__actions{flex:1 1 100%;}}',
     '.level-unlock-card[data-placeholder="true"]{border-style:dashed;}',
     '.level-unlock-card__copy{flex:1 1 280px;min-width:0;}',
     '.level-unlock-card__eyebrow{font-size:11px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--gold,#C89B3C);margin-bottom:6px;}',
