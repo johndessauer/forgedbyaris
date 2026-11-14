@@ -37,8 +37,9 @@
 //
 // Optional STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET let the Stripe
 // webhook copy session metadata onto the subscription. That update has no
-// line items and does not charge the customer. Do not replace the webhook
-// Memberstack already uses.
+// line items and does not charge the customer. The same webhook tags GHL
+// payment-failed on subscription invoice failures and removes it when the
+// invoice is paid. Do not replace the webhook Memberstack already uses.
 //
 // FORGE webinar sessions are not FWN packages. The same webhook copies
 // their attribution when metadata.package is webinar-997 or webinar-1797
@@ -49,6 +50,7 @@ const https = require('https');
 const crypto = require('crypto');
 const { sanitize } = require('../../../assets/js/ref-capture');
 const { json, preflight } = require('./http');
+const dunning = require('./dunning');
 
 const FWN_GHL_HOOK = 'https://services.leadconnectorhq.com/hooks/3dQD2B6ZsBjZVIrWF8WR/webhook-trigger/50f73ea5-6f8b-49bd-8ba2-458aae6e7d9f';
 const MONTHLY_CENTS = 9700;
@@ -555,6 +557,20 @@ async function webhookHandler(event, deps) {
   let stripeEvent;
   try { stripeEvent = JSON.parse(raw); }
   catch (err) { return json(400, { error: 'Invalid JSON body' }); }
+
+  // Subscription invoice failures tag the GHL contact; paid invoices remove
+  // the tag. Checkout metadata copying below is unchanged.
+  if (dunning.isDunningEvent(stripeEvent)) {
+    const result = await dunning.handleDunningEvent(stripeEvent, env, {
+      ghlRequest: options.ghlRequest,
+    });
+    const body = { received: true, dunning: result.action };
+    if (result.reason) body.reason = result.reason;
+    // A failed tag write should be retried. Missing contacts and
+    // non-subscription invoices are acknowledged so Stripe does not retry them.
+    const status = result.action === 'ghl_failed' ? 500 : 200;
+    return json(status, body);
+  }
 
   const paid = paidCheckoutSession(stripeEvent);
   if (!paid.session) return json(200, { received: true, ignored: true, reason: paid.reason });
