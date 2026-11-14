@@ -147,6 +147,8 @@ export const config = {
     '/capital-radar', '/capital-radar.html',
     '/market-oracle', '/market-oracle.html',
     '/education', '/education.html',
+    '/unlocks/rookie', '/unlocks/rookie.html',
+    '/unlocks/investor', '/unlocks/investor.html',
     '/document-vault', '/document-vault.html',
     '/aris-coach', '/aris-coach.html',
     '/profile', '/profile.html',
