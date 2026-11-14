@@ -436,6 +436,48 @@ test('cash-on-cash and a leading tilde or almost-equal sign are spoken', async (
   }
 });
 
+test('loan terms are spoken and a slash rate stays per month', async () => {
+  const { prepareSpeechText, normalizeSpeechText } = await loadSpeech();
+  const cases = [
+    ['30-yr', 'thirty-year'],
+    ['30 yr', 'thirty-year'],
+    ['30yr', 'thirty-year'],
+    ['30-YR', 'thirty-year'],
+    ['5-yr', 'five-year'],
+    ['5 yr', 'five-year'],
+    ['5yr', 'five-year'],
+    ['5 yrs', 'five years'],
+    ['5-yrs', 'five years'],
+    ['5yrs', 'five years'],
+    ['15 yrs', 'fifteen years'],
+    ['yrs', 'years'],
+    ['over several yrs', 'over several years'],
+    ['6 mo', 'six-month'],
+    ['6mo', 'six-month'],
+    ['18-mo', 'eighteen-month'],
+    ['18-MO', 'eighteen-month'],
+    ['6 mos', 'six months'],
+    ['18-mos', 'eighteen months'],
+    ['18-mo balloon', 'eighteen-month balloon'],
+    ['5.25% interest, 30-yr', 'five point two five percent interest, thirty-year'],
+    ['$1,967/mo', 'one thousand nine hundred sixty-seven dollars per month'],
+    ['$1,967/mo PITI', 'one thousand nine hundred sixty-seven dollars per month principal, interest, taxes, and insurance'],
+    ['$500/yr', 'five hundred dollars per year'],
+    ['Kansas City, MO', 'Kansas City, Missouri'],
+    ['the mo stays', 'the mo stays'],
+    ['30-year', '30-year'],
+    ['18-month balloon', '18-month balloon'],
+  ];
+  for (const [input, expected] of cases) {
+    assert.equal(normalizeSpeechText(input), expected, input);
+  }
+  assert.equal(
+    prepareSpeechText('5.25% interest, 30-yr'),
+    'five point two five percent interest, thirty-year'
+  );
+  assert.equal(prepareSpeechText('18-mo balloon'), 'eighteen-month balloon');
+});
+
 test('listening-check lines keep amounts, ZIPs, phones, and formulas', async () => {
   const { prepareSpeechText } = await loadSpeech();
   const cases = [
@@ -451,7 +493,7 @@ test('listening-check lines keep amounts, ZIPs, phones, and formulas', async () 
       'Cap rate = $18,000 / $200,000 = 9%',
       'capitalization rate equals eighteen thousand dollars divided by two hundred thousand dollars equals nine percent',
     ],
-    ['5.25% interest, 30-yr', 'five point two five percent interest, 30-yr'],
+    ['5.25% interest, 30-yr', 'five point two five percent interest, thirty-year'],
     ['DSCR 1.25x', 'debt-service coverage ratio one point two five times'],
     ['ZIP 75201', 'ZIP seven five two oh one'],
     ['call (214) 555-0147', 'call two one four, five five five, oh one four seven'],

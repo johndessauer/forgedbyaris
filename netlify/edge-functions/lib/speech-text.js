@@ -19,8 +19,10 @@
 // numbers, and property IDs are spoken one digit at a time ("oh" for
 // zero). Street numbers and years stay written digits. Formula operators
 // are spoken too (divided by, times, minus, plus, equals). A slash before a
-// period unit (/mo, /yr, /sf, and the rest) is "per", not division. A number
-// glued to x is "times"; a spaced x, as in a lot size, is left as written.
+// period unit (/mo, /yr, /sf, and the rest) is "per", not division. A term
+// glued to a number is spoken too ("30-yr" is "thirty-year", "18-mo" is
+// "eighteen-month", "5 yrs" is "five years"). A number glued to x is
+// "times"; a spaced x, as in a lot size, is left as written.
 // Currency suffixes K, M, MM, and B scale the amount ("forty thousand
 // dollars", "one point five million dollars"). A leading ~ or ≈ before a
 // figure is "about". A hyphen in a word, street number, phone, ZIP, or
@@ -917,6 +919,29 @@ function pronounceRateShorthands(text) {
   });
 }
 
+// Singular yr/mo becomes a compound ("thirty-year", "eighteen-month")
+// whether the input used a hyphen, a space, or no separator. Plural yrs/mos
+// stays two words ("five years", "six months"). Bare "yrs" is "years".
+// "/mo" is already "per month" by the time this runs, and a bare "mo" is
+// left alone so "Kansas City, MO" can still become Missouri.
+function pronounceLoanTerms(text) {
+  const termed = text.replace(
+    /(?<![\p{L}\d.,])(\d{1,3}(?:,\d{3})+|\d+)(?:-|\s+)?(yrs|yr|mos|mo)\b/giu,
+    (match, num, unit) => {
+      const words = integerToWords(num);
+      if (!words) return match;
+      switch (unit.toLowerCase()) {
+        case 'yr': return `${words}-year`;
+        case 'yrs': return `${words} years`;
+        case 'mo': return `${words}-month`;
+        case 'mos': return `${words} months`;
+        default: return match;
+      }
+    }
+  );
+  return termed.replace(/\byrs\b/gi, 'years');
+}
+
 // Symbols ElevenLabs skips, spoken as the operation. Word forms already
 // in the line ("divided by", "times", "minus", "plus") are left as written.
 // Runs after phones, ZIPs, and amounts so those hyphens are already gone.
@@ -966,7 +991,7 @@ export function normalizeSpeechText(raw) {
   const { masked, slots } = maskProtected(stripped);
   const normalized = expandStateAbbreviations(
     expandAbbreviations(
-      pronounceRateShorthands(normalizeCurrency(normalizeApproximations(masked)))
+      pronounceLoanTerms(pronounceRateShorthands(normalizeCurrency(normalizeApproximations(masked))))
     )
   );
   return unmask(pronounceNumbers(normalized), slots);
