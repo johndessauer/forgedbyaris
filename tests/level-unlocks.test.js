@@ -88,6 +88,14 @@ test('the consultation is hidden until Rookie and Not now does not change the ba
   assert.deepEqual(unlocks.readDismissed(storage), ['directed-ira-consult']);
 });
 
+test('Investor counts as Rookie on the unlock cards', () => {
+  const html = unlocks.markupFor({ investor: true }, memoryStorage());
+  const iraAt = html.indexOf('data-unlock-id="directed-ira-consult"');
+  const bookAt = html.indexOf('data-unlock-id="real-estate-h2o"');
+  const investorAt = html.indexOf('data-unlock-id="apartment-confidential"');
+  assert.ok(iraAt >= 0 && iraAt < bookAt && bookAt < investorAt);
+});
+
 test('render writes the cards into the member page and hides the box when nothing is earned', () => {
   const empty = fakeContainer();
   unlocks.render(empty, {}, memoryStorage());

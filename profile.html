@@ -821,7 +821,7 @@ function renderTierBadges(badges) {
     const meta = TIER_META[t];
     const earned = !!b[t];
     return `
-      <div class="tier-badge ${earned ? `earned ${t}` : 'locked'}" title="${earned ? `${meta.label} badge earned — every topic passed at ${meta.label} level` : `${meta.label} badge locked — pass every topic at ${meta.label} level to earn it`}">
+      <div class="tier-badge ${earned ? `earned ${t}` : 'locked'}" title="${earned ? `${meta.label} level earned. It stays yours when a new topic is published.` : `${meta.label} level locked — pass every topic you can take at the ${meta.label} level.`}">
         <span class="tier-badge-icon">${meta.icon}</span>
         <span>${meta.label}</span>
       </div>

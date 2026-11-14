@@ -1,7 +1,8 @@
 // Gated book download. Membership comes from enforceMembership (the same
 // Memberstack plan check as the other member functions). The education
 // level comes from education-badges.js, the same badge rule as
-// education-data.js: every published topic passed at that tier.
+// education-data.js: topics this member is allowed to take, plus any
+// level already stored so a new topic does not take it away.
 //
 // Real Estate H2O requires Rookie or higher.
 // Apartment Confidential requires Investor or higher.
@@ -20,7 +21,6 @@ const { json, preflight } = require('./_Lib/http');
 const {
   BOOK_STORE,
   BOOKS,
-  badgesFromProgress,
   meetsLevel,
   denialMessage,
   missingMessage,
@@ -33,11 +33,12 @@ function defaultGetStore(name) {
   return getStore(name);
 }
 
-async function defaultLoadBadges(memberId) {
+async function defaultLoadBadges(memberId, access) {
   const { supabase } = require('./_Lib/supabase-client');
+  const { persistNewlyEarned } = require('./_Lib/education-awards');
   const { data: modules, error: moduleError } = await supabase
     .from('education_modules')
-    .select('id')
+    .select('id, category')
     .eq('published', true);
   if (moduleError) throw moduleError;
   const { data: progress, error: progressError } = await supabase
@@ -45,7 +46,7 @@ async function defaultLoadBadges(memberId) {
     .select('module_id, tier, passed')
     .eq('memberstack_id', memberId);
   if (progressError) throw progressError;
-  return badgesFromProgress(modules, progress);
+  return persistNewlyEarned(supabase, memberId, modules || [], progress || [], access || null);
 }
 
 async function readBlobBody(body) {
@@ -104,7 +105,7 @@ function createHandler(deps) {
 
     let badges;
     try {
-      badges = await loadBadges(gate.access.memberId);
+      badges = await loadBadges(gate.access.memberId, gate.access);
     } catch (err) {
       console.error('book-download badge lookup failed:', err);
       return json(500, { error: 'Could not check your level. Try again in a moment.' });

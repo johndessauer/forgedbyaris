@@ -1,7 +1,7 @@
 /* Member-facing level unlocks.
  *
- * Badges come from education-data.js `list`: a tier badge is true only after
- * every published topic is passed at that tier. These cards never gate a
+ * Badges come from education-data.js `list`. A higher level counts for the
+ * ones below it. These cards never gate a
  * lesson, a quiz, or the next badge. education-data.js remains the only
  * place that decides whether the next tier opens.
  *
@@ -114,7 +114,12 @@
   }
 
   function isEarned(unlock, badges) {
-    return !!(badges && badges[unlock.level]);
+    var order = ['rookie', 'investor', 'mogul'];
+    var need = order.indexOf(unlock.level);
+    if (need < 0) return false;
+    return order.some(function (tier, index) {
+      return index >= need && badges && badges[tier];
+    });
   }
 
   function visibleUnlocks(badges, storage) {
