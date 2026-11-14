@@ -17,7 +17,9 @@
 // then spoken as American conversational words, with no "and" inside
 // the number ("and" only between dollars and cents). ZIP codes, phone
 // numbers, and property IDs are spoken one digit at a time ("oh" for
-// zero). Street numbers and years stay written digits.
+// zero). Street numbers and years stay written digits. Formula operators
+// are spoken too (divided by, times, minus, plus, equals). A hyphen in a
+// word, street number, phone, ZIP, or year range is not a minus.
 
 export const SPEECH_CHAR_LIMIT = 5000;
 
@@ -153,7 +155,10 @@ export function stripMarkdownForSpeech(text) {
     .replace(/`([^`]+)`/g, '$1')
     .replace(/^#{1,6}\s+/gm, '')
     .replace(/\*\*([^*]+)\*\*/g, '$1')
-    .replace(/\*([^*]+)\*/g, '$1')
+    // Italic wraps words. A spaced or numeric * is multiplication, so
+    // leave those stars for pronounceOperators. "*3*" between other
+    // numbers must not collapse into one digit string.
+    .replace(/\*(\S(?:[^*]*\S)?)\*/g, (match, inner) => (/[A-Za-z]/.test(inner) ? inner : match))
     .replace(/^[-*+]\s+/gm, '')
     .replace(/^\d+\.\s+/gm, '')
     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
@@ -189,18 +194,32 @@ function isNegative(groups) {
 // The symbol or code becomes a number plus a unit. pronounceNumbers
 // spells that number later, after state names are chosen, so a ZIP is
 // still digits while "TX 78701" is resolved.
-function spell(groups, unit) {
+// A spaced minus before a later amount is subtraction ("$200,000 - $18,000").
+// A glued minus is still the sign of a negative ("-$1,250").
+function isBinaryMinus(source, offset, groups) {
+  const sign = groups && groups.sign ? groups.sign : '';
+  if (!/\s/.test(sign)) return false;
+  return isMathyToken(previousToken(source, offset));
+}
+
+function spell(groups, unit, binaryMinus = false) {
   const num = amount(groups);
   if (num == null) return null;
-  return `${isNegative(groups) ? 'negative ' : ''}${num} ${unit}`;
+  const spoken = `${binaryMinus ? '' : (isNegative(groups) ? 'negative ' : '')}${num} ${unit}`;
+  if (!binaryMinus) return spoken;
+  const sign = groups.sign || '';
+  return `${sign}${spoken}`;
 }
 
 function replaceNamed(text, regex, unitFor) {
   return text.replace(regex, (match, ...rest) => {
     const groups = rest[rest.length - 1];
+    const source = rest[rest.length - 2];
+    const offset = rest[rest.length - 3];
     const unit = typeof unitFor === 'function' ? unitFor(groups, match) : unitFor;
     if (!unit) return match;
-    const spoken = spell(groups, unit);
+    const binaryMinus = typeof offset === 'number' && isBinaryMinus(source, offset, groups);
+    const spoken = spell(groups, unit, binaryMinus);
     return spoken == null ? match : spoken;
   });
 }
@@ -729,6 +748,39 @@ function pronounceZips(text) {
   });
 }
 
+const MATH_WORDS = new Set(`
+  zero oh one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen
+  sixteen seventeen eighteen nineteen twenty thirty forty fifty sixty seventy eighty ninety
+  hundred thousand million billion trillion
+  dollar dollars cent cents pound pounds euro euros percent negative
+`.split(/\s+/).filter(Boolean));
+
+function coreToken(token) {
+  return String(token).replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9]+$/g, '');
+}
+
+function isYearToken(token) {
+  return /^(?:19|20)\d{2}$/.test(coreToken(token));
+}
+
+function isMathyToken(token) {
+  const core = coreToken(token).toLowerCase();
+  if (!core) return false;
+  if (/^\d/.test(core)) return true;
+  if (MATH_WORDS.has(core)) return true;
+  return MATH_WORDS.has(core.split('-')[0]);
+}
+
+function previousToken(text, index) {
+  const match = text.slice(0, index).match(/(\S+)\s*$/);
+  return match ? match[1] : '';
+}
+
+function nextToken(text, index) {
+  const match = text.slice(index).match(/^\s*(\S+)/);
+  return match ? match[1] : '';
+}
+
 function pronounceCommaNumbers(text) {
   const units = SPOKEN_UNITS.map(escapeRegExp).join('|');
   const re = new RegExp(
@@ -740,8 +792,72 @@ function pronounceCommaNumbers(text) {
     if (streetNumberFollows(source, offset + args[0].length)) return null;
     const words = speakPlainNumber(args[2], args[3]);
     if (!words) return null;
-    return `${args[1] ? 'negative ' : ''}${words}`;
+    const sign = args[1] || '';
+    // "18,000 - 3,000" is subtraction. A glued "-3,251" is still a negative.
+    if (sign && /\s/.test(sign) && isMathyToken(previousToken(source, offset))) {
+      return `${sign}${words}`;
+    }
+    return `${sign ? 'negative ' : ''}${words}`;
   });
+}
+
+function holdMatches(text, regex, slots) {
+  return text.replace(regex, (match) => {
+    const token = `\uE010${slots.length}\uE011`;
+    slots.push(match);
+    return token;
+  });
+}
+
+function restoreHolds(text, slots) {
+  return text.replace(/\uE010(\d+)\uE011/g, (_, index) => slots[Number(index)] ?? '');
+}
+
+function replaceSpacedDashes(text) {
+  return text.replace(/(?<=\S)(\s+)([-–])(\s+)(?=\S)/g, (match, pre, dash, post, offset, src) => {
+    const before = previousToken(src, offset);
+    const after = nextToken(src, offset + match.length);
+    if (isYearToken(before) && isYearToken(after)) return match;
+    // The en dash is a minus sign. An ASCII hyphen is a minus only beside an amount.
+    if (dash === '–' || isMathyToken(before) || isMathyToken(after)) return `${pre}minus${post}`;
+    return match;
+  });
+}
+
+function replaceUnicodeMinus(text) {
+  return text.replace(/(?<=\S)(\s*)−(\s*)(?=\S)/g, (match, pre, post, offset, src) => {
+    const before = previousToken(src, offset);
+    const after = nextToken(src, offset + match.length);
+    if (isYearToken(before) && isYearToken(after)) return match;
+    return `${pre || ' '}minus${post || ' '}`;
+  });
+}
+
+// Symbols ElevenLabs skips, spoken as the operation. Word forms already
+// in the line ("divided by", "times", "minus", "plus") are left as written.
+// Runs after phones, ZIPs, and amounts so those hyphens are already gone.
+function pronounceOperators(text) {
+  const held = [];
+  let out = holdMatches(text, /\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g, held);
+  out = holdMatches(out, /\b(?:and\/or|w\/o|n\/a|s\/he|he\/she|she\/he|his\/her)\b/gi, held);
+  out = holdMatches(out, /\bw\/(?=\s|$)/gi, held);
+
+  out = out.replace(/\s*÷\s*/g, ' divided by ');
+  out = out.replace(/(?<!\/)([^/\s])\s*\/\s*(?=[^/\s])/g, '$1 divided by ');
+  out = out.replace(/\s*[×·⋅]\s*/g, ' times ');
+  // A letter glued to * or + is not an operator ("50 x 100" is handled
+  // separately; "C++" stays). Spelled amounts still need "* two" and "+ two".
+  out = out.replace(/(?<![A-Za-z*])\*(?![*])/g, ' times ');
+  out = out.replace(/(?<![A-Za-z+])\+(?![+])/g, ' plus ');
+  out = out.replace(/<=/g, ' less than or equal to ');
+  out = out.replace(/>=/g, ' greater than or equal to ');
+  out = out.replace(/!=/g, ' does not equal ');
+  out = out.replace(/==/g, ' equals ');
+  out = out.replace(/\s*=\s*/g, ' equals ');
+  out = replaceUnicodeMinus(out);
+  out = replaceSpacedDashes(out);
+  out = restoreHolds(out, held);
+  return out.replace(/[ \t]{2,}/g, ' ').trim();
 }
 
 // Runs after state expansion. ZIPs must still be digits until a postal
@@ -755,6 +871,7 @@ function pronounceNumbers(text) {
   out = pronounceRatios(out);
   out = pronounceZips(out);
   out = pronounceCommaNumbers(out);
+  out = pronounceOperators(out);
   return out;
 }
 
