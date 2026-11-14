@@ -40,6 +40,13 @@ h1 {
   font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 1.4px;
 }
 .download:disabled { opacity: 0.6; cursor: wait; }
+.download-secondary {
+  background: transparent; color: var(--gold); border: 1px solid rgba(200, 155, 60, 0.55); text-decoration: none;
+}
+.hero-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.disclosure { margin: 12px 0 0; font-size: 12px; line-height: 1.5; color: var(--grey); max-width: 62ch; }
+.note-sign { margin: 16px 0 0; font-family: 'Bebas Neue', sans-serif; font-size: 26px; letter-spacing: 1px; color: var(--gold); }
+.call-included { font-size: 13px; color: var(--grey-light); margin: 8px 0 14px; }
 .status { min-height: 1.4em; margin: 12px 0 0; font-size: 13px; color: var(--grey-light); }
 .cover-flat { width: min(240px, 100%); }
 .cover-flat img {

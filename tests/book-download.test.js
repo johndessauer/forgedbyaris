@@ -170,11 +170,14 @@ test('the coaching link stays out of public pages and public scripts', () => {
 
   const investor = read('unlocks/investor.html');
   assert.match(investor, /Your 3 coaching calls with John/);
-  assert.match(investor, /Calls used: 0 of 3/);
-  assert.match(investor, /This count is not tracked/);
+  assert.match(investor, /3 calls included with Investor/);
+  assert.equal(investor.includes('Calls used:'), false);
+  assert.equal(investor.includes('Placeholder'), false);
   assert.match(investor, /id="coaching-book-btn"[^>]*disabled/);
+  assert.match(investor, /Book Your First Coaching Call/);
+  assert.match(investor, /Download Apartment Confidential/);
   assert.equal(/<a[^>]*coaching-book-btn/.test(investor), false);
-  assert.match(investor, /You've unlocked Apartment Confidential/);
+  assert.match(investor, /You've Unlocked Investor: 3 Coaching Calls with Me, plus Apartment Confidential/);
   assert.match(investor, /data-level="investor"/);
   assert.match(investor, /src="\/assets\/apartment-confidential-cover-3d\.jpg"/);
   assert.match(investor, /alt="3D cover of Apartment Confidential, a black hardcover by John Dessauer"/);
@@ -184,13 +187,15 @@ test('the coaching link stays out of public pages and public scripts', () => {
   assert.match(publicBook, /href="\/assets\/apartment-confidential\.pdf"/);
 
   const rookie = read('unlocks/rookie.html');
-  assert.match(rookie, /You've unlocked Real Estate H2O/);
+  assert.match(rookie, /You've Unlocked Real Estate H2O/);
   assert.match(rookie, /src="\/assets\/real-estate-h2o-cover\.jpg"/);
   assert.match(rookie, /alt="Cover of Real Estate H2O by John Dessauer: a marina and glass towers under the title Real Estate H2O"/);
   assert.equal(rookie.includes('cover-placeholder'), false);
   assert.match(rookie, /data-level="rookie"/);
-  assert.match(rookie, /Placeholder copy\. John has to approve this wording\./);
-  assert.match(rookie, /id="ira-bonus"/);
+  assert.equal(rookie.includes('Placeholder'), false);
+  assert.match(rookie, /Download Real Estate H2O/);
+  assert.match(rookie, /Book a Directed IRA consult \(optional\)/);
+  assert.match(rookie, /Directed IRA is an independent company\. FORGE may receive a referral fee\./);
   assert.equal(rookie.includes('coaching-book-btn'), false);
 
   const edge = read('netlify/edge-functions/member-page.js');

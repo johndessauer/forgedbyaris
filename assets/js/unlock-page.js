@@ -84,7 +84,7 @@
               link.target = '_blank';
               link.rel = 'noopener';
               link.className = 'book-call';
-              link.textContent = 'Book your call';
+              link.textContent = 'Book Your First Coaching Call';
               callButton.replaceWith(link);
             }
           }

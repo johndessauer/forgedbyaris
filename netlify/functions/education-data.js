@@ -22,6 +22,7 @@ const { enforceMembership, isEmpireCategory, empireLessonPayload } = require('./
 const { supabase } = require('./_Lib/supabase-client');
 const { json, preflight } = require('./_Lib/http');
 const { TIER_ORDER, badgesFromProgress } = require('./_Lib/education-badges');
+const { progressAfterPass, scheduleUnlockTags } = require('./_Lib/unlock-tags');
 
 // Pass threshold per tier, expressed as exact fractions of question count —
 // NOT rounded decimals. All three tiers now have exactly 12 questions per
@@ -209,6 +210,27 @@ exports.handler = async function (event, context) {
         const total = questions.length;
         const passed = total > 0 && (score / total) >= (PASS_THRESHOLD[effectiveTier] ?? 1.0);
 
+        // Snapshot badges before the write. A read after the upsert can
+        // already include this pass, which would hide a first-time earn.
+        let badgeSnapshot = null;
+        if (passed) {
+          try {
+            const { data: published, error: publishedError } = await supabase
+              .from('education_modules')
+              .select('id')
+              .eq('published', true);
+            if (publishedError) throw publishedError;
+            const { data: priorRows, error: rowsError } = await supabase
+              .from('education_progress')
+              .select('module_id, tier, passed')
+              .eq('memberstack_id', memberId);
+            if (rowsError) throw rowsError;
+            badgeSnapshot = { modules: published || [], progress: priorRows || [] };
+          } catch (snapshotErr) {
+            console.error('unlock badge snapshot failed:', snapshotErr && snapshotErr.message);
+          }
+        }
+
         const { error: upsertError } = await supabase
           .from('education_progress')
           .upsert(
@@ -225,6 +247,15 @@ exports.handler = async function (event, context) {
             { onConflict: 'memberstack_id,module_id,tier' }
           );
         if (upsertError) throw upsertError;
+
+        if (passed && badgeSnapshot) {
+          const before = badgesFromProgress(badgeSnapshot.modules, badgeSnapshot.progress);
+          const after = badgesFromProgress(
+            badgeSnapshot.modules,
+            progressAfterPass(badgeSnapshot.progress, moduleId, effectiveTier)
+          );
+          scheduleUnlockTags(memberId, before, after);
+        }
 
         const nextTier = passed ? getNextTier(effectiveTier) : null;
 
