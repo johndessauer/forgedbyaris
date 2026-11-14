@@ -18,8 +18,13 @@
 // the number ("and" only between dollars and cents). ZIP codes, phone
 // numbers, and property IDs are spoken one digit at a time ("oh" for
 // zero). Street numbers and years stay written digits. Formula operators
-// are spoken too (divided by, times, minus, plus, equals). A hyphen in a
-// word, street number, phone, ZIP, or year range is not a minus.
+// are spoken too (divided by, times, minus, plus, equals). A slash before a
+// period unit (/mo, /yr, /sf, and the rest) is "per", not division. A number
+// glued to x is "times"; a spaced x, as in a lot size, is left as written.
+// Currency suffixes K, M, MM, and B scale the amount ("forty thousand
+// dollars", "one point five million dollars"). A leading ~ or ≈ before a
+// figure is "about". A hyphen in a word, street number, phone, ZIP, or
+// year range is not a minus.
 
 export const SPEECH_CHAR_LIMIT = 5000;
 
@@ -38,7 +43,9 @@ FORGE property and market figures are United States dollars unless the member ex
 - Percentages, cap rates, ratios, and calculated results stay in the units given.
 - This does not depend on account age, an empty profile, saved preferences, or the browser's language. A new account with no settings is still US dollars by default.`;
 
-const NUMBER = String.raw`(?<num>\d{1,3}(?:,\d{3})+|\d+)(?:\.(?<dec>\d+))?`;
+// A glued K/M/MM/B is a scale, not a leftover letter. "MM" is tried before
+// "M" so $1.5MM is million. The lookahead keeps $40Kitchen intact.
+const NUMBER = String.raw`(?<num>\d{1,3}(?:,\d{3})+|\d+)(?:\.(?<dec>\d+))?(?:(?<scale>MM|M|K|B)(?![\p{L}\d]))?`;
 
 const ISO_UNIT = {
   USD: 'dollars',
@@ -81,6 +88,11 @@ const ABBREVIATIONS = [
   ['ROI', 'return on investment'],
   ['NOIs', 'net operating incomes'],
   ['NOI', 'net operating income'],
+  // Same full-word style as DSCR and ARV. CoCR before CoC. CoC stays
+  // "cash-on-cash" so "CoC return" and "CoC ~23%" do not gain a second "return".
+  ['PITI', 'principal, interest, taxes, and insurance'],
+  ['CoCR', 'cash-on-cash return'],
+  ['CoC', 'cash-on-cash'],
 ];
 
 const FOREIGN_DETECTORS = [
@@ -194,6 +206,9 @@ function isNegative(groups) {
 // The symbol or code becomes a number plus a unit. pronounceNumbers
 // spells that number later, after state names are chosen, so a ZIP is
 // still digits while "TX 78701" is resolved.
+// A glued scale is spoken here. "1.5 million dollars" has to keep the
+// scale word between the number and the unit; multiplying $1.5M out to
+// 1500000 would say "one million five hundred thousand" instead.
 // A spaced minus before a later amount is subtraction ("$200,000 - $18,000").
 // A glued minus is still the sign of a negative ("-$1,250").
 function isBinaryMinus(source, offset, groups) {
@@ -202,10 +217,33 @@ function isBinaryMinus(source, offset, groups) {
   return isMathyToken(previousToken(source, offset));
 }
 
+function scaleWord(scale) {
+  const token = String(scale || '').toUpperCase();
+  if (token === 'K') return 'thousand';
+  if (token === 'M' || token === 'MM') return 'million';
+  if (token === 'B') return 'billion';
+  return '';
+}
+
+function speakScaledNumber(num, scale) {
+  const word = scaleWord(scale);
+  if (!word) return null;
+  const [intPart, decPart] = String(num).split('.');
+  const words = integerToWords(intPart);
+  if (!words) return null;
+  if (decPart == null || decPart === '') return `${words} ${word}`;
+  return `${words} point ${speakPointDigits(decPart)} ${word}`;
+}
+
 function spell(groups, unit, binaryMinus = false) {
   const num = amount(groups);
   if (num == null) return null;
-  const spoken = `${binaryMinus ? '' : (isNegative(groups) ? 'negative ' : '')}${num} ${unit}`;
+  let spokenNumber = num;
+  if (groups.scale) {
+    spokenNumber = speakScaledNumber(num, groups.scale);
+    if (!spokenNumber) return null;
+  }
+  const spoken = `${binaryMinus ? '' : (isNegative(groups) ? 'negative ' : '')}${spokenNumber} ${unit}`;
   if (!binaryMinus) return spoken;
   const sign = groups.sign || '';
   return `${sign}${spoken}`;
@@ -263,6 +301,19 @@ function normalizeCurrency(text) {
   out = replaceNamed(out, symbolPattern(String.raw`US\$`), 'dollars');
   out = replaceNamed(out, symbolPattern(String.raw`\$`, { trail: true }), 'dollars');
   return out;
+}
+
+// "~" or "≈" leads a figure ("~23%", "~$5,000", "CoC~23%"). A tilde that
+// does not introduce a number or currency symbol stays, so "a ~ b" is left.
+function normalizeApproximations(text) {
+  return text.replace(
+    /[~≈]\s*(?=(?:AU|CA|NZ|HK|NT|US|A|C|S)?\$|[£€]|\d|(?:USD|GBP|EUR|CAD|AUD|NZD)\b)/giu,
+    (match, offset, source) => {
+      const prev = offset > 0 ? source[offset - 1] : '';
+      const lead = prev && !/[\s([{"'“‘]/.test(prev) ? ' ' : '';
+      return `${lead}about `;
+    }
+  );
 }
 
 function expandAbbreviations(text) {
@@ -737,6 +788,16 @@ function pronounceRatios(text) {
   });
 }
 
+// "1.25x" and "2x" are multipliers. A space before x is not ("50 x 100"),
+// and an x with another letter or digit glued on is not ("2x4", "0xFF").
+function pronounceMultipliers(text) {
+  const re = /(?<![\p{L}\d.,])(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d+))?[xX]\b/gu;
+  return replaceGuarded(text, re, (args) => {
+    const words = speakPlainNumber(args[1], args[2]);
+    return words == null ? null : `${words} times`;
+  });
+}
+
 function pronounceZips(text) {
   const re = /(?<![\p{L}\d.])(\d{5})(?:-(\d{4}))?(?![\p{L}\d])/gu;
   return replaceGuarded(text, re, (args, offset) => {
@@ -833,6 +894,29 @@ function replaceUnicodeMinus(text) {
   });
 }
 
+const RATE_SHORTHANDS = {
+  month: 'per month',
+  mo: 'per month',
+  year: 'per year',
+  yr: 'per year',
+  wk: 'per week',
+  day: 'per day',
+  sqft: 'per square foot',
+  'sq ft': 'per square foot',
+  sf: 'per square foot',
+  unit: 'per unit',
+};
+
+// Before state names and before "/" becomes "divided by". Uppercase
+// "/MO" would otherwise be read as Missouri. "$18,000 / $200,000" has no
+// unit word, so that slash is left for the operator pass.
+function pronounceRateShorthands(text) {
+  return text.replace(/\s*\/\s*(month|mo|year|yr|wk|day|sqft|sq\s+ft|sf|unit)\b/gi, (_, unit) => {
+    const spoken = RATE_SHORTHANDS[unit.replace(/\s+/g, ' ').toLowerCase()];
+    return spoken ? ` ${spoken}` : _;
+  });
+}
+
 // Symbols ElevenLabs skips, spoken as the operation. Word forms already
 // in the line ("divided by", "times", "minus", "plus") are left as written.
 // Runs after phones, ZIPs, and amounts so those hyphens are already gone.
@@ -869,6 +953,7 @@ function pronounceNumbers(text) {
   out = pronounceMoney(out);
   out = pronouncePercents(out);
   out = pronounceRatios(out);
+  out = pronounceMultipliers(out);
   out = pronounceZips(out);
   out = pronounceCommaNumbers(out);
   out = pronounceOperators(out);
@@ -879,7 +964,11 @@ export function normalizeSpeechText(raw) {
   const stripped = stripMarkdownForSpeech(raw);
   if (!stripped) return '';
   const { masked, slots } = maskProtected(stripped);
-  const normalized = expandStateAbbreviations(expandAbbreviations(normalizeCurrency(masked)));
+  const normalized = expandStateAbbreviations(
+    expandAbbreviations(
+      pronounceRateShorthands(normalizeCurrency(normalizeApproximations(masked)))
+    )
+  );
   return unmask(pronounceNumbers(normalized), slots);
 }
 
