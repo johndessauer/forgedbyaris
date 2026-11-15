@@ -156,6 +156,7 @@ html { height: 100%; }
 </style>
 <script src="https://static.memberstack.com/scripts/v1/memberstack.js" data-memberstack-app="app_cmr41qq5500q80tsx94pj61rc" defer></script>
 <script src="/assets/js/ref-capture.js"></script>
+<script src="/assets/js/member-preferences.js"></script>
 </head>
 <body>
 <div class="app">
@@ -415,6 +416,7 @@ async function initLabPage() {
 
     currentMemberId = member.id;
     memberToken = await memberstack.getMemberCookie();
+    await applySavedVoicePreference();
 
     const customFields = member.customFields || {};
     const fullName = customFields['full-name'] || member.auth?.email || 'Member';
@@ -689,6 +691,21 @@ async function playCarolVoice(text) {
     console.error('Voice playback failed:', err);
     // Fails silently in the UI — the text response is already visible in
     // the transcript, so a voice failure shouldn't block the conversation.
+  }
+}
+
+async function applySavedVoicePreference() {
+  if (!window.ForgePreferences || !memberToken) return;
+  try {
+    const prefs = await window.ForgePreferences.load(memberToken);
+    if (window.ForgePreferences.voiceRepliesOn(prefs)) return;
+    voiceMuted = true;
+    const btn = document.getElementById('mute-toggle');
+    if (!btn) return;
+    btn.classList.add('muted');
+    btn.textContent = '🔇 Voice Off';
+  } catch (err) {
+    console.error('Could not load ARIS voice preference:', err);
   }
 }
 

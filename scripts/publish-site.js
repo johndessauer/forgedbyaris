@@ -30,6 +30,7 @@ const PRIVATE_DIRS = new Set([
   'tests',
   'scripts',
   'supabase',
+  'sql',
   'node_modules',
   '.github',
   '.git',

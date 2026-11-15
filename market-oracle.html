@@ -267,6 +267,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 </style>
 <script src="https://static.memberstack.com/scripts/v1/memberstack.js" data-memberstack-app="app_cmr41qq5500q80tsx94pj61rc" defer></script>
 <script src="/assets/js/ref-capture.js"></script>
+<script src="/assets/js/member-preferences.js"></script>
 </head>
 <body>
 <div class="app">
@@ -1341,6 +1342,16 @@ window.addEventListener('load', async () => {
     }
 
     memberToken = await memberstack.getMemberCookie();
+    if (window.ForgePreferences && memberToken) {
+      try {
+        const prefs = await window.ForgePreferences.load(memberToken);
+        const market = window.ForgePreferences.defaultMarket(prefs);
+        const input = document.getElementById('searchInput');
+        if (market && input && !input.value.trim()) input.value = market;
+      } catch (err) {
+        console.error('Could not load default market:', err);
+      }
+    }
   } catch(e) {}
 });
 
