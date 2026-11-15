@@ -1,6 +1,8 @@
 // netlify/functions/crm-contacts.js
 //
-// CRUD for CRM contacts (sellers, buyers, lenders, contractors).
+// CRUD for CRM contacts. Types live in assets/js/contact-types.js
+// (seller, buyer, lender, contractor, and the deal-team roles added
+// later, plus other). type_label is the custom badge text for other.
 // Every request must carry a valid Memberstack Bearer token.
 // All queries are scoped to the verified member ID — a client can never
 // read or write another member's contacts by supplying a different ID.
@@ -8,14 +10,13 @@
 // Routes (via action field in body, or query string for GET):
 //   GET  ?action=list                       -> list all contacts for this member
 //   GET  ?action=list&type=lender           -> list contacts filtered by type
-//   POST { action: 'create', name, type, phone, email }
+//   POST { action: 'create', name, type, type_label, phone, email }
 //   POST { action: 'update', id, ...fields to change }
 
 const { enforceMembership } = require('./_Lib/membership');
 const { supabase } = require('./_Lib/supabase-client');
 const { json, preflight } = require('./_Lib/http');
-
-const VALID_TYPES = ['seller', 'buyer', 'lender', 'contractor'];
+const { VALID_TYPES, resolveContactType } = require('../../assets/js/contact-types');
 
 exports.handler = async function (event, context) {
   if (event.httpMethod === 'OPTIONS') return preflight();
@@ -84,13 +85,19 @@ exports.handler = async function (event, context) {
         if (!name || !type) {
           return json(400, { error: 'name and type are required' });
         }
-        if (!VALID_TYPES.includes(type)) {
-          return json(400, { error: `Invalid type. Must be one of: ${VALID_TYPES.join(', ')}` });
-        }
+        const resolved = resolveContactType(type, payload.type_label);
+        if (resolved.error) return json(400, { error: resolved.error });
 
         const { data, error } = await supabase
           .from('contacts')
-          .insert({ memberstack_id: memberId, name, type, phone: phone || null, email: email || null })
+          .insert({
+            memberstack_id: memberId,
+            name,
+            type: resolved.type,
+            type_label: resolved.type_label,
+            phone: phone || null,
+            email: email || null,
+          })
           .select()
           .single();
 
@@ -102,17 +109,17 @@ exports.handler = async function (event, context) {
         const { id, ...fields } = payload;
         if (!id) return json(400, { error: 'id is required' });
 
-        const allowed = ['name', 'type', 'phone', 'email'];
+        const allowed = ['name', 'type', 'type_label', 'phone', 'email'];
         const updates = {};
         for (const key of allowed) {
-          if (key in fields) updates[key] = fields[key];
-        }
-        if (updates.type && !VALID_TYPES.includes(updates.type)) {
-          return json(400, { error: `Invalid type. Must be one of: ${VALID_TYPES.join(', ')}` });
+          if (Object.prototype.hasOwnProperty.call(fields, key)) updates[key] = fields[key];
         }
         if (Object.keys(updates).length === 0) {
           return json(400, { error: 'No valid fields to update' });
         }
+
+        const typeResult = await normalizeTypeUpdate(updates, id, memberId);
+        if (!typeResult.ok) return json(typeResult.status, { error: typeResult.error });
 
         // memberstack_id filter here is what prevents editing another
         // member's contact even if they somehow guessed a valid id.
@@ -138,3 +145,33 @@ exports.handler = async function (event, context) {
     return json(500, { error: 'Internal server error' });
   }
 };
+
+// Fill type + type_label together so a partial update can't leave
+// other without a label, or leave a custom label on a fixed type.
+async function normalizeTypeUpdate(updates, id, memberId) {
+  const hasType = Object.prototype.hasOwnProperty.call(updates, 'type');
+  const hasLabel = Object.prototype.hasOwnProperty.call(updates, 'type_label');
+  if (!hasType && !hasLabel) return { ok: true };
+
+  let type = hasType ? updates.type : undefined;
+  let typeLabel = hasLabel ? updates.type_label : undefined;
+
+  if (!hasType || (type === 'other' && !hasLabel)) {
+    const { data, error } = await supabase
+      .from('contacts')
+      .select('type, type_label')
+      .eq('id', id)
+      .eq('memberstack_id', memberId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return { ok: false, status: 404, error: 'Contact not found' };
+    if (!hasType) type = data.type;
+    if (!hasLabel) typeLabel = data.type_label;
+  }
+
+  const resolved = resolveContactType(type, typeLabel);
+  if (resolved.error) return { ok: false, status: 400, error: resolved.error };
+  updates.type = resolved.type;
+  updates.type_label = resolved.type_label;
+  return { ok: true };
+}

@@ -105,9 +105,10 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 .kanban-empty { font-size: 11px; color: var(--grey); text-align: center; padding: 20px 6px; }
 
 /* ── CONTACTS ── */
-.contacts-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; gap: 12px; }
-.filter-chips { display: flex; gap: 6px; }
-.filter-chip { font-size: 11px; font-weight: 600; padding: 6px 12px; border-radius: 14px; border: 1px solid var(--border-sub); color: var(--grey-light); cursor: pointer; background: none; transition: all 0.15s; }
+.contacts-toolbar { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; gap: 12px; flex-wrap: wrap; }
+.filter-chips { display: flex; gap: 6px; flex: 1 1 240px; min-width: 0; max-width: 100%; flex-wrap: wrap; align-items: center; }
+.filter-chip { font-size: 11px; font-weight: 600; padding: 6px 12px; border-radius: 14px; border: 1px solid var(--border-sub); color: var(--grey-light); cursor: pointer; background: none; transition: all 0.15s; white-space: nowrap; }
+.contacts-actions { display: flex; gap: 8px; flex-shrink: 0; flex-wrap: wrap; }
 .filter-chip:hover { color: var(--white); }
 .filter-chip.active { background: var(--orange-dim); border-color: rgba(255,107,43,0.3); color: var(--orange); }
 .contacts-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
@@ -180,10 +181,16 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--green); color: white; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; z-index: 999; }
 .toast.error { background: var(--red); }
 
-@media (max-width: 768px) { .sidebar { display: none; } .content-scroll { padding: 16px; } }
+@media (max-width: 768px) {
+  .sidebar { display: none; }
+  .content-scroll { padding: 16px; }
+  .contacts-toolbar { flex-direction: column; align-items: stretch; }
+  .filter-chips { flex: none; width: 100%; align-items: center; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin; padding-bottom: 4px; }
+}
 </style>
 <script src="https://static.memberstack.com/scripts/v1/memberstack.js" data-memberstack-app="app_cmr41qq5500q80tsx94pj61rc" defer></script>
 <script src="/assets/js/ref-capture.js"></script>
+<script src="/assets/js/contact-types.js"></script>
 </head>
 <body>
 <div class="app">
@@ -261,8 +268,20 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
             <button class="filter-chip" data-type="buyer" onclick="setContactFilter('buyer')">Buyers</button>
             <button class="filter-chip" data-type="lender" onclick="setContactFilter('lender')">Lenders</button>
             <button class="filter-chip" data-type="contractor" onclick="setContactFilter('contractor')">Contractors</button>
+            <button class="filter-chip" data-type="attorney" onclick="setContactFilter('attorney')">Attorneys</button>
+            <button class="filter-chip" data-type="accountant" onclick="setContactFilter('accountant')">Accountants/CPAs</button>
+            <button class="filter-chip" data-type="title_escrow" onclick="setContactFilter('title_escrow')">Title/Escrow</button>
+            <button class="filter-chip" data-type="inspector" onclick="setContactFilter('inspector')">Inspectors</button>
+            <button class="filter-chip" data-type="appraiser" onclick="setContactFilter('appraiser')">Appraisers</button>
+            <button class="filter-chip" data-type="surveyor" onclick="setContactFilter('surveyor')">Surveyors</button>
+            <button class="filter-chip" data-type="engineer" onclick="setContactFilter('engineer')">Engineers</button>
+            <button class="filter-chip" data-type="property_manager" onclick="setContactFilter('property_manager')">Property Managers</button>
+            <button class="filter-chip" data-type="insurance_agent" onclick="setContactFilter('insurance_agent')">Insurance Agents</button>
+            <button class="filter-chip" data-type="agent_broker" onclick="setContactFilter('agent_broker')">Agents/Brokers</button>
+            <button class="filter-chip" data-type="wholesaler" onclick="setContactFilter('wholesaler')">Wholesalers</button>
+            <button class="filter-chip" data-type="other" onclick="setContactFilter('other')">Other</button>
           </div>
-          <div style="display:flex; gap:8px;">
+          <div class="contacts-actions">
             <input type="file" id="csv-import-input" accept=".csv" style="display:none;" onchange="handleCSVFileSelect(event)">
             <button class="btn-secondary" onclick="exportContactsCSV()">Export CSV</button>
             <button class="btn-secondary" onclick="document.getElementById('csv-import-input').click()">Import CSV</button>
@@ -405,12 +424,28 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
       </div>
       <div class="form-group">
         <label class="form-label">Type</label>
-        <select class="form-select" id="contact-type">
+        <select class="form-select" id="contact-type" onchange="syncContactTypeLabelField()">
           <option value="seller">Seller</option>
           <option value="buyer">Buyer</option>
           <option value="lender">Lender</option>
           <option value="contractor">Contractor</option>
+          <option value="attorney">Attorney</option>
+          <option value="accountant">Accountant/CPA</option>
+          <option value="title_escrow">Title/Escrow</option>
+          <option value="inspector">Inspector</option>
+          <option value="appraiser">Appraiser</option>
+          <option value="surveyor">Surveyor</option>
+          <option value="engineer">Engineer</option>
+          <option value="property_manager">Property Manager</option>
+          <option value="insurance_agent">Insurance Agent</option>
+          <option value="agent_broker">Agent/Broker</option>
+          <option value="wholesaler">Wholesaler</option>
+          <option value="other">Other</option>
         </select>
+      </div>
+      <div class="form-group" id="contact-type-label-group" style="display:none;">
+        <label class="form-label" for="contact-type-label">Custom label</label>
+        <input class="form-input" id="contact-type-label" maxlength="60" placeholder="e.g. Architect" autocomplete="off">
       </div>
       <div class="form-group">
         <label class="form-label">Phone</label>
@@ -1262,7 +1297,7 @@ function renderDealContacts() {
     row.innerHTML = `
       <div style="flex:1;">
         <span style="font-weight:600; color:var(--white);">${escapeHtml(c.name)}</span>
-        <span style="color:var(--gold); text-transform:capitalize; font-size:10px; margin-left:6px;">${escapeHtml(c.type)}</span>
+        <span style="color:var(--gold); font-size:10px; margin-left:6px;">${escapeHtml(contactBadge(c))}</span>
         ${c.role ? `<span style="color:var(--grey); font-size:10px; margin-left:6px;">· ${escapeHtml(c.role)}</span>` : ''}
       </div>
       <button class="btn-secondary" style="padding:4px 8px; font-size:11px;" onclick="unlinkContactFromDeal('${c.id}')">Remove</button>
@@ -1285,7 +1320,7 @@ async function populateContactPicker() {
       return;
     }
     picker.innerHTML = '<option value="">Select a contact...</option>' +
-      available.map(c => `<option value="${c.id}">${escapeHtml(c.name)} (${c.type})</option>`).join('');
+      available.map(c => `<option value="${c.id}">${escapeHtml(c.name)} (${escapeHtml(contactBadge(c))})</option>`).join('');
   } catch (e) {
     picker.innerHTML = '<option value="">Could not load contacts</option>';
   }
@@ -1324,13 +1359,27 @@ function setContactFilter(type) {
   loadContacts();
 }
 
+function contactBadge(contact) {
+  return ForgeContactTypes.badgeLabel(contact);
+}
+
+function syncContactTypeLabelField() {
+  const type = document.getElementById('contact-type').value;
+  document.getElementById('contact-type-label-group').style.display = type === 'other' ? '' : 'none';
+}
+
 function renderContacts() {
   const root = document.getElementById('contacts-root');
   if (!allContacts.length) {
+    const filtered = ForgeContactTypes.CONTACT_TYPES.find(t => t.value === contactFilter);
+    const title = !filtered ? 'No contacts yet' : (filtered.value === 'other' ? 'No other contacts yet' : `No ${filtered.chip.toLowerCase()} yet`);
+    const sub = filtered
+      ? 'Nothing in this filter yet. Add a contact of this type, or choose All.'
+      : 'Add sellers, buyers, lenders, contractors, and the rest of your deal team.';
     root.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">
       <div class="empty-state-icon">👥</div>
-      <div class="empty-state-title">No contacts yet</div>
-      <div class="empty-state-sub">Add sellers, buyers, lenders, or contractors to build your network.</div>
+      <div class="empty-state-title">${escapeHtml(title)}</div>
+      <div class="empty-state-sub">${escapeHtml(sub)}</div>
     </div>`;
     return;
   }
@@ -1341,7 +1390,7 @@ function renderContacts() {
     card.onclick = () => openContactModal(c.id);
     card.innerHTML = `
       <div class="contact-card-name">${escapeHtml(c.name)}</div>
-      <div class="contact-card-type">${c.type}</div>
+      <div class="contact-card-type">${escapeHtml(contactBadge(c))}</div>
       <div class="contact-card-info">${escapeHtml(c.phone || '')}${c.phone && c.email ? ' · ' : ''}${escapeHtml(c.email || '')}</div>
     `;
     root.appendChild(card);
@@ -1353,7 +1402,10 @@ function openContactModal(contactId = null) {
   const contact = contactId ? allContacts.find(c => c.id === contactId) : null;
   document.getElementById('contact-modal-title').textContent = contact ? 'Edit Contact' : 'Add Contact';
   document.getElementById('contact-name').value = contact ? contact.name : '';
-  document.getElementById('contact-type').value = contact ? contact.type : 'seller';
+  const knownType = contact && ForgeContactTypes.VALID_TYPES.includes(contact.type);
+  document.getElementById('contact-type').value = knownType ? contact.type : 'seller';
+  document.getElementById('contact-type-label').value = contact && contact.type === 'other' ? (contact.type_label || '') : '';
+  syncContactTypeLabelField();
   document.getElementById('contact-phone').value = contact ? (contact.phone || '') : '';
   document.getElementById('contact-email').value = contact ? (contact.email || '') : '';
   document.getElementById('contact-detail-extra').style.display = contact ? 'block' : 'none';
@@ -1364,15 +1416,24 @@ function openContactModal(contactId = null) {
 async function saveContact() {
   const name = document.getElementById('contact-name').value.trim();
   const type = document.getElementById('contact-type').value;
+  const typeLabel = document.getElementById('contact-type-label').value.trim();
   const phone = document.getElementById('contact-phone').value.trim();
   const email = document.getElementById('contact-email').value.trim();
   if (!name) { showToast('Name is required', true); return; }
+  if (!ForgeContactTypes.VALID_TYPES.includes(type)) { showToast('Pick a contact type', true); return; }
+  let type_label = null;
+  if (type === 'other') {
+    const cleaned = ForgeContactTypes.cleanTypeLabel(typeLabel);
+    if (!cleaned.ok) { showToast(cleaned.error, true); return; }
+    type_label = cleaned.value;
+  }
+  const fields = { name, type, type_label, phone, email };
   try {
     if (activeContactId) {
-      await apiCall('crm-contacts', { method: 'POST', body: JSON.stringify({ action: 'update', id: activeContactId, name, type, phone, email }) });
+      await apiCall('crm-contacts', { method: 'POST', body: JSON.stringify({ action: 'update', id: activeContactId, ...fields }) });
       showToast('Contact updated');
     } else {
-      await apiCall('crm-contacts', { method: 'POST', body: JSON.stringify({ action: 'create', name, type, phone, email }) });
+      await apiCall('crm-contacts', { method: 'POST', body: JSON.stringify({ action: 'create', ...fields }) });
       showToast('Contact added');
     }
     closeModal('contact-overlay');
@@ -1420,8 +1481,8 @@ function csvEscape(val) {
 
 function exportContactsCSV() {
   if (!allContacts.length) { showToast('No contacts to export', true); return; }
-  const header = ['name', 'type', 'phone', 'email'];
-  const rows = allContacts.map(c => [c.name, c.type, c.phone || '', c.email || ''].map(csvEscape).join(','));
+  const header = ['name', 'type', 'type_label', 'phone', 'email'];
+  const rows = allContacts.map(c => [c.name, c.type, c.type === 'other' ? (c.type_label || '') : '', c.phone || '', c.email || ''].map(csvEscape).join(','));
   const csv = [header.join(','), ...rows].join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
@@ -1439,7 +1500,7 @@ function exportContactsCSV() {
 // ─────────────────────────────────────────────────────────
 // CSV IMPORT
 // ─────────────────────────────────────────────────────────
-const VALID_CONTACT_TYPES = ['seller', 'buyer', 'lender', 'contractor'];
+const VALID_CONTACT_TYPES = ForgeContactTypes.VALID_TYPES;
 let pendingImportRows = []; // rows the user has approved to actually import, set after review
 
 // Minimal CSV line parser handling quoted fields with embedded commas/quotes.
@@ -1493,6 +1554,8 @@ function processImportCSV(text) {
   const typeIdx = headerRow.indexOf('type');
   const phoneIdx = headerRow.indexOf('phone');
   const emailIdx = headerRow.indexOf('email');
+  let labelIdx = headerRow.indexOf('type_label');
+  if (labelIdx === -1) labelIdx = headerRow.indexOf('custom_label');
 
   if (nameIdx === -1) {
     showToast('CSV must have a "name" column (also supports type, phone, email)', true);
@@ -1508,12 +1571,23 @@ function processImportCSV(text) {
     const r = rows[i];
     const name = (r[nameIdx] || '').trim();
     if (!name) { skippedCount++; continue; }
-    let type = (typeIdx > -1 ? (r[typeIdx] || '').trim().toLowerCase() : '') || 'buyer';
-    if (!VALID_CONTACT_TYPES.includes(type)) type = 'buyer';
+    const rawType = typeIdx > -1 ? (r[typeIdx] || '').trim() : '';
+    const rawLabel = labelIdx > -1 ? (r[labelIdx] || '').trim() : '';
+    const normalized = ForgeContactTypes.normalizeImportedType(rawType, rawLabel);
+    if (!VALID_CONTACT_TYPES.includes(normalized.type)) normalized.type = 'buyer';
     const phone = phoneIdx > -1 ? (r[phoneIdx] || '').trim() : '';
     const email = emailIdx > -1 ? (r[emailIdx] || '').trim() : '';
     const isDup = email && existingByEmail[email.toLowerCase()];
-    parsed.push({ name, type, phone, email, isDup: !!isDup, include: !isDup });
+    parsed.push({
+      name,
+      type: normalized.type,
+      type_label: normalized.type_label,
+      phone,
+      email,
+      isDup: !!isDup,
+      invalidLabel: !!normalized.invalidLabel,
+      include: !isDup && !normalized.invalidLabel,
+    });
   }
 
   if (!parsed.length) {
@@ -1541,7 +1615,7 @@ function renderImportReview(parsed, skippedCount) {
       <input type="checkbox" ${row.include ? 'checked' : ''} onchange="pendingImportRows[${idx}].include = this.checked">
       <div class="import-row-info">
         <div class="import-row-name">${escapeHtml(row.name)}</div>
-        <div class="import-row-meta">${row.type}${row.email ? ' · ' + escapeHtml(row.email) : ''}${row.phone ? ' · ' + escapeHtml(row.phone) : ''}</div>
+        <div class="import-row-meta">${escapeHtml(contactBadge(row))}${row.invalidLabel ? ' · Other needs a custom label (type_label column)' : ''}${row.email ? ' · ' + escapeHtml(row.email) : ''}${row.phone ? ' · ' + escapeHtml(row.phone) : ''}</div>
       </div>
       <span class="import-row-badge ${row.isDup ? 'dup' : 'new'}">${row.isDup ? 'Possible duplicate' : 'New'}</span>
     `;
@@ -1563,7 +1637,7 @@ async function confirmCSVImport() {
     try {
       await apiCall('crm-contacts', {
         method: 'POST',
-        body: JSON.stringify({ action: 'create', name: row.name, type: row.type, phone: row.phone, email: row.email })
+        body: JSON.stringify({ action: 'create', name: row.name, type: row.type, type_label: row.type === 'other' ? row.type_label : null, phone: row.phone, email: row.email })
       });
       successCount++;
     } catch (e) {
