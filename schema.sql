@@ -13,15 +13,52 @@ create extension if not exists "pgcrypto"; -- for gen_random_uuid()
 
 -- ---------------------------------------------------------------------
 -- contacts
+-- type_label is required only when type = 'other' (the custom role shown
+-- on the card badge, for example "Architect"). seller, buyer, lender,
+-- and contractor rows leave type_label null, so contacts created before
+-- the extra roles still satisfy the check.
+--
+-- create table if not exists does not change a database that already has
+-- this table. Those projects need sql/migrations/add-crm-contact-types.sql.
 -- ---------------------------------------------------------------------
 create table if not exists contacts (
   id uuid primary key default gen_random_uuid(),
   memberstack_id text not null,
   name text not null,
-  type text not null check (type in ('seller', 'buyer', 'lender', 'contractor')),
+  type text not null,
+  type_label text,
   phone text,
   email text,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  constraint contacts_type_check check (type in (
+    'seller',
+    'buyer',
+    'lender',
+    'contractor',
+    'attorney',
+    'accountant',
+    'title_escrow',
+    'inspector',
+    'appraiser',
+    'surveyor',
+    'engineer',
+    'property_manager',
+    'insurance_agent',
+    'agent_broker',
+    'wholesaler',
+    'other'
+  )),
+  constraint contacts_type_label_check check (
+    (
+      type = 'other'
+      and type_label is not null
+      and char_length(btrim(type_label)) between 1 and 60
+    )
+    or (
+      type <> 'other'
+      and type_label is null
+    )
+  )
 );
 
 create index if not exists idx_contacts_memberstack_id on contacts (memberstack_id);

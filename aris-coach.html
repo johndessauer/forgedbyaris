@@ -704,6 +704,7 @@
 </style>
 <script src="https://static.memberstack.com/scripts/v1/memberstack.js" data-memberstack-app="app_cmr41qq5500q80tsx94pj61rc" defer></script>
 <script src="/assets/js/ref-capture.js"></script>
+<script src="/assets/js/contact-types.js"></script>
 </head>
 <body>
 
@@ -1342,7 +1343,7 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
       input_schema: {
         type: 'object',
         properties: {
-          type: { type: 'string', enum: ['seller', 'buyer', 'lender', 'contractor'], description: 'Optional. Filter to only contacts of this type.' }
+          type: { type: 'string', enum: ForgeContactTypes.VALID_TYPES, description: 'Optional. Filter to only contacts of this type. other is a custom role; those contacts include type_label (for example Architect), which is the name to use when you mention them.' }
         }
       }
     },
