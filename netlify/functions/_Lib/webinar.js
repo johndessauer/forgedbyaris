@@ -319,7 +319,7 @@ async function checkoutHandler(event, deps) {
 // The buyer's src is saved on the member JSON (json.webinar.lead_source) by
 // assets/js/webinar-checkout.js before checkout. ref is saved as the
 // referral-source custom field. Only listed sources are tagged.
-const EVENT_TAG_SOURCES = new Set(['rpm-newport-2026']);
+const EVENT_TAG_SOURCES = new Set(['rpm-newport-2026', 'weekly-webinar']);
 
 function eventTagsForMember({ memberJson, referralSource }) {
   const stored = (memberJson && memberJson.webinar && typeof memberJson.webinar === 'object') ? memberJson.webinar : {};

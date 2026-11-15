@@ -413,6 +413,20 @@ test('event tags: rpm-newport-2026 plus rep tag', () => {
   assert.deepEqual(webinar.eventTagsForMember({ memberJson: {} }), []);
 });
 
+test('weekly-webinar lead_source tags the raw source, and an unrelated src does not', () => {
+  assert.equal(webinar.EVENT_TAG_SOURCES.has('weekly-webinar'), true);
+  assert.equal(webinar.EVENT_TAG_SOURCES.has('rpm-newport-2026'), true);
+  assert.deepEqual(
+    webinar.eventTagsForMember({ memberJson: { webinar: { lead_source: 'weekly-webinar' } } }),
+    ['weekly-webinar']);
+  assert.deepEqual(
+    webinar.eventTagsForMember({ memberJson: { webinar: { lead_source: 'Weekly-Webinar' } } }),
+    ['weekly-webinar']);
+  assert.deepEqual(
+    webinar.eventTagsForMember({ memberJson: { webinar: { lead_source: 'partner-email', rep: 'eddie' } } }),
+    []);
+});
+
 
 test('997-foundation is Foundation access only: base access on gated pages, never Empire', () => {
   const plans = require('../netlify/functions/_Lib/plans');
