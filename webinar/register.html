@@ -78,6 +78,8 @@
   var src = (params.get('src') || 'direct').toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 64);
   var ref = '';
   try { ref = window.ForgeRef && window.ForgeRef.getRef ? window.ForgeRef.getRef(window) : (params.get('ref') || ''); } catch (e) { ref = params.get('ref') || ''; }
+  var rep = '';
+  try { rep = window.ForgeRef && window.ForgeRef.getRep ? window.ForgeRef.getRep(window) : (params.get('rep') || ''); } catch (e) { rep = params.get('rep') || ''; }
   var form = document.getElementById('reg-form');
   var btn = document.getElementById('reg-btn');
   var err = document.getElementById('error-msg');
@@ -93,7 +95,8 @@
       smsConsent: document.getElementById('sms-consent').checked,
       website: document.getElementById('website').value,
       src: src,
-      ref: ref
+      ref: ref,
+      rep: rep
     };
     if (!body.firstName || !body.email || !body.phone) { show('Please enter your name, email, and mobile phone.'); return; }
     btn.disabled = true; btn.textContent = 'Saving your seat...';

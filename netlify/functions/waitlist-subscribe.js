@@ -20,8 +20,44 @@
 // Netlify function logs periodically if waitlist signups seem low.
 
 const https = require('https');
+const { upsertThenAddTags } = require('./_Lib/ghl-contact');
 
-exports.handler = async (event) => {
+function ghlRequest(apiKey) {
+  return ({ method, path, payload }) => {
+    const body = payload ? JSON.stringify(payload) : '';
+    return new Promise((resolve) => {
+      const headers = {
+        Authorization: `Bearer ${apiKey}`,
+        Version: '2021-07-28',
+      };
+      if (body) {
+        headers['Content-Type'] = 'application/json';
+        headers['Content-Length'] = Buffer.byteLength(body);
+      }
+      const req = https.request({
+        hostname: 'services.leadconnectorhq.com',
+        path: path,
+        method: method,
+        headers: headers,
+      }, (res) => {
+        let data = '';
+        res.on('data', (chunk) => { data += chunk; });
+        res.on('end', () => {
+          console.log('GoHighLevel response:', res.statusCode, data);
+          resolve({ statusCode: res.statusCode, data });
+        });
+      });
+      req.on('error', (err) => {
+        console.error('GoHighLevel request error:', err);
+        resolve({ error: err.message });
+      });
+      if (body) req.write(body);
+      req.end();
+    });
+  };
+}
+
+async function handle(event, deps) {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' };
   }
@@ -46,40 +82,17 @@ exports.handler = async (event) => {
     return { statusCode: 400, body: JSON.stringify({ error: 'Email is required' }) };
   }
 
-  const payload = JSON.stringify({
-    email,
-    locationId: LOCATION_ID,
-    tags: ['waitlist']
-  });
+  // Add the waitlist tag after upsert. Sending tags on the upsert replaces
+  // every tag the contact already has.
+  const request = (deps && deps.request) || ghlRequest(API_KEY);
+  try {
+    const outcome = await upsertThenAddTags(request, { email: email, locationId: LOCATION_ID }, ['waitlist']);
+    if (!outcome.ok) console.error('waitlist GHL sync failed', outcome.tags || outcome.upsert);
+  } catch (err) {
+    console.error('GoHighLevel request error:', err);
+  }
+  return { statusCode: 200, body: JSON.stringify({ success: true }) };
+}
 
-  return new Promise((resolve) => {
-    const options = {
-      hostname: 'services.leadconnectorhq.com',
-      path: '/contacts/upsert',
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${API_KEY}`,
-        'Content-Type': 'application/json',
-        'Version': '2021-07-28',
-        'Content-Length': Buffer.byteLength(payload)
-      }
-    };
-
-    const req = https.request(options, (res) => {
-      let data = '';
-      res.on('data', (chunk) => { data += chunk; });
-      res.on('end', () => {
-        console.log('GoHighLevel response:', res.statusCode, data);
-        resolve({ statusCode: 200, body: JSON.stringify({ success: true }) });
-      });
-    });
-
-    req.on('error', (err) => {
-      console.error('GoHighLevel request error:', err);
-      resolve({ statusCode: 200, body: JSON.stringify({ success: true }) });
-    });
-
-    req.write(payload);
-    req.end();
-  });
-};
+exports.handler = handle;
+exports.handle = handle;

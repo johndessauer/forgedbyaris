@@ -294,6 +294,223 @@ test('formulas speak math operators and leave prose hyphens alone', async () => 
   }
 });
 
+test('currency suffixes are spoken as thousand, million, and billion', async () => {
+  const { normalizeSpeechText } = await loadSpeech();
+  const cases = [
+    ['$40K', 'forty thousand dollars'],
+    ['$16K', 'sixteen thousand dollars'],
+    ['$40k', 'forty thousand dollars'],
+    ['$1K', 'one thousand dollars'],
+    ['$1.5M', 'one point five million dollars'],
+    ['$1.5m', 'one point five million dollars'],
+    ['$1M', 'one million dollars'],
+    ['$1.5MM', 'one point five million dollars'],
+    ['$1.5mm', 'one point five million dollars'],
+    ['$2B', 'two billion dollars'],
+    ['$2b', 'two billion dollars'],
+    ['$2.25B', 'two point two five billion dollars'],
+    ['$1,500K', 'one thousand five hundred thousand dollars'],
+    ['-$16K', 'negative sixteen thousand dollars'],
+    ['($40K)', '(forty thousand dollars)'],
+    ['$200,000 - $40K', 'two hundred thousand dollars minus forty thousand dollars'],
+    ['£2.5M', 'two point five million pounds'],
+    ['A$1.5M', 'one point five million Australian dollars'],
+    ['USD 40K', 'forty thousand dollars'],
+    ['$40K GBP', 'forty thousand pounds'],
+    ['The rehab is $40K.', 'The rehab is forty thousand dollars.'],
+    // A spaced word that merely starts with K is not a scale.
+    ['$40 Kitchen', 'forty dollars Kitchen'],
+    ['$185,000', 'one hundred eighty-five thousand dollars'],
+  ];
+  for (const [input, expected] of cases) {
+    assert.equal(normalizeSpeechText(input), expected, input);
+  }
+});
+
+test('period slashes are per-unit and formula slashes stay divided by', async () => {
+  const { normalizeSpeechText } = await loadSpeech();
+  const cases = [
+    ['$1,967/mo', 'one thousand nine hundred sixty-seven dollars per month'],
+    ['$1,967/MO', 'one thousand nine hundred sixty-seven dollars per month'],
+    ['$1,967/Mo', 'one thousand nine hundred sixty-seven dollars per month'],
+    ['$1,967/month', 'one thousand nine hundred sixty-seven dollars per month'],
+    ['Kansas City, MO', 'Kansas City, Missouri'],
+    ['$1,967 / mo', 'one thousand nine hundred sixty-seven dollars per month'],
+    ['$500/yr', 'five hundred dollars per year'],
+    ['$500/year', 'five hundred dollars per year'],
+    ['$100/wk', 'one hundred dollars per week'],
+    ['$50/day', 'fifty dollars per day'],
+    ['$18/sf', 'eighteen dollars per square foot'],
+    ['$18/sqft', 'eighteen dollars per square foot'],
+    ['$18/sq ft', 'eighteen dollars per square foot'],
+    ['$18 / SQ FT', 'eighteen dollars per square foot'],
+    ['$2,000/unit', 'two thousand dollars per unit'],
+    ['$18,000 / $200,000', 'eighteen thousand dollars divided by two hundred thousand dollars'],
+    ['$18,000 / $200,000 = 9%', 'eighteen thousand dollars divided by two hundred thousand dollars equals nine percent'],
+    ['NOI / cap rate', 'net operating income divided by capitalization rate'],
+    // Not a period unit. /monthly is still division, and a date stays a date.
+    ['rent/monthly', 'rent divided by monthly'],
+    ['closed on 11/12/2026', 'closed on 11/12/2026'],
+    ['and/or the NOI', 'and/or the net operating income'],
+  ];
+  for (const [input, expected] of cases) {
+    assert.equal(normalizeSpeechText(input), expected, input);
+  }
+});
+
+test('PITI is spoken in full, the same way DSCR and ARV are', async () => {
+  const { normalizeSpeechText } = await loadSpeech();
+  assert.equal(
+    normalizeSpeechText('PITI'),
+    'principal, interest, taxes, and insurance'
+  );
+  assert.equal(
+    normalizeSpeechText('piti'),
+    'principal, interest, taxes, and insurance'
+  );
+  assert.equal(
+    normalizeSpeechText('$1,967/mo PITI'),
+    'one thousand nine hundred sixty-seven dollars per month principal, interest, taxes, and insurance'
+  );
+  assert.equal(normalizeSpeechText('pity'), 'pity');
+  assert.equal(normalizeSpeechText('PITIFUL'), 'PITIFUL');
+  assert.equal(
+    normalizeSpeechText('DSCR and ARV and PITI'),
+    'debt-service coverage ratio and after-repair value and principal, interest, taxes, and insurance'
+  );
+});
+
+test('a number glued to x is times, and a spaced or buried x is not', async () => {
+  const { normalizeSpeechText } = await loadSpeech();
+  const cases = [
+    ['1.25x', 'one point two five times'],
+    ['2x', 'two times'],
+    ['2X', 'two times'],
+    ['10x leverage', 'ten times leverage'],
+    ['1,250x', 'one thousand two hundred fifty times'],
+    ['DSCR 1.25x', 'debt-service coverage ratio one point two five times'],
+    ['DSCR 1.25x.', 'debt-service coverage ratio one point two five times.'],
+    ['DSCR 1.25', 'debt-service coverage ratio one point two five'],
+    ['50 x 100', '50 x 100'],
+    ['The lot is 50 x 100.', 'The lot is 50 x 100.'],
+    ['1.25 x', '1.25 x'],
+    ['2x4', '2x4'],
+    ['0xFF', '0xFF'],
+    ['0x1F', '0x1F'],
+    ['60xmax', '60xmax'],
+    ['extra', 'extra'],
+  ];
+  for (const [input, expected] of cases) {
+    assert.equal(normalizeSpeechText(input), expected, input);
+  }
+});
+
+test('cash-on-cash and a leading tilde or almost-equal sign are spoken', async () => {
+  const { normalizeSpeechText } = await loadSpeech();
+  const cases = [
+    ['CoC', 'cash-on-cash'],
+    ['COC', 'cash-on-cash'],
+    ['coc', 'cash-on-cash'],
+    ['CoCR', 'cash-on-cash return'],
+    ['COCR', 'cash-on-cash return'],
+    ['CoC return', 'cash-on-cash return'],
+    ['CoC returns', 'cash-on-cash returns'],
+    ['CoC ~23%', 'cash-on-cash about twenty-three percent'],
+    ['COC ~23%', 'cash-on-cash about twenty-three percent'],
+    ['CoC~23%', 'cash-on-cash about twenty-three percent'],
+    ['~23%', 'about twenty-three percent'],
+    ['~$5,000', 'about five thousand dollars'],
+    ['~ $5,000', 'about five thousand dollars'],
+    ['(~$5,000)', '(about five thousand dollars)'],
+    ['≈23%', 'about twenty-three percent'],
+    ['≈ $5,000', 'about five thousand dollars'],
+    ['≈$5,000', 'about five thousand dollars'],
+    ['~USD 40K', 'about forty thousand dollars'],
+    ['a ~ b', 'a ~ b'],
+    ['use ≈ for', 'use ≈ for'],
+    ['Denver, CO and CoC ~23%', 'Denver, Colorado and cash-on-cash about twenty-three percent'],
+    ['cocoa', 'cocoa'],
+  ];
+  for (const [input, expected] of cases) {
+    assert.equal(normalizeSpeechText(input), expected, input);
+  }
+});
+
+test('loan terms are spoken and a slash rate stays per month', async () => {
+  const { prepareSpeechText, normalizeSpeechText } = await loadSpeech();
+  const cases = [
+    ['30-yr', 'thirty-year'],
+    ['30 yr', 'thirty-year'],
+    ['30yr', 'thirty-year'],
+    ['30-YR', 'thirty-year'],
+    ['5-yr', 'five-year'],
+    ['5 yr', 'five-year'],
+    ['5yr', 'five-year'],
+    ['5 yrs', 'five years'],
+    ['5-yrs', 'five years'],
+    ['5yrs', 'five years'],
+    ['15 yrs', 'fifteen years'],
+    ['yrs', 'years'],
+    ['over several yrs', 'over several years'],
+    ['6 mo', 'six-month'],
+    ['6mo', 'six-month'],
+    ['18-mo', 'eighteen-month'],
+    ['18-MO', 'eighteen-month'],
+    ['6 mos', 'six months'],
+    ['18-mos', 'eighteen months'],
+    ['18-mo balloon', 'eighteen-month balloon'],
+    ['5.25% interest, 30-yr', 'five point two five percent interest, thirty-year'],
+    ['$1,967/mo', 'one thousand nine hundred sixty-seven dollars per month'],
+    ['$1,967/mo PITI', 'one thousand nine hundred sixty-seven dollars per month principal, interest, taxes, and insurance'],
+    ['$500/yr', 'five hundred dollars per year'],
+    ['Kansas City, MO', 'Kansas City, Missouri'],
+    ['the mo stays', 'the mo stays'],
+    ['30-year', '30-year'],
+    ['18-month balloon', '18-month balloon'],
+  ];
+  for (const [input, expected] of cases) {
+    assert.equal(normalizeSpeechText(input), expected, input);
+  }
+  assert.equal(
+    prepareSpeechText('5.25% interest, 30-yr'),
+    'five point two five percent interest, thirty-year'
+  );
+  assert.equal(prepareSpeechText('18-mo balloon'), 'eighteen-month balloon');
+});
+
+test('listening-check lines keep amounts, ZIPs, phones, and formulas', async () => {
+  const { prepareSpeechText } = await loadSpeech();
+  const cases = [
+    [
+      '$185,000 purchase, $40K rehab, ARV $250,000',
+      'one hundred eighty-five thousand dollars purchase, forty thousand dollars rehab, after-repair value two hundred fifty thousand dollars',
+    ],
+    [
+      '$1,967/mo PITI',
+      'one thousand nine hundred sixty-seven dollars per month principal, interest, taxes, and insurance',
+    ],
+    [
+      'Cap rate = $18,000 / $200,000 = 9%',
+      'capitalization rate equals eighteen thousand dollars divided by two hundred thousand dollars equals nine percent',
+    ],
+    ['5.25% interest, 30-yr', 'five point two five percent interest, thirty-year'],
+    ['DSCR 1.25x', 'debt-service coverage ratio one point two five times'],
+    ['ZIP 75201', 'ZIP seven five two oh one'],
+    ['call (214) 555-0147', 'call two one four, five five five, oh one four seven'],
+    ['CoC ~23%', 'cash-on-cash about twenty-three percent'],
+    [
+      'Subject-To with $16K cash to seller',
+      'Subject-To with sixteen thousand dollars cash to seller',
+    ],
+    ['ARV − rehab × 70%', 'after-repair value minus rehab times seventy percent'],
+    ['$185,000', 'one hundred eighty-five thousand dollars'],
+    ['50 x 100', '50 x 100'],
+  ];
+  for (const [input, expected] of cases) {
+    assert.equal(prepareSpeechText(input), expected, input);
+  }
+});
+
 test('deal analyzer, capital radar, and market oracle pin US grouping', () => {
   const analyzer = fs.readFileSync(path.join(ROOT, 'deal-analyzer.html'), 'utf8');
   assert.match(analyzer, /function fmt\(n\) \{ return '\$' \+ Math\.round\(n\)\.toLocaleString\('en-US'\); \}/);

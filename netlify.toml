@@ -1,3 +1,11 @@
+# The repo root used to be the publish directory, so function source, tests,
+# SQL, and internal notes were downloadable. This build copies only the
+# public site. Functions and edge functions still deploy from netlify/ in
+# the base directory (not from public/).
+[build]
+  command = "node scripts/publish-site.js"
+  publish = "public"
+
 [functions]
   directory = "netlify/functions"
   # Comping engine fixtures are read with fs at runtime (mock/demo mode),
@@ -191,10 +199,195 @@
 [functions.webinar-join]
   timeout = 10
 
-# Internal handoff notes live in docs/handoffs/ (Comping Engine Build Brief
-# §10). The site publishes the repo root, so block them from the web.
+# Forced 404s for source and other non-web files. These rules are below
+# every /api/* rewrite. A splat matches only at the end of a segment, so
+# /netlify/* does not match /.netlify/functions/* (the function path has a
+# leading dot) and does not match /api/*. *.sql and *.md cannot be one
+# splat, so each file outside a blocked directory is listed exactly.
+# scripts/publish-site.js also leaves these files out of public/.
+# No markdown file is linked from a page, so none is exempt.
+[[redirects]]
+  from = "/netlify"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/netlify/*"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/tests"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/tests/*"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/scripts"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/scripts/*"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/supabase"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/supabase/*"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/sql"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/sql/*"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/node_modules"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/node_modules/*"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/.github"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/.github/*"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/docs/handoffs"
+  to = "/404.html"
+  status = 404
+  force = true
+
 [[redirects]]
   from = "/docs/handoffs/*"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/package.json"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/package-lock.json"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/netlify.toml"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/deno.lock"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/documents.js"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/schema.sql"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/add-aris-usage-tracking.sql"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/add-comping-engine-tables.sql"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/add-education-level-awards.sql"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/add-property-search-details-column.sql"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/add-property-search-saves-table.sql"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/CRM-SETUP-NOTES.md"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/FORGE_Weekly_Banners_and_Connect_Test_Plan_2026-11-06.md"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/docs/creative-finance-lessons.md"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/docs/DUNNING-SETUP.md"
   to = "/404.html"
   status = 404
   force = true

@@ -496,6 +496,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 <script src="/assets/js/comp-panel.js"></script>
 <script src="/assets/js/ref-capture.js"></script>
 <script src="/assets/js/member-preferences.js"></script>
+<script src="/assets/js/property-search-paging.js"></script>
 </head>
 <body>
 <div class="app">
@@ -799,6 +800,8 @@ let currentPlanName = null;
 let memberCreatedAt = null;
 let selectedPlays = new Set(['prefore']);
 let map, markers = [];
+// Default map before a search, and where Clear Search returns it.
+const PS_MAP_HOME = { lat: 41.4189, lng: -87.3653, zoom: 12 };
 const gradeColor = { A: '#22c55e', B: '#C89B3C', C: '#E5484D' };
 
 function renderPlayList() {
@@ -826,7 +829,7 @@ function togglePlay(id) {
 }
 
 function initMap() {
-  map = L.map('ps-map', { zoomControl: true, attributionControl: false }).setView([41.4189, -87.3653], 12);
+  map = L.map('ps-map', { zoomControl: true, attributionControl: false }).setView([PS_MAP_HOME.lat, PS_MAP_HOME.lng], PS_MAP_HOME.zoom);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { subdomains: 'abc', maxZoom: 19 }).addTo(map);
 }
 
@@ -852,11 +855,14 @@ function clearResults() {
 }
 
 let lastResults = [];
-// Tracks the in-progress search so Load More can ask for the next page and
-// Clear Search can reset it. total/start come from PropertyRadar's own
-// totalResultCount (see property-search.js) — start is the offset already
-// fetched, not a page number.
-let searchState = { location: '', plays: [], start: 0, total: 0 };
+// Paging (offset, in-flight lock, dedupe) lives in property-search-paging.js.
+// start is the next PropertyRadar Start offset, not a page number.
+let searchState = window.ForgePropertySearchPaging.createState();
+
+function loadMoreLabel() {
+  const pageSize = window.ForgePropertySearchPaging.PAGE_SIZE;
+  return `Load ${pageSize} More (${lastResults.length} of ${searchState.total})`;
+}
 
 // Characteristics are unverified field names (see property-search.js) so
 // this renders whatever came back and quietly skips what didn't, rather
@@ -941,8 +947,8 @@ function updateResultsCount() {
 
 function updateLoadMoreButton() {
   const wrap = document.getElementById('ps-load-more-wrap');
-  if (searchState.total > lastResults.length) {
-    wrap.innerHTML = `<button class="ps-load-more-btn" id="ps-load-more-btn" onclick="loadMoreResults()">Load 25 More (${lastResults.length} of ${searchState.total})</button>`;
+  if (window.ForgePropertySearchPaging.hasMore(searchState)) {
+    wrap.innerHTML = `<button class="ps-load-more-btn" id="ps-load-more-btn" onclick="loadMoreResults()">${loadMoreLabel()}</button>`;
   } else {
     wrap.innerHTML = '';
   }
@@ -984,44 +990,49 @@ async function runPropertySearch() {
   document.getElementById('ps-map-badge').textContent = location || 'Search results';
   const plays = Array.from(selectedPlays);
   if (!plays.length) { alert('Pick at least one lead type.'); return; }
-  searchState = { location, plays, start: 0, total: 0 };
-  await performSearch({ append: false });
+  const started = window.ForgePropertySearchPaging.beginNewSearch(searchState, location, plays);
+  if (!started.ok) return;
+  document.getElementById('ps-load-more-wrap').innerHTML = '';
+  await performSearch({ append: false, generation: started.generation, start: started.start });
 }
 
 async function loadMoreResults() {
+  const started = window.ForgePropertySearchPaging.beginLoadMore(searchState);
+  if (!started.ok) {
+    if (started.reason === 'no-more') updateLoadMoreButton();
+    return;
+  }
   const btn = document.getElementById('ps-load-more-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Loading...'; }
-  await performSearch({ append: true });
+  await performSearch({ append: true, generation: started.generation, start: started.start });
 }
 
-// Shared by the initial search and Load More — the only difference is
-// whether the new page replaces the grid/map or is added to them, and
-// where in PropertyRadar's result set (searchState.start) we're asking for.
-async function performSearch({ append }) {
+// Shared by the initial search and Load More. Load More passes the Start
+// offset captured when the click was accepted, and appends only rows that
+// are not already on screen. A cleared or replaced search has a new
+// generation, so a late response is dropped instead of refilling the list.
+async function performSearch({ append, generation, start }) {
   try {
     const resp = await fetch(
-      '/api/property-search?action=search&location=' + encodeURIComponent(searchState.location) +
-      '&plays=' + searchState.plays.join(',') + '&start=' + searchState.start,
+      window.ForgePropertySearchPaging.searchQuery(searchState, start),
       { headers: memberToken ? { Authorization: 'Bearer ' + memberToken } : {} }
     );
     const data = await resp.json();
+    const applied = window.ForgePropertySearchPaging.applyPage(searchState, generation, data.results || [], data.total);
+    if (applied.stale) return;
     document.getElementById('ps-demo-banner').style.display = data.demo ? 'flex' : 'none';
-    const results = data.results || [];
-    // Guard against a total that claims more exist than a page actually
-    // returned — treat that as "nothing further" instead of retrying
-    // Load More forever against the same offset.
-    searchState.total = results.length ? (data.total ?? results.length) : (append ? lastResults.length : 0);
-    searchState.start += results.length;
     if (append) {
-      appendResultsToUI(results);
+      appendResultsToUI(applied.appended);
     } else {
-      renderResults(results);
+      renderResults(applied.appended);
     }
   } catch (err) {
+    const failed = window.ForgePropertySearchPaging.failPage(searchState, generation);
+    if (failed.stale) return;
     console.error('Property search failed:', err);
     if (append) {
       const btn = document.getElementById('ps-load-more-btn');
-      if (btn) { btn.disabled = false; btn.textContent = `Load 25 More (${lastResults.length} of ${searchState.total})`; }
+      if (btn) { btn.disabled = false; btn.textContent = loadMoreLabel(); }
     } else {
       document.getElementById('ps-grid').innerHTML = '<div class="ps-empty-state">Search failed. Check your connection and try again.</div>';
     }
@@ -1029,12 +1040,13 @@ async function performSearch({ append }) {
 }
 
 function clearSearch() {
+  window.ForgePropertySearchPaging.clearState(searchState);
   document.getElementById('ps-location-input').value = '';
   selectedPlays.clear();
   renderPlayList();
   clearResults();
   lastResults = [];
-  searchState = { location: '', plays: [], start: 0, total: 0 };
+  if (map) map.setView([PS_MAP_HOME.lat, PS_MAP_HOME.lng], PS_MAP_HOME.zoom);
   document.getElementById('ps-map-badge').textContent = 'Search results';
   document.getElementById('ps-demo-banner').style.display = 'none';
   document.getElementById('ps-grid').innerHTML = '<div class="ps-empty-state">Pick a lead type and location, then hit Search.</div>';

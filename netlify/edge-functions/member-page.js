@@ -104,14 +104,35 @@ function htmlResponse(body, status) {
   });
 }
 
-export default async function handler(request, context) {
-  if (request.method !== 'GET' && request.method !== 'HEAD') {
-    return context.next();
-  }
+// Keep in sync with VAULT_EXTENSIONS in scripts/publish-site.js.
+const VAULT_DOCUMENT = /\.(docx|xlsx|pdf)$/i;
 
+function notFound() {
+  return new Response('Not found', {
+    status: 404,
+    headers: {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Cache-Control': 'no-store',
+      'X-Robots-Tag': 'noindex',
+    },
+  });
+}
+
+export default async function handler(request, context) {
   const url = new URL(request.url);
   const path = url.pathname;
   const origin = url.origin;
+
+  // /docs/* is the vault gate. Internal notes sit in that folder too.
+  // Office templates keep going through the membership check. Markdown
+  // and anything else 404s before that page, for members and visitors.
+  if (path.startsWith('/docs/') && !VAULT_DOCUMENT.test(path)) {
+    return notFound();
+  }
+
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    return context.next();
+  }
 
   // No cookie yet: the bootstrap reads the Memberstack session (localStorage)
   // and either sets forge_ms and reloads, or sends the visitor to login.html.

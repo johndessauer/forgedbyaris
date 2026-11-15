@@ -6,8 +6,11 @@ const reg = require('../netlify/functions/_Lib/webinar-register');
 const ENV = { GHL_API_KEY: 'k', GHL_LOCATION_ID: '3dQD2B6ZsBjZVIrWF8WR', WEBINAR_JOIN_URL: 'https://meet.google.com/abc-defg-hij' };
 const good = { firstName: 'Joe', lastName: 'Investor', email: 'Joe@Example.com', phone: '(555) 555-1234', smsConsent: true, src: '023k', ref: 'eddie' };
 
-// Fake https.request. Duplicate lookup (GET) returns lookupBody; upsert (POST) returns upsertStatus.
-function fakeRequest(capture, { lookupBody = { contact: null }, lookupStatus = 200, upsertStatus = 200 } = {}) {
+// Fake https.request. Duplicate lookup (GET) returns lookupBody.
+// Upsert (POST /contacts/upsert) returns upsertStatus and a contact id.
+// Tag adds (POST /contacts/{id}/tags) use tagStatus, or upsertStatus when
+// tagStatus is omitted so join-link failures still follow upsertStatus.
+function fakeRequest(capture, { lookupBody = { contact: null }, lookupStatus = 200, upsertStatus = 200, upsertBody = { contact: { id: 'upsert-contact' } }, tagStatus = null } = {}) {
   capture.calls = [];
   return (opts, cb) => {
     const req = new EventEmitter();
@@ -15,12 +18,17 @@ function fakeRequest(capture, { lookupBody = { contact: null }, lookupStatus = 2
     req.write = (b) => { sent = JSON.parse(b); };
     req.end = () => {
       capture.calls.push({ method: opts.method, path: opts.path, body: sent });
-      if (opts.method === 'POST') { capture.opts = opts; capture.body = sent; }
-      const res = new EventEmitter();
       const isGet = opts.method === 'GET';
-      res.statusCode = isGet ? lookupStatus : upsertStatus;
+      const isTag = opts.method === 'POST' && /\/tags$/.test(opts.path);
+      const isUpsert = opts.method === 'POST' && opts.path === '/contacts/upsert';
+      if (opts.method === 'POST') { capture.opts = opts; capture.body = sent; }
+      if (isUpsert) capture.upsert = sent;
+      if (isTag) capture.tag = sent;
+      const res = new EventEmitter();
+      res.statusCode = isGet ? lookupStatus : (isTag ? (tagStatus == null ? upsertStatus : tagStatus) : upsertStatus);
       cb(res);
-      res.emit('data', JSON.stringify(isGet ? lookupBody : {}));
+      const payload = isGet ? lookupBody : (isUpsert ? upsertBody : {});
+      res.emit('data', JSON.stringify(payload));
       res.emit('end');
     };
     return req;
@@ -38,6 +46,33 @@ test('validate builds tags with dated webinar tag', () => {
 test('WEBINAR_NEXT_DATE overrides the dated tag', () => {
   const v = reg.validate(good, { WEBINAR_NEXT_DATE: '2026-11-24' });
   assert.ok(v.contact.tags.includes('webinar-2026-11-24'));
+});
+
+test('validate adds a rep tag from ?rep= without touching the ref tag', () => {
+  const v = reg.validate({ ...good, rep: 'Chris' }, {});
+  assert.equal(v.ok, true);
+  assert.equal(v.contact.rep, 'chris');
+  assert.ok(v.contact.tags.includes('rep-chris'));
+  assert.ok(v.contact.tags.includes('ref-eddie'));
+});
+
+test('registration adds rep-<slug> on the tag endpoint and leaves the upsert untagged', async () => {
+  const cap = {};
+  const res = await reg.registerHandler({ httpMethod: 'POST', body: JSON.stringify({ ...good, rep: 'chad' }) }, { env: ENV, request: fakeRequest(cap) });
+  assert.equal(JSON.parse(res.body).ghl, true);
+  assert.equal(cap.upsert.tags, undefined);
+  assert.ok(cap.tag.tags.includes('rep-chad'));
+  assert.ok(cap.tag.tags.includes('ref-eddie'));
+});
+
+test('a failed tag add still returns the holding page and does not report success', async () => {
+  const cap = {};
+  const res = await reg.registerHandler({ httpMethod: 'POST', body: JSON.stringify(good) }, { env: ENV, request: fakeRequest(cap, { tagStatus: 500 }) });
+  const j = JSON.parse(res.body);
+  assert.equal(res.statusCode, 200);
+  assert.equal(j.ghl, false);
+  assert.equal(j.redirect, '/webinar/registered?date=2026-11-17');
+  assert.equal(cap.calls.filter((c) => c.path.endsWith('/tags')).length, 1);
 });
 
 test('no sms-consent tag without consent', () => {
@@ -58,9 +93,13 @@ test('handler upserts to FORGE location and returns the holding page even when M
   assert.equal(res.statusCode, 200);
   assert.equal(j.redirect, '/webinar/registered?date=2026-11-17');
   assert.equal(j.redirect.includes('meet.google'), false);
-  assert.equal(cap.opts.path, '/contacts/upsert');
-  assert.equal(cap.body.locationId, '3dQD2B6ZsBjZVIrWF8WR');
-  assert.ok(cap.body.tags.includes('forge-webinar-reg'));
+  assert.equal(j.ghl, true);
+  const upsert = cap.calls.find((c) => c.path === '/contacts/upsert');
+  const tagged = cap.calls.find((c) => c.path === '/contacts/upsert-contact/tags');
+  assert.equal(upsert.body.locationId, '3dQD2B6ZsBjZVIrWF8WR');
+  assert.equal(upsert.body.tags, undefined);
+  assert.ok(tagged.body.tags.includes('forge-webinar-reg'));
+  assert.ok(tagged.body.tags.includes('ref-eddie'));
 });
 
 test('handler returns the holding page when the live session link is unset', async () => {
@@ -142,7 +181,10 @@ test('non-member contact is tagged and sent to the holding page', async () => {
   const req = fakeRequest(cap, { lookupBody: { contact: { id: 'c2', tags: ['waitlist'] } } });
   const j = JSON.parse((await reg.registerHandler({ httpMethod: 'POST', body: JSON.stringify(good) }, { env: ENV, request: req })).body);
   assert.equal(j.redirect, '/webinar/registered?date=2026-11-17');
-  assert.deepEqual(cap.calls.map((c) => c.method), ['GET', 'POST']);
+  assert.equal(j.ghl, true);
+  assert.deepEqual(cap.calls.map((c) => c.method), ['GET', 'POST', 'POST']);
+  assert.equal(cap.upsert.tags, undefined);
+  assert.ok(cap.tag.tags.includes('forge-webinar-reg'));
 });
 
 test('member lookup failure fails open, still registers, and stays on the holding page', async () => {
@@ -150,7 +192,8 @@ test('member lookup failure fails open, still registers, and stays on the holdin
   const req = fakeRequest(cap, { lookupStatus: 500 });
   const j = JSON.parse((await reg.registerHandler({ httpMethod: 'POST', body: JSON.stringify(good) }, { env: ENV, request: req })).body);
   assert.equal(j.redirect, '/webinar/registered?date=2026-11-17');
-  assert.ok(cap.body.tags.includes('forge-webinar-reg'));
+  assert.equal(cap.upsert.tags, undefined);
+  assert.ok(cap.tag.tags.includes('forge-webinar-reg'));
 });
 
 test('only Google Meet: no other video-platform references remain', () => {

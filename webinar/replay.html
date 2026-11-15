@@ -69,8 +69,11 @@
   var src = (params.get('src') || 'webinar-replay').toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 64);
   if (src === 'fwn-virtual' || src === 'fwn-raleigh') src = 'webinar-replay';
   var ref = (params.get('ref') || '').toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 64);
+  var rep = '';
+  try { rep = window.ForgeRef && window.ForgeRef.getRep ? window.ForgeRef.getRep(window) : ''; } catch (e) { rep = ''; }
+  if (!rep) rep = (params.get('rep') || '').toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 64);
   document.querySelectorAll('a[data-checkout]').forEach(function (a) {
-    a.href = a.getAttribute('href') + '?src=' + encodeURIComponent(src) + (ref ? '&ref=' + encodeURIComponent(ref) : '');
+    a.href = a.getAttribute('href') + '?src=' + encodeURIComponent(src) + (ref ? '&ref=' + encodeURIComponent(ref) : '') + (rep ? '&rep=' + encodeURIComponent(rep) : '');
   });
   var slot = document.getElementById('video-slot');
   var id = (slot.getAttribute('data-youtube-id') || params.get('v') || '').replace(/[^A-Za-z0-9_-]/g, '');

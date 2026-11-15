@@ -221,9 +221,13 @@ test('empire lesson video ids are served only with empire and are not in the pag
 });
 
 test('creative finance commercial lesson ids are not returned without Empire', () => {
-  const keys = ['lease-option:7', 'lease-option:8', 'subject-to:11', 'assumption:8'];
-  assert.deepEqual(Object.keys(CREATIVE_FINANCE_COMMERCIAL_VIDEOS).sort(), keys.slice().sort());
-  for (const key of keys) assert.equal(CREATIVE_FINANCE_COMMERCIAL_VIDEOS[key], '', key);
+  const published = {
+    'lease-option:7': 'od_uMZmmr3Q',
+    'lease-option:8': 'JiVPxFBlLvM',
+    'subject-to:11': 'F-m8Gigh90s',
+    'assumption:8': 'S4Y8Xy9uIUo',
+  };
+  assert.deepEqual(CREATIVE_FINANCE_COMMERCIAL_VIDEOS, published);
 
   const injected = {
     'lease-option:7': 'SECRET_LEASE_7',
@@ -248,13 +252,21 @@ test('creative finance commercial lesson ids are not returned without Empire', (
   assert.equal(blank.paths.assumption[0].youtubeId, undefined);
 
   const shipped = creativeFinanceLessonPayload({ empire: true });
-  assert.equal(JSON.stringify(shipped).includes('youtubeId'), false);
+  assert.equal(shipped.paths['lease-option'].find((l) => l.n === 7).youtubeId, 'od_uMZmmr3Q');
+  assert.equal(shipped.paths['lease-option'].find((l) => l.n === 8).youtubeId, 'JiVPxFBlLvM');
+  assert.equal(shipped.paths['subject-to'].find((l) => l.n === 11).youtubeId, 'F-m8Gigh90s');
+  assert.equal(shipped.paths.assumption.find((l) => l.n === 8).youtubeId, 'S4Y8Xy9uIUo');
   assert.deepEqual(shipped.paths['lease-option'].map((l) => l.n), [7, 8]);
   assert.deepEqual(shipped.paths['subject-to'].map((l) => l.n), [11]);
   assert.deepEqual(shipped.paths.assumption.map((l) => l.n), [8]);
 
+  const shippedFoundation = JSON.stringify(creativeFinanceLessonPayload({ empire: false }));
+  assert.equal(shippedFoundation.includes('youtubeId'), false);
+  for (const id of Object.values(published)) assert.equal(shippedFoundation.includes(id), false, id);
+
   const html = fs.readFileSync(path.join(__dirname, '../education.html'), 'utf8');
   for (const id of Object.values(injected)) assert.equal(html.includes(id), false, id);
+  for (const id of Object.values(published)) assert.equal(html.includes(id), false, id);
   assert.match(html, /action=creative_finance_lessons/);
   assert.match(html, /creative-finance-lessons\.js/);
   const edu = fs.readFileSync(path.join(__dirname, '../netlify/functions/education-data.js'), 'utf8');

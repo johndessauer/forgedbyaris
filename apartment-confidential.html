@@ -170,12 +170,18 @@ h1 { font-family: 'Bebas Neue', sans-serif; font-weight: 400; font-size: 32px; l
   // While empty, the button shows "Walkthrough booking opens soon."
   const BOOKING_URL = '';
 
-  // Incoming utm_* and ref values are passed through to the booking link.
+  // Incoming utm_*, ref, and rep values are passed through to the booking link.
   const incoming = new URLSearchParams(window.location.search);
   const passThrough = {};
   incoming.forEach((value, key) => {
-    if (key === 'ref' || key.indexOf('utm_') === 0) passThrough[key] = value;
+    if (key === 'ref' || key === 'rep' || key.indexOf('utm_') === 0) passThrough[key] = value;
   });
+  try {
+    if (!passThrough.rep && window.ForgeRef && window.ForgeRef.getRep) {
+      const storedRep = window.ForgeRef.getRep(window);
+      if (storedRep) passThrough.rep = storedRep;
+    }
+  } catch (e) { /* attribution must never block the page */ }
 
   function trackClick(eventName) {
     try {
