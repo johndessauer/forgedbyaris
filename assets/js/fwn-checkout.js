@@ -23,6 +23,12 @@
     return String(query().get('ref') || '');
   }
 
+  function salesRepValue() {
+    if (window.ForgeRef && window.ForgeRef.getRep) return window.ForgeRef.getRep(window) || '';
+    if (window.ForgeRef && window.ForgeRef.sanitize) return window.ForgeRef.sanitize(query().get('rep'));
+    return String(query().get('rep') || '').toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 64);
+  }
+
   function showError(msg) {
     var el = document.getElementById('error-msg');
     if (!el) return;
@@ -166,6 +172,7 @@
       }
 
       var referralSource = repValue();
+      var salesRep = salesRepValue();
       if (!member) {
         try {
           var signup = await memberstack.signupMemberEmailPassword({
@@ -176,7 +183,8 @@
               'last-name': lastName,
               'full-name': firstName + ' ' + lastName,
               'plan-type': 'FWN ' + PACKAGE,
-              ...(referralSource ? { 'referral-source': referralSource } : {})
+              ...(referralSource ? { 'referral-source': referralSource } : {}),
+              ...(salesRep ? { 'sales-rep': salesRep } : {})
             }
           });
           var signupData = signup && signup.data;
@@ -224,7 +232,7 @@
       if (!data.priceId || String(data.priceId).indexOf('prc_') !== 0) {
         throw new Error('Checkout did not return a payment price.');
       }
-      await saveFwnAttribution(memberstack, {
+      var fwnAttribution = {
         name: firstName + ' ' + lastName,
         email: email,
         phone: phone,
@@ -233,7 +241,9 @@
         sold_by: data.sold_by,
         rep: data.rep,
         planId: data.planId || ''
-      });
+      };
+      if (salesRep) fwnAttribution.sales_rep = salesRep;
+      await saveFwnAttribution(memberstack, fwnAttribution);
       await openMemberstackCheckout(memberstack, data);
     } catch (err) {
       console.error('FWN checkout error:', err);

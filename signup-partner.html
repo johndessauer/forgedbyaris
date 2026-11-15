@@ -204,6 +204,8 @@ html, body { min-height: 100vh; background: var(--black); color: var(--white); f
   // rides the existing plan.added -> GHL webhook sync. Absent on plain links;
   // GHL applies partner tags only when this field is present.
   const referralSource = (window.ForgeRef && window.ForgeRef.getRef(window)) || new URLSearchParams(window.location.search).get('ref') || '';
+  // Sales rep — ?rep=<slug> is stored like ?ref= and sent as Memberstack sales-rep.
+  const salesRep = (window.ForgeRef && window.ForgeRef.getRep && window.ForgeRef.getRep(window)) || new URLSearchParams(window.location.search).get('rep') || '';
 
   async function handleSignup() {
     const firstName = document.getElementById('first-name').value.trim();
@@ -256,7 +258,8 @@ html, body { min-height: 100vh; background: var(--black); color: var(--white); f
               'last-name': lastName,
               'full-name': firstName + ' ' + lastName,
               'plan-type': 'Partner $250',
-              ...(referralSource && { 'referral-source': referralSource })
+              ...(referralSource && { 'referral-source': referralSource }),
+              ...(salesRep && { 'sales-rep': salesRep })
             }
           });
           member = (signupData && signupData.member) || signupData || null;

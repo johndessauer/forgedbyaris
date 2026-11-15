@@ -5,7 +5,10 @@ const path = require('path');
 const R = require('../assets/js/ref-capture.js');
 
 function fakeWin(search, stored, cookie) {
-  const ls = new Map(stored ? [[R.KEY, stored]] : []);
+  const entries = stored && typeof stored === 'object'
+    ? Object.entries(stored)
+    : (stored ? [[R.KEY, stored]] : []);
+  const ls = new Map(entries);
   const doc = { _c: cookie || '', get cookie() { return this._c; }, set cookie(v) { this.lastSet = v; this._c = v.split(';')[0]; } };
   return { location: { search: search || '' }, document: doc,
     localStorage: { getItem: k => ls.has(k) ? ls.get(k) : null, setItem: (k, v) => ls.set(k, v) }, _ls: ls };
@@ -107,6 +110,90 @@ test('FORGE checkout pages pass the stored ref into Memberstack checkout', () =>
   const client = fs.readFileSync(path.join(__dirname, '..', 'assets/js/fwn-checkout.js'), 'utf8');
   assert.match(client, /ForgeRef\.withCheckout\(params, window\)/);
   assert.match(client, /purchasePlansWithCheckout/);
+});
+
+test('?rep= is stored apart from ?ref= and last-touch replaces only the rep', () => {
+  const w = fakeWin('?ref=fortiva&rep=Chris');
+  R.capture(w);
+  assert.equal(w._ls.get(R.KEY), 'fortiva');
+  assert.equal(w._ls.get(R.REP_KEY), 'chris');
+  assert.match(w.document.lastSet, /^forge_rep=chris; max-age=7776000; path=\/; SameSite=Lax$/);
+  assert.equal(R.getRep(w), 'chris');
+  assert.equal(R.getRef(w), 'fortiva');
+
+  const kept = fakeWin('', { [R.REP_KEY]: 'john' });
+  R.capture(kept);
+  assert.equal(kept._ls.get(R.REP_KEY), 'john');
+  assert.equal(R.getRep(fakeWin('', null, 'forge_rep=chad')), 'chad');
+  assert.equal(R.getRep(fakeWin('?rep=John', { [R.REP_KEY]: 'chad' })), 'john');
+
+  const channel = fakeWin('?ref=blog&rep=chris', { [R.KEY]: 'fortiva', [R.REP_KEY]: 'john' });
+  R.capture(channel);
+  assert.equal(channel._ls.get(R.KEY), 'fortiva');
+  assert.equal(channel._ls.get(R.REP_KEY), 'chris');
+});
+
+test('checkout metadata carries sales_rep without dropping ref or the price', () => {
+  const both = R.withCheckout({ priceId: 'prc_same' }, fakeWin('', { [R.KEY]: 'fortiva', [R.REP_KEY]: 'chad' }));
+  assert.equal(both.priceId, 'prc_same');
+  assert.deepEqual(both.metadataForCheckout, { ref: 'fortiva', sales_rep: 'chad' });
+  const repOnly = R.withCheckout({ priceId: 'prc_same', metadataForCheckout: { keep: '1' } }, fakeWin('', { [R.REP_KEY]: 'john' }));
+  assert.deepEqual(repOnly.metadataForCheckout, { keep: '1', sales_rep: 'john' });
+  assert.equal(R.withCheckout({ priceId: 'prc_same' }, fakeWin('')).metadataForCheckout, undefined);
+});
+
+test('booking links gain the stored rep and keep an existing ref', () => {
+  const links = [
+    hrefEl('/book'),
+    hrefEl('https://forgedbyaris.com/book?ref=blog'),
+    hrefEl('https://api.leadconnectorhq.com/widget/booking/JlM6SoqbqCKmDois6PHx?ref=blog'),
+    hrefEl('https://api.leadconnectorhq.com/widget/booking/JlM6SoqbqCKmDois6PHx?rep=john'),
+    hrefEl('/webinar/register?src=site'),
+  ];
+  const w = fakeWin('', { [R.REP_KEY]: 'chris' });
+  w.location.href = 'https://forgedbyaris.com/';
+  w.location.hostname = 'forgedbyaris.com';
+  w.document.querySelectorAll = () => links;
+  R.decorateBookingLinks(w);
+  assert.equal(links[0].getAttribute('href'), '/book?rep=chris');
+  assert.equal(links[1].getAttribute('href'), 'https://forgedbyaris.com/book?ref=blog&rep=chris');
+  assert.match(links[2].getAttribute('href'), /ref=blog/);
+  assert.match(links[2].getAttribute('href'), /rep=chris/);
+  assert.equal(links[3].getAttribute('href'), 'https://api.leadconnectorhq.com/widget/booking/JlM6SoqbqCKmDois6PHx?rep=john');
+  assert.equal(links[4].getAttribute('href'), '/webinar/register?src=site');
+});
+
+function hrefEl(href) {
+  return {
+    _h: href,
+    getAttribute() { return this._h; },
+    setAttribute(k, v) { if (k === 'href') this._h = v; },
+  };
+}
+
+test('signup, checkout, webinar registration, and the booking page pass sales rep through', () => {
+  const fs = require('fs');
+  const path = require('path');
+  for (const f of ['signup.html', 'signup-97.html', 'signup-partner.html', 'signup-partner-125.html', 'signup-497.html', 'signup-fortiva-1497.html', 'signup-fortiva-1997.html', 'signup-foundation.html', 'signup-foundation-empire.html', 'payment-plan.html']) {
+    const html = fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
+    assert.match(html, /ForgeRef\.getRep\(window\)/, f);
+    assert.match(html, /'sales-rep': salesRep/, f);
+  }
+  for (const f of ['assets/js/fwn-checkout.js', 'assets/js/webinar-checkout.js']) {
+    const src = fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
+    assert.match(src, /salesRepValue\(\)/, f);
+    assert.match(src, /'sales-rep': salesRep/, f);
+    assert.match(src, /sales_rep = salesRep/, f);
+  }
+  const register = fs.readFileSync(path.join(__dirname, '..', 'webinar/register.html'), 'utf8');
+  assert.match(register, /ForgeRef\.getRep/);
+  assert.match(register, /rep: rep/);
+  const replay = fs.readFileSync(path.join(__dirname, '..', 'webinar/replay.html'), 'utf8');
+  assert.match(replay, /ForgeRef\.getRep/);
+  assert.match(replay, /&rep=/);
+  const booking = fs.readFileSync(path.join(__dirname, '..', 'apartment-confidential.html'), 'utf8');
+  assert.match(booking, /key === 'rep'/);
+  assert.match(booking, /ForgeRef\.getRep/);
 });
 
 test('blog posts include ref-capture.js', () => {
