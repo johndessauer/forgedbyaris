@@ -126,8 +126,8 @@ function empireLessonPayload(access) {
 }
 
 // Commercial creative-finance videos. Residential lessons are not in this
-// payload. Pass `videos` only from tests; the live map is the empty-id
-// catalog in creative-finance-lessons.js until a video is published.
+// payload. Pass `videos` only from tests; otherwise the published map in
+// creative-finance-lessons.js is used. A non-empty id is attached only for Empire.
 function creativeFinanceLessonPayload(access, videos) {
   const source = videos || require('./creative-finance-lessons').CREATIVE_FINANCE_COMMERCIAL_VIDEOS;
   const empire = !!(access && access.empire);
