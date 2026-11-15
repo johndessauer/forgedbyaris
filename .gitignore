@@ -1,6 +1,9 @@
 # Local Netlify folder
 .netlify
 
+# Publish output from scripts/publish-site.js. Netlify builds this on deploy.
+/public/
+
 # Dependencies (reinstall with npm install)
 node_modules/
 
