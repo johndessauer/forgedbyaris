@@ -193,6 +193,7 @@ test('publish output keeps pages, assets, and vault files', () => {
     'sitemap.xml',
     'fwn/4-numbers-deal-sheet.pdf',
     'blog/how-to-wholesale-a-real-estate-deal.html',
+    'images/email/forge-signature-logo.png',
   ]) {
     assert.equal(fs.existsSync(path.join(out, rel)), true, rel);
   }
