@@ -13,8 +13,9 @@ const path = require('path');
 
 const ROOT = path.join(__dirname, '..');
 
-// Page trees. docs/ is copied separately so only vault templates go out.
-const WEB_DIRS = ['assets', 'blog', 'fwn', 'unlocks', 'webinar'];
+// Page trees. images/ holds hosted email assets such as the signature logo.
+// docs/ is copied separately so only vault templates go out.
+const WEB_DIRS = ['assets', 'blog', 'fwn', 'images', 'unlocks', 'webinar'];
 
 const ROOT_FILES = ['robots.txt', 'sitemap.xml'];
 
