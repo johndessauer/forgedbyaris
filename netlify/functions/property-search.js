@@ -20,16 +20,16 @@
 // but this account carries a free allotment (quantityFreeRemaining) that
 // has absorbed every test so far at $0 cost.
 //
-// Two things remain genuinely unverified, both low-risk:
-//   1. Whether 'City' alone (no state) as a Criteria name actually narrows
-//      results — never independently proven, since every real-data test
-//      so far used a zip-bearing location and took the ZipFive branch.
-//   2. Whether multiple Criteria entries (e.g. two plays selected at once)
-//      are ANDed or ORed together — assumed AND (narrowing), not tested.
+// Still unverified live: whether 'City' alone (no state) actually narrows
+// results. Every real-data test so far used a zip and took the ZipFive branch.
+// Multiple Criteria objects are ANDed (documented on the criteria guide).
+// Values inside one criterion are ORed. There is no cross-criterion OR.
 //
 // Routes:
-//   GET  ?action=search&location=<free text>&plays=<comma-separated play ids>
-//        -> { results: [...], demo: boolean }
+//   GET  ?action=search&location=&plays=&ptypes=&pmode=&match=&emin=&emax=&start=
+//        -> { results: [...], total, demo }   Purchase=1, page of 25, spend-capped
+//   GET  ?action=count&location=&plays=&ptypes=&pmode=&match=&emin=&emax=
+//        -> { count, link, demo, leadTypes }  Purchase=0, no records, no cap charge
 //   GET  ?action=list
 //        -> { leads: [...] }  (this member's saved leads)
 //   POST { action: 'save', leadId, address, playId, lat, lng, owner, equity }
@@ -40,23 +40,8 @@
 const { enforceMembership } = require('./_Lib/membership');
 const { supabase } = require('./_Lib/supabase-client');
 const { json, preflight } = require('./_Lib/http');
-
-// Maps FORGE's Play ids to PropertyRadar Criteria entries. PropertyRadar's
-// Criteria parameter is an ARRAY of { name, value } objects, not a flat
-// object — confirmed against PropertyRadar's Criteria Reference docs
-// (Sept 2026). Field names below are confirmed real PropertyRadar criteria.
-const PLAY_DEFINITIONS = {
-  prefore:       { label: 'Pre-Foreclosure', radarCriteria: [{ name: 'inForeclosure', value: [1] }] },
-  absentee:      { label: 'Absentee Owners', radarCriteria: [{ name: 'isSameMailingOrExempt', value: [0] }] },
-  highequity:    { label: 'High-Equity', radarCriteria: [{ name: 'EquityPercent', value: [[50, null]] }] },
-  vacant:        { label: 'Vacant', radarCriteria: [{ name: 'isSiteVacant', value: [1] }] },
-  taxdelinquent: { label: 'Tax Delinquent', radarCriteria: [{ name: 'inTaxDelinquency', value: [1] }] },
-  probate:       { label: 'Probate', radarCriteria: [{ name: 'inProbateProperty', value: [1] }] },
-  // Divorce is a real PropertyRadar play but its data quality/coverage has
-  // NOT been verified for FORGE's use case (flagged Sept 2026) — ships in
-  // the UI as an explicit "verify data" item, not a fully trusted category.
-  divorce:       { label: 'Divorce', radarCriteria: [{ name: 'inDivorce', value: [1] }] },
-};
+const { compileSearch, labelFor, LEAD_CRITERIA } = require('./_Lib/lead-criteria');
+const spend = require('./_Lib/property-search-spend');
 
 // Fields requested from PropertyRadar on every live search. Names confirmed
 // against PropertyRadar's Properties response schema (Sept 2026).
@@ -94,23 +79,28 @@ function isLiveModeEnabled() {
 // high-equity, or a vacant property that's also pre-foreclosure), and the
 // UI now surfaces every matching tag instead of forcing one bucket per lead.
 const DEMO_POINTS = [
-  { addr: '412 W Joliet St, Crown Point, IN 46307', lat: 41.4235, lng: -87.3711, plays: ['prefore'], owner: 'M. Delgado', equity: 89 },
+  { addr: '412 W Joliet St, Crown Point, IN 46307', lat: 41.4235, lng: -87.3711, plays: ['prefore', 'zombie'], owner: 'M. Delgado', equity: 89 },
   { addr: '2107 Delaware Pkwy, Crown Point, IN 46307', lat: 41.4102, lng: -87.3599, plays: ['taxdelinquent'], owner: 'R. Nowak', equity: 34 },
-  { addr: '9541 Randolph St, Crown Point, IN 46307', lat: 41.4310, lng: -87.3480, plays: ['prefore', 'vacant'], owner: 'Unknown', equity: 21 },
-  { addr: '1188 S Court St, Crown Point, IN 46307', lat: 41.4050, lng: -87.3820, plays: ['absentee'], owner: 'J. Whitfield', equity: 58 },
+  { addr: '9541 Randolph St, Crown Point, IN 46307', lat: 41.4310, lng: -87.3480, plays: ['prefore', 'vacant', 'zombie'], owner: 'Unknown', equity: 21 },
+  { addr: '1188 S Court St, Crown Point, IN 46307', lat: 41.4050, lng: -87.3820, plays: ['absentee', 'bored', 'longterm', 'freeclear'], owner: 'J. Whitfield', equity: 58 },
   { addr: '733 N Main St, Crown Point, IN 46307', lat: 41.4278, lng: -87.3602, plays: ['prefore', 'highequity'], owner: 'T. Alvarez', equity: 112 },
-  { addr: '5502 Broadway, Crown Point, IN 46307', lat: 41.4155, lng: -87.3455, plays: ['taxdelinquent'], owner: 'S. Krueger', equity: 27 },
-  { addr: '861 E 93rd Ave, Crown Point, IN 46307', lat: 41.4330, lng: -87.3750, plays: ['absentee'], owner: 'D. Okafor', equity: 45 },
+  { addr: '5502 Broadway, Crown Point, IN 46307', lat: 41.4155, lng: -87.3455, plays: ['taxdelinquent', 'lowequity'], owner: 'S. Krueger', equity: 27 },
+  { addr: '861 E 93rd Ave, Crown Point, IN 46307', lat: 41.4330, lng: -87.3750, plays: ['absentee', 'cashbuyer'], owner: 'D. Okafor', equity: 45 },
   { addr: '3390 Ross Township Rd, Crown Point, IN 46307', lat: 41.4400, lng: -87.3450, plays: ['highequity'], owner: 'L. Chen', equity: 158 },
-  { addr: '2214 Franciscan Dr, Crown Point, IN 46307', lat: 41.4290, lng: -87.3550, plays: ['highequity'], owner: 'P. Osei', equity: 141 },
-  { addr: '77 N Court St, Crown Point, IN 46307', lat: 41.4120, lng: -87.3900, plays: ['probate'], owner: 'Estate of R. Hayes', equity: 16 },
-  { addr: '990 E 101st Ave, Crown Point, IN 46307', lat: 41.4060, lng: -87.3400, plays: ['absentee', 'taxdelinquent'], owner: 'K. Bianchi', equity: 52 },
+  { addr: '2214 Franciscan Dr, Crown Point, IN 46307', lat: 41.4290, lng: -87.3550, plays: ['highequity', 'listing'], owner: 'P. Osei', equity: 141 },
+  { addr: '77 N Court St, Crown Point, IN 46307', lat: 41.4120, lng: -87.3900, plays: ['probate', 'inherited'], owner: 'Estate of R. Hayes', equity: 16 },
+  { addr: '990 E 101st Ave, Crown Point, IN 46307', lat: 41.4060, lng: -87.3400, plays: ['absentee', 'taxdelinquent', 'activeinvestor'], owner: 'K. Bianchi', equity: 52 },
+  { addr: '1402 Taft St, Crown Point, IN 46307', lat: 41.4180, lng: -87.3660, plays: ['flipped'], owner: 'A. Berger', equity: 40 },
+  { addr: '608 Maple Ln, Crown Point, IN 46307', lat: 41.4210, lng: -87.3520, plays: ['upsidedown'], owner: 'C. Walsh', equity: 8 },
+  { addr: '77 N Grant St, Crown Point, IN 46307', lat: 41.4165, lng: -87.3780, plays: ['foreclosure'], owner: 'Lender REO', equity: 19 },
+  { addr: '2550 E 93rd Ave, Crown Point, IN 46307', lat: 41.4340, lng: -87.3410, plays: ['foreactivity'], owner: 'M. Patel', equity: 33 },
+  { addr: '15 S Main St, Crown Point, IN 46307', lat: 41.4144, lng: -87.3655, plays: ['divorce'], owner: 'J. and R. Cole', equity: 47 },
 ];
 
 function buildDemoResults(playIds) {
-  const wanted = new Set(playIds.length ? playIds : Object.keys(PLAY_DEFINITIONS));
+  const wanted = playIds.length ? playIds : Object.keys(LEAD_CRITERIA);
   return DEMO_POINTS
-    .filter(p => p.plays.some(pl => wanted.has(pl)))
+    .filter(p => wanted.every(pl => p.plays.includes(pl)))
     .map((p, i) => ({
       id: 'demo-' + i,
       address: p.addr,
@@ -123,48 +113,6 @@ function buildDemoResults(playIds) {
       mapUrl: buildMapUrl(p.lat, p.lng),
       zillowUrl: buildZillowUrl(p.addr),
     }));
-}
-
-// Turns FORGE's free-text location input into PropertyRadar Criteria.
-// CONFIRMED live (Sept 22, 2026): ZipFive works end-to-end, including
-// against a real Purchase=1 record. The state criteria name is confirmed
-// 'DefaultState' (not 'State' as originally guessed) from a live 400 error:
-// "[DefaultState] must be one of [AL|AK|AZ|...]" — it requires a clean
-// 2-letter USPS code, so we validate against a known list and strip any
-// trailing zip text before using it. 'City' as a criteria name has never
-// errored, but whether it actually narrows results (vs. being silently
-// ignored) has not been independently proven — every real-data test so far
-// took the ZipFive branch.
-const US_STATE_CODES = new Set([
-  'AL','AK','AZ','AR','CA','CO','CT','DE','DC','FL','GA','HI','ID','IL','IN',
-  'IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH',
-  'NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT',
-  'VT','VA','WA','WV','WI','WY',
-]);
-
-function buildLocationCriteria(location) {
-  const trimmed = (location || '').trim();
-  if (!trimmed) return [];
-
-  const zipMatch = trimmed.match(/\b\d{5}\b/);
-  if (zipMatch) {
-    return [{ name: 'ZipFive', value: [Number(zipMatch[0])] }];
-  }
-
-  const withoutZip = trimmed.replace(/\b\d{5}(-\d{4})?\b/, '').trim();
-  const parts = withoutZip.split(',').map(s => s.trim()).filter(Boolean);
-  if (parts.length >= 2) {
-    const city = parts[0];
-    const stateToken = parts[1].split(/\s+/)[0].toUpperCase();
-    if (US_STATE_CODES.has(stateToken)) {
-      return [
-        { name: 'City', value: [city] },
-        { name: 'DefaultState', value: [stateToken] },
-      ];
-    }
-    return [{ name: 'City', value: [city] }];
-  }
-  return [{ name: 'City', value: [parts[0]] }];
 }
 
 // "Pics" — PropertyRadar has no photo/image data in its API or product
@@ -184,13 +132,9 @@ function buildZillowUrl(addressFull) {
 }
 
 // --- Real PropertyRadar call ---
-async function searchPropertyRadar(location, playIds, start = 0) {
-  const criteria = buildLocationCriteria(location);
-  playIds.forEach(id => {
-    const def = PLAY_DEFINITIONS[id];
-    if (def) criteria.push(...def.radarCriteria);
-  });
-
+// purchase=false is the count preview (Purchase=0): totalResultCount, no
+// records, no charge. purchase=true buys up to `limit` records.
+async function searchPropertyRadar(criteria, playIds, start, { purchase, limit }) {
   // CONFIRMED live (Sept 22, 2026 real API response): PropertyRadar rejects
   // Purchase/Fields as JSON body fields — they must be URL query params.
   // Criteria stays in the JSON body.
@@ -201,21 +145,19 @@ async function searchPropertyRadar(location, playIds, start = 0) {
   // PropertyRadar bills per record returned and it's non-refundable, though
   // this account has a free allotment (quantityFreeRemaining) that has
   // covered every record returned so far at $0 cost. Limit=25 is the
-  // production cap John set (Sept 22, 2026) — raise only with his
-  // sign-off, since every additional record is a real (if currently free)
-  // charge against that allotment.
+  // production cap John set (Sept 22, 2026). The spend safeguard can lower
+  // Limit further so a page cannot cross the daily or monthly cap.
   //
   // Start is CONFIRMED against PropertyRadar's own live API reference docs
   // (developers.propertyradar.com, Sept 22, 2026): "Offset from which to
   // begin returning records. Used for paging." Powers the "Load 25 more"
-  // button — each additional page is its own Purchase=1 batch (same
-  // per-record billing as the first page, no separate cap yet).
+  // button — each additional page is its own Purchase=1 batch.
   const qs = new URLSearchParams({
-    Purchase: '1',
-    Limit: String(PAGE_SIZE),
-    Start: String(start),
-    Fields: PROPERTYRADAR_FIELDS.join(','),
+    Purchase: purchase ? '1' : '0',
+    Limit: String(limit),
+    Start: String(start || 0),
   });
+  if (purchase) qs.set('Fields', PROPERTYRADAR_FIELDS.join(','));
 
   const resp = await fetch(`${PROPERTYRADAR_API_BASE}/properties?${qs.toString()}`, {
     method: 'POST',
@@ -234,16 +176,14 @@ async function searchPropertyRadar(location, playIds, start = 0) {
   }
 
   const data = await resp.json();
+  if (!purchase) {
+    return { total: data.totalResultCount ?? 0, results: [] };
+  }
   const rawResults = data.results || [];
 
-  // NOTE: a single combined call can't tell us which of the *requested*
-  // plays a given returned property actually satisfies when more than one
-  // play is selected at once — multiple Criteria entries are assumed to be
-  // ANDed together (narrowing to properties matching ALL selected plays),
-  // which is NOT confirmed against a live response. Tagging every result
-  // with the full requested play list is a placeholder for the single-play
-  // case; for multi-play search, issue one call per play and merge results
-  // by RadarID so a property matching two plays picks up both tags.
+  // Criteria are ANDed, so each returned property matches every requested
+  // lead type. The cards show those requested tags. A single response does
+  // not say which extra, unrequested types the property would also match.
   const mapped = rawResults.map((r, i) => {
     const lat = r.Latitude ?? null;
     const lng = r.Longitude ?? null;
@@ -283,13 +223,58 @@ async function searchPropertyRadar(location, playIds, start = 0) {
 
   return {
     results: mapped,
-    // totalResultCount is PropertyRadar's real total match count for this
-    // Criteria — independent of how many records were actually purchased
-    // in this call. Falls back to what we got back if the field is ever
-    // missing, so "Load more" just quietly has nothing further to offer
-    // instead of erroring.
+    // totalResultCount is the real total match count for this Criteria —
+    // independent of how many records were actually purchased in this call.
+    // Falls back to what we got back if the field is ever missing, so
+    // "Load more" just quietly has nothing further to offer.
     total: data.totalResultCount ?? mapped.length,
   };
+}
+
+function countPayload(compiled, count, demo, liveError) {
+  const body = {
+    count,
+    demo,
+    location: compiled.location,
+    leadTypes: compiled.leadTypes,
+    approximate: compiled.approximate,
+    link: compiled.link,
+    propertyTypes: compiled.propertyTypes,
+    propertyMode: compiled.propertyMode,
+    match: compiled.match,
+  };
+  if (liveError) body.liveError = liveError;
+  return body;
+}
+
+function searchParams(params) {
+  return {
+    location: params.location,
+    plays: params.plays,
+    ptypes: params.ptypes,
+    pmode: params.pmode,
+    match: params.match,
+    emin: params.emin,
+    emax: params.emax,
+  };
+}
+
+// Room left under the daily member cap and the monthly global cap.
+// A missing blob context (unit tests, local node) uses in-memory counters.
+async function openSpend(memberId) {
+  const caps = spend.capsFromEnv(process.env);
+  const now = new Date();
+  let store = spend.openStore();
+  try {
+    const status = await spend.inspect(store, memberId, now, caps);
+    return { store, status, now };
+  } catch (err) {
+    if (!spend.isStoreUnavailable(err)) throw err;
+    console.error('Property search spend store unavailable, using in-memory counters:', err.message);
+    store = spend.memoryStore();
+    const status = await spend.inspect(store, memberId, now, caps);
+    return { store, status, now };
+  }
 }
 
 exports.handler = async function (event, context) {
@@ -304,26 +289,61 @@ exports.handler = async function (event, context) {
       const params = event.queryStringParameters || {};
       const action = params.action;
 
-      if (action === 'search') {
-        const location = (params.location || '').trim();
-        const playIds = (params.plays || '').split(',').filter(Boolean);
+      if (action === 'search' || action === 'count') {
+        const compiled = compileSearch(searchParams(params));
+        if (compiled.error) return json(compiled.status || 400, { error: compiled.error });
         // Offset for "Load 25 more" — 0 on the first page of a search.
+        // Count previews ignore it. Purchase=0 does not buy records.
         const start = Math.max(0, parseInt(params.start, 10) || 0);
 
-        if (!isLiveModeEnabled()) {
-          const demoResults = buildDemoResults(playIds);
-          // Same Start window as a live search, so a later page cannot
-          // append the rows the first page already returned.
-          return json(200, { results: pageOf(demoResults, start), total: demoResults.length, demo: true });
+        if (action === 'count') {
+          if (!isLiveModeEnabled()) {
+            return json(200, countPayload(compiled, buildDemoResults(compiled.playIds).length, true));
+          }
+          try {
+            const preview = await searchPropertyRadar(compiled.criteria, compiled.playIds, 0, { purchase: false, limit: 1 });
+            return json(200, countPayload(compiled, preview.total, false));
+          } catch (err) {
+            console.error('PropertyRadar count failed, falling back to demo count:', err);
+            return json(200, countPayload(compiled, buildDemoResults(compiled.playIds).length, true, 'Live data temporarily unavailable.'));
+          }
         }
 
+        if (!isLiveModeEnabled()) {
+          const demoResults = buildDemoResults(compiled.playIds);
+          // Same Start window as a live search, so a later page cannot
+          // append the rows the first page already returned.
+          return json(200, { results: pageOf(demoResults, start), total: demoResults.length, demo: true, link: compiled.link });
+        }
+
+        let guard;
         try {
-          const { results, total } = await searchPropertyRadar(location, playIds, start);
-          return json(200, { results, total, demo: false });
+          guard = await openSpend(memberId);
+        } catch (err) {
+          console.error('Property search spend check failed:', err);
+          return json(503, { error: 'Property Search is temporarily unavailable. Try again in a moment.' });
+        }
+        if (guard.status.blocked) return json(429, { error: guard.status.blocked.message });
+
+        try {
+          const { results, total } = await searchPropertyRadar(
+            compiled.criteria,
+            compiled.playIds,
+            start,
+            { purchase: true, limit: Math.min(PAGE_SIZE, guard.status.room) }
+          );
+          try {
+            await spend.record(guard.store, memberId, results.length, guard.now);
+          } catch (err) {
+            // The records were already purchased. Losing the counter write
+            // must not hide them from the member.
+            console.error('Property search spend record failed after purchase:', err);
+          }
+          return json(200, { results, total, demo: false, link: compiled.link });
         } catch (err) {
           console.error('PropertyRadar live search failed, falling back to demo data:', err);
-          const demoResults = buildDemoResults(playIds);
-          return json(200, { results: pageOf(demoResults, start), total: demoResults.length, demo: true, liveError: 'Live data temporarily unavailable.' });
+          const demoResults = buildDemoResults(compiled.playIds);
+          return json(200, { results: pageOf(demoResults, start), total: demoResults.length, demo: true, liveError: 'Live data temporarily unavailable.', link: compiled.link });
         }
       }
 
@@ -449,11 +469,7 @@ exports.handler = async function (event, context) {
           if (linkError) throw linkError;
         }
 
-        const tagLabels = {
-          prefore: 'Pre-Foreclosure', absentee: 'Absentee Owners', highequity: 'High-Equity',
-          vacant: 'Vacant', taxdelinquent: 'Tax Delinquent', probate: 'Probate', divorce: 'Divorce',
-        };
-        const tags = (saved.play_id || '').split(',').filter(Boolean).map(t => tagLabels[t] || t).join(', ');
+        const tags = (saved.play_id || '').split(',').filter(Boolean).map(t => labelFor(t)).join(', ');
 
         // Property characteristics + map/Zillow links, when present, so
         // "transfer the property info (including pics) to the CRM" lands

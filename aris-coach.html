@@ -960,7 +960,10 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
       .replace(/<p><\/p>/g, '')
       // convert markdown bullets
       .replace(/<br>- (.*?)(?=<br>|<\/p>)/g, '<br>• $1')
-      .replace(/<p>- (.*?)<\/p>/g, '<p>• $1</p>');
+      .replace(/<p>- (.*?)<\/p>/g, '<p>• $1</p>')
+      .replace(/(^|[\s>])(\/property-search\.html\?[^\s<]+)/g, function (_, pre, url) {
+        return pre + '<a href="' + url + '">Open these filters in Property Search</a>';
+      });
   }
 
   function getTime() {
@@ -1320,6 +1323,33 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
   // ── CRM TOOL DEFINITIONS (Anthropic tools schema) ──
   const CRM_TOOLS = [
     {
+      name: 'search_leads',
+      description: "Count Property Search leads for a US location and lead type. Returns a match count and a link that opens Property Search with those filters filled in. Does not return individual properties. Call this when a member asks for leads, motivated sellers, absentee owners, pre-foreclosures, free-and-clear owners, cash buyers, or a similar list in a ZIP, city, or state. Never mention data vendors. Put the returned link in your reply unchanged.",
+      input_schema: {
+        type: 'object',
+        properties: {
+          location: { type: 'string', description: "ZIP, 'City ST', or 'City, ST'. Example: 46307 or Reno, NV." },
+          lead_types: {
+            type: 'array',
+            items: {
+              type: 'string',
+              enum: ['absentee', 'activeinvestor', 'listing', 'bored', 'cashbuyer', 'taxdelinquent', 'flipped', 'foreactivity', 'foreclosure', 'freeclear', 'highequity', 'longterm', 'lowequity', 'inherited', 'prefore', 'upsidedown', 'vacant', 'zombie', 'probate', 'divorce']
+            },
+            description: 'Lead types that must all match. absentee = absentee owners. activeinvestor = active investor owned (approximate: owner holds 2+ properties and this one was bought in the last 3 years). listing = active listing. bored = absentee owned 10+ years. cashbuyer = cash buyers. taxdelinquent = delinquent tax. flipped = bought and sold within 24 months. foreactivity = pre-foreclosure or auction. foreclosure = bank-owned. freeclear = no mortgage. highequity = has a loan and LTV under 60%. longterm = owned 25+ years. lowequity = LTV over 80%. inherited = potentially inherited (approximate). prefore = notice filed, not auction or bank-owned. upsidedown = LTV over 100%. vacant = vacancy. zombie = pre-foreclosure and vacant. probate = probate. divorce = divorce.'
+          },
+          property_types: {
+            type: 'array',
+            items: { type: 'string', enum: ['sfr', 'condo', 'townhome', 'multifamily', 'apartment', 'land', 'mobile', 'other'] },
+            description: 'Optional. sfr single family, condo, townhome, multifamily (2-4), apartment (5+), land, mobile, other.'
+          },
+          property_types_mode: { type: 'string', enum: ['include', 'exclude'], description: 'Include (default) or exclude the property types.' },
+          equity_min: { type: 'number', description: 'Minimum equity percent when the member states one. 40%+ equity is 40. Omit for the High Equity lead type unless they also named a percent.' },
+          equity_max: { type: 'number', description: 'Maximum equity percent, only when the member states one.' }
+        },
+        required: ['location', 'lead_types']
+      }
+    },
+    {
       name: 'get_market_data',
       description: "Look up live market data for a US ZIP, city and state, or a neighborhood inside a ZIP (for example 'Harter Heights, 46617' or 'South Bend, IN'). Returns Census ACS figures for the resolved geography, a ZIP comparison when the lookup is a neighborhood, a radius comps summary when the member is signed in, and sourced area intel (permits, news) with links and dates. Call this when the member asks about a specific market or neighborhood. Cite only items in areaIntel; never invent developments, employer moves, rezoning, or permits. If comps or intel are missing, say so rather than filling gaps.",
       input_schema: {
@@ -1458,8 +1488,40 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
 
   // Executes a READ tool immediately and returns its result as a plain object
   // (to be JSON.stringify'd into a tool_result block).
+  let pendingLeadLink = '';
+
   async function executeReadTool(name, input) {
     switch (name) {
+      case 'search_leads': {
+        try {
+          if (!input.location) return { error: 'No location provided.' };
+          const types = Array.isArray(input.lead_types) ? input.lead_types : [];
+          if (!types.length) return { error: 'No lead type provided.' };
+          const params = new URLSearchParams();
+          params.set('action', 'count');
+          params.set('location', input.location);
+          params.set('plays', types.join(','));
+          if (Array.isArray(input.property_types) && input.property_types.length) {
+            params.set('ptypes', input.property_types.join(','));
+          }
+          if (input.property_types_mode === 'exclude') params.set('pmode', 'exclude');
+          if (input.equity_min != null && input.equity_min !== '') params.set('emin', String(input.equity_min));
+          if (input.equity_max != null && input.equity_max !== '') params.set('emax', String(input.equity_max));
+          const data = await apiCallCRM('property-search?' + params.toString());
+          if (data.link) pendingLeadLink = data.link;
+          return {
+            count: data.count,
+            location: data.location || input.location,
+            leadTypes: data.leadTypes || [],
+            approximate: data.approximate || [],
+            link: data.link,
+            demo: !!data.demo,
+            note: data.demo ? 'This count is a preview, not a live total.' : ''
+          };
+        } catch (e) {
+          return { error: e.message };
+        }
+      }
       case 'get_market_data': {
         if (!input.query) return { error: 'No location query provided.' };
         const data = await apiCallCRM('market-data', { method: 'POST', body: JSON.stringify({ query: input.query }) });
@@ -1787,6 +1849,10 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
         try { dealData = JSON.parse(dealMatch[1]); } catch (e) { dealData = null; }
         reply = reply.replace(/<<<DEAL_DATA[\s\S]*?DEAL_DATA>>>/g, '').trim();
       }
+      if (pendingLeadLink && reply.indexOf('property-search.html') === -1) {
+        reply = reply.trim() + '\n\n' + pendingLeadLink;
+      }
+      pendingLeadLink = '';
       streamHandle.finalize(reply);
       conversationHistory.push({ role: 'assistant', content: reply });
       saveHistory();
