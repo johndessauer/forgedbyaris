@@ -1,10 +1,34 @@
 [
   {
-    "id": "lab-expansion-sept2026",
-    "date": "2026-09-17",
+    "id": "property-search-lead-filters",
+    "date": "2026-11-19",
     "tag": "live",
-    "title": "Real Estate Lab: 9 \u2192 36 Scenarios",
-    "body": "All 27 new roleplay scenarios are live \u2014 FSBO sellers, family office negotiations, JV buyouts, 1031 deadlines, and more."
+    "title": "Property Search: 18 New Lead Filters",
+    "body": "Free & clear, upside down, cash buyers, bored investors, long-term owners, flipped, zombie properties, active listings and more, plus property type filters.",
+    "href": "property-search.html"
+  },
+  {
+    "id": "ask-aris-for-leads",
+    "date": "2026-11-19",
+    "tag": "live",
+    "title": "Ask ARIS for Leads",
+    "body": "Tell ARIS what you're looking for, like \"free and clear long-term owners in Reno\", and get a match count with a link to the results.",
+    "href": "aris-coach.html"
+  },
+  {
+    "id": "marketing",
+    "date": "2026-11-19",
+    "tag": "soon",
+    "title": "Marketing",
+    "body": "Send mail and outreach campaigns to your leads, right from FORGE."
+  },
+  {
+    "id": "group-coaching-session-1",
+    "date": "2026-10-18",
+    "tag": "live",
+    "title": "Group Coaching Replays",
+    "body": "Session 1 is up: Strategy, Market, Money. Build your investor foundation with ARIS, Market Oracle, and Capital Radar. Find it under Education \u2192 Group Coaching.",
+    "href": "education.html#group-coaching"
   },
   {
     "id": "property-search-launch",
@@ -14,11 +38,10 @@
     "body": "Pre-foreclosure, absentee-owner, high-equity, vacant and tax-delinquent leads \u2014 search any zip and send leads straight to your CRM."
   },
   {
-    "id": "group-coaching-session-1",
-    "date": "2026-10-18",
+    "id": "lab-expansion-sept2026",
+    "date": "2026-09-17",
     "tag": "live",
-    "title": "Group Coaching Replays",
-    "body": "Session 1 is up: Strategy, Market, Money. Build your investor foundation with ARIS, Market Oracle, and Capital Radar. Find it under Education \u2192 Group Coaching.",
-    "href": "education.html#group-coaching"
+    "title": "Real Estate Lab: 9 \u2192 36 Scenarios",
+    "body": "All 27 new roleplay scenarios are live \u2014 FSBO sellers, family office negotiations, JV buyouts, 1031 deadlines, and more."
   }
 ]
