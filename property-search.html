@@ -429,6 +429,19 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 .ps-play-row.selected .ps-play-dot { box-shadow:0 0 0 3px var(--row-glow, rgba(255,255,255,0.15)); }
 .ps-play-check { margin-left:auto; font-weight:700; font-size:13px; flex-shrink:0; }
 .ps-play-row .ps-note { margin-left:auto; font-size:9px; color:var(--grey); letter-spacing:0.5px; }
+.ps-hint { font-size:11px; color:var(--grey); line-height:1.4; margin:-4px 0 10px; }
+#ps-play-list { max-height:320px; overflow-y:auto; }
+.ps-equity { margin-top:12px; padding-top:12px; border-top:1px solid var(--border); }
+.ps-equity label, .ps-type-mode { font-size:10px; letter-spacing:1.5px; color:var(--gold); text-transform:uppercase; }
+.ps-equity-row { display:flex; gap:8px; margin-top:8px; }
+.ps-equity-row input { margin-top:0; }
+.ps-type-mode { display:flex; gap:14px; margin-bottom:10px; letter-spacing:0.4px; text-transform:none; font-size:12px; color:#E5E7EB; }
+.ps-type-mode label { display:flex; align-items:center; gap:6px; cursor:pointer; }
+.ps-type-mode input { accent-color:var(--gold); }
+@media (max-width: 900px) {
+  .ps-content { flex-direction:column; }
+  .ps-filters { width:100%; }
+}
 .ps-main { flex:1; min-width:0; display:flex; flex-direction:column; gap:18px; }
 .ps-map-wrap { position:relative; border-radius:12px; overflow:hidden; border:1px solid var(--border); }
 #ps-map { width:100%; height:420px; }
@@ -497,6 +510,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 <script src="/assets/js/ref-capture.js"></script>
 <script src="/assets/js/member-preferences.js"></script>
 <script src="/assets/js/property-search-paging.js"></script>
+<script src="/assets/js/lead-filters.js"></script>
 </head>
 <body>
 <div class="app">
@@ -563,7 +577,23 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
         </div>
         <div class="ps-play-card">
           <h3>Lead Type</h3>
+          <p class="ps-hint">A property has to match every lead type you select. Searching “any of these” is not available.</p>
           <div id="ps-play-list"></div>
+          <div class="ps-equity">
+            <label>Equity %</label>
+            <div class="ps-equity-row">
+              <input type="number" id="ps-equity-min" placeholder="Min" min="-100" max="100" inputmode="numeric">
+              <input type="number" id="ps-equity-max" placeholder="Max" min="-100" max="150" inputmode="numeric">
+            </div>
+          </div>
+        </div>
+        <div class="ps-play-card">
+          <h3>Property Type</h3>
+          <div class="ps-type-mode">
+            <label><input type="radio" name="ps-pmode" id="ps-pmode-include" value="include" checked onchange="setPropertyMode('include')"> Include</label>
+            <label><input type="radio" name="ps-pmode" id="ps-pmode-exclude" value="exclude" onchange="setPropertyMode('exclude')"> Exclude</label>
+          </div>
+          <div id="ps-type-list"></div>
         </div>
         <div class="ps-phase2-card" id="ps-teaser-comps">
           <div class="ps-phase2-badge">Live Now</div>
@@ -785,20 +815,16 @@ window.onload = async () => {
 </script>
 
 <script>
-const PLAYS = [
-  { id: 'prefore',    label: 'Pre-Foreclosure',  color: '#E5484D', note: 'v1' },
-  { id: 'absentee',   label: 'Absentee Owners',  color: '#9CA3AF', note: 'v1' },
-  { id: 'highequity', label: 'High-Equity',      color: '#22c55e', note: 'v1' },
-  { id: 'vacant',     label: 'Vacant',           color: '#60A5FA', note: 'v1' },
-  { id: 'taxdelinquent', label: 'Tax Delinquent', color: '#C89B3C', note: 'v1' },
-  { id: 'probate',    label: 'Probate',          color: '#A78BFA' },
-  { id: 'divorce',    label: 'Divorce',          color: '#FF6B2B' },
-];
+const PLAYS = window.ForgeLeadFilters.LEAD_TYPES;
+const PROPERTY_TYPES = window.ForgeLeadFilters.PROPERTY_TYPES;
 
 let memberToken = null;
 let currentPlanName = null;
 let memberCreatedAt = null;
 let selectedPlays = new Set(['prefore']);
+let selectedPropertyTypes = new Set();
+let propertyMode = 'include';
+let matchMode = 'all';
 let map, markers = [];
 // Default map before a search, and where Clear Search returns it.
 const PS_MAP_HOME = { lat: 41.4189, lng: -87.3653, zoom: 12 };
@@ -826,6 +852,81 @@ function renderPlayList() {
 function togglePlay(id) {
   if (selectedPlays.has(id)) { selectedPlays.delete(id); } else { selectedPlays.add(id); }
   renderPlayList();
+}
+
+function renderTypeList() {
+  const el = document.getElementById('ps-type-list');
+  el.innerHTML = PROPERTY_TYPES.map(p => {
+    const isSelected = selectedPropertyTypes.has(p.id);
+    const rowStyle = isSelected ? 'background:rgba(200,155,60,0.16); border-color:rgba(200,155,60,0.55);' : '';
+    return `
+    <div class="ps-play-row ${isSelected ? 'selected' : ''}" style="${rowStyle}" onclick="togglePropertyType('${p.id}')">
+      <span class="ps-play-dot" style="background:#C89B3C"></span>${p.label}
+      ${isSelected ? '<span class="ps-play-check" style="color:#C89B3C">&#10003;</span>' : ''}
+    </div>`;
+  }).join('');
+  const include = document.getElementById('ps-pmode-include');
+  const exclude = document.getElementById('ps-pmode-exclude');
+  if (include) include.checked = propertyMode !== 'exclude';
+  if (exclude) exclude.checked = propertyMode === 'exclude';
+}
+
+function togglePropertyType(id) {
+  if (selectedPropertyTypes.has(id)) selectedPropertyTypes.delete(id);
+  else selectedPropertyTypes.add(id);
+  renderTypeList();
+}
+
+function setPropertyMode(mode) {
+  propertyMode = mode === 'exclude' ? 'exclude' : 'include';
+}
+
+function readEquityInputs() {
+  const minEl = document.getElementById('ps-equity-min');
+  const maxEl = document.getElementById('ps-equity-max');
+  return {
+    equityMin: minEl && minEl.value ? minEl.value.trim() : '',
+    equityMax: maxEl && maxEl.value ? maxEl.value.trim() : '',
+  };
+}
+
+function currentFilters() {
+  const equity = readEquityInputs();
+  return {
+    propertyTypes: Array.from(selectedPropertyTypes),
+    propertyMode: propertyMode,
+    match: matchMode,
+    equityMin: equity.equityMin,
+    equityMax: equity.equityMax,
+  };
+}
+
+function applyUrlFilters() {
+  if (!window.location || !window.location.search) return;
+  const parsed = window.ForgeLeadFilters.parsePropertySearchLink(window.location.search);
+  if (parsed.hasLocation) {
+    const input = document.getElementById('ps-location-input');
+    if (input) input.value = parsed.location;
+  }
+  if (parsed.hasPlays) selectedPlays = new Set(parsed.plays);
+  if (parsed.hasTypes) selectedPropertyTypes = new Set(parsed.propertyTypes);
+  if (parsed.propertyMode === 'exclude') propertyMode = 'exclude';
+  matchMode = parsed.match;
+  if (parsed.hasEquityMin) {
+    const minEl = document.getElementById('ps-equity-min');
+    if (minEl) minEl.value = parsed.equityMin;
+  }
+  if (parsed.hasEquityMax) {
+    const maxEl = document.getElementById('ps-equity-max');
+    if (maxEl) maxEl.value = parsed.equityMax;
+  }
+}
+
+function searchBlockedReason() {
+  if (matchMode === 'any' && selectedPlays.size > 1) {
+    return 'Property Search combines lead types, so a property has to match every type you pick. Search one lead type at a time to see either list.';
+  }
+  return '';
 }
 
 function initMap() {
@@ -990,7 +1091,12 @@ async function runPropertySearch() {
   document.getElementById('ps-map-badge').textContent = location || 'Search results';
   const plays = Array.from(selectedPlays);
   if (!plays.length) { alert('Pick at least one lead type.'); return; }
-  const started = window.ForgePropertySearchPaging.beginNewSearch(searchState, location, plays);
+  const blocked = searchBlockedReason();
+  if (blocked) {
+    document.getElementById('ps-grid').innerHTML = '<div class="ps-empty-state">' + escHtml(blocked) + '</div>';
+    return;
+  }
+  const started = window.ForgePropertySearchPaging.beginNewSearch(searchState, location, plays, currentFilters());
   if (!started.ok) return;
   document.getElementById('ps-load-more-wrap').innerHTML = '';
   await performSearch({ append: false, generation: started.generation, start: started.start });
@@ -1017,7 +1123,20 @@ async function performSearch({ append, generation, start }) {
       window.ForgePropertySearchPaging.searchQuery(searchState, start),
       { headers: memberToken ? { Authorization: 'Bearer ' + memberToken } : {} }
     );
-    const data = await resp.json();
+    const data = await resp.json().catch(() => ({}));
+    if (resp.ok === false) {
+      const failed = window.ForgePropertySearchPaging.failPage(searchState, generation);
+      if (failed.stale) return;
+      const message = data.error || 'Search failed. Check your connection and try again.';
+      if (append) {
+        const wrap = document.getElementById('ps-load-more-wrap');
+        wrap.innerHTML = `<div class="ps-empty-state">${escHtml(message)}</div>`;
+      } else {
+        document.getElementById('ps-grid').innerHTML = `<div class="ps-empty-state">${escHtml(message)}</div>`;
+        updateResultsCount();
+      }
+      return;
+    }
     const applied = window.ForgePropertySearchPaging.applyPage(searchState, generation, data.results || [], data.total);
     if (applied.stale) return;
     document.getElementById('ps-demo-banner').style.display = data.demo ? 'flex' : 'none';
@@ -1043,7 +1162,15 @@ function clearSearch() {
   window.ForgePropertySearchPaging.clearState(searchState);
   document.getElementById('ps-location-input').value = '';
   selectedPlays.clear();
+  selectedPropertyTypes.clear();
+  propertyMode = 'include';
+  matchMode = 'all';
+  const minEl = document.getElementById('ps-equity-min');
+  const maxEl = document.getElementById('ps-equity-max');
+  if (minEl) minEl.value = '';
+  if (maxEl) maxEl.value = '';
   renderPlayList();
+  renderTypeList();
   clearResults();
   lastResults = [];
   if (map) map.setView([PS_MAP_HOME.lat, PS_MAP_HOME.lng], PS_MAP_HOME.zoom);
@@ -1091,17 +1218,26 @@ async function saveLead(id, btn) {
 }
 
 function initPropertySearch() {
+  applyUrlFilters();
   renderPlayList();
+  renderTypeList();
   initMap();
+  const blocked = searchBlockedReason();
+  if (blocked || !selectedPlays.size) {
+    document.getElementById('ps-grid').innerHTML = '<div class="ps-empty-state">' + escHtml(blocked || 'Pick a lead type and location, then hit Search.') + '</div>';
+    const loc = document.getElementById('ps-location-input').value.trim();
+    if (loc) document.getElementById('ps-map-badge').textContent = loc;
+    return;
+  }
   runPropertySearch();
 }
 
 // ===== Saved Leads drawer =====
 let savedLeadsCache = [];
-const PLAY_TAG_LABELS = {
-  prefore: 'Pre-Foreclosure', absentee: 'Absentee Owners', highequity: 'High-Equity',
-  vacant: 'Vacant', taxdelinquent: 'Tax Delinquent', probate: 'Probate', divorce: 'Divorce',
-};
+function playTagLabel(id) {
+  const play = PLAYS.find(p => p.id === id);
+  return play ? play.label : id;
+}
 
 function openSavedDrawer() {
   document.getElementById('ps-drawer-overlay').classList.add('open');
@@ -1138,7 +1274,7 @@ async function renderSavedDrawer() {
 
   body.innerHTML = savedLeadsCache.map(lead => {
     const tags = (lead.play_id || '').split(',').filter(Boolean).map(t =>
-      `<span class="tag">${PLAY_TAG_LABELS[t] || t}</span>`
+      `<span class="tag">${escHtml(playTagLabel(t))}</span>`
     ).join('');
     const crmBtn = lead.crm_deal_id
       ? '<button class="ps-lead-action-btn in-crm" disabled>&#10003; In CRM</button>'

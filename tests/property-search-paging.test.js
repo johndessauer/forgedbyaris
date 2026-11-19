@@ -8,6 +8,7 @@ const vm = require('vm');
 const Module = require('module');
 
 const P = require('../assets/js/property-search-paging');
+const LeadFilters = require('../assets/js/lead-filters');
 
 function rows(startId, count) {
   const out = [];
@@ -237,7 +238,7 @@ function pageScript() {
   throw new Error('property search script not found');
 }
 
-function bootPage() {
+function bootPage(search) {
   const dom = createDom();
   const calls = [];
   let hold = null;
@@ -258,7 +259,7 @@ function bootPage() {
     },
   };
   const sandbox = {
-    window: { ForgePropertySearchPaging: P },
+    window: { ForgePropertySearchPaging: P, ForgeLeadFilters: LeadFilters, location: { search: search || '' } },
     document: {
       getElementById: dom.getElementById,
       querySelectorAll() { return []; },
@@ -391,6 +392,22 @@ test('the page appends the next 25, ignores a second click, and Clear Search emp
   assert.equal(Number(page.mapApi.view.latlng[1]), -87.3653);
   assert.equal(page.mapApi.view.zoom, 12);
   assert.equal(page.calls.length, 2);
+});
+
+test('a prefilled lead link fills the filters and the next search sends them', async () => {
+  const page = bootPage('?location=Reno%2C%20NV&plays=absentee,longterm&ptypes=sfr,condo&pmode=exclude&emin=40');
+  page.sandbox.applyUrlFilters();
+  assert.equal(page.dom.elements['ps-location-input'].value, 'Reno, NV');
+  assert.equal(page.dom.elements['ps-equity-min'].value, '40');
+  await page.sandbox.runPropertySearch();
+  assert.equal(page.calls.length, 1);
+  const url = page.calls[0];
+  assert.match(url, /location=Reno%2C%20NV/);
+  assert.match(url, /plays=absentee,longterm/);
+  assert.match(url, /ptypes=sfr,condo/);
+  assert.match(url, /pmode=exclude/);
+  assert.match(url, /emin=40/);
+  assert.equal(url.includes('match=any'), false);
 });
 
 test('a Load 25 More response that arrives after Clear Search does not refill the list', async () => {

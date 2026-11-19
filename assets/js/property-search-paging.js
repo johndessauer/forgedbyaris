@@ -21,6 +21,11 @@
     return {
       location: '',
       plays: [],
+      propertyTypes: [],
+      propertyMode: 'include',
+      match: 'all',
+      equityMin: '',
+      equityMax: '',
       start: 0,
       total: 0,
       ids: [],
@@ -28,6 +33,23 @@
       exhausted: false,
       generation: 0,
     };
+  }
+
+  function normalizeFilters(filters) {
+    var f = filters || {};
+    return {
+      propertyTypes: (f.propertyTypes || []).slice(),
+      propertyMode: f.propertyMode === 'exclude' ? 'exclude' : 'include',
+      match: f.match === 'any' ? 'any' : 'all',
+      equityMin: f.equityMin == null ? '' : String(f.equityMin),
+      equityMax: f.equityMax == null ? '' : String(f.equityMax),
+    };
+  }
+
+  function sameFilters(a, b) {
+    return a.propertyMode === b.propertyMode && a.match === b.match &&
+      a.equityMin === b.equityMin && a.equityMax === b.equityMax &&
+      samePlays(a.propertyTypes, b.propertyTypes);
   }
 
   function samePlays(a, b) {
@@ -43,16 +65,23 @@
   // First page of a search. A repeat click of the same search while that
   // first page is still in flight is ignored. A different location or lead
   // list starts a new generation so the older response is discarded.
-  function beginNewSearch(state, location, plays) {
+  function beginNewSearch(state, location, plays, filters) {
     var nextPlays = (plays || []).slice();
+    var nextFilters = normalizeFilters(filters);
     var loc = location || '';
     if (state.loading && state.ids.length === 0 && state.start === 0 &&
-        state.location === loc && samePlays(state.plays, nextPlays)) {
+        state.location === loc && samePlays(state.plays, nextPlays) &&
+        sameFilters(state, nextFilters)) {
       return { ok: false, reason: 'in-flight', generation: state.generation, start: 0 };
     }
     state.generation += 1;
     state.location = loc;
     state.plays = nextPlays;
+    state.propertyTypes = nextFilters.propertyTypes;
+    state.propertyMode = nextFilters.propertyMode;
+    state.match = nextFilters.match;
+    state.equityMin = nextFilters.equityMin;
+    state.equityMax = nextFilters.equityMax;
     state.start = 0;
     state.total = 0;
     state.ids = [];
@@ -126,6 +155,11 @@
     state.generation += 1;
     state.location = '';
     state.plays = [];
+    state.propertyTypes = [];
+    state.propertyMode = 'include';
+    state.match = 'all';
+    state.equityMin = '';
+    state.equityMax = '';
     state.start = 0;
     state.total = 0;
     state.ids = [];
@@ -135,8 +169,16 @@
   }
 
   function searchQuery(state, start) {
-    return '/api/property-search?action=search&location=' + encodeURIComponent(state.location || '') +
+    var q = '/api/property-search?action=search&location=' + encodeURIComponent(state.location || '') +
       '&plays=' + (state.plays || []).join(',') + '&start=' + String(start);
+    if (state.propertyTypes && state.propertyTypes.length) {
+      q += '&ptypes=' + state.propertyTypes.join(',');
+      if (state.propertyMode === 'exclude') q += '&pmode=exclude';
+    }
+    if (state.match === 'any') q += '&match=any';
+    if (state.equityMin) q += '&emin=' + encodeURIComponent(state.equityMin);
+    if (state.equityMax) q += '&emax=' + encodeURIComponent(state.equityMax);
+    return q;
   }
 
   return {
