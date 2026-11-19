@@ -1,7 +1,8 @@
 // FORGE webinar checkout. Not FWN.
 //
-// Two packages only. Each is one Memberstack price: a $97/month subscription
-// with the setup fee already enabled (997 setup $900, 1797 setup $1,700).
+// Each package is one Memberstack price: a $97/month subscription
+// with the setup fee already enabled (997 and 997-foundation setup $900,
+// 1797 setup $1,700, 2997-rich setup $2,900).
 // Memberstack checkout charges that setup fee plus the first $97 month, so
 // the first charge is the full tier price. This code must not add another
 // one-time price or a second $97 line. That would charge the buyer twice.
@@ -18,8 +19,14 @@
 //   MEMBERSTACK_PRICE_WEBINAR_1797=prc_forge-webinar-1-797-97-s830bts
 //   MEMBERSTACK_PLAN_WEBINAR_997_FOUNDATION=pln_forge-webinar-997-foundation-ry00fq6
 //   MEMBERSTACK_PRICE_WEBINAR_997_FOUNDATION=prc_forge-webinar-997-foundation-97-i910fkd
+//   MEMBERSTACK_PLAN_WEBINAR_2997_RICH=pln_forge-webinar-2-997-empire-rich-groves-k90037e
+//   MEMBERSTACK_PRICE_WEBINAR_2997_RICH=prc_forge-webinar-2-997-97-rich-groves-7p103lj
 //
-// 997-foundation is Foundation access only (no Empire); 997 and 1797 include Empire.
+// 997-foundation is Foundation access only (no Empire). 997, 1797, and
+// 2997-rich include Empire. 2997-rich is the Rich Groves reseller checkout
+// ($2,997 today, then $97/month). Stripe price price_1UddbfK4zh6RSWCrfTkor4cA
+// is the live price behind the Memberstack price; this code still charges
+// only the Memberstack price id.
 //
 // Attribution is saved on the member before checkout and sent as
 // metadataForCheckout, the same fields FWN uses:
@@ -27,7 +34,7 @@
 //   sold_by      cart | john | rep (?sold_by=, or rep when ?ref= is set)
 //   rep          ?ref= via assets/js/ref-capture.js
 //   ref          the same ?ref= value, also written to Stripe as metadata.ref
-//   package      webinar-997 | webinar-1797 | webinar-997-foundation
+//   package      webinar-997 | webinar-1797 | webinar-997-foundation | webinar-2997-rich
 //
 // metadata.package is prefixed so the existing Stripe webhook can tell a
 // webinar session from an FWN session without relaxing FWN src rules.
@@ -39,7 +46,7 @@ const { json, preflight } = require('./http');
 const MONTHLY_CENTS = 9700;
 const FWN_LEAD_SOURCES = new Set(['fwn-virtual', 'fwn-raleigh']);
 const SOLD_BY = new Set(['cart', 'john', 'rep']);
-const METADATA_PACKAGES = new Set(['webinar-997', 'webinar-1797', 'webinar-997-foundation']);
+const METADATA_PACKAGES = new Set(['webinar-997', 'webinar-1797', 'webinar-997-foundation', 'webinar-2997-rich']);
 
 const PACKAGES = Object.freeze({
   '997': {
@@ -83,6 +90,21 @@ const PACKAGES = Object.freeze({
     priceEnv: 'MEMBERSTACK_PRICE_WEBINAR_997_FOUNDATION',
     defaultPlanId: 'pln_forge-webinar-997-foundation-ry00fq6',
     defaultPriceId: 'prc_forge-webinar-997-foundation-97-i910fkd',
+  },
+  // Same Empire access as 1797. $2,900 setup + first $97 month = $2,997 today,
+  // then $97/month. Reseller checkout for Rich Groves.
+  '2997-rich': {
+    slug: '2997-rich',
+    metadataPackage: 'webinar-2997-rich',
+    label: '2997-rich',
+    dueTodayCents: 299700,
+    dueTodayLabel: '$2,997',
+    setupFeeCents: 290000,
+    path: '/webinar/2997-rich',
+    planEnv: 'MEMBERSTACK_PLAN_WEBINAR_2997_RICH',
+    priceEnv: 'MEMBERSTACK_PRICE_WEBINAR_2997_RICH',
+    defaultPlanId: 'pln_forge-webinar-2-997-empire-rich-groves-k90037e',
+    defaultPriceId: 'prc_forge-webinar-2-997-97-rich-groves-7p103lj',
   },
 });
 
@@ -319,7 +341,9 @@ async function checkoutHandler(event, deps) {
 // The buyer's src is saved on the member JSON (json.webinar.lead_source) by
 // assets/js/webinar-checkout.js before checkout. ref is saved as the
 // referral-source custom field. Only listed sources are tagged.
-const EVENT_TAG_SOURCES = new Set(['rpm-newport-2026', 'weekly-webinar']);
+// reseller-rich-groves tags that source and, when ref is set, rep-<ref>
+// (rep-rich-groves when ref=rich-groves).
+const EVENT_TAG_SOURCES = new Set(['rpm-newport-2026', 'weekly-webinar', 'reseller-rich-groves']);
 
 function eventTagsForMember({ memberJson, referralSource }) {
   const stored = (memberJson && memberJson.webinar && typeof memberJson.webinar === 'object') ? memberJson.webinar : {};

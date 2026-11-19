@@ -29,6 +29,7 @@ const PLAN_IDS = Object.freeze({
   FWN_1797: 'pln_forge-fwn-1-797-es40xk6',
   WEBINAR_997: 'pln_forge-webinar-997-lw00b81',       // FORGE webinar — same access as FWN 997, including Empire. Not an FWN plan.
   WEBINAR_1797: 'pln_forge-webinar-1-797-uf10b07',
+  WEBINAR_2997_RICH: 'pln_forge-webinar-2-997-empire-rich-groves-k90037e', // FORGE webinar $2,997 (Rich Groves) — same Empire access as WEBINAR_1797
   WEBINAR_997_FOUNDATION: 'pln_forge-webinar-997-foundation-ry00fq6', // FORGE webinar $997 Foundation — Foundation only, no Empire
 });
 
@@ -71,7 +72,8 @@ function hasEmpireAccess(planConnections) {
     pc.planId === PLAN_IDS.FWN_997 ||
     pc.planId === PLAN_IDS.FWN_1797 ||
     pc.planId === PLAN_IDS.WEBINAR_997 ||
-    pc.planId === PLAN_IDS.WEBINAR_1797
+    pc.planId === PLAN_IDS.WEBINAR_1797 ||
+    pc.planId === PLAN_IDS.WEBINAR_2997_RICH
   ));
 }
 
@@ -105,6 +107,7 @@ const MEMBER_PLAN_IDS = new Set([
   PLAN_IDS.FWN_1797,
   PLAN_IDS.WEBINAR_997,
   PLAN_IDS.WEBINAR_1797,
+  PLAN_IDS.WEBINAR_2997_RICH,
   PLAN_IDS.WEBINAR_997_FOUNDATION,
 ]);
 

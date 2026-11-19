@@ -42,7 +42,8 @@
 // invoice is paid. Do not replace the webhook Memberstack already uses.
 //
 // FORGE webinar sessions are not FWN packages. The same webhook copies
-// their attribution when metadata.package is webinar-997 or webinar-1797
+// their attribution when metadata.package is webinar-997, webinar-1797,
+// webinar-997-foundation, or webinar-2997-rich
 // and lead_source is present and is not fwn-virtual or fwn-raleigh. FWN
 // src validation is unchanged. Webinar checkout is _Lib/webinar.js.
 
