@@ -60,6 +60,7 @@ test('live plan rules match the member pages and do not widen Empire', () => {
     PLAN_IDS.FWN_1797,
     PLAN_IDS.WEBINAR_997,
     PLAN_IDS.WEBINAR_1797,
+    PLAN_IDS.WEBINAR_2997_RICH,
   ];
   for (const id of both) {
     assert.equal(hasActiveMembership([pc(id, 'ACTIVE')]), true, id);

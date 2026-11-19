@@ -2,7 +2,7 @@
 // metadata onto the Stripe customer, subscription, and payment. metadata.ref
 // is the referral code. FWN sessions also keep lead_source, sold_by, rep, and
 // package on the subscription. FORGE webinar sessions do the same when
-// metadata.package is webinar-997, webinar-1797 or webinar-997-foundation and lead_source is not an
+// metadata.package is webinar-997, webinar-1797, webinar-997-foundation, or webinar-2997-rich and lead_source is not an
 // FWN source. The same endpoint also handles subscription dunning:
 // invoice.payment_failed adds the GHL tag payment-failed, and invoice.paid
 // or invoice.payment_succeeded removes it. This does not add a price or
