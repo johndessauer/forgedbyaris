@@ -406,6 +406,11 @@ test('member gate still hides replays, and a verified player renders one summary
   const card = open.elements['coaching-grid'].innerHTML;
   assert.match(card, /Session 1/);
   assert.match(card, /Oct 14, 2026/);
+  assert.match(card, /src="\/assets\/group-coaching-session-5\.jpg"/);
+  assert.equal((card.match(/i\.ytimg\.com\/vi\/t-PRLfCXFTc\/hqdefault\.jpg/g) || []).length, 0);
+  for (const id of ['-z8SHWsxr-w', 'F5NGUHBeAQw', 'Dp8cqmMoHg4', 'hUWw3BUte5Y', 'SxgQqVXivNI']) {
+    assert.match(card, new RegExp(`i\\.ytimg\\.com/vi/${id}/hqdefault\\.jpg`));
+  }
   assert.equal(topicBlockCount(card), 6);
   assert.equal((card.match(/coaching-topics-placeholder/g) || []).length, 0);
   assert.equal(card.includes('Group Coaching Call Brief'), false);
