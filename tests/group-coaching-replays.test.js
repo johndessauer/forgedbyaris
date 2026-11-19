@@ -125,8 +125,9 @@ test('education inline script still parses', () => {
 test('session dates, studio durations, and video ids stay on the published uploads', () => {
   const { api } = loadCoaching('');
   const replays = api.GROUP_COACHING_REPLAYS;
-  assert.deepEqual(json(replays.map((s) => s.session)), [5, 4, 3, 2, 1]);
+  assert.deepEqual(json(replays.map((s) => s.session)), [6, 5, 4, 3, 2, 1]);
   assert.deepEqual(json(replays.map((s) => s.youtubeId)), [
+    '-z8SHWsxr-w',
     't-PRLfCXFTc',
     'F5NGUHBeAQw',
     'Dp8cqmMoHg4',
@@ -237,6 +238,59 @@ test('session dates, studio durations, and video ids stay on the published uploa
   assert.ok(s5Gaps[s5Gaps.length - 1] < (65 * 60 + 1));
 
   assert.equal(html.includes('Never Split the Difference'), true);
+
+  const s6 = session(api, 6);
+  assert.equal(s6.date, '2026-11-18');
+  assert.equal(api.coachingDate(s6.date), 'Nov 18, 2026');
+  assert.equal(s6.duration, '1:09:31');
+  assert.equal(s6.title, 'Build Your Deal Pipeline & Follow-Up System: FORGE CRM + ARIS | FORGE Group Coaching');
+  assert.deepEqual(json(s6.clips), []);
+  assert.equal(s6.description, 'FORGE Group Coaching Session 6 (Nov 18, 2026): building your deal pipeline and follow-up system. Staying organized and following up is what keeps real estate deals moving. John explains why a pipeline-based CRM changes how you work: how to set up the stages from new lead to closed (or dead), what should happen every time a lead moves to the right, and how to nurture buyers lists, sellers and tenants so they keep coming back. He walks live through the FORGE Deal CRM: adding a deal from Property Search, linking contacts, attaching notes and documents, syncing closing dates to your calendar, and how ARIS flags any deal that goes stale after 30 days. You\'ll also see how Market Oracle grades a neighborhood before you work a lead, why off-market owners usually take 5–8 touches, how to have ARIS write a cold-call script for you (built on the "If I could, would you?" framework), and a live objection role-play with ARIS for a Texas storage-unit owner. Homework: practice your script out loud three times and log every call in your CRM.');
+  assert.deepEqual(json(s6.chapters), [
+    ['0:00', 'Welcome & Tonight\'s Topic'],
+    ['1:29', 'Why You Need a CRM'],
+    ['4:43', 'Touches & Monetizing Your Leads'],
+    ['8:23', 'Buyers Lists & Reverse Wholesaling'],
+    ['9:52', 'Repeat Deals & Staying in Touch'],
+    ['11:54', 'Email Service Providers & Staying Compliant'],
+    ['15:50', 'What Is a Pipeline CRM?'],
+    ['17:41', 'Nurturing Buyers & Tenants'],
+    ['20:51', 'Inside the FORGE Deal CRM'],
+    ['26:51', 'Adding a Deal & Syncing Your Calendar'],
+    ['29:10', 'Contacts, Notes & Documents'],
+    ['32:22', 'ARIS Flags Stale Real Estate Deals'],
+    ['33:28', 'Market Oracle: Grade the Market First'],
+    ['42:44', 'How Many Touches Does a Lead Take?'],
+    ['45:49', 'Door Knocking & Staying Safe'],
+    ['47:54', 'Let ARIS Write Your Cold-Call Script'],
+    ['52:08', 'The Core Questions on Every Call'],
+    ['57:19', 'Homework: Practice & Log Your Notes'],
+    ['1:00:20', 'ARIS Objection Role-Play: Storage Units'],
+    ['1:07:14', 'Real Estate Lab Role-Play'],
+    ['1:08:08', 'Wrap-Up'],
+  ]);
+  const s6Secs = s6.chapters.map(([time]) => time.split(':').reduce((acc, part) => acc * 60 + Number(part), 0));
+  assert.equal(s6Secs[0], 0);
+  for (let i = 1; i < s6Secs.length; i += 1) assert.ok(s6Secs[i] - s6Secs[i - 1] >= 10);
+  assert.ok(s6Secs[s6Secs.length - 1] < (69 * 60 + 32));
+  {
+    const liveBlock6 = html.slice(html.indexOf('const LIVE_COACHING_VIDEOS'), html.indexOf('let liveCoachingRendered'));
+    const session6Clips = [
+      ['E3sjbtGHEs0', 'What Is a Pipeline CRM? Stages, Nurturing & Your Buyers List'],
+      ['OYE-F8_pyyQ', 'How to Add a Real Estate Deal to Your FORGE CRM (and Sync It to Your Calendar)'],
+      ['W-LTFuPNPt0', 'Use Market Oracle to Grade the Market Before You Work a Lead'],
+      ['rzj34RPQcf4', 'Let ARIS Write Your Cold-Call Script for Real Estate Deals'],
+    ];
+    let at6 = liveBlock6.indexOf('8DPxw0SpcSM');
+    assert.ok(at6 > 0);
+    for (const [id, title] of session6Clips) {
+      const at = liveBlock6.indexOf(id);
+      assert.ok(at > at6, id);
+      assert.ok(liveBlock6.includes(title), title);
+      at6 = at;
+    }
+  }
+
   const liveStart = html.indexOf('const LIVE_COACHING_VIDEOS');
   const liveEnd = html.indexOf('let liveCoachingRendered');
   const liveBlock = html.slice(liveStart, liveEnd);
@@ -352,7 +406,7 @@ test('member gate still hides replays, and a verified player renders one summary
   const card = open.elements['coaching-grid'].innerHTML;
   assert.match(card, /Session 1/);
   assert.match(card, /Oct 14, 2026/);
-  assert.equal(topicBlockCount(card), 5);
+  assert.equal(topicBlockCount(card), 6);
   assert.equal((card.match(/coaching-topics-placeholder/g) || []).length, 0);
   assert.equal(card.includes('Group Coaching Call Brief'), false);
   assert.equal(card.includes('re-recorded this short lesson'), false);
@@ -368,7 +422,7 @@ test('member gate still hides replays, and a verified player renders one summary
     assert.doesNotMatch(view, /Placeholder: topics/);
     if (replay.chapters.length) {
       assert.equal((view.match(/class="coaching-chip"/g) || []).length, replay.chapters.length);
-      assert.match(view, new RegExp(replay.chapters[0][1].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+      assert.match(view, new RegExp(replay.chapters[0][1].replace(/&/g, '&amp;').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
     } else {
       assert.doesNotMatch(view, /coaching-chip/);
     }
