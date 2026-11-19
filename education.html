@@ -817,6 +817,8 @@ const WEBINAR_HIGHLIGHT_VIDEOS = [
 // (newest first), and fill it in. Times are "m:ss" or "h:mm:ss".
 //   session     number shown on the card; also the URL (#group-coaching/session-N)
 //   youtubeId   the id from the YouTube link (youtu.be/<id>)
+//   thumbnail   optional local card image. Leave it off and the card uses
+//               the YouTube custom thumbnail (i.ytimg.com/.../hqdefault.jpg).
 //   title, date (YYYY-MM-DD), duration ("m:ss"), description
 //   duration    YouTube Studio length of the published upload, when that length is known.
 //               Leave it off when the edited timeline is not validated. Do not invent one.
@@ -876,6 +878,8 @@ const GROUP_COACHING_REPLAYS = [
   {
     session: 5,
     youtubeId: 't-PRLfCXFTc',
+    // This upload still serves YouTube's auto frame. The other sessions' custom thumbnails have already propagated.
+    thumbnail: '/assets/group-coaching-session-5.jpg',
     title: 'Finding Motivated Sellers: Distressed Property Leads & Negotiation | FORGE Group Coaching',
     date: '2026-11-11',
     duration: '1:05:01',
@@ -1105,6 +1109,12 @@ function coachingDateHtml(s) {
   return '<div class="coaching-meta coaching-topics-placeholder">Placeholder: date for this session is not in the repo yet.</div>';
 }
 
+// Cards use the YouTube custom thumbnail. A local thumbnail overrides that
+// only when the upload is still serving the auto-generated frame.
+function coachingCardThumb(s) {
+  return (s && s.thumbnail) || `https://i.ytimg.com/vi/${encodeURIComponent(s.youtubeId)}/hqdefault.jpg`;
+}
+
 function coachingEmbedUrl(youtubeId, opts = {}) {
   const params = new URLSearchParams({ rel: '0', modestbranding: '1', playsinline: '1', cc_load_policy: '0' });
   if (opts.start) params.set('start', String(opts.start));
@@ -1247,7 +1257,7 @@ function renderCoachingGrid() {
   grid.innerHTML = cards.map(({ s, i }) => `
     <button type="button" class="coaching-card${i === coachingCurrent ? ' active' : ''}" data-session="${i}">
       <div class="coaching-card-thumb">
-        <img src="https://i.ytimg.com/vi/${encodeURIComponent(s.youtubeId)}/hqdefault.jpg" alt="" loading="lazy" />
+        <img src="${escapeHtml(coachingCardThumb(s))}" alt="" loading="lazy" />
         ${i === coachingCurrent ? '<span class="coaching-pill coaching-card-now">Now playing</span>' : ''}
         ${s.duration ? `<span class="coaching-card-duration">${escapeHtml(s.duration)}</span>` : ''}
       </div>
