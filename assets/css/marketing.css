@@ -82,7 +82,8 @@ button, input, textarea, select { font-family: inherit; }
 .mkt-address { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .mkt-colors { display: flex; gap: 8px; }
 .mkt-check { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: var(--grey-light); }
-.mkt-message { color: var(--gold); }
+.mkt-message { color: #1a1203; background: #f0d48a; border-radius: 8px; padding: 10px 12px; font-weight: 600; }
+.mkt-saved { color: var(--green); margin: 0; }
 .mkt-piece { background: #f7f5f2; color: #1a1a1a; border-radius: 10px; padding: 12px; border-top: 4px solid var(--brand, #1F3348); }
 .mkt-piece strong { color: var(--brand, #1F3348); }
 .mkt-piece p { white-space: pre-wrap; font-size: 12px; }
