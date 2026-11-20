@@ -137,7 +137,8 @@
   function formatLead(lead) {
     var place = [lead.city, [lead.state, lead.zip].filter(Boolean).join(' ')].filter(Boolean).join(', ');
     var line = [lead.address, place].filter(Boolean).join(', ');
-    return (line || 'New address') + (lead.owner ? ' · ' + lead.owner : '');
+    var source = lead.mailSource === 'owner' ? 'Owner mailing address' : (lead.mailSource === 'property' ? 'Property address' : '');
+    return (line || 'New address') + (lead.owner ? ' · ' + lead.owner : '') + (source ? ' · ' + source : '');
   }
 
   function addressEditor(state, lead, label) {
@@ -1131,6 +1132,7 @@
         lead.state = row.state;
         lead.zip = row.zip;
         lead.owner = row.owner;
+        lead.mailSource = '';
       });
       state.editingId = '';
     } else {

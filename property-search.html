@@ -1277,19 +1277,7 @@ function updateMarketButtons() {
 }
 
 function leadForMarketing(r) {
-  const d = r.details || {};
-  return {
-    id: r.id,
-    address: r.address || '',
-    owner: r.owner || '',
-    city: d.city || '',
-    state: d.state || '',
-    zip: d.zip || '',
-    propertyType: d.propertyType || '',
-    units: d.units || d.unitCount || null,
-    playIds: r.playIds || [],
-    equity: r.equity,
-  };
+  return window.ForgeMarketingEntry.leadForMarketing(r);
 }
 
 function openMarketing(leads) {
