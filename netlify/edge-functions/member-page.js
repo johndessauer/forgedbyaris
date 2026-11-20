@@ -174,6 +174,7 @@ export const config = {
     '/aris-coach', '/aris-coach.html',
     '/profile', '/profile.html',
     '/property-search', '/property-search.html',
+    '/marketing', '/marketing.html',
     '/real-estate-lab', '/real-estate-lab.html',
     '/docs/*',
   ],

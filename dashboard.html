@@ -406,6 +406,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 <script src="https://static.memberstack.com/scripts/v1/memberstack.js" data-memberstack-app="app_cmr41qq5500q80tsx94pj61rc" defer></script>
 <script src="/assets/js/ref-capture.js"></script>
 <script src="/assets/js/level-unlocks.js"></script>
+<script src="/assets/js/marketing-entry.js"></script>
 </head>
 <body>
 <div class="app">
@@ -638,7 +639,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
             <div class="module-desc">Practice live negotiations with ARIS playing the counterparty. Get a real debrief.</div>
             <div class="module-status live">● Live</div>
           </a>
-          <div class="module-card coming" aria-disabled="true">
+          <div class="module-card coming" id="module-marketing" aria-disabled="true">
             <div class="module-icon">📣</div>
             <div class="module-name">Marketing</div>
             <div class="module-desc">Send mail and outreach campaigns to your leads, right from FORGE.</div>
@@ -949,6 +950,9 @@ window.onload = async () => {
     document.getElementById('sidebar-name').textContent = fullName;
     document.getElementById('sidebar-tier').textContent = currentPlanName;
     document.getElementById('sidebar-initials').textContent = initials;
+    if (window.ForgeMarketingEntry && memberToken) {
+      window.ForgeMarketingEntry.mount({ token: memberToken }).catch(function () {});
+    }
     document.getElementById('stat-membership').textContent = currentPlanName.toUpperCase();
     document.getElementById('stat-member-tag').textContent = currentPlanName.toLowerCase();
     document.getElementById('topbar-name').textContent = fullName;

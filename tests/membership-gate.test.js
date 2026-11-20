@@ -550,7 +550,7 @@ test('member pages send a non-live plan to billing and leave the live-plan rule 
     'dashboard.html', 'crm.html', 'deal-analyzer.html', 'deal-network.html',
     'capital-radar.html', 'market-oracle.html', 'education.html',
     'document-vault.html', 'aris-coach.html', 'profile.html',
-    'property-search.html', 'real-estate-lab.html',
+    'property-search.html', 'real-estate-lab.html', 'marketing.html',
   ];
   const redirect = /planNeedsPayment \? 'billing\.html\?payment=failed' : 'signup\.html'/;
   for (const name of pages) {
