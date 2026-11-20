@@ -170,6 +170,9 @@ test('top-up checkout uses only the test key and the webhook credits the wallet 
   assert.equal(started.body.url, 'https://checkout.stripe.com/c/pay/cs_test_1');
   assert.match(box.calls[0].init.headers.Authorization, /^Bearer sk_test_marketing$/);
   assert.match(decodeURIComponent(box.calls[0].init.body), /unit_amount\]=2500/);
+  assert.equal(box.calls[0].init.body.includes('{CHECKOUT_SESSION_ID}'), true);
+  assert.match(decodeURIComponent(box.calls[0].init.body), /wallet=success/);
+  assert.match(decodeURIComponent(box.calls[0].init.body), /wallet=cancel/);
   assert.match(decodeURIComponent(box.calls[0].init.body), /metadata\[amount_cents\]=2500/);
   assert.equal(box.calls[0].init.body.includes('sk_live'), false);
 
@@ -192,6 +195,34 @@ test('top-up checkout uses only the test key and the webhook credits the wallet 
   shown.message = 'Test checkout is not configured.';
   shown.reason = 'missing';
   assert.match(app.renderCost(shown), /<p class="mkt-reason">missing<\/p>/);
+  const mem = new Map();
+  const storage = {
+    getItem: (key) => mem.has(key) ? mem.get(key) : null,
+    setItem: (key, value) => mem.set(key, value),
+  };
+  const before = app.createState({
+    goal: 'buyers',
+    propertyClass: 'residential',
+    selected: { postcard: true },
+    approved: { 'residential:postcard': true },
+    leads: [{ address: '412 W Joliet St', city: 'Crown Point', state: 'IN', zip: '46307' }],
+    quote: { balanceCents: 0, chargedCents: 109, shortfallCents: 109, lines: [] },
+    step: 5,
+  });
+  app.saveCampaign(storage, before, 2500);
+  const fresh = app.createState({});
+  const resumed = app.resumeCampaign(fresh, '?wallet=success&session_id=cs_test_1', storage);
+  assert.equal(fresh.step, 5);
+  assert.equal(fresh.goal, 'buyers');
+  assert.equal(fresh.selected.postcard, true);
+  assert.equal(fresh.approved['residential:postcard'], true);
+  assert.equal(fresh.leads[0].zip, '46307');
+  assert.equal(fresh.message, 'Added $25.00 to your credit.');
+  assert.equal(resumed.before, 0);
+  const again = app.createState({});
+  app.resumeCampaign(again, '', storage);
+  assert.equal(again.step, 5);
+  assert.equal(again.message, '');
 
   const payload = JSON.stringify({
     type: 'checkout.session.completed',
@@ -330,7 +361,7 @@ test('an approved handwritten-style note continues to cost as a 4x6 postcard', (
     });
   }
   const mailed = app.renderApprove(draft({ handwritten: true }, { 'residential:handwritten': true }));
-  assert.match(mailed, /Continue to cost/);
+  assert.match(mailed, /class="mkt-actions"><button type="button" data-action="export">Export copy<\/button><button type="button" data-action="step" data-step="5">Continue to cost<\/button>/);
   assert.match(app.renderApprove(draft({ postcard: true }, { 'residential:postcard': true })), /Continue to cost/);
   const own = app.renderApprove(draft({ call: true }, { 'residential:call': true }));
   assert.match(own, /These pieces are send-it-yourself and there's nothing to mail/);
@@ -382,6 +413,8 @@ test('the markup report is allowlist-only and lists Lob cost, price, and markup'
   assert.match(empty, /\$1\.09/);
   assert.match(empty, /Not charged in this test/);
   assert.match(empty, /Add \$25/);
+  assert.match(empty, /class="mkt-row mkt-next"><button type="button" data-action="step" data-step="6">Continue to confirm/);
+  assert.match(fs.readFileSync(path.join(__dirname, '../assets/css/marketing.css'), 'utf8'), /\.mkt-next \{ margin-top: 24px; \}/);
   assert.match(confirm, /Confirm test mail/);
   assert.match(confirm, /Nothing is really printed/);
   assert.equal((empty + confirm).toLowerCase().includes('lob'), false);

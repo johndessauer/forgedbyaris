@@ -45,7 +45,7 @@ async function createTopUpSession(options) {
       Authorization: 'Bearer ' + secret,
       'Content-Type': 'application/x-www-form-urlencoded',
     },
-    body: body.toString(),
+    body: body.toString().replace(/%7BCHECKOUT_SESSION_ID%7D/g, '{CHECKOUT_SESSION_ID}'),
   });
   const data = await response.json();
   if (!response.ok || !data.url) {

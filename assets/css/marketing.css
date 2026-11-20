@@ -64,8 +64,8 @@ button, input, textarea, select { font-family: inherit; }
 .mkt-price { color: var(--gold); font-weight: 700; font-size: 14px; }
 .mkt-price span { display: block; font-weight: 500; color: var(--grey-light); font-size: 11px; }
 .mkt-preview .mkt-price { font-weight: 500; color: var(--grey-light); font-size: 11px; }
-.mkt-select, .mkt-row button, .mkt-offer button, .mkt-brand button[data-action="save-brand"] { background: #24344a; color: white; border: 0; border-radius: 8px; padding: 8px 12px; cursor: pointer; }
-.mkt-select.is-selected, .mkt-row button, .mkt-offer button, .mkt-brand button[data-action="save-brand"] { background: var(--orange); }
+.mkt-select, .mkt-row button, .mkt-actions button, .mkt-offer button, .mkt-brand button[data-action="save-brand"] { background: #24344a; color: white; border: 0; border-radius: 8px; padding: 8px 12px; cursor: pointer; }
+.mkt-select.is-selected, .mkt-row button, .mkt-actions button, .mkt-offer button, .mkt-brand button[data-action="save-brand"] { background: var(--orange); }
 .mkt-select:disabled { opacity: 0.55; cursor: default; }
 .mkt-ask { font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 1px; font-weight: 400; margin: 8px 0; }
 .mkt-who-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -94,6 +94,8 @@ button, input, textarea, select { font-family: inherit; }
 .mkt-total { font-size: 16px; }
 .mkt-filters { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
 .mkt-class, .mkt-chip-row, .mkt-row, .mkt-top-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.mkt-next { margin-top: 24px; }
+.mkt-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .mkt-class button, .mkt-chip, .mkt-secondary, .mkt-top-actions button { background: var(--navy-light); color: var(--grey-light); border: 1px solid var(--border-sub); border-radius: 999px; padding: 6px 12px; cursor: pointer; }
 .mkt-class button.is-on, .mkt-chip.is-on { background: var(--gold-dim); color: var(--gold); border-color: var(--gold); }
 .mkt-class button:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -137,4 +139,5 @@ img.mkt-logo { display: block; max-width: 140px; max-height: 56px; width: auto; 
 @media (max-width: 640px) {
   .mkt-grid, .mkt-uploads, .mkt-colors, .mkt-address, .mkt-who-grid { grid-template-columns: 1fr; }
   .mkt-scroll { padding: 16px; }
+  .mkt-actions { flex-direction: column; align-items: flex-start; gap: 16px; }
 }

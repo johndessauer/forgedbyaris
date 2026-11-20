@@ -34,14 +34,14 @@ function createHandler(deps) {
     catch (err) { return json(400, { error: 'Invalid JSON body' }); }
     if (body.action !== 'topup') return json(400, { error: 'Unknown wallet action.' });
 
-    const origin = options.origin || 'https://forgedbyaris.com';
+    const origin = returnOrigin(event, options.origin);
     try {
       const session = await stripe.createTopUpSession({
         env: options.env || process.env,
         fetch: options.fetch,
         amountCents: body.amountCents,
         memberId: memberId,
-        successUrl: origin + '/marketing.html?wallet=ok',
+        successUrl: origin + '/marketing.html?wallet=success&session_id={CHECKOUT_SESSION_ID}',
         cancelUrl: origin + '/marketing.html?wallet=cancel',
       });
       return json(200, { url: session.url, testMode: true });
@@ -54,4 +54,17 @@ function createHandler(deps) {
   };
 }
 
+function returnOrigin(event, fallback) {
+  const headers = event && event.headers || {};
+  const raw = (event && event.rawUrl) || headers.origin || headers.Origin || headers.referer || headers.Referer || '';
+  try {
+    const origin = new URL(raw).origin;
+    if (origin === 'https://forgedbyaris.com' || origin === 'https://forgedbyaris.netlify.app' || /^https:\/\/[a-z0-9-]+--forgedbyaris\.netlify\.app$/.test(origin)) {
+      return origin;
+    }
+  } catch (err) {}
+  return fallback || 'https://forgedbyaris.com';
+}
+
 exports.createHandler = createHandler;
+exports.returnOrigin = returnOrigin;
