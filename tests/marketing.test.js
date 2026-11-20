@@ -573,6 +573,37 @@ test('a 500 by 500 PNG uploads as the raw file, and the rights box is required',
   assert.match(read('assets/css/marketing.css'), /\.mkt-uploads \{ display: grid; grid-template-columns: 1fr 1fr/);
 });
 
+test('the postcard preview shows the saved logo, one disclosure, and a QR caption', () => {
+  const brand = {
+    id: 'b1',
+    businessName: 'Example Buys',
+    phone: '555-0100',
+    disclosure: catalog.DISCLOSURE_DEFAULT,
+    logo: { fileName: 'logo.png', contentType: 'image/png', width: 500, height: 500 },
+    colors: { primary: '#112233' },
+  };
+  const state = app.createState({
+    brandId: 'b1',
+    brands: [brand],
+    previewId: 'postcard',
+    logoUrls: { b1: 'blob:john-logo' },
+    propertyClass: 'residential',
+  });
+  const html = app.renderPreview(state);
+  assert.match(html, /<img class="mkt-logo" src="blob:john-logo"/);
+  assert.equal(html.split(catalog.DISCLOSURE_DEFAULT).length - 1, 1);
+  assert.match(html, /QR code \(placeholder\)/);
+  assert.equal(html.includes('Logo on file'), false);
+  const note = app.renderPreview(app.createState({
+    brandId: 'b1',
+    brands: [brand],
+    previewId: 'handwritten',
+    logoUrls: { b1: 'blob:john-logo' },
+  }));
+  assert.equal(note.includes('mkt-logo'), false);
+  assert.equal(note.split(catalog.DISCLOSURE_DEFAULT).length - 1, 1);
+});
+
 test('the blob store is connected from the Lambda event before it opens', () => {
   const calls = [];
   const event = { blobs: 'from-netlify', headers: { 'x-nf-site-id': 'site' } };

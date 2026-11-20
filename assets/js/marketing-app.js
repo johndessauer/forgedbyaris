@@ -45,6 +45,7 @@
       attested: false,
       usingSample: false,
       swatches: Array.isArray(input.swatches) ? input.swatches.slice() : [],
+      logoUrls: Object.assign({}, input.logoUrls || {}),
     };
   }
 
@@ -293,6 +294,14 @@
     return (pool && pool[0]) || (state.leads && state.leads[0]) || catalog.SAMPLE_LEAD;
   }
 
+  function withoutDisclosure(text, disclosure) {
+    var line = String(disclosure || '').trim();
+    var body = String(text || '');
+    if (!line) return body.trim();
+    var parts = body.split(line);
+    return parts.join('').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').replace(/[ \t]{2,}/g, ' ').trim();
+  }
+
   function renderPreview(state) {
     var catalog = loadCatalog();
     var channel = catalog.channelById(state.previewId) || catalog.channelById('postcard');
@@ -308,21 +317,42 @@
       sender: state.sender,
       leads: [lead],
     });
+    var disclosure = brand.disclosure || catalog.DISCLOSURE_DEFAULT;
+    var body = withoutDisclosure(piece ? piece.variantA : '', disclosure);
     var sample = !state.leads.length || lead.sample;
     var name = catalog.displayName(channel, state.propertyClass);
+    var logoUrl = state.logoUrls && brand.id ? state.logoUrls[brand.id] : '';
+    var showLogo = channel.id !== 'handwritten' && (logoUrl || brand.logo);
+    var logoHtml = '';
+    if (showLogo && logoUrl) logoHtml = '<img class="mkt-logo" src="' + esc(logoUrl) + '" alt="">';
+    else if (showLogo) logoHtml = '<div class="mkt-logo">Logo on file</div>';
     return '<div class="mkt-preview">' +
       '<div class="mkt-kicker">Preview · tap any card</div>' +
       '<h2>' + esc(name) + '</h2>' +
       (sample ? '<p class="mkt-note">Sample data. Not a real owner and not a real address.</p>' : '') +
       '<div class="mkt-piece" style="--brand:' + esc(primary) + ';--accent:' + esc(accent) + ';--ink:' + esc(ink) + '">' +
-      (brand.logo ? '<div class="mkt-logo">Logo on file</div>' : '') +
+      logoHtml +
       '<strong>' + esc(brand.businessName || state.sender.name || 'Your name') + '</strong>' +
-      '<p>' + esc(piece ? piece.variantA : '') + '</p>' +
-      '<div class="mkt-qr" aria-hidden="true"></div>' +
-      '<small>' + esc(brand.disclosure || catalog.DISCLOSURE_DEFAULT) + '</small>' +
+      '<p>' + esc(body) + '</p>' +
+      '<div class="mkt-qr-block"><div class="mkt-qr" aria-hidden="true"></div><span class="mkt-qr-caption">QR code (placeholder)</span></div>' +
+      '<small>' + esc(disclosure) + '</small>' +
       '</div>' +
       '<p class="mkt-price">' + esc(channel.price) + ' · example · not charged</p>' +
       '<p class="mkt-note">Wallet, printing, and mailing are not in this step.</p></div>';
+  }
+
+  async function ensureLogo(state) {
+    var brand = activeBrand(state);
+    if (!brand || !brand.logo || !brand.id || !state.token) return;
+    if (!state.logoUrls) state.logoUrls = {};
+    if (state.logoUrls[brand.id]) return;
+    try {
+      var response = await fetch('/api/marketing-brand?asset=logo&brandId=' + encodeURIComponent(brand.id), {
+        headers: { Authorization: 'Bearer ' + state.token },
+      });
+      if (!response.ok || typeof URL === 'undefined' || !URL.createObjectURL) return;
+      state.logoUrls[brand.id] = URL.createObjectURL(await response.blob());
+    } catch (err) {}
   }
 
   function lockedHtml() {
@@ -523,6 +553,7 @@
     if (action === 'pick-brand') {
       state.brandId = button.getAttribute('data-id');
       paint(state);
+      ensureLogo(state).then(function () { paint(state); });
       return;
     }
     if (action === 'new-brand') {
@@ -694,6 +725,10 @@
         if (!replaced) state.brands.push(uploaded.brand);
         state.brandId = uploaded.brand.id;
       }
+      if (kind === 'logo' && state.brandId && typeof URL !== 'undefined' && URL.createObjectURL) {
+        if (!state.logoUrls) state.logoUrls = {};
+        try { state.logoUrls[state.brandId] = URL.createObjectURL(file); } catch (err) {}
+      }
       var savedName = uploaded.brand && uploaded.brand[kind] && uploaded.brand[kind].fileName;
       state.message = (savedName ? 'Saved ' + savedName + '. ' : 'File saved. ') + ((uploaded.warnings || []).join(' '));
       if (state.swatches && state.swatches.length) state.message += ' Suggested colors: ' + state.swatches.join(', ') + '.';
@@ -858,6 +893,7 @@
         app.addEventListener('click', function (event) { onClick(state, event); });
         app.addEventListener('change', function (event) { onChange(state, event); });
       }
+      await ensureLogo(state);
       paint(state);
     } catch (err) {
       showFallback(loading, app, locked, problem);
@@ -875,6 +911,7 @@
     renderBrand: renderBrand,
     renderMain: renderMain,
     renderPreview: renderPreview,
+    withoutDisclosure: withoutDisclosure,
     lockedHtml: lockedHtml,
     mailMissingFields: mailMissingFields,
     start: start,
