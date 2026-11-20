@@ -1,6 +1,7 @@
-// Test-mode mail order. Quotes from the price config, debits the wallet,
-// then hands postcards and letters to the mail service. Printed goods are
-// shown and not charged. Email and text are never sent.
+// Test-mode orders. Mail is one piece per property and goes to the test
+// mail service. Printed goods are a separate bulk "ship to me" order.
+// TODO: no print vendor is integrated. confirm-print records the order and
+// debits test credits. It must not call a print API.
 const { json, preflight } = require('./http');
 const { loadMarketingGate } = require('./marketing-access');
 const { openBlobStore, readJson, memberKey } = require('./marketing-store');
@@ -45,27 +46,47 @@ async function listOrders(store) {
   const rows = [];
   for (const id of index) {
     const row = await readJson(store, 'orders/' + id + '.json');
-    if (row && row.status === 'sent') rows.push(row);
+    if (row && (row.status === 'sent' || row.status === 'recorded')) rows.push(row);
   }
   return rows;
 }
 
 function csv(orders) {
-  const header = 'member,date,pieces,lob_cost,price_charged,markup';
+  const header = 'member,date,pieces,lob_cost,price_charged,markup,kind,vendor_cost,markup_rate,vendor';
   const lines = orders.map(function (order) {
+    const kind = order.kind || 'mail';
     const pieces = (order.pieces || []).map(function (piece) {
-      return (piece.channelId || piece.channel) + ' x' + piece.quantity;
+      const option = piece.option ? ' ' + piece.option : '';
+      return (piece.channelId || piece.channel) + ' x' + piece.quantity + option;
     }).join('; ');
+    const rate = kind === 'print' && order.printMarkupRate != null
+      ? Number(order.printMarkupRate).toFixed(2)
+      : (kind === 'mail' ? '0.20' : '');
     return [
       order.memberEmail || order.memberId,
       order.at,
       '"' + pieces.replace(/"/g, '""') + '"',
-      dollars(order.vendorCostCents),
+      dollars(kind === 'print' ? 0 : order.vendorCostCents),
       dollars(order.chargedCents),
       dollars(order.markupCents),
+      kind,
+      dollars(order.vendorCostCents),
+      rate,
+      order.provider || (kind === 'print' ? pricing.PRINT_VENDOR : pricing.MAIL_PROVIDER),
     ].join(',');
   });
   return [header].concat(lines).join('\n');
+}
+
+function cleanShip(src) {
+  const row = src || {};
+  const line1 = String(row.line1 || '').trim().slice(0, 120);
+  const line2 = String(row.line2 || '').trim().slice(0, 120);
+  const city = String(row.city || '').trim().slice(0, 80);
+  const state = String(row.state || '').trim().toUpperCase().slice(0, 2);
+  const zip = String(row.zip || '').trim().slice(0, 10);
+  if (!line1 || !city || !/^[A-Z]{2}$/.test(state) || !/^\d{5}(-\d{4})?$/.test(zip)) return null;
+  return { line1: line1, line2: line2, city: city, state: state, zip: zip };
 }
 
 function createHandler(deps) {
@@ -107,7 +128,7 @@ function createHandler(deps) {
     const rawLeads = Array.isArray(body.leads) ? body.leads : [];
     const leads = rawLeads.filter(lob.mailable);
     const channels = Array.isArray(body.channels) ? body.channels : [];
-    const quote = pricing.quoteOrder(channels, leads.length, env);
+    const quote = pricing.quoteOrder(channels, leads.length, env, body.prints);
     const balance = await wallet.readWallet(store, gate.access.memberId);
 
     if (body.action === 'quote') {
@@ -115,8 +136,10 @@ function createHandler(deps) {
         lines: quote.lines.map(function (row) {
           return {
             channelId: row.channelId,
+            kind: row.kind,
             mailed: row.mailed,
             quantity: row.quantity,
+            option: row.option || '',
             unitStudentPriceCents: row.unitStudentPriceCents,
             studentPriceCents: row.studentPriceCents,
           };
@@ -125,14 +148,133 @@ function createHandler(deps) {
         selectedLeadCount: rawLeads.length,
         mailableLeadCount: leads.length,
         chargedCents: quote.chargedCents,
+        mailChargedCents: quote.mailChargedCents,
+        printChargedCents: quote.printChargedCents,
+        printMarkupRate: quote.printMarkupRate,
         balanceCents: balance.balanceCents,
         shortfallCents: Math.max(0, quote.chargedCents - balance.balanceCents),
         testMode: quote.testMode,
         topUpsCents: pricing.TOP_UPS_CENTS,
       });
     }
+    if (body.action === 'confirm-print') {
+      // Property count is ignored on purpose. Quantity comes only from packs.
+      const printQuote = pricing.quoteOrder([], 0, env, body.prints);
+      if (printQuote.printChargedCents <= 0) {
+        return json(400, { error: 'Choose a pack size before you ship printed goods.' });
+      }
+      const brandDoc = await readJson(store, 'brands/' + memberKey(gate.access.memberId) + '.json');
+      const brands = brandDoc && Array.isArray(brandDoc.brands) ? brandDoc.brands : [];
+      const brand = brands.find(function (row) { return row.id === body.brandId; }) || null;
+      const shipTo = cleanShip(body.shipTo) || cleanShip(brand && brand.returnAddress);
+      if (!shipTo) return json(400, { error: 'Add the address where printed goods should ship.' });
+      const balanceNow = await wallet.readWallet(store, gate.access.memberId);
+      if (balanceNow.balanceCents < printQuote.printChargedCents) {
+        return json(402, {
+          error: 'Add credits before this test print order.',
+          balanceCents: balanceNow.balanceCents,
+          shortfallCents: printQuote.printChargedCents - balanceNow.balanceCents,
+          chargedCents: printQuote.printChargedCents,
+          topUpsCents: pricing.TOP_UPS_CENTS,
+        });
+      }
+      const idem = idempotencyKey(gate.access.memberId, body.idempotencyKey ? 'print-' + body.idempotencyKey : '');
+      if (idem) {
+        const prior = await readJson(store, idem);
+        if (prior && prior.status === 'recorded') {
+          const again = await wallet.readWallet(store, gate.access.memberId);
+          return json(200, {
+            orderId: prior.orderId,
+            testMode: true,
+            kind: 'print',
+            vendorStatus: 'stub',
+            chargedCents: prior.chargedCents,
+            balanceCents: again.balanceCents,
+            duplicate: true,
+          });
+        }
+        if (prior && prior.status === 'pending') {
+          return json(409, { error: 'This print order is already in progress.' });
+        }
+      }
+      const id = orderId();
+      if (idem) await store.setJSON(idem, { status: 'pending', orderId: id });
+      const debit = await wallet.debit(store, {
+        memberId: gate.access.memberId,
+        amountCents: printQuote.printChargedCents,
+        orderId: id,
+        note: 'Test print order',
+      });
+      if (!debit.debited) {
+        if (idem) await store.delete(idem);
+        return json(402, {
+          error: 'Add credits before this test print order.',
+          balanceCents: debit.balanceCents,
+          shortfallCents: debit.shortfallCents,
+          topUpsCents: pricing.TOP_UPS_CENTS,
+        });
+      }
+      const order = {
+        id: id,
+        memberId: gate.access.memberId,
+        memberEmail: gate.email || '',
+        at: new Date().toISOString(),
+        status: 'recorded',
+        kind: 'print',
+        testMode: true,
+        // TODO: replace vendorStatus stub when a print vendor API exists.
+        // Nothing in this handler may call that API in test mode.
+        vendorStatus: 'stub',
+        provider: pricing.PRINT_VENDOR,
+        printMarkupRate: printQuote.printMarkupRate,
+        pieces: printQuote.lines.filter(function (row) { return row.kind === 'print' && row.quantity > 0; }).map(function (row) {
+          return {
+            channelId: row.channelId,
+            quantity: row.quantity,
+            option: row.option,
+            vendorCostCents: row.vendorCostCents,
+            markupRate: row.markupRate,
+            markupCents: row.markupCents,
+            studentPriceCents: row.studentPriceCents,
+          };
+        }),
+        vendorCostCents: printQuote.lines.filter(function (row) { return row.kind === 'print'; }).reduce(function (sum, row) { return sum + row.vendorCostCents; }, 0),
+        chargedCents: printQuote.printChargedCents,
+        markupCents: printQuote.lines.filter(function (row) { return row.kind === 'print'; }).reduce(function (sum, row) { return sum + row.markupCents; }, 0),
+        shipTo: shipTo,
+        leadCount: 0,
+      };
+      try {
+        await saveOrder(store, order);
+      } catch (err) {
+        await wallet.credit(store, {
+          memberId: gate.access.memberId,
+          amountCents: printQuote.printChargedCents,
+          orderId: id,
+          note: 'Test print order returned',
+        });
+        if (idem) await store.delete(idem);
+        return json(502, { error: 'The test print order was not recorded. The credits were returned.' });
+      }
+      if (idem) {
+        await store.setJSON(idem, {
+          status: 'recorded',
+          orderId: id,
+          chargedCents: printQuote.printChargedCents,
+        });
+      }
+      return json(200, {
+        orderId: id,
+        testMode: true,
+        kind: 'print',
+        vendorStatus: 'stub',
+        chargedCents: printQuote.printChargedCents,
+        balanceCents: debit.balanceCents,
+      });
+    }
     if (body.action !== 'confirm') return json(400, { error: 'Unknown order action.' });
 
+    const mailQuote = pricing.quoteOrder(channels, leads.length, env);
     const brandDoc = await readJson(store, 'brands/' + memberKey(gate.access.memberId) + '.json');
     const brands = brandDoc && Array.isArray(brandDoc.brands) ? brandDoc.brands : [];
     const brand = brands.find(function (row) { return row.id === body.brandId; }) || null;
@@ -143,17 +285,17 @@ function createHandler(deps) {
     const pieces = approvedMail(body);
     if (!pieces.length) return json(400, { error: 'Approve a postcard or a letter before you confirm.' });
     if (!leads.length) return json(400, { error: 'Add a street, city, state, and ZIP for each property you want mailed.' });
-    if (quote.chargedCents <= 0) return json(400, { error: 'There is nothing to mail.' });
+    if (mailQuote.chargedCents <= 0) return json(400, { error: 'There is nothing to mail.' });
 
     try { lob.assertMailKey(env); }
     catch (err) { return json(err.statusCode || 403, { error: err.message }); }
 
-    if (balance.balanceCents < quote.chargedCents) {
+    if (balance.balanceCents < mailQuote.chargedCents) {
       return json(402, {
         error: 'Add credits before this test mailing.',
         balanceCents: balance.balanceCents,
-        shortfallCents: quote.chargedCents - balance.balanceCents,
-        chargedCents: quote.chargedCents,
+        shortfallCents: mailQuote.chargedCents - balance.balanceCents,
+        chargedCents: mailQuote.chargedCents,
         topUpsCents: pricing.TOP_UPS_CENTS,
       });
     }
@@ -181,7 +323,7 @@ function createHandler(deps) {
     if (idem) await store.setJSON(idem, { status: 'pending', orderId: id });
     const debit = await wallet.debit(store, {
       memberId: gate.access.memberId,
-      amountCents: quote.chargedCents,
+      amountCents: mailQuote.chargedCents,
       orderId: id,
       note: 'Test mail',
     });
@@ -207,7 +349,7 @@ function createHandler(deps) {
     } catch (err) {
       await wallet.credit(store, {
         memberId: gate.access.memberId,
-        amountCents: quote.chargedCents,
+        amountCents: mailQuote.chargedCents,
         orderId: id,
         note: 'Test mail returned',
       });
@@ -221,11 +363,13 @@ function createHandler(deps) {
       memberEmail: gate.email || '',
       at: new Date().toISOString(),
       status: 'sent',
+      kind: 'mail',
       testMode: sent.testMode,
-      pieces: quote.lines.filter(function (row) { return row.mailed; }).map(pricing.publicQuote),
-      vendorCostCents: quote.vendorCostCents,
-      chargedCents: quote.chargedCents,
-      markupCents: quote.markupCents,
+      provider: pricing.MAIL_PROVIDER,
+      pieces: mailQuote.lines.filter(function (row) { return row.mailed; }).map(pricing.publicQuote),
+      vendorCostCents: mailQuote.vendorCostCents,
+      chargedCents: mailQuote.chargedCents,
+      markupCents: mailQuote.markupCents,
       mailIds: sent.ids,
       leadCount: sent.leadCount,
     };
@@ -235,14 +379,14 @@ function createHandler(deps) {
         status: 'sent',
         orderId: id,
         testMode: sent.testMode,
-        chargedCents: quote.chargedCents,
+        chargedCents: mailQuote.chargedCents,
         mailed: sent.ids.length,
       });
     }
     return json(200, {
       orderId: id,
       testMode: sent.testMode,
-      chargedCents: quote.chargedCents,
+      chargedCents: mailQuote.chargedCents,
       balanceCents: debit.balanceCents,
       mailed: sent.ids.length,
     });
