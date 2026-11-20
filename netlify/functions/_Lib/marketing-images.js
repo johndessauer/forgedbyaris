@@ -7,20 +7,20 @@ const HEADSHOT_MAX_BYTES = 5 * 1024 * 1024;
 const LOGO_MIN_WIDTH = 600;
 const HEADSHOT_MIN_WIDTH = 800;
 
+function fail(message) {
+  const err = new Error(message);
+  err.statusCode = 400;
+  return err;
+}
+
 function decodeBase64(input) {
   const raw = String(input || '').trim();
   const payload = raw.replace(/^data:[^,]*,/i, '').replace(/\s/g, '');
-  if (!payload) {
-    const err = new Error('The file was empty.');
-    err.statusCode = 400;
-    throw err;
+  if (!payload || !/^[A-Za-z0-9+/]+={0,2}$/.test(payload)) {
+    throw fail('The file could not be read. Use a PNG, JPG, SVG, or WebP.');
   }
   const buf = Buffer.from(payload, 'base64');
-  if (!buf.length || buf.toString('base64').replace(/=+$/, '') !== payload.replace(/=+$/, '')) {
-    const err = new Error('The file could not be read.');
-    err.statusCode = 400;
-    throw err;
-  }
+  if (!buf.length) throw fail('The file was empty.');
   return buf;
 }
 
@@ -29,6 +29,7 @@ function sniff(buf) {
   if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) return 'png';
   if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return 'jpeg';
   if (buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46) return 'gif';
+  if (buf.length >= 12 && buf.slice(0, 4).toString('ascii') === 'RIFF' && buf.slice(8, 12).toString('ascii') === 'WEBP') return 'webp';
   const head = buf.slice(0, Math.min(buf.length, 400)).toString('utf8').replace(/^\uFEFF/, '').trim().toLowerCase();
   if (head.startsWith('<svg') || head.startsWith('<?xml') && head.includes('<svg')) return 'svg';
   if (head.includes('<svg')) return 'svg';
@@ -41,8 +42,50 @@ function pngSize(buf) {
   return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
 }
 
+function pngHasChunk(buf, type) {
+  let i = 8;
+  while (i + 12 <= buf.length) {
+    const len = buf.readUInt32BE(i);
+    const name = buf.slice(i + 4, i + 8).toString('ascii');
+    if (name === type) return true;
+    if (name === 'IEND') return false;
+    if (!Number.isFinite(len) || len > 20 * 1024 * 1024) return false;
+    i += 12 + len;
+  }
+  return false;
+}
+
 function pngAnimated(buf) {
-  return buf.indexOf(Buffer.from('acTL')) !== -1;
+  return pngHasChunk(buf, 'acTL');
+}
+
+function webpAnimated(buf) {
+  let i = 12;
+  while (i + 8 <= buf.length) {
+    const tag = buf.slice(i, i + 4).toString('ascii');
+    const size = buf.readUInt32LE(i + 4);
+    if (tag === 'VP8X' && i + 8 < buf.length) return (buf[i + 8] & 0x02) !== 0;
+    if (!Number.isFinite(size) || size > 20 * 1024 * 1024) return false;
+    i += 8 + size + (size % 2);
+  }
+  return false;
+}
+
+function webpSize(buf) {
+  let i = 12;
+  while (i + 8 <= buf.length) {
+    const tag = buf.slice(i, i + 4).toString('ascii');
+    const size = buf.readUInt32LE(i + 4);
+    if (tag === 'VP8X' && i + 18 <= buf.length) {
+      return {
+        width: 1 + (buf.readUIntLE(i + 12, 3) & 0xffffff),
+        height: 1 + (buf.readUIntLE(i + 15, 3) & 0xffffff),
+      };
+    }
+    if (!Number.isFinite(size) || size > 20 * 1024 * 1024) return null;
+    i += 8 + size + (size % 2);
+  }
+  return null;
 }
 
 function jpegSize(buf) {
@@ -81,7 +124,7 @@ function looksAlikeBrand(text) {
 function cleanSvg(input) {
   const original = Buffer.isBuffer(input) ? input.toString('utf8') : String(input || '');
   if (!/<\s*svg[\s>]/i.test(original)) {
-    const err = new Error('Logo files must be a PNG or an SVG.');
+    const err = new Error('This SVG could not be read.');
     err.statusCode = 400;
     throw err;
   }
@@ -178,55 +221,57 @@ function svgSwatches(svg) {
   return pickSwatches(found);
 }
 
+function contentTypeFor(type) {
+  if (type === 'png') return 'image/png';
+  if (type === 'jpeg') return 'image/jpeg';
+  if (type === 'webp') return 'image/webp';
+  if (type === 'svg') return 'image/svg+xml';
+  return 'application/octet-stream';
+}
+
+function rasterSize(type, buf) {
+  if (type === 'png') return pngSize(buf);
+  if (type === 'jpeg') return jpegSize(buf);
+  if (type === 'webp') return webpSize(buf);
+  return null;
+}
+
 function validateImage(input) {
   const kind = input && input.kind === 'headshot' ? 'headshot' : 'logo';
   const fileName = safeFileName(input && input.fileName);
-  const buf = decodeBase64(input && input.dataBase64);
+  const buf = Buffer.isBuffer(input && input.bytes) ? input.bytes : decodeBase64(input && input.dataBase64);
   const max = kind === 'headshot' ? HEADSHOT_MAX_BYTES : LOGO_MAX_BYTES;
-  if (buf.length > max) {
-    const err = new Error('This file is over 5 MB. Use a smaller PNG or SVG.');
-    err.statusCode = 400;
-    throw err;
-  }
+  if (buf.length > max) throw fail('This file is over 5 MB. Choose a smaller image.');
   const type = sniff(buf);
-  if (type === 'gif' || (type === 'png' && pngAnimated(buf))) {
-    const err = new Error('Animated files are not allowed.');
-    err.statusCode = 400;
-    throw err;
+  if (type === 'gif' || (type === 'png' && pngAnimated(buf)) || (type === 'webp' && webpAnimated(buf))) {
+    throw fail('Animated files are not allowed.');
   }
   const warnings = [];
   let stored;
   let contentType;
   let size = null;
+  const raster = type === 'png' || type === 'jpeg' || type === 'webp';
   if (kind === 'logo') {
-    if (type !== 'png' && type !== 'svg') {
-      const err = new Error('Logo files must be a PNG or an SVG.');
-      err.statusCode = 400;
-      throw err;
-    }
+    if (type !== 'svg' && !raster) throw fail('Use a PNG, JPG, SVG, or WebP.');
     if (type === 'svg') {
       const svg = cleanSvg(buf);
       stored = Buffer.from(svg, 'utf8');
       contentType = 'image/svg+xml';
       size = svgPixelSize(svg);
-      if (!size || !size.width) warnings.push('Could not read a pixel width. A PNG at least 600 pixels wide prints more sharply.');
+      if (!size || !size.width) warnings.push('Could not read a pixel width. An image at least 600 pixels wide prints more sharply.');
       else if (size.width < LOGO_MIN_WIDTH) warnings.push('This logo is under 600 pixels wide. It may look soft in print. You can still use it.');
     } else {
-      size = pngSize(buf);
+      size = rasterSize(type, buf);
       stored = buf;
-      contentType = 'image/png';
-      if (!size) warnings.push('Could not read the logo size. A PNG at least 600 pixels wide prints more sharply.');
+      contentType = contentTypeFor(type);
+      if (!size) warnings.push('Could not read the logo size. An image at least 600 pixels wide prints more sharply.');
       else if (size.width < LOGO_MIN_WIDTH) warnings.push('This logo is under 600 pixels wide. It may look soft in print. You can still use it.');
     }
   } else {
-    if (type !== 'png' && type !== 'jpeg') {
-      const err = new Error('Headshots must be a JPG or a PNG.');
-      err.statusCode = 400;
-      throw err;
-    }
-    size = type === 'png' ? pngSize(buf) : jpegSize(buf);
+    if (!raster) throw fail('Headshots must be a JPG, PNG, or WebP.');
+    size = rasterSize(type, buf);
     stored = buf;
-    contentType = type === 'png' ? 'image/png' : 'image/jpeg';
+    contentType = contentTypeFor(type);
     if (!size) warnings.push('Could not read the headshot size. Use a square image at least 800 pixels wide.');
     else {
       if (size.width < HEADSHOT_MIN_WIDTH || size.height < HEADSHOT_MIN_WIDTH) {
@@ -257,6 +302,8 @@ module.exports = {
   decodeBase64: decodeBase64,
   sniff: sniff,
   pngSize: pngSize,
+  pngHasChunk: pngHasChunk,
+  webpAnimated: webpAnimated,
   jpegSize: jpegSize,
   cleanSvg: cleanSvg,
   normalizeHex: normalizeHex,

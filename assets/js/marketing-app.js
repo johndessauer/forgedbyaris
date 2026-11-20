@@ -244,7 +244,10 @@
     var add = state.brands.length < state.brandLimit
       ? '<button type="button" class="mkt-secondary" data-action="new-brand">Add a brand</button>'
       : '<p class="mkt-note">' + (state.empire ? 'Empire includes 3 brands.' : 'Foundation includes one Brand Kit. More brands are part of Empire.') + '</p>';
+    var savedLogo = brand.logo ? '<p class="mkt-saved">Logo saved: ' + esc(brand.logo.fileName || 'logo') + (brand.logo.width ? ' (' + esc(brand.logo.width) + ' × ' + esc(brand.logo.height || '?') + ')' : '') + '.</p>' : '';
+    var savedHead = brand.headshot ? '<p class="mkt-saved">Headshot saved: ' + esc(brand.headshot.fileName || 'headshot') + '.</p>' : '';
     return '<form id="mkt-brand-form" class="mkt-brand">' +
+      (state.message ? '<p class="mkt-message" role="status">' + esc(state.message) + '</p>' : '') +
       '<div class="mkt-chip-row">' + slots + add + '</div>' +
       '<p class="mkt-note">Students change the logo, the colors, and the text. Fonts and layouts stay on the neutral template. The template does not carry FORGE branding.</p>' +
       '<label>Business name<input name="businessName" value="' + esc(brand.businessName || '') + '"></label>' +
@@ -268,10 +271,10 @@
         return '<button type="button" data-action="apply-swatch" data-slot="' + slot + '" data-hex="' + esc(hex) + '">Use ' + slot + ' ' + esc(hex) + '</button>';
       }).join('') + '</div>' : '') +
       '<label class="mkt-check"><input type="checkbox" name="rights"> ' + esc(catalog.RIGHTS_TEXT) + ' A headshot must be of you, or of someone who gave permission.</label>' +
-      '<div class="mkt-row"><label class="mkt-file">Logo PNG or SVG<input type="file" accept="image/png,image/svg+xml,.svg" data-upload="logo"></label>' +
-      '<label class="mkt-file">Headshot JPG or PNG<input type="file" accept="image/png,image/jpeg" data-upload="headshot"></label>' +
+      savedLogo + savedHead +
+      '<div class="mkt-row"><label class="mkt-file">Logo PNG, JPG, SVG, or WebP<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml,.png,.jpg,.jpeg,.webp,.svg" data-upload="logo"></label>' +
+      '<label class="mkt-file">Headshot JPG, PNG, or WebP<input type="file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" data-upload="headshot"></label>' +
       '<button type="button" data-action="save-brand">Save Brand Kit</button></div>' +
-      (state.message ? '<p class="mkt-message">' + esc(state.message) + '</p>' : '') +
       '</form>';
   }
 
@@ -392,7 +395,7 @@
 
   function cropSquare(file) {
     return new Promise(function (resolve) {
-      if (!file || !/^image\/(png|jpeg)$/.test(file.type) || typeof document === 'undefined') {
+      if (!file || !/^image\/(png|jpeg|webp)$/.test(file.type) || typeof document === 'undefined') {
         resolve(file);
         return;
       }
@@ -426,7 +429,7 @@
 
   function sampleColors(file) {
     return new Promise(function (resolve) {
-      if (!file || !/^image\/(png|jpeg|jpg)$/.test(file.type)) {
+      if (!file || !/^image\/(png|jpeg|jpg|webp)$/.test(file.type)) {
         resolve([]);
         return;
       }
@@ -599,49 +602,107 @@
     paint(state);
   }
 
+  function fileKindOk(kind, file) {
+    var name = String(file && file.name || '').toLowerCase();
+    var type = String(file && file.type || '').toLowerCase();
+    var logo = kind === 'logo';
+    var okType = logo
+      ? /image\/(png|jpeg|jpg|webp|svg\+xml)/.test(type) || /\.(png|jpe?g|webp|svg)$/.test(name)
+      : /image\/(png|jpeg|jpg|webp)/.test(type) || /\.(png|jpe?g|webp)$/.test(name);
+    if (!okType) return logo ? 'Use a PNG, JPG, SVG, or WebP.' : 'Headshots must be a JPG, PNG, or WebP.';
+    if (file.size > 5 * 1024 * 1024) return 'This file is over 5 MB. Choose a smaller image.';
+    return '';
+  }
+
+  async function readUploadResponse(response) {
+    var text = '';
+    try { text = await response.text(); } catch (err) { text = ''; }
+    var data = {};
+    try { data = text ? JSON.parse(text) : {}; } catch (err) { data = {}; }
+    data.ok = response.ok;
+    data.status = response.status;
+    if (!response.ok && !data.error) {
+      data.error = response.status === 413
+        ? 'This file is over 5 MB. Choose a smaller image.'
+        : 'The upload did not go through. Try again.';
+    }
+    return data;
+  }
+
   async function uploadFile(state, kind, file) {
-    if (!file) return;
-    var form = readBrandForm();
-    if (!form || !form.rights) {
-      state.message = 'Check the rights box before you upload.';
-      paint(state);
-      return;
-    }
-    if (!state.brandId) {
-      await saveBrand(state);
-      if (!state.brandId) return;
-    }
-    if (kind === 'headshot') file = await cropSquare(file);
-    var dataBase64 = await fileToBase64(file);
-    var uploaded = await postJson(state.token, '/api/marketing-brand', {
-      action: 'upload',
-      brandId: state.brandId,
-      kind: kind,
-      fileName: file.name,
-      dataBase64: dataBase64,
-      rightsAccepted: true,
-    });
-    if (!uploaded.ok) {
-      state.message = uploaded.error || 'That file could not be saved.';
-      paint(state);
-      return;
-    }
-    if (kind === 'logo') {
-      var samples = uploaded.swatches && uploaded.swatches.length ? uploaded.swatches : await sampleColors(file);
-      if (samples.length) {
-        var suggested = await postJson(state.token, '/api/marketing-brand', { action: 'suggest', samples: samples });
-        if (suggested.ok && suggested.swatches) {
-          state.swatches = suggested.swatches;
-          state.message = 'Suggested colors from the logo: ' + suggested.swatches.join(', ') + '. Use a swatch or type your own. ' + (uploaded.warnings || []).join(' ');
+    try {
+      if (!file) return;
+      var form = readBrandForm();
+      if (!form || !form.rights) {
+        state.message = 'Check the rights box to upload.';
+        paint(state);
+        return;
+      }
+      var typeError = fileKindOk(kind, file);
+      if (typeError) {
+        state.message = typeError;
+        paint(state);
+        return;
+      }
+      if (!state.brandId) {
+        await saveBrand(state);
+        if (!state.brandId) {
+          if (!state.message) state.message = 'Save the Brand Kit before you upload a file.';
+          paint(state);
+          return;
         }
       }
+      if (kind === 'headshot') file = await cropSquare(file);
+      state.message = 'Uploading…';
+      paint(state);
+      var params = new URLSearchParams({
+        action: 'upload',
+        brandId: state.brandId,
+        kind: kind,
+        fileName: file.name || 'upload',
+        rights: '1',
+      });
+      var response = await fetch('/api/marketing-brand?' + params.toString(), {
+        method: 'POST',
+        headers: {
+          Authorization: state.token ? 'Bearer ' + state.token : '',
+          'Content-Type': file.type || 'application/octet-stream',
+        },
+        body: file,
+      });
+      var uploaded = await readUploadResponse(response);
+      if (!uploaded.ok) {
+        state.message = uploaded.error || 'That file could not be saved.';
+        paint(state);
+        return;
+      }
+      if (kind === 'logo') {
+        var samples = uploaded.swatches && uploaded.swatches.length ? uploaded.swatches : [];
+        try { if (!samples.length) samples = await sampleColors(file); } catch (err) { samples = []; }
+        if (samples.length) {
+          var suggested = await postJson(state.token, '/api/marketing-brand', { action: 'suggest', samples: samples });
+          if (suggested.ok && suggested.swatches) state.swatches = suggested.swatches;
+        }
+      }
+      if (uploaded.brand) {
+        var replaced = false;
+        state.brands = state.brands.map(function (row) {
+          if (row.id !== uploaded.brand.id) return row;
+          replaced = true;
+          return uploaded.brand;
+        });
+        if (!replaced) state.brands.push(uploaded.brand);
+        state.brandId = uploaded.brand.id;
+      }
+      var savedName = uploaded.brand && uploaded.brand[kind] && uploaded.brand[kind].fileName;
+      state.message = (savedName ? 'Saved ' + savedName + '. ' : 'File saved. ') + ((uploaded.warnings || []).join(' '));
+      if (state.swatches && state.swatches.length) state.message += ' Suggested colors: ' + state.swatches.join(', ') + '.';
+      if (uploaded.flagged) state.message += ' Flagged for John. Nothing was emailed.';
+      paint(state);
+    } catch (err) {
+      state.message = 'The upload did not go through. Try again.';
+      paint(state);
     }
-    if (uploaded.brand) {
-      state.brands = state.brands.map(function (row) { return row.id === uploaded.brand.id ? uploaded.brand : row; });
-    }
-    if (!state.message) state.message = (uploaded.warnings || []).join(' ') || 'File saved.';
-    if (uploaded.flagged) state.message += ' Flagged for John. Nothing was emailed.';
-    paint(state);
   }
 
   async function generate(state) {

@@ -185,11 +185,39 @@ test('logo and headshot validation cleans SVG and rejects animation', () => {
   const shot = images.validateImage({ kind: 'headshot', fileName: 'me.jpg', dataBase64: jpeg(900, 900).toString('base64') });
   assert.equal(shot.width, 900);
   assert.equal(shot.height, 900);
+  const stray = Buffer.concat([
+    Buffer.from([0, 0, 0, 4]),
+    Buffer.from('IDAT'),
+    Buffer.from('acTL'),
+    Buffer.from([0, 0, 0, 0]),
+  ]);
+  const ordinary = images.validateImage({ kind: 'logo', fileName: 'logo.png', bytes: png(500, 500, stray) });
+  assert.equal(ordinary.width, 500);
+  assert.equal(ordinary.height, 500);
+  assert.match(ordinary.warnings.join(' '), /600/);
+  const actl = Buffer.concat([
+    Buffer.from([0, 0, 0, 8]),
+    Buffer.from('acTL'),
+    Buffer.alloc(8),
+    Buffer.alloc(4),
+  ]);
+  assert.throws(() => images.validateImage({ kind: 'logo', fileName: 'anim.png', bytes: png(800, 800, actl) }), /Animated/);
+  const jpgLogo = images.validateImage({ kind: 'logo', fileName: 'mark.jpg', bytes: jpeg(640, 640) });
+  assert.equal(jpgLogo.contentType, 'image/jpeg');
+  const webp = Buffer.concat([
+    Buffer.from('RIFF'),
+    Buffer.from([18, 0, 0, 0]),
+    Buffer.from('WEBPVP8 '),
+    Buffer.from([10, 0, 0, 0]),
+    Buffer.alloc(10),
+  ]);
+  const webpLogo = images.validateImage({ kind: 'logo', fileName: 'mark.webp', bytes: webp });
+  assert.equal(webpLogo.contentType, 'image/webp');
   assert.throws(() => images.validateImage({
     kind: 'logo',
-    fileName: 'anim.png',
-    dataBase64: Buffer.concat([png(800, 800), Buffer.from('acTL')]).toString('base64'),
-  }), /Animated/);
+    fileName: 'big.png',
+    bytes: Buffer.alloc(images.LOGO_MAX_BYTES + 1),
+  }), /5 MB/);
   assert.equal(images.looksAlikeBrand('irs-seal.png'), true);
   assert.ok(images.contrastRatio('#ffffff', '#000000') > 4.5);
   assert.equal(images.readableTextColor('#ffffff'), '#1A1A1A');
@@ -497,6 +525,42 @@ test('an allowlisted member sees the Marketing screen, and a failed check is vis
   } finally {
     page.restore();
   }
+});
+
+test('a 500 by 500 PNG uploads as the raw file, and the rights box is required', async () => {
+  const rig = world({ memberId: 'mem_john' });
+  const handler = brandApi.createHandler(rig.deps);
+  const saved = await rig.call(handler, { action: 'save', brand: { businessName: 'Example Buys', phone: '555-010-0000' } });
+  const brandId = saved.body.brand.id;
+  const bytes = png(500, 500);
+  const denied = await handler({
+    httpMethod: 'POST',
+    headers: { authorization: 'Bearer tok', 'content-type': 'image/png' },
+    queryStringParameters: { action: 'upload', brandId: brandId, kind: 'logo', fileName: 'logo.png' },
+    isBase64Encoded: true,
+    body: bytes.toString('base64'),
+  });
+  assert.equal(denied.statusCode, 400);
+  assert.match(JSON.parse(denied.body).error, /own this logo or image/);
+  const uploaded = await handler({
+    httpMethod: 'POST',
+    headers: { authorization: 'Bearer tok', 'content-type': 'image/png' },
+    queryStringParameters: { action: 'upload', brandId: brandId, kind: 'logo', fileName: 'logo.png', rights: '1' },
+    isBase64Encoded: true,
+    body: bytes.toString('base64'),
+  });
+  assert.equal(uploaded.statusCode, 200, uploaded.body);
+  const body = JSON.parse(uploaded.body);
+  assert.equal(body.brand.logo.fileName, 'logo.png');
+  assert.equal(body.brand.logo.width, 500);
+  assert.match((body.warnings || []).join(' '), /600/);
+  const stored = await rig.blob.get('assets/mem_john/' + brandId + '/logo', { type: 'arrayBuffer' });
+  assert.equal(Buffer.from(stored).slice(0, 4).toString('hex'), bytes.slice(0, 4).toString('hex'));
+  const page = app.renderBrand(Object.assign(app.createState({}), { message: 'Check the rights box to upload.' }));
+  assert.match(page, /Check the rights box to upload\./);
+  assert.ok(page.indexOf('role="status"') < page.indexOf('Business name'));
+  assert.match(page, /image\/webp/);
+  assert.match(read('assets/js/marketing-app.js'), /Check the rights box to upload\./);
 });
 
 test('marketing access denies a signed-out caller', async () => {

@@ -136,21 +136,49 @@ function createHandler(deps) {
     catch (err) { return json(503, { error: 'Brand Kit storage is not available.' }); }
 
     const memberId = gate.access.memberId;
+    const params = event.queryStringParameters || {};
+
+    if (event.httpMethod === 'POST' && params.action === 'upload') {
+      const headers = event.headers || {};
+      const contentType = String(headers['content-type'] || headers['Content-Type'] || '');
+      if (!/application\/json/i.test(contentType)) {
+        const bytes = event.isBase64Encoded
+          ? Buffer.from(event.body || '', 'base64')
+          : Buffer.from(event.body || '', 'latin1');
+        try {
+          return await uploadAsset(store, memberId, {
+            kind: params.kind,
+            brandId: params.brandId,
+            fileName: params.fileName,
+            rightsAccepted: params.rights === '1',
+            bytes: bytes,
+          });
+        } catch (err) {
+          return uploadError(err);
+        }
+      }
+    }
 
     if (event.httpMethod === 'GET') {
       const params = event.queryStringParameters || {};
       if (params.asset && params.brandId) {
         const kind = params.asset === 'headshot' ? 'headshot' : 'logo';
-        const raw = await store.get(assetKey(memberId, params.brandId, kind));
+        const raw = await store.get(assetKey(memberId, params.brandId, kind), { type: 'arrayBuffer' });
         if (!raw) return json(404, { error: 'That file is not in your Brand Kit.' });
         const brands = await loadBrands(store, memberId);
         const brand = brands.find(function (row) { return row.id === params.brandId; });
         const meta = brand && brand[kind];
-        return json(200, {
-          contentType: (meta && meta.contentType) || 'application/octet-stream',
-          fileName: (meta && meta.fileName) || kind,
-          dataBase64: String(raw).replace(/\s/g, ''),
-        });
+        const bytes = Buffer.from(raw);
+        return {
+          statusCode: 200,
+          isBase64Encoded: true,
+          headers: {
+            'Content-Type': (meta && meta.contentType) || 'application/octet-stream',
+            'Cache-Control': 'private, no-store',
+            'Access-Control-Allow-Origin': '*',
+          },
+          body: bytes.toString('base64'),
+        };
       }
       const brands = await loadBrands(store, memberId);
       return json(200, {
@@ -177,11 +205,19 @@ function createHandler(deps) {
       if (action === 'review-resolve') return await reviewResolve(store, gate.flag, body.id);
       return json(400, { error: 'Unknown Brand Kit action.' });
     } catch (err) {
-      const status = err && err.statusCode ? err.statusCode : 500;
-      if (status >= 500) console.error('marketing-brand failed:', err);
-      return json(status, { error: status >= 500 ? 'Brand Kit could not be saved.' : err.message });
+      return uploadError(err);
     }
   };
+}
+
+function uploadError(err) {
+  const status = err && err.statusCode ? err.statusCode : 500;
+  if (status >= 500) console.error('marketing-brand failed:', err);
+  const storage = /blobs|not been configured|Missing Blobs/i.test(String(err && err.message || ''));
+  const message = storage
+    ? 'Brand Kit storage is not available. Nothing was saved.'
+    : (status >= 500 ? 'Brand Kit could not be saved.' : err.message);
+  return json(storage ? 503 : status, { error: message });
 }
 
 function suggestColors(samples) {
@@ -247,10 +283,17 @@ async function uploadAsset(store, memberId, body) {
     kind: kind,
     fileName: body.fileName,
     dataBase64: body.dataBase64,
+    bytes: body.bytes,
   });
-  await store.set(assetKey(memberId, brandId, kind), image.bytes.toString('base64'), {
-    metadata: { contentType: image.contentType },
-  });
+  try {
+    await store.set(assetKey(memberId, brandId, kind), image.bytes, {
+      metadata: { contentType: image.contentType },
+    });
+  } catch (err) {
+    const wrapped = new Error('Brand Kit storage is not available. Nothing was saved.');
+    wrapped.statusCode = 503;
+    throw wrapped;
+  }
   brands[index][kind] = {
     fileName: image.fileName,
     contentType: image.contentType,
