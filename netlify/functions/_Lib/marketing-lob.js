@@ -97,8 +97,8 @@ async function sendPieces(options) {
       const path = piece.channel === 'letter' ? '/v1/letters' : '/v1/postcards';
       const html = pieceHtml(brand, piece.variantA || '');
       const payload = piece.channel === 'letter'
-        ? { to: toAddress(lead), from: from, file: html, color: true, use_type: 'marketing', description: 'FORGE test letter' }
-        : { to: toAddress(lead), from: from, front: html, back: html, size: '4x6', use_type: 'marketing', description: 'FORGE test postcard' };
+        ? { to: toAddress(lead), from: from, file: html, color: false, mail_type: 'usps_standard', use_type: 'marketing', description: 'FORGE test letter' }
+        : { to: toAddress(lead), from: from, front: html, back: html, size: '4x6', mail_type: 'usps_first_class', use_type: 'marketing', description: 'FORGE test postcard' };
       const response = await fetchImpl('https://api.lob.com' + path, {
         method: 'POST',
         headers: {
@@ -111,6 +111,8 @@ async function sendPieces(options) {
       if (!response.ok) {
         const err = new Error('The test mailing was not accepted.');
         err.statusCode = 502;
+        const message = data && data.error && data.error.message;
+        if (message) err.detail = String(message).slice(0, 300);
         throw err;
       }
       if (data && data.id) ids.push(String(data.id));

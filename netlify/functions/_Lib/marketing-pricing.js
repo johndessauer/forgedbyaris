@@ -14,13 +14,30 @@ const MAIL_PROVIDER = 'lob';
 const LOB_CHANNELS = Object.freeze(['postcard', 'letter']);
 const TOP_UPS_CENTS = Object.freeze([2500, 5000, 10000, 25000]);
 
-// Vendor unit costs are the published list prices from the spec, in cents,
-// rounded to the nearest cent. Student unit price is that cost times
-// (1 + markup), rounded to the nearest cent. Printed-goods shipping is
-// not inside the unit price.
+// Mail unit costs are Lob Developer edition, the plan a new account gets
+// (no monthly fee, up to 500 mailings a month). Each price includes print
+// and USPS postage. Stored in cents, rounded from the published dollars.
+// Student price is that cent cost times 1.20, rounded to the nearest cent.
+//
+// Source, table "Pricing details - 11/01/2026":
+// https://help.lob.com/print-and-mail/ready-to-get-started/pricing-details
+//
+// 4x6 postcard, First Class: $0.909. Lob does not publish a 4x6 Standard
+// Class rate (Standard Class starts at 5x7).
+// 1-page black-and-white letter, Standard Class: $0.834. Lob's "Standard
+// Class" is USPS Marketing Mail. First Class for that same letter is
+// $1.066, so Standard Class is the cheaper published rate.
+// Printed-goods shipping is not inside those unit prices.
+function publishedCents(dollars) {
+  return Math.round(dollars * 100);
+}
+
+const POSTCARD_4X6_FIRST_CLASS_USD = 0.909;
+const LETTER_BW_STANDARD_USD = 0.834;
+
 const BASIS = Object.freeze({
-  postcard: line('mail', 91, MAIL_MARKUP_RATE, MAIL_PROVIDER),
-  letter: line('mail', 83, MAIL_MARKUP_RATE, MAIL_PROVIDER),
+  postcard: line('mail', publishedCents(POSTCARD_4X6_FIRST_CLASS_USD), MAIL_MARKUP_RATE, MAIL_PROVIDER),
+  letter: line('mail', publishedCents(LETTER_BW_STANDARD_USD), MAIL_MARKUP_RATE, MAIL_PROVIDER),
   handwritten: line('mail', 118, MAIL_MARKUP_RATE, null),
   'door-hanger': line('print', 21, PRINT_MARKUP_RATE, null),
   flyer: line('print', 8, PRINT_MARKUP_RATE, null),
@@ -178,6 +195,9 @@ module.exports = {
   PRINT_MARKUP_RATE_MIN: PRINT_MARKUP_RATE_MIN,
   PRINT_MARKUP_RATE_MAX: PRINT_MARKUP_RATE_MAX,
   MAIL_PROVIDER: MAIL_PROVIDER,
+  POSTCARD_4X6_FIRST_CLASS_USD: POSTCARD_4X6_FIRST_CLASS_USD,
+  LETTER_BW_STANDARD_USD: LETTER_BW_STANDARD_USD,
+  publishedCents: publishedCents,
   LOB_CHANNELS: LOB_CHANNELS,
   TOP_UPS_CENTS: TOP_UPS_CENTS,
   BASIS: BASIS,

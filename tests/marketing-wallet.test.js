@@ -79,6 +79,10 @@ test('mail is vendor cost times 1.20 and print defaults to 30 percent inside 25 
   const postcard = one.lines.find(row => row.channelId === 'postcard');
   const letter = one.lines.find(row => row.channelId === 'letter');
   const hanger = one.lines.find(row => row.channelId === 'door-hanger');
+  assert.equal(pricing.publishedCents(pricing.POSTCARD_4X6_FIRST_CLASS_USD), 91);
+  assert.equal(pricing.publishedCents(pricing.LETTER_BW_STANDARD_USD), 83);
+  assert.equal(postcard.unitVendorCostCents, 91);
+  assert.equal(letter.unitVendorCostCents, 83);
   assert.equal(postcard.unitStudentPriceCents, 109);
   assert.equal(postcard.studentPriceCents, 218);
   assert.equal(letter.unitStudentPriceCents, 100);
@@ -191,6 +195,7 @@ test('confirm debits the wallet, sends a test postcard, and returns the credits 
   assert.equal(box.calls[0].url, 'https://api.lob.com/v1/postcards');
   const mailed = JSON.parse(box.calls[0].init.body);
   assert.equal(mailed.size, '4x6');
+  assert.equal(mailed.mail_type, 'usps_first_class');
   assert.match(mailed.front, /#1F3348/);
   assert.match(mailed.front, /TEST — not a real mailing/);
   assert.equal(box.calls[0].init.headers.Authorization, 'Basic ' + Buffer.from('test_lob_key:').toString('base64'));
@@ -222,6 +227,9 @@ test('confirm debits the wallet, sends a test postcard, and returns the credits 
     pieces: [{ channel: 'letter', variantA: 'Letter', approved: true }],
   });
   assert.equal(returned.status, 502);
+  const letterBody = JSON.parse(broken.calls[0].init.body);
+  assert.equal(letterBody.color, false);
+  assert.equal(letterBody.mail_type, 'usps_standard');
   assert.equal((await wallet.readWallet(box.blob, 'mem_john')).balanceCents, 10000 - 109);
 
   const live = rig({ blob: box.blob, env: { LOB_API_KEY: 'live_secret' } });
