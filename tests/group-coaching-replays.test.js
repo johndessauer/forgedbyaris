@@ -279,7 +279,9 @@ test('session dates, studio durations, and video ids stay on the published uploa
       ['E3sjbtGHEs0', 'What Is a Pipeline CRM? Stages, Nurturing & Your Buyers List'],
       ['OYE-F8_pyyQ', 'How to Add a Real Estate Deal to Your FORGE CRM (and Sync It to Your Calendar)'],
       ['W-LTFuPNPt0', 'Use Market Oracle to Grade the Market Before You Work a Lead'],
+      ['Gno8HNQYn4M', 'How Many Touches Does a Real Estate Lead Take? Listed vs. Not Listed'],
       ['rzj34RPQcf4', 'Let ARIS Write Your Cold-Call Script for Real Estate Deals'],
+      ['G-l2RSL0QEY', 'Practice Seller Objections With ARIS: Storage Unit Role-Play'],
     ];
     let at6 = liveBlock6.indexOf('8DPxw0SpcSM');
     assert.ok(at6 > 0);
