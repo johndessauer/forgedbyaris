@@ -112,5 +112,26 @@ test('every lead type maps to a mailable address, and absentees use the owner ma
   assert.equal(quote.leadCount, leads.length);
   assert.equal(quote.chargedCents, 109 * leads.length);
   const listed = app.renderGoal(app.createState({ leads: leads.slice(0, 1), empire: true }));
-  assert.match(listed, /Owner mailing address/);
+  assert.match(listed, /Mailing to the owner mailing address/);
+  const prefore = entry.leadForMarketing(ps.mapRadarRecord(radar('prefore', false), 0, ['prefore']));
+  const arrival = app.createState({ leads: [prefore], empire: true });
+  assert.equal(app.arriveFromSearch(arrival, {
+    source: 'property-search',
+    leadTypes: ['prefore'],
+    leads: [prefore],
+  }), true);
+  assert.equal(arrival.step, 2);
+  assert.equal(arrival.goal, 'sellers');
+  assert.match(arrival.goalNote, /ARIS picked Find motivated sellers because this is a Pre-Foreclosures lead/);
+  assert.match(app.renderPicker(arrival), /Change it if you want/);
+  assert.match(app.renderGoal(arrival), /\+ Add another address/);
+  assert.equal(app.renderGoal(arrival).includes('<h3>Add an address</h3>'), false);
+  const buyers = app.pickCampaignGoal({ source: 'property-search', leads: [{ playIds: ['cashbuyer'] }] });
+  assert.equal(buyers.goal, 'buyers');
+  const imported = app.pickCampaignGoal({ source: 'lead-list', leads: [{ playIds: [] }] });
+  assert.equal(imported.goal, 'followup');
+  const plain = app.createState({});
+  assert.equal(app.arriveFromSearch(plain, null), false);
+  assert.equal(plain.step, 1);
+  assert.match(app.renderGoal(plain), /<h3>Add an address<\/h3>/);
 });

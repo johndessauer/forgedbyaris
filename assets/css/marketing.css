@@ -107,6 +107,8 @@ button, input, textarea, select { font-family: inherit; }
 .mkt-brand input:not([type="checkbox"]):not([type="file"]),
 .mkt-address-form input { width: 100%; background: #0d1b2a; color: white; border: 1px solid var(--border-sub); border-radius: 8px; padding: 8px; }
 .mkt-address-form { display: grid; gap: 8px; margin: 8px 0 12px; }
+.mkt-mail-to { display: block; margin-top: 2px; font-size: 12px; color: var(--grey-light); }
+.mkt-add-link { background: none; border: 0; color: var(--gold); padding: 0; cursor: pointer; font-size: 13px; }
 .mkt-address-form label { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; color: var(--grey-light); font-size: 13px; }
 .mkt-draft textarea { min-height: 110px; }
 .mkt-brand { display: flex; flex-direction: column; align-items: stretch; gap: 12px; text-align: left; }

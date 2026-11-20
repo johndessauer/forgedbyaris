@@ -47,6 +47,9 @@
       usingSample: false,
       editingId: '',
       addressError: '',
+      fromSearch: !!input.fromSearch,
+      showAddAddress: !!input.showAddAddress,
+      goalNote: input.goalNote || '',
       swatches: Array.isArray(input.swatches) ? input.swatches.slice() : [],
       logoUrls: Object.assign({}, input.logoUrls || {}),
       quote: input.quote || null,
@@ -121,7 +124,78 @@
     var mailNote = mailMissing.length
       ? '<p class="mkt-note">Before any mail copy can be exported, the Brand Kit needs your ' + esc(mailMissing.join(', ')) + '. Logo, colors, and headshot stay optional.</p>'
       : '';
-    return offer + summary + addressBook(state) + (unknown ? '<h3>Assign property types ARIS will not guess</h3><ul class="mkt-assign">' + unknown + '</ul>' : '') + commercialLock + '<h3>What do you want this campaign to do?</h3><div class="mkt-choices">' + goals + '</div>' + '<p class="mkt-aris">' + esc(catalog.recommendationText(state.propertyClass)) + '</p>' + mailNote + (state.message ? '<p class="mkt-message">' + esc(state.message) + '</p>' : '') + '<div class="mkt-row"><button type="button" data-action="continue-goal">Continue</button></div>';
+    return offer + summary + addressBook(state) + (unknown ? '<h3>Assign property types ARIS will not guess</h3><ul class="mkt-assign">' + unknown + '</ul>' : '') + commercialLock + '<h3>What do you want this campaign to do?</h3>' + goalNoteHtml(state) + '<div class="mkt-choices">' + goals + '</div>' + '<p class="mkt-aris">' + esc(catalog.recommendationText(state.propertyClass)) + '</p>' + mailNote + (state.message ? '<p class="mkt-message">' + esc(state.message) + '</p>' : '') + '<div class="mkt-row"><button type="button" data-action="continue-goal">Continue</button></div>';
+  }
+
+  function goalNoteHtml(state) {
+    return state.goalNote ? '<p class="mkt-aris">' + esc(state.goalNote) + '</p>' : '';
+  }
+
+  var GOAL_NAME = {
+    sellers: 'Find motivated sellers',
+    followup: 'Follow up on a lead list',
+    buyers: 'Market a real estate deal to cash buyers',
+  };
+  var LEAD_NAME = {
+    absentee: 'Absentee Owners',
+    activeinvestor: 'Active Investor Owned',
+    listing: 'Active Listing',
+    bored: 'Bored Investor',
+    cashbuyer: 'Cash Buyers',
+    taxdelinquent: 'Delinquent Tax Activity',
+    flipped: 'Flipped',
+    foreactivity: 'Foreclosure Activity',
+    foreclosure: 'Foreclosures (Bank-Owned)',
+    freeclear: 'Free & Clear',
+    highequity: 'High Equity',
+    longterm: 'Long-Term Owner',
+    lowequity: 'Low Equity',
+    inherited: 'Potentially Inherited',
+    prefore: 'Pre-Foreclosures',
+    upsidedown: 'Upside Down',
+    vacant: 'Vacancy',
+    zombie: 'Zombie Property',
+    probate: 'Probate',
+    divorce: 'Divorce',
+  };
+  var BUYER_LEADS = { cashbuyer: 1, listing: 1 };
+
+  function articleFor(phrase) {
+    return /^[aeiou]/i.test(phrase) ? 'an' : 'a';
+  }
+
+  function pickCampaignGoal(stored) {
+    var source = String(stored && stored.source || '');
+    if (source === 'import' || source === 'lead-list' || source === 'crm' || source === 'followup') {
+      return { goal: 'followup', line: 'ARIS picked Follow up on a lead list because this is a lead list. Change it if you want.' };
+    }
+    var ids = [];
+    function add(id) {
+      if (id && LEAD_NAME[id] && ids.indexOf(id) === -1) ids.push(id);
+    }
+    ((stored && stored.leads) || []).forEach(function (lead) {
+      (lead.playIds || []).forEach(add);
+    });
+    (stored && stored.leadTypes || []).forEach(add);
+    var sellers = ids.filter(function (id) { return !BUYER_LEADS[id]; });
+    var buyers = ids.filter(function (id) { return BUYER_LEADS[id]; });
+    var goal = buyers.length && !sellers.length ? 'buyers' : 'sellers';
+    var typeId = (goal === 'buyers' ? buyers[0] : sellers[0]) || ids[0];
+    var typeName = LEAD_NAME[typeId] || 'motivated seller';
+    return {
+      goal: goal,
+      line: 'ARIS picked ' + GOAL_NAME[goal] + ' because this is ' + articleFor(typeName) + ' ' + typeName + ' lead. Change it if you want.',
+    };
+  }
+
+  function arriveFromSearch(state, stored) {
+    if (!stored || stored.source !== 'property-search' || !(stored.leads && stored.leads.length)) return false;
+    var picked = pickCampaignGoal(stored);
+    state.goal = picked.goal;
+    state.goalNote = picked.line;
+    state.fromSearch = true;
+    state.step = 2;
+    return true;
   }
 
   function missingMailFields(lead) {
@@ -137,8 +211,13 @@
   function formatLead(lead) {
     var place = [lead.city, [lead.state, lead.zip].filter(Boolean).join(' ')].filter(Boolean).join(', ');
     var line = [lead.address, place].filter(Boolean).join(', ');
-    var source = lead.mailSource === 'owner' ? 'Owner mailing address' : (lead.mailSource === 'property' ? 'Property address' : '');
-    return (line || 'New address') + (lead.owner ? ' · ' + lead.owner : '') + (source ? ' · ' + source : '');
+    return (line || 'New address') + (lead.owner ? ' · ' + lead.owner : '');
+  }
+
+  function mailToLine(lead) {
+    if (lead.mailSource === 'owner') return 'Mailing to the owner mailing address';
+    if (lead.mailSource === 'property') return 'Mailing to the property address';
+    return '';
   }
 
   function addressEditor(state, lead, label) {
@@ -158,9 +237,20 @@
     var rows = (state.leads || []).map(function (lead) {
       if (state.editingId === lead.id) return '<li>' + addressEditor(state, lead, 'Save address') + '</li>';
       var missing = missingMailFields(lead);
-      return '<li><span>' + esc(formatLead(lead)) + (missing.length ? ' · missing ' + esc(missing.join(', ')) : '') + '</span> <button type="button" class="mkt-secondary" data-action="edit-address" data-id="' + esc(lead.id) + '">Edit</button> <button type="button" class="mkt-secondary" data-action="remove-address" data-id="' + esc(lead.id) + '">Remove</button></li>';
+      var mailed = mailToLine(lead);
+      return '<li><span>' + esc(formatLead(lead)) + (missing.length ? ' · missing ' + esc(missing.join(', ')) : '') + '</span>' +
+        (mailed ? '<span class="mkt-mail-to">' + esc(mailed) + '</span>' : '') +
+        ' <button type="button" class="mkt-secondary" data-action="edit-address" data-id="' + esc(lead.id) + '">Edit</button> <button type="button" class="mkt-secondary" data-action="remove-address" data-id="' + esc(lead.id) + '">Remove</button></li>';
     }).join('');
-    var adding = state.editingId ? '' : '<h3>Add an address</h3>' + addressEditor(state, {}, 'Add address');
+    var fromSearch = !!state.fromSearch && (state.leads || []).length;
+    var adding = '';
+    if (!state.editingId) {
+      if (fromSearch && !state.showAddAddress) {
+        adding = '<p><button type="button" class="mkt-add-link" data-action="show-add-address">+ Add another address</button></p>';
+      } else {
+        adding = '<h3>' + (fromSearch ? 'Add another address' : 'Add an address') + '</h3>' + addressEditor(state, {}, 'Add address');
+      }
+    }
     return (rows ? '<h3>Properties</h3><ul class="mkt-assign">' + rows + '</ul>' : '') + adding;
   }
 
@@ -255,7 +345,7 @@
       }).join('');
     };
     var commercialLock = state.empire ? '' : ' disabled';
-    return '<h2 class="mkt-ask">Who are you marketing to?</h2>' +
+    return goalNoteHtml(state) + '<h2 class="mkt-ask">Who are you marketing to?</h2>' +
       '<div class="mkt-who-grid">' +
       '<button type="button" class="mkt-who' + (state.propertyClass === 'residential' ? ' is-on' : '') + '" data-action="class" data-class="residential"><strong>Residential</strong><span>Homeowners</span></button>' +
       '<button type="button" class="mkt-who' + (state.propertyClass === 'commercial' ? ' is-on' : '') + '"' + commercialLock + ' data-action="class" data-class="commercial"><strong>Commercial</strong><span>Business and property owners</span>' + (state.empire ? '' : '<em>Empire</em>') + '</button>' +
@@ -712,6 +802,12 @@
       state.selected[id] = !state.selected[id];
       state.recsFor = selectionKey(state);
       state.previewId = id;
+      paint(state);
+      return;
+    }
+    if (action === 'show-add-address') {
+      state.showAddAddress = true;
+      state.addressError = '';
       paint(state);
       return;
     }
@@ -1331,6 +1427,7 @@
         var groups = loadCatalog().splitLeads(stored.leads);
         if (!groups.residential.length && groups.commercial.length && access.empire) state.propertyClass = 'commercial';
       }
+      arriveFromSearch(state, stored);
       state.token = options.token;
       var brandResponse = await fetch('/api/marketing-brand', {
         headers: { Authorization: 'Bearer ' + options.token },
@@ -1381,5 +1478,7 @@
     saveCampaign: saveCampaign,
     readCampaign: readCampaign,
     resumeCampaign: resumeCampaign,
+    pickCampaignGoal: pickCampaignGoal,
+    arriveFromSearch: arriveFromSearch,
   };
 });
