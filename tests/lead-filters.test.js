@@ -58,10 +58,6 @@ test('every catalog lead type and property type has a server definition and the 
 test('lead criteria match the Deal Surge definitions', () => {
   const compiled = (plays, extra) => criteria.compileSearch(Object.assign({ plays, location: '46307' }, extra || {}), NOW);
 
-  const prefore = compiled('prefore');
-  assert.deepEqual(prefore.criteria.find(c => c.name === 'ForeclosureStage').value, ['Preforeclosure', 'Preforeclosure-NTS']);
-  assert.equal(prefore.criteria.some(c => c.name === 'inForeclosure'), false);
-
   const activity = compiled('foreactivity');
   assert.deepEqual(activity.criteria.find(c => c.name === 'ForeclosureStage').value, [
     'Preforeclosure', 'Preforeclosure-NTS', 'Auction', 'Auction-UNK', 'Sale Pending',
@@ -113,6 +109,32 @@ test('lead criteria match the Deal Surge definitions', () => {
   assert.match(equity.link, /emin=40/);
   assert.match(equity.link, /location=46307/);
   assert.equal(JSON.stringify(equity).includes('PropertyRadar'), false);
+});
+
+test('pre-foreclosure uses the previous broad list, and tighter foreclosure filters stay opt-in', () => {
+  const alone = criteria.compileSearch({ plays: 'prefore', location: '46307' }, NOW);
+  assert.deepEqual(alone.criteria, [
+    { name: 'ZipFive', value: [46307] },
+    { name: 'inForeclosure', value: [1] },
+  ]);
+  assert.equal(alone.criteria.some(c => c.name === 'ForeclosureStage'), false);
+  assert.equal(alone.criteria.some(c => c.name === 'PropertyType'), false);
+  assert.equal(alone.criteria.some(c => c.name === 'EquityPercent'), false);
+  assert.equal(alone.criteria.some(c => c.name === 'isSameMailingOrExempt'), false);
+
+  const withVacant = criteria.compileSearch({ plays: 'prefore,vacant', location: '46307' }, NOW);
+  assert.deepEqual(names(withVacant.criteria), ['ZipFive', 'inForeclosure', 'isSiteVacant']);
+
+  const withEquity = criteria.compileSearch({ plays: 'prefore', location: '46307', emin: '40' }, NOW);
+  assert.deepEqual(names(withEquity.criteria), ['ZipFive', 'inForeclosure', 'EquityPercent']);
+
+  const withBank = criteria.compileSearch({ plays: 'prefore,foreclosure', location: '46307' }, NOW);
+  assert.equal(withBank.criteria.some(c => c.name === 'inForeclosure'), false);
+  assert.deepEqual(withBank.criteria.find(c => c.name === 'ForeclosureStage').value, ['Bank Owned', 'Bank Owned-Held']);
+
+  const zombie = criteria.compileSearch({ plays: 'zombie', location: '46307' }, NOW);
+  assert.equal(zombie.criteria.some(c => c.name === 'inForeclosure'), false);
+  assert.deepEqual(zombie.criteria.find(c => c.name === 'ForeclosureStage').value, ['Preforeclosure', 'Preforeclosure-NTS']);
 });
 
 test('property type include ORs the selected buckets and exclude sends the complement', () => {
@@ -283,4 +305,8 @@ test('the coach prompt and the chat tool stay inside FORGE', () => {
   assert.match(page, /Property Type/);
   assert.match(filters, /Delinquent Tax Activity/);
   assert.match(filters, /Potentially Inherited/);
+  assert.match(prompt, /Pre-Foreclosures \(currently in foreclosure: notice filed, auction scheduled, or bank-owned and not yet resold\)/);
+  assert.equal(prompt.includes('not yet auction or bank-owned'), false);
+  assert.match(coach, /prefore = currently in foreclosure \(notice, auction, or bank-owned and not yet resold\)/);
+  assert.equal(coach.includes('prefore = notice filed, not auction or bank-owned'), false);
 });
