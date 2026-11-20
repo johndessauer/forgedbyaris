@@ -170,6 +170,9 @@ test('top-up checkout uses only the test key and the webhook credits the wallet 
   assert.equal(started.body.url, 'https://checkout.stripe.com/c/pay/cs_test_1');
   assert.match(box.calls[0].init.headers.Authorization, /^Bearer sk_test_marketing$/);
   assert.match(decodeURIComponent(box.calls[0].init.body), /unit_amount\]=2500/);
+  assert.equal(box.calls[0].init.body.includes('{CHECKOUT_SESSION_ID}'), true);
+  assert.match(decodeURIComponent(box.calls[0].init.body), /wallet=success/);
+  assert.match(decodeURIComponent(box.calls[0].init.body), /wallet=cancel/);
   assert.match(decodeURIComponent(box.calls[0].init.body), /metadata\[amount_cents\]=2500/);
   assert.equal(box.calls[0].init.body.includes('sk_live'), false);
 
@@ -192,6 +195,34 @@ test('top-up checkout uses only the test key and the webhook credits the wallet 
   shown.message = 'Test checkout is not configured.';
   shown.reason = 'missing';
   assert.match(app.renderCost(shown), /<p class="mkt-reason">missing<\/p>/);
+  const mem = new Map();
+  const storage = {
+    getItem: (key) => mem.has(key) ? mem.get(key) : null,
+    setItem: (key, value) => mem.set(key, value),
+  };
+  const before = app.createState({
+    goal: 'buyers',
+    propertyClass: 'residential',
+    selected: { postcard: true },
+    approved: { 'residential:postcard': true },
+    leads: [{ address: '412 W Joliet St', city: 'Crown Point', state: 'IN', zip: '46307' }],
+    quote: { balanceCents: 0, chargedCents: 109, shortfallCents: 109, lines: [] },
+    step: 5,
+  });
+  app.saveCampaign(storage, before, 2500);
+  const fresh = app.createState({});
+  const resumed = app.resumeCampaign(fresh, '?wallet=success&session_id=cs_test_1', storage);
+  assert.equal(fresh.step, 5);
+  assert.equal(fresh.goal, 'buyers');
+  assert.equal(fresh.selected.postcard, true);
+  assert.equal(fresh.approved['residential:postcard'], true);
+  assert.equal(fresh.leads[0].zip, '46307');
+  assert.equal(fresh.message, 'Added $25.00 to your credit.');
+  assert.equal(resumed.before, 0);
+  const again = app.createState({});
+  app.resumeCampaign(again, '', storage);
+  assert.equal(again.step, 5);
+  assert.equal(again.message, '');
 
   const payload = JSON.stringify({
     type: 'checkout.session.completed',

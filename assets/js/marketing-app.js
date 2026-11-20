@@ -873,8 +873,149 @@
     state.message = '';
   }
 
+  var CAMPAIGN_KEY = 'forge-marketing-campaign';
+
+  function browserStores() {
+    var stores = [];
+    try { if (typeof sessionStorage !== 'undefined') stores.push(sessionStorage); } catch (err) {}
+    try { if (typeof localStorage !== 'undefined') stores.push(localStorage); } catch (err) {}
+    return stores;
+  }
+
+  function campaignStorage(storage) {
+    if (storage) return storage;
+    var stores = browserStores();
+    return {
+      getItem: function (key) {
+        for (var i = 0; i < stores.length; i++) {
+          try {
+            var value = stores[i].getItem(key);
+            if (value) return value;
+          } catch (err) {}
+        }
+        return null;
+      },
+      setItem: function (key, value) {
+        stores.forEach(function (store) {
+          try { store.setItem(key, value); } catch (err) {}
+        });
+      },
+    };
+  }
+
+  function saveCampaign(storage, state, amountCents) {
+    var payload = {
+      version: 1,
+      amountCents: amountCents || 0,
+      balanceCents: state.quote && typeof state.quote.balanceCents === 'number' ? state.quote.balanceCents : null,
+      step: state.step,
+      goal: state.goal,
+      propertyClass: state.propertyClass,
+      filter: state.filter,
+      recommendedFirst: state.recommendedFirst,
+      selected: state.selected,
+      copies: state.copies,
+      approved: state.approved,
+      leads: state.leads,
+      brandId: state.brandId,
+      previewId: state.previewId,
+      recommendation: state.recommendation,
+      attested: !!state.attested,
+      usingSample: !!state.usingSample,
+      swatches: state.swatches,
+      quote: state.quote,
+      confirmKey: state.confirmKey,
+      sender: state.sender,
+      noticed: !!state.noticed,
+    };
+    campaignStorage(storage).setItem(CAMPAIGN_KEY, JSON.stringify(payload));
+    return payload;
+  }
+
+  function readCampaign(storage) {
+    try {
+      var parsed = JSON.parse(campaignStorage(storage).getItem(CAMPAIGN_KEY) || 'null');
+      if (!parsed || parsed.version !== 1) return null;
+      return parsed;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function applyCampaign(state, draft) {
+    if (!draft) return;
+    state.goal = draft.goal || state.goal;
+    state.propertyClass = draft.propertyClass || state.propertyClass;
+    state.filter = draft.filter || state.filter;
+    state.recommendedFirst = draft.recommendedFirst !== false;
+    state.selected = Object.assign({}, draft.selected || {});
+    state.copies = {
+      residential: Object.assign({}, (draft.copies && draft.copies.residential) || {}),
+      commercial: Object.assign({}, (draft.copies && draft.copies.commercial) || {}),
+    };
+    state.approved = Object.assign({}, draft.approved || {});
+    if (Array.isArray(draft.leads)) state.leads = draft.leads.slice();
+    if (draft.brandId && (state.brands || []).some(function (brand) { return brand.id === draft.brandId; })) state.brandId = draft.brandId;
+    state.previewId = draft.previewId || '';
+    state.recommendation = draft.recommendation || '';
+    state.attested = !!draft.attested;
+    state.usingSample = !!draft.usingSample;
+    state.swatches = Array.isArray(draft.swatches) ? draft.swatches.slice() : [];
+    state.quote = draft.quote || state.quote;
+    state.confirmKey = draft.confirmKey || '';
+    state.sender = draft.sender || state.sender;
+    if (draft.step) state.step = draft.step;
+    state.noticed = !!draft.noticed;
+  }
+
+  function resumeCampaign(state, search, storage) {
+    var params = new URLSearchParams(String(search || '').replace(/^\?/, ''));
+    var wallet = params.get('wallet');
+    var returning = wallet === 'success' || wallet === 'ok' || wallet === 'cancel';
+    var draft = readCampaign(storage);
+    if (draft) applyCampaign(state, draft);
+    if (!returning && !draft) return null;
+    if (returning) {
+      state.step = 5;
+      state.view = 'flow';
+    }
+    if ((wallet === 'success' || wallet === 'ok') && !(draft && draft.noticed)) {
+      var cents = draft && Number(draft.amountCents);
+      state.message = cents ? 'Added ' + money(cents) + ' to your credit.' : 'Added credit to your balance.';
+      state.reason = '';
+      state.noticed = true;
+      if (draft) saveCampaign(storage, state, cents);
+    }
+    return { wallet: wallet || '', before: draft ? draft.balanceCents : null };
+  }
+
+  function delay(ms) {
+    return new Promise(function (resolve) { setTimeout(resolve, ms); });
+  }
+
+  async function pollBalance(state, before) {
+    var tries = 4;
+    for (var i = 0; i < tries; i++) {
+      try {
+        var response = await fetch('/api/marketing-wallet', {
+          headers: { Authorization: state.token ? 'Bearer ' + state.token : '' },
+        });
+        if (response.ok) {
+          var data = await response.json();
+          if (!state.quote) state.quote = { lines: [], chargedCents: 0, shortfallCents: 0, balanceCents: 0 };
+          state.quote.balanceCents = data.balanceCents;
+          if (state.quote.chargedCents) state.quote.shortfallCents = Math.max(0, state.quote.chargedCents - data.balanceCents);
+          paint(state);
+          if (before == null || Number(data.balanceCents) > Number(before)) return;
+        }
+      } catch (err) {}
+      if (i < tries - 1) await delay(1500);
+    }
+  }
+
   async function startTopUp(state, cents) {
     state.reason = '';
+    saveCampaign(null, state, cents);
     var result = await postJson(state.token, '/api/marketing-wallet', { action: 'topup', amountCents: cents });
     if (result.ok && result.url) {
       window.location.href = result.url;
@@ -1072,7 +1213,15 @@
         app.addEventListener('change', function (event) { onChange(state, event); });
       }
       await ensureLogo(state);
+      var walletReturn = null;
+      if (typeof location !== 'undefined') walletReturn = resumeCampaign(state, location.search);
       paint(state);
+      if (walletReturn && (walletReturn.wallet === 'success' || walletReturn.wallet === 'ok')) {
+        if (typeof history !== 'undefined' && history.replaceState) history.replaceState(null, '', location.pathname);
+        pollBalance(state, walletReturn.before);
+      } else if (walletReturn && walletReturn.wallet === 'cancel' && typeof history !== 'undefined' && history.replaceState) {
+        history.replaceState(null, '', location.pathname);
+      }
     } catch (err) {
       showFallback(loading, app, locked, problem);
     }
@@ -1095,5 +1244,8 @@
     lockedHtml: lockedHtml,
     mailMissingFields: mailMissingFields,
     start: start,
+    saveCampaign: saveCampaign,
+    readCampaign: readCampaign,
+    resumeCampaign: resumeCampaign,
   };
 });
