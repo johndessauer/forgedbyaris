@@ -47,10 +47,17 @@
       usingSample: false,
       editingId: '',
       addressError: '',
+      fromSearch: !!input.fromSearch,
+      showAddAddress: !!input.showAddAddress,
+      goalNote: input.goalNote || '',
       swatches: Array.isArray(input.swatches) ? input.swatches.slice() : [],
       logoUrls: Object.assign({}, input.logoUrls || {}),
       quote: input.quote || null,
       confirmKey: '',
+      printKey: '',
+      prints: Object.assign({}, input.prints || {}),
+      shipTo: input.shipTo || null,
+      shipTouched: !!input.shipTouched,
     };
   }
 
@@ -121,7 +128,78 @@
     var mailNote = mailMissing.length
       ? '<p class="mkt-note">Before any mail copy can be exported, the Brand Kit needs your ' + esc(mailMissing.join(', ')) + '. Logo, colors, and headshot stay optional.</p>'
       : '';
-    return offer + summary + addressBook(state) + (unknown ? '<h3>Assign property types ARIS will not guess</h3><ul class="mkt-assign">' + unknown + '</ul>' : '') + commercialLock + '<h3>What do you want this campaign to do?</h3><div class="mkt-choices">' + goals + '</div>' + '<p class="mkt-aris">' + esc(catalog.recommendationText(state.propertyClass)) + '</p>' + mailNote + (state.message ? '<p class="mkt-message">' + esc(state.message) + '</p>' : '') + '<div class="mkt-row"><button type="button" data-action="continue-goal">Continue</button></div>';
+    return offer + summary + addressBook(state) + (unknown ? '<h3>Assign property types ARIS will not guess</h3><ul class="mkt-assign">' + unknown + '</ul>' : '') + commercialLock + '<h3>What do you want this campaign to do?</h3>' + goalNoteHtml(state) + '<div class="mkt-choices">' + goals + '</div>' + '<p class="mkt-aris">' + esc(catalog.recommendationText(state.propertyClass)) + '</p>' + mailNote + (state.message ? '<p class="mkt-message">' + esc(state.message) + '</p>' : '') + '<div class="mkt-row"><button type="button" data-action="continue-goal">Continue</button></div>';
+  }
+
+  function goalNoteHtml(state) {
+    return state.goalNote ? '<p class="mkt-aris">' + esc(state.goalNote) + '</p>' : '';
+  }
+
+  var GOAL_NAME = {
+    sellers: 'Find motivated sellers',
+    followup: 'Follow up on a lead list',
+    buyers: 'Market a real estate deal to cash buyers',
+  };
+  var LEAD_NAME = {
+    absentee: 'Absentee Owners',
+    activeinvestor: 'Active Investor Owned',
+    listing: 'Active Listing',
+    bored: 'Bored Investor',
+    cashbuyer: 'Cash Buyers',
+    taxdelinquent: 'Delinquent Tax Activity',
+    flipped: 'Flipped',
+    foreactivity: 'Foreclosure Activity',
+    foreclosure: 'Foreclosures (Bank-Owned)',
+    freeclear: 'Free & Clear',
+    highequity: 'High Equity',
+    longterm: 'Long-Term Owner',
+    lowequity: 'Low Equity',
+    inherited: 'Potentially Inherited',
+    prefore: 'Pre-Foreclosures',
+    upsidedown: 'Upside Down',
+    vacant: 'Vacancy',
+    zombie: 'Zombie Property',
+    probate: 'Probate',
+    divorce: 'Divorce',
+  };
+  var BUYER_LEADS = { cashbuyer: 1, listing: 1 };
+
+  function articleFor(phrase) {
+    return /^[aeiou]/i.test(phrase) ? 'an' : 'a';
+  }
+
+  function pickCampaignGoal(stored) {
+    var source = String(stored && stored.source || '');
+    if (source === 'import' || source === 'lead-list' || source === 'crm' || source === 'followup') {
+      return { goal: 'followup', line: 'ARIS picked Follow up on a lead list because this is a lead list. Change it if you want.' };
+    }
+    var ids = [];
+    function add(id) {
+      if (id && LEAD_NAME[id] && ids.indexOf(id) === -1) ids.push(id);
+    }
+    ((stored && stored.leads) || []).forEach(function (lead) {
+      (lead.playIds || []).forEach(add);
+    });
+    (stored && stored.leadTypes || []).forEach(add);
+    var sellers = ids.filter(function (id) { return !BUYER_LEADS[id]; });
+    var buyers = ids.filter(function (id) { return BUYER_LEADS[id]; });
+    var goal = buyers.length && !sellers.length ? 'buyers' : 'sellers';
+    var typeId = (goal === 'buyers' ? buyers[0] : sellers[0]) || ids[0];
+    var typeName = LEAD_NAME[typeId] || 'motivated seller';
+    return {
+      goal: goal,
+      line: 'ARIS picked ' + GOAL_NAME[goal] + ' because this is ' + articleFor(typeName) + ' ' + typeName + ' lead. Change it if you want.',
+    };
+  }
+
+  function arriveFromSearch(state, stored) {
+    if (!stored || stored.source !== 'property-search' || !(stored.leads && stored.leads.length)) return false;
+    var picked = pickCampaignGoal(stored);
+    state.goal = picked.goal;
+    state.goalNote = picked.line;
+    state.fromSearch = true;
+    state.step = 2;
+    return true;
   }
 
   function missingMailFields(lead) {
@@ -138,6 +216,12 @@
     var place = [lead.city, [lead.state, lead.zip].filter(Boolean).join(' ')].filter(Boolean).join(', ');
     var line = [lead.address, place].filter(Boolean).join(', ');
     return (line || 'New address') + (lead.owner ? ' · ' + lead.owner : '');
+  }
+
+  function mailToLine(lead) {
+    if (lead.mailSource === 'owner') return 'Mailing to the owner mailing address';
+    if (lead.mailSource === 'property') return 'Mailing to the property address';
+    return '';
   }
 
   function addressEditor(state, lead, label) {
@@ -157,9 +241,20 @@
     var rows = (state.leads || []).map(function (lead) {
       if (state.editingId === lead.id) return '<li>' + addressEditor(state, lead, 'Save address') + '</li>';
       var missing = missingMailFields(lead);
-      return '<li><span>' + esc(formatLead(lead)) + (missing.length ? ' · missing ' + esc(missing.join(', ')) : '') + '</span> <button type="button" class="mkt-secondary" data-action="edit-address" data-id="' + esc(lead.id) + '">Edit</button> <button type="button" class="mkt-secondary" data-action="remove-address" data-id="' + esc(lead.id) + '">Remove</button></li>';
+      var mailed = mailToLine(lead);
+      return '<li><span>' + esc(formatLead(lead)) + (missing.length ? ' · missing ' + esc(missing.join(', ')) : '') + '</span>' +
+        (mailed ? '<span class="mkt-mail-to">' + esc(mailed) + '</span>' : '') +
+        ' <button type="button" class="mkt-secondary" data-action="edit-address" data-id="' + esc(lead.id) + '">Edit</button> <button type="button" class="mkt-secondary" data-action="remove-address" data-id="' + esc(lead.id) + '">Remove</button></li>';
     }).join('');
-    var adding = state.editingId ? '' : '<h3>Add an address</h3>' + addressEditor(state, {}, 'Add address');
+    var fromSearch = !!state.fromSearch && (state.leads || []).length;
+    var adding = '';
+    if (!state.editingId) {
+      if (fromSearch && !state.showAddAddress) {
+        adding = '<p><button type="button" class="mkt-add-link" data-action="show-add-address">+ Add another address</button></p>';
+      } else {
+        adding = '<h3>' + (fromSearch ? 'Add another address' : 'Add an address') + '</h3>' + addressEditor(state, {}, 'Add address');
+      }
+    }
     return (rows ? '<h3>Properties</h3><ul class="mkt-assign">' + rows + '</ul>' : '') + adding;
   }
 
@@ -201,6 +296,7 @@
 
   function pieceBadge(channel) {
     if (!channel || channel.copy === false) return { text: 'Coming soon', cls: 'is-soon' };
+    if (channel.medium === 'print') return { text: 'Ship to me', cls: 'is-ship' };
     if (channel.group === 'fulfill') return { text: 'We mail it', cls: 'is-mail' };
     return { text: 'You send it', cls: 'is-send' };
   }
@@ -254,12 +350,12 @@
       }).join('');
     };
     var commercialLock = state.empire ? '' : ' disabled';
-    return '<h2 class="mkt-ask">Who are you marketing to?</h2>' +
+    return goalNoteHtml(state) + '<h2 class="mkt-ask">Who are you marketing to?</h2>' +
       '<div class="mkt-who-grid">' +
       '<button type="button" class="mkt-who' + (state.propertyClass === 'residential' ? ' is-on' : '') + '" data-action="class" data-class="residential"><strong>Residential</strong><span>Homeowners</span></button>' +
       '<button type="button" class="mkt-who' + (state.propertyClass === 'commercial' ? ' is-on' : '') + '"' + commercialLock + ' data-action="class" data-class="commercial"><strong>Commercial</strong><span>Business and property owners</span>' + (state.empire ? '' : '<em>Empire</em>') + '</button>' +
       '</div>' +
-      '<p class="mkt-legend">We mail it means FORGE can mail it in test mode. Nothing is really printed yet. You send it means you send it yourself. FORGE does not send email or text.</p>' +
+      '<p class="mkt-legend">We mail it means one postcard or letter per property, in test mode. Ship to me means printed goods ship to you in a pack you choose. They are not sent to a property. Nothing is really printed yet. You send it means you send it yourself. FORGE does not send email or text.</p>' +
       '<h2 class="mkt-ask">ARIS recommends</h2>' +
       '<p class="mkt-aris">' + esc(recommendLine(state.propertyClass)) + '</p>' +
       (state.message ? '<p class="mkt-message">' + esc(state.message) + '</p>' : '') +
@@ -281,19 +377,26 @@
     }).join('') + '</div>';
   }
 
-  function costRows(state) {
+  function costRows(state, kind) {
     var catalog = loadCatalog();
     var quote = state.quote || { lines: [] };
-    return (quote.lines || []).map(function (line) {
+    return (quote.lines || []).filter(function (line) {
+      if (kind === 'print') return line.kind === 'print';
+      return line.kind !== 'print';
+    }).map(function (line) {
       var channel = catalog.channelById(line.channelId);
       var name = catalog.displayName(channel, state.propertyClass) || line.channelId;
-      var total = line.mailed ? money(line.studentPriceCents) : 'Not charged in this test';
-      return '<tr><td>' + esc(name) + '</td><td>' + money(line.unitStudentPriceCents) + '</td><td>' + (line.mailed ? esc(line.quantity) : '—') + '</td><td>' + esc(total) + '</td></tr>';
+      var charged = kind === 'print' ? line.quantity > 0 : !!line.mailed;
+      var total = charged ? money(line.studentPriceCents) : 'Not charged in this test';
+      var count = charged ? line.quantity : '—';
+      return '<tr><td>' + esc(name) + '</td><td>' + money(line.unitStudentPriceCents) + '</td><td>' + esc(count) + '</td><td>' + esc(total) + '</td></tr>';
     }).join('');
   }
 
   function countNote(quote) {
-    if (!quote || quote.leadCount > 0) return '';
+    var lines = (quote && quote.lines) || [];
+    var emptyMail = lines.some(function (line) { return line.mailed && !line.quantity; });
+    if (!quote || !emptyMail) return '';
     var selected = Number(quote.selectedLeadCount) || 0;
     if (!selected) {
       return '<p class="mkt-note">Count is 0 because no properties are loaded. On step 1, start from Property Search, or use a sample property that includes a street, city, state, and ZIP.</p>';
@@ -301,16 +404,101 @@
     return '<p class="mkt-note">Count is 0 because none of the ' + selected + ' selected properties have a street, city, state, and ZIP. Go back to Property Search and choose properties that show a full address. A sample property counts only when it has all four.</p>';
   }
 
+  function markupNote(quote) {
+    if (!quote || quote.printMarkupRate == null) return '';
+    var hasPrint = (quote.lines || []).some(function (line) { return line.kind === 'print'; });
+    if (!hasPrint) return '';
+    var pct = Math.round(Number(quote.printMarkupRate) * 100);
+    return '<p class="mkt-note">Print markup ' + pct + '%. Configured between 25% and 35%. Shipping is not included in this test price.</p>';
+  }
+
+  function shipDraft(state) {
+    var brand = activeBrand(state);
+    var addr = (brand && brand.returnAddress) || {};
+    var over = state.shipTouched ? (state.shipTo || {}) : {};
+    function pick(key) {
+      if (state.shipTouched && over[key] != null) return over[key];
+      return addr[key] || '';
+    }
+    return {
+      line1: pick('line1'),
+      line2: pick('line2'),
+      city: pick('city'),
+      state: pick('state'),
+      zip: pick('zip'),
+    };
+  }
+
+  function printChoice(state, id) {
+    var spec = loadCatalog().printSpec(id);
+    if (!spec) return null;
+    var saved = (state.prints || {})[id] || {};
+    var quantity = spec.packs.indexOf(Number(saved.quantity)) >= 0 ? Number(saved.quantity) : spec.packs[0];
+    var option = spec.options.some(function (row) { return row.id === saved.option; }) ? saved.option : spec.options[0].id;
+    return { channelId: id, quantity: quantity, option: option };
+  }
+
+  function printOrders(state) {
+    var catalog = loadCatalog();
+    return selectedIds(state).filter(function (id) {
+      var channel = catalog.channelById(id);
+      return channel && channel.medium === 'print' && state.approved[state.propertyClass + ':' + id];
+    }).map(function (id) { return printChoice(state, id); }).filter(Boolean);
+  }
+
+  function shipForm(state) {
+    var draft = shipDraft(state);
+    function field(key, label) {
+      return '<label>' + label + '<input data-ship="' + key + '" value="' + esc(draft[key] || '') + '"></label>';
+    }
+    return '<div class="mkt-ship"><span>Ship to me</span>' +
+      field('line1', 'Street') +
+      field('line2', 'Line 2') +
+      field('city', 'City') +
+      field('state', 'State') +
+      field('zip', 'ZIP') +
+      '<p class="mkt-note">Filled from your Brand Kit return address. Change it if this order should ship somewhere else.</p></div>';
+  }
+
+  function printPicker(state) {
+    var catalog = loadCatalog();
+    var orders = printOrders(state);
+    if (!orders.length) return '';
+    return '<h3>Ship to me</h3><p class="mkt-note">Pick a pack. The property count does not change this quantity.</p>' +
+      orders.map(function (order) {
+        var spec = catalog.printSpec(order.channelId);
+        var channel = catalog.channelById(order.channelId);
+        var name = catalog.displayName(channel, state.propertyClass);
+        var packs = spec.packs.map(function (qty) {
+          return '<option value="' + qty + '"' + (qty === order.quantity ? ' selected' : '') + '>' + qty + '</option>';
+        }).join('');
+        var options = spec.options.map(function (row) {
+          return '<option value="' + esc(row.id) + '"' + (row.id === order.option ? ' selected' : '') + '>' + esc(row.label) + '</option>';
+        }).join('');
+        return '<div class="mkt-pack"><strong>' + esc(name) + '</strong><label>Pack<select data-print-pack="' + esc(order.channelId) + '">' + packs + '</select></label><label>Size<select data-print-option="' + esc(order.channelId) + '">' + options + '</select></label></div>';
+      }).join('') + shipForm(state);
+  }
+
   function renderCost(state) {
     var quote = state.quote;
+    var mailDue = quote ? (quote.mailChargedCents != null ? quote.mailChargedCents : quote.chargedCents) : 0;
+    var printDue = quote && quote.printChargedCents ? quote.printChargedCents : 0;
     var table = quote
-      ? '<table class="mkt-cost"><thead><tr><th>Piece</th><th>Each</th><th>Count</th><th>Total</th></tr></thead><tbody>' + costRows(state) + '</tbody></table>' +
+      ? (costRows(state, 'mail')
+          ? '<h3>Mail, one per property</h3><table class="mkt-cost"><thead><tr><th>Piece</th><th>Each</th><th>Count</th><th>Total</th></tr></thead><tbody>' + costRows(state, 'mail') + '</tbody></table>'
+          : '') +
         countNote(quote) +
-        '<p class="mkt-total"><strong>Test mail total</strong> ' + money(quote.chargedCents) + '</p>' +
+        printPicker(state) +
+        (costRows(state, 'print')
+          ? '<table class="mkt-cost"><thead><tr><th>Piece</th><th>Each</th><th>Pack</th><th>Total</th></tr></thead><tbody>' + costRows(state, 'print') + '</tbody></table>'
+          : '') +
+        markupNote(quote) +
+        '<p class="mkt-total"><strong>Test mail total</strong> ' + money(mailDue) + '</p>' +
+        (printDue || costRows(state, 'print') ? '<p class="mkt-total"><strong>Ship to me total</strong> ' + money(printDue) + '</p>' : '') +
         '<p>Credit balance ' + money(quote.balanceCents) + (quote.shortfallCents ? '. Add ' + money(quote.shortfallCents) + ' before you confirm.' : '.') + '</p>'
       : '<p class="mkt-note">The test price loads when you open this step.</p>';
     return '<h2 class="mkt-ask">Cost</h2>' +
-      '<p class="mkt-note">Test mode. Nothing is really printed. FORGE does not send email or text.</p>' +
+      '<p class="mkt-note">Test mode. Nothing is really printed. Mail is one piece per property. Printed goods ship to you in the pack you pick. FORGE does not send email or text.</p>' +
       table + topUpButtons() +
       statusLine(state) +
       '<div class="mkt-row mkt-next"><button type="button" data-action="step" data-step="6">Continue to confirm</button></div>';
@@ -319,12 +507,18 @@
   function renderConfirm(state) {
     var quote = state.quote || {};
     var short = quote.shortfallCents > 0;
+    var mailDue = quote.mailChargedCents != null ? quote.mailChargedCents : quote.chargedCents;
+    var printDue = quote.printChargedCents || 0;
     var button = short
-      ? '<p class="mkt-message">Add ' + money(quote.shortfallCents) + ' in test credits before this mailing.</p>' + topUpButtons()
-      : '<div class="mkt-row"><button type="button" data-action="confirm-mail">Confirm test mail</button></div>';
+      ? '<p class="mkt-message">Add ' + money(quote.shortfallCents) + ' in test credits before this order.</p>' + topUpButtons()
+      : '<div class="mkt-row">' +
+        (mailDue ? '<button type="button" data-action="confirm-mail">Confirm test mail</button>' : '') +
+        (printDue ? '<button type="button" data-action="confirm-print">Place test print order</button>' : '') +
+        '</div>';
     return '<h2 class="mkt-ask">Confirm</h2>' +
-      '<p class="mkt-note">Test mode. Confirming debits test credits and hands postcards and letters to the test mail service. Nothing is really printed. FORGE does not send email or text.</p>' +
-      '<p class="mkt-total"><strong>Test mail total</strong> ' + money(quote.chargedCents) + '</p>' +
+      '<p class="mkt-note">Test mode. Confirming mail debits test credits and hands postcards and letters to the test mail service. A print order debits test credits and is only recorded. Nothing is really printed. FORGE does not send email or text.</p>' +
+      '<p class="mkt-total"><strong>Test mail total</strong> ' + money(mailDue || 0) + '</p>' +
+      (printDue ? '<p class="mkt-total"><strong>Ship to me total</strong> ' + money(printDue) + '</p>' + shipForm(state) : '') +
       '<p>Credit balance ' + money(quote.balanceCents) + '</p>' +
       confirmAddresses(state) +
       button +
@@ -372,10 +566,14 @@
       : '';
     var approved = ids.filter(function (id) { return state.approved[state.propertyClass + ':' + id]; });
     var canMail = approved.some(isMailable);
-    var forward = canMail
+    var canPrint = approved.some(function (id) {
+      var channel = catalog.channelById(id);
+      return channel && channel.medium === 'print';
+    });
+    var forward = (canMail || canPrint)
       ? '<button type="button" data-action="step" data-step="5">Continue to cost</button>'
       : '';
-    var ownNote = !canMail && approved.length
+    var ownNote = !canMail && !canPrint && approved.length
       ? '<p class="mkt-note">These pieces are send-it-yourself and there\'s nothing to mail.</p>'
       : '';
     return blocks + attest +
@@ -714,6 +912,12 @@
       paint(state);
       return;
     }
+    if (action === 'show-add-address') {
+      state.showAddAddress = true;
+      state.addressError = '';
+      paint(state);
+      return;
+    }
     if (action === 'use-sample') {
       var sample = Object.assign({}, loadCatalog().SAMPLE_LEAD);
       state.leads = [sample];
@@ -760,6 +964,7 @@
     if (action === 'generate') return generate(state);
     if (action === 'topup') return startTopUp(state, Number(button.getAttribute('data-amount')));
     if (action === 'confirm-mail') return confirmMail(state);
+    if (action === 'confirm-print') return confirmPrint(state);
     if (action === 'save-brand') return saveBrand(state);
     if (action === 'export') return exportCopy(state);
   }
@@ -791,6 +996,24 @@
     }
     if (target && target.hasAttribute('data-upload')) {
       uploadFile(state, target.getAttribute('data-upload'), target.files && target.files[0]);
+      return;
+    }
+    if (target && (target.hasAttribute('data-print-pack') || target.hasAttribute('data-print-option'))) {
+      var printId = target.getAttribute('data-print-pack') || target.getAttribute('data-print-option');
+      var choice = printChoice(state, printId);
+      if (!choice) return;
+      if (!state.prints) state.prints = {};
+      if (target.hasAttribute('data-print-pack')) choice.quantity = Number(target.value);
+      else choice.option = target.value;
+      state.prints[printId] = choice;
+      loadCost(state).then(function () { paint(state); });
+      return;
+    }
+    if (target && target.hasAttribute('data-ship')) {
+      var draft = shipDraft(state);
+      draft[target.getAttribute('data-ship')] = target.value;
+      state.shipTo = draft;
+      state.shipTouched = true;
     }
   }
 
@@ -933,6 +1156,7 @@
     var result = await postJson(state.token, '/api/marketing-order', {
       action: 'quote',
       channels: approvedMailIds(state),
+      prints: printOrders(state),
       leads: state.leads || [],
       brandId: state.brandId,
     });
@@ -996,6 +1220,10 @@
       swatches: state.swatches,
       quote: state.quote,
       confirmKey: state.confirmKey,
+      printKey: state.printKey,
+      prints: state.prints,
+      shipTo: state.shipTo,
+      shipTouched: !!state.shipTouched,
       sender: state.sender,
       noticed: !!state.noticed,
     };
@@ -1034,6 +1262,10 @@
     state.swatches = Array.isArray(draft.swatches) ? draft.swatches.slice() : [];
     state.quote = draft.quote || state.quote;
     state.confirmKey = draft.confirmKey || '';
+    state.printKey = draft.printKey || '';
+    state.prints = Object.assign({}, draft.prints || {});
+    state.shipTo = draft.shipTo || null;
+    state.shipTouched = !!draft.shipTouched;
     state.sender = draft.sender || state.sender;
     if (draft.step) state.step = draft.step;
     state.noticed = !!draft.noticed;
@@ -1131,6 +1363,7 @@
         lead.state = row.state;
         lead.zip = row.zip;
         lead.owner = row.owner;
+        lead.mailSource = '';
       });
       state.editingId = '';
     } else {
@@ -1188,6 +1421,40 @@
     if (state.quote) state.quote.balanceCents = result.balanceCents;
     state.confirmKey = '';
     state.message = 'Test mail accepted. Nothing was really printed.';
+    paint(state);
+  }
+
+  async function confirmPrint(state) {
+    var orders = printOrders(state);
+    if (!orders.length) {
+      state.message = 'Choose a pack size before you ship printed goods.';
+      paint(state);
+      return;
+    }
+    var ship = shipDraft(state);
+    if (!ship.line1 || !ship.city || !/^[A-Za-z]{2}$/.test(ship.state || '') || !/^\d{5}(-\d{4})?$/.test(ship.zip || '')) {
+      state.message = 'Add the address where printed goods should ship.';
+      paint(state);
+      return;
+    }
+    if (!state.printKey) state.printKey = 'prn_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    var result = await postJson(state.token, '/api/marketing-order', {
+      action: 'confirm-print',
+      prints: orders,
+      shipTo: ship,
+      brandId: state.brandId,
+      idempotencyKey: state.printKey,
+    });
+    if (!result.ok) {
+      if (result.status !== 409) state.printKey = '';
+      state.message = result.error || 'The test print order was not recorded.';
+      if (result.shortfallCents && state.quote) state.quote.shortfallCents = result.shortfallCents;
+      paint(state);
+      return;
+    }
+    if (state.quote) state.quote.balanceCents = result.balanceCents;
+    state.printKey = '';
+    state.message = 'Test print order recorded. Nothing was sent to a printer. Test credits were debited.';
     paint(state);
   }
 
@@ -1329,6 +1596,7 @@
         var groups = loadCatalog().splitLeads(stored.leads);
         if (!groups.residential.length && groups.commercial.length && access.empire) state.propertyClass = 'commercial';
       }
+      arriveFromSearch(state, stored);
       state.token = options.token;
       var brandResponse = await fetch('/api/marketing-brand', {
         headers: { Authorization: 'Bearer ' + options.token },
@@ -1379,5 +1647,7 @@
     saveCampaign: saveCampaign,
     readCampaign: readCampaign,
     resumeCampaign: resumeCampaign,
+    pickCampaignGoal: pickCampaignGoal,
+    arriveFromSearch: arriveFromSearch,
   };
 });

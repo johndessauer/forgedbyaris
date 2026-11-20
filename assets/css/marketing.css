@@ -59,7 +59,11 @@ button, input, textarea, select { font-family: inherit; }
 .mkt-card h3 { margin: 0; font-size: 16px; letter-spacing: 0.4px; }
 .mkt-card p { margin: 0; color: var(--grey-light); font-size: 12px; line-height: 1.4; flex: 1; }
 .mkt-pill { align-self: flex-start; font-size: 9px; letter-spacing: 0.6px; text-transform: uppercase; font-weight: 700; border-radius: 4px; padding: 3px 6px; }
-.mkt-pill.is-fulfill { background: var(--green-dim); color: var(--green); }
+.mkt-pill.is-fulfill, .mkt-pill.is-mail { background: var(--green-dim); color: var(--green); }
+.mkt-pill.is-ship { background: var(--gold-dim); color: var(--gold); }
+.mkt-ship, .mkt-pack { display: grid; gap: 8px; margin: 8px 0 16px; }
+.mkt-pack { grid-template-columns: 1fr 120px 1fr; align-items: end; }
+.mkt-ship input, .mkt-pack select { background: #12263c; color: var(--white); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; padding: 8px; }
 .mkt-pill.is-copy { background: rgba(255,255,255,0.06); color: var(--grey-light); }
 .mkt-price { color: var(--gold); font-weight: 700; font-size: 14px; }
 .mkt-price span { display: block; font-weight: 500; color: var(--grey-light); font-size: 11px; }
@@ -107,6 +111,8 @@ button, input, textarea, select { font-family: inherit; }
 .mkt-brand input:not([type="checkbox"]):not([type="file"]),
 .mkt-address-form input { width: 100%; background: #0d1b2a; color: white; border: 1px solid var(--border-sub); border-radius: 8px; padding: 8px; }
 .mkt-address-form { display: grid; gap: 8px; margin: 8px 0 12px; }
+.mkt-mail-to { display: block; margin-top: 2px; font-size: 12px; color: var(--grey-light); }
+.mkt-add-link { background: none; border: 0; color: var(--gold); padding: 0; cursor: pointer; font-size: 13px; }
 .mkt-address-form label { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; color: var(--grey-light); font-size: 13px; }
 .mkt-draft textarea { min-height: 110px; }
 .mkt-brand { display: flex; flex-direction: column; align-items: stretch; gap: 12px; text-align: left; }
@@ -143,4 +149,5 @@ img.mkt-logo { display: block; max-width: 140px; max-height: 56px; width: auto; 
   .mkt-grid, .mkt-uploads, .mkt-colors, .mkt-address, .mkt-who-grid { grid-template-columns: 1fr; }
   .mkt-scroll { padding: 16px; }
   .mkt-actions { flex-direction: column; align-items: flex-start; gap: 16px; }
+  .mkt-pack { grid-template-columns: 1fr; }
 }

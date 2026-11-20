@@ -49,6 +49,8 @@ const PROPERTYRADAR_FIELDS = [
   'RadarID', 'Address', 'City', 'State', 'ZipFive',
   'Latitude', 'Longitude',
   'Owner', 'OwnerFirstName', 'OwnerLastName',
+  'OwnerAddress', 'OwnerCity', 'OwnerState', 'OwnerZipFive',
+  'isSameMailingOrExempt',
   'EquityPercent', 'AvailableEquity', 'AVM',
   // Property characteristics added Sept 22, 2026. Field names below are
   // NOT yet confirmed against a real payload (everything above this line
@@ -82,7 +84,7 @@ const DEMO_POINTS = [
   { addr: '412 W Joliet St, Crown Point, IN 46307', lat: 41.4235, lng: -87.3711, plays: ['prefore', 'zombie'], owner: 'M. Delgado', equity: 89 },
   { addr: '2107 Delaware Pkwy, Crown Point, IN 46307', lat: 41.4102, lng: -87.3599, plays: ['taxdelinquent'], owner: 'R. Nowak', equity: 34 },
   { addr: '9541 Randolph St, Crown Point, IN 46307', lat: 41.4310, lng: -87.3480, plays: ['prefore', 'vacant', 'zombie'], owner: 'Unknown', equity: 21 },
-  { addr: '1188 S Court St, Crown Point, IN 46307', lat: 41.4050, lng: -87.3820, plays: ['absentee', 'bored', 'longterm', 'freeclear'], owner: 'J. Whitfield', equity: 58 },
+  { addr: '1188 S Court St, Crown Point, IN 46307', lat: 41.4050, lng: -87.3820, plays: ['absentee', 'bored', 'longterm', 'freeclear'], owner: 'J. Whitfield', equity: 58, mail: { address: '500 Mail St', city: 'Chicago', state: 'IL', zip: '60601' } },
   { addr: '733 N Main St, Crown Point, IN 46307', lat: 41.4278, lng: -87.3602, plays: ['prefore', 'highequity'], owner: 'T. Alvarez', equity: 112 },
   { addr: '5502 Broadway, Crown Point, IN 46307', lat: 41.4155, lng: -87.3455, plays: ['taxdelinquent', 'lowequity'], owner: 'S. Krueger', equity: 27 },
   { addr: '861 E 93rd Ave, Crown Point, IN 46307', lat: 41.4330, lng: -87.3750, plays: ['absentee', 'cashbuyer'], owner: 'D. Okafor', equity: 45 },
@@ -97,6 +99,52 @@ const DEMO_POINTS = [
   { addr: '15 S Main St, Crown Point, IN 46307', lat: 41.4144, lng: -87.3655, plays: ['divorce'], owner: 'J. and R. Cole', equity: 47 },
 ];
 
+function flagOrNull(value) {
+  if (value === 0 || value === '0') return false;
+  if (value === 1 || value === '1') return true;
+  return null;
+}
+
+// One search row. Property city/state/ZIP stay on the card. Owner mailing
+// fields are kept beside them so Marketing can mail an absentee owner at
+// the mailing address when the county has one.
+function mapRadarRecord(r, i, playIds) {
+  const lat = r.Latitude ?? null;
+  const lng = r.Longitude ?? null;
+  const addressFull = [r.Address, r.City, r.State, r.ZipFive].filter(Boolean).join(', ');
+  const sameMailing = flagOrNull(r.isSameMailingOrExempt);
+  return {
+    id: r.RadarID || `pr-${i}`,
+    address: r.Address || 'Unknown address',
+    lat,
+    lng,
+    playIds: playIds.length ? playIds : ['prefore'],
+    owner: r.Owner || [r.OwnerFirstName, r.OwnerLastName].filter(Boolean).join(' ') || null,
+    equity: r.AvailableEquity != null ? Math.round(r.AvailableEquity / 1000) : null,
+    details: {
+      city: r.City || null,
+      state: r.State || null,
+      zip: r.ZipFive || null,
+      ownerAddress: r.OwnerAddress || null,
+      ownerCity: r.OwnerCity || null,
+      ownerState: r.OwnerState || null,
+      ownerZip: r.OwnerZipFive || null,
+      absenteeMail: sameMailing === false ? true : (sameMailing === true ? false : null),
+      propertyType: r.PType || null,
+      beds: r.Beds ?? null,
+      baths: r.Baths ?? null,
+      sqft: r.SqFt ?? null,
+      yearBuilt: r.YearBuilt ?? null,
+      lotSizeAcres: r.LotSizeAcres ?? null,
+      stories: r.Stories ?? null,
+      pool: r.Pool === true || r.Pool === 1 ? true : (r.Pool === false || r.Pool === 0 ? false : null),
+      garageSize: r.GarageSize ?? null,
+    },
+    mapUrl: buildMapUrl(lat, lng),
+    zillowUrl: buildZillowUrl(addressFull),
+  };
+}
+
 function buildDemoResults(playIds) {
   const wanted = playIds.length ? playIds : Object.keys(LEAD_CRITERIA);
   return DEMO_POINTS
@@ -109,7 +157,13 @@ function buildDemoResults(playIds) {
       playIds: p.plays,
       owner: p.owner,
       equity: p.equity,
-      details: {},
+      details: p.mail ? {
+        ownerAddress: p.mail.address,
+        ownerCity: p.mail.city,
+        ownerState: p.mail.state,
+        ownerZip: p.mail.zip,
+        absenteeMail: true,
+      } : {},
       mapUrl: buildMapUrl(p.lat, p.lng),
       zillowUrl: buildZillowUrl(p.addr),
     }));
@@ -184,42 +238,7 @@ async function searchPropertyRadar(criteria, playIds, start, { purchase, limit }
   // Criteria are ANDed, so each returned property matches every requested
   // lead type. The cards show those requested tags. A single response does
   // not say which extra, unrequested types the property would also match.
-  const mapped = rawResults.map((r, i) => {
-    const lat = r.Latitude ?? null;
-    const lng = r.Longitude ?? null;
-    const addressFull = [r.Address, r.City, r.State, r.ZipFive].filter(Boolean).join(', ');
-    return {
-      id: r.RadarID || `pr-${i}`,
-      address: r.Address || 'Unknown address',
-      lat,
-      lng,
-      playIds: playIds.length ? playIds : ['prefore'],
-      owner: r.Owner || [r.OwnerFirstName, r.OwnerLastName].filter(Boolean).join(' ') || null,
-      equity: r.AvailableEquity != null ? Math.round(r.AvailableEquity / 1000) : null,
-      // Characteristics below are UNVERIFIED (see PROPERTYRADAR_FIELDS
-      // comment) — null-safe so an unrecognized/renamed field just shows
-      // as missing in the UI instead of breaking the response.
-      details: {
-        // City / state / ZIP travel with the lead (and into saved leads via
-        // the details blob) so "Comp This Property" can send RentCast the
-        // full address — the street alone can match the wrong property.
-        city: r.City || null,
-        state: r.State || null,
-        zip: r.ZipFive || null,
-        propertyType: r.PType || null,
-        beds: r.Beds ?? null,
-        baths: r.Baths ?? null,
-        sqft: r.SqFt ?? null,
-        yearBuilt: r.YearBuilt ?? null,
-        lotSizeAcres: r.LotSizeAcres ?? null,
-        stories: r.Stories ?? null,
-        pool: r.Pool === true || r.Pool === 1 ? true : (r.Pool === false || r.Pool === 0 ? false : null),
-        garageSize: r.GarageSize ?? null,
-      },
-      mapUrl: buildMapUrl(lat, lng),
-      zillowUrl: buildZillowUrl(addressFull),
-    };
-  });
+  const mapped = rawResults.map((r, i) => mapRadarRecord(r, i, playIds));
 
   return {
     results: mapped,
@@ -277,6 +296,8 @@ async function openSpend(memberId) {
   }
 }
 
+exports.mapRadarRecord = mapRadarRecord;
+exports.PROPERTYRADAR_FIELDS = PROPERTYRADAR_FIELDS;
 exports.handler = async function (event, context) {
   if (event.httpMethod === 'OPTIONS') return preflight();
 

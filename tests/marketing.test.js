@@ -132,8 +132,11 @@ test('commercial hides bandit signs, door hangers, and door-knock scripts', () =
   assert.ok(residential.includes('door-hanger'));
   assert.ok(residential.includes('door-knock'));
   assert.equal(commercial.includes('bandit'), false);
+  assert.equal(commercial.includes('yard-sign'), false);
   assert.equal(commercial.includes('door-hanger'), false);
   assert.equal(commercial.includes('door-knock'), false);
+  assert.ok(residential.includes('business-card'));
+  assert.ok(commercial.includes('business-card'));
   assert.ok(commercial.includes('letter'));
   assert.equal(catalog.displayName(catalog.channelById('flyer'), 'commercial'), 'One-page property summary');
   const recommended = catalog.recommendChannelIds({ propertyClass: 'commercial', goal: 'sellers' });
@@ -157,7 +160,7 @@ test('vendor names are stripped and never appear in starter copy or the prompt',
   assert.equal(catalog.containsVendorName(copyApi.systemPrompt('residential')), false);
   assert.equal(catalog.containsVendorName(copyApi.systemPrompt('commercial')), false);
   assert.match(copyApi.systemPrompt('residential'), /real estate deal/);
-  assert.match(copyApi.systemPrompt('commercial'), /Never recommend bandit signs or door hangers/);
+  assert.match(copyApi.systemPrompt('commercial'), /Never recommend bandit signs, yard signs, or door hangers/);
 });
 
 test('production flag stays on the admin allowlist and previews open', () => {

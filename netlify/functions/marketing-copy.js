@@ -16,7 +16,7 @@ const SOFT_PLAYS = { prefore: true, foreactivity: true, foreclosure: true, inher
 
 function systemPrompt(propertyClass) {
   const tone = propertyClass === 'commercial'
-    ? 'Write to a company, an LLC, or a trust. Help the student find the decision maker. Use investor language: NOI, cap rate, vacancy, deferred maintenance, and 1031 exchange. Any value talk is a rough income-based range, not an appraisal. Offer seller financing and creative terms as a conversation, not a promise. Never recommend bandit signs or door hangers.'
+    ? 'Write to a company, an LLC, or a trust. Help the student find the decision maker. Use investor language: NOI, cap rate, vacancy, deferred maintenance, and 1031 exchange. Any value talk is a rough income-based range, not an appraisal. Offer seller financing and creative terms as a conversation, not a promise. Never recommend bandit signs, yard signs, or door hangers.'
     : 'Write to an individual homeowner or small landlord. Sound personal. Talk about the hassle of ownership and a simple as-is close. Do not use commercial jargon.';
   return [
     'You are ARIS inside FORGE. You draft marketing copy the student will edit and approve. You never send mail, email, or text. You never place an order and you never quote a charge.',
