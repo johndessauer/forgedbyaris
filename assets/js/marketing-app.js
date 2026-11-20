@@ -45,6 +45,8 @@
       recommendation: '',
       attested: false,
       usingSample: false,
+      editingId: '',
+      addressError: '',
       swatches: Array.isArray(input.swatches) ? input.swatches.slice() : [],
       logoUrls: Object.assign({}, input.logoUrls || {}),
       quote: input.quote || null,
@@ -119,7 +121,57 @@
     var mailNote = mailMissing.length
       ? '<p class="mkt-note">Before any mail copy can be exported, the Brand Kit needs your ' + esc(mailMissing.join(', ')) + '. Logo, colors, and headshot stay optional.</p>'
       : '';
-    return offer + summary + (unknown ? '<h3>Assign property types ARIS will not guess</h3><ul class="mkt-assign">' + unknown + '</ul>' : '') + commercialLock + '<h3>What do you want this campaign to do?</h3><div class="mkt-choices">' + goals + '</div>' + '<p class="mkt-aris">' + esc(catalog.recommendationText(state.propertyClass)) + '</p>' + mailNote + (state.message ? '<p class="mkt-message">' + esc(state.message) + '</p>' : '') + '<div class="mkt-row"><button type="button" data-action="continue-goal">Continue</button></div>';
+    return offer + summary + addressBook(state) + (unknown ? '<h3>Assign property types ARIS will not guess</h3><ul class="mkt-assign">' + unknown + '</ul>' : '') + commercialLock + '<h3>What do you want this campaign to do?</h3><div class="mkt-choices">' + goals + '</div>' + '<p class="mkt-aris">' + esc(catalog.recommendationText(state.propertyClass)) + '</p>' + mailNote + (state.message ? '<p class="mkt-message">' + esc(state.message) + '</p>' : '') + '<div class="mkt-row"><button type="button" data-action="continue-goal">Continue</button></div>';
+  }
+
+  function missingMailFields(lead) {
+    var row = lead || {};
+    var missing = [];
+    if (!String(row.address || '').trim()) missing.push('street');
+    if (!String(row.city || '').trim()) missing.push('city');
+    if (!/^[A-Za-z]{2}$/.test(String(row.state || '').trim())) missing.push('state');
+    if (!/^\d{5}(-\d{4})?$/.test(String(row.zip || '').trim())) missing.push('ZIP');
+    return missing;
+  }
+
+  function formatLead(lead) {
+    var place = [lead.city, [lead.state, lead.zip].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+    var line = [lead.address, place].filter(Boolean).join(', ');
+    return (line || 'New address') + (lead.owner ? ' · ' + lead.owner : '');
+  }
+
+  function addressEditor(state, lead, label) {
+    var row = lead || {};
+    return '<form class="mkt-address-form">' +
+      '<label>Street<input name="address" value="' + esc(row.address || '') + '"></label>' +
+      '<label>City<input name="city" value="' + esc(row.city || '') + '"></label>' +
+      '<label>State<input name="state" maxlength="2" value="' + esc(row.state || '') + '"></label>' +
+      '<label>ZIP<input name="zip" value="' + esc(row.zip || '') + '"></label>' +
+      '<label>Owner name (optional)<input name="owner" value="' + esc(row.owner || '') + '"></label>' +
+      (state.addressError ? '<p class="mkt-message">' + esc(state.addressError) + '</p>' : '') +
+      '<div class="mkt-row"><button type="button" data-action="save-address" data-id="' + esc(row.id || '') + '">' + esc(label) + '</button></div>' +
+      '</form>';
+  }
+
+  function addressBook(state) {
+    var rows = (state.leads || []).map(function (lead) {
+      if (state.editingId === lead.id) return '<li>' + addressEditor(state, lead, 'Save address') + '</li>';
+      var missing = missingMailFields(lead);
+      return '<li><span>' + esc(formatLead(lead)) + (missing.length ? ' · missing ' + esc(missing.join(', ')) : '') + '</span> <button type="button" class="mkt-secondary" data-action="edit-address" data-id="' + esc(lead.id) + '">Edit</button> <button type="button" class="mkt-secondary" data-action="remove-address" data-id="' + esc(lead.id) + '">Remove</button></li>';
+    }).join('');
+    var adding = state.editingId ? '' : '<h3>Add an address</h3>' + addressEditor(state, {}, 'Add address');
+    return (rows ? '<h3>Properties</h3><ul class="mkt-assign">' + rows + '</ul>' : '') + adding;
+  }
+
+  function confirmAddresses(state) {
+    var leads = state.leads || [];
+    if (!leads.length) {
+      return '<p class="mkt-message">There is no property to mail.</p><h3>Add an address</h3>' + addressEditor(state, {}, 'Add address');
+    }
+    return leads.filter(function (lead) { return missingMailFields(lead).length; }).map(function (lead) {
+      return '<article class="mkt-draft"><p>This property is missing ' + esc(missingMailFields(lead).join(', ')) + '.</p>' +
+        addressEditor(state, lead, 'Save address') + '</article>';
+    }).join('');
   }
 
   function mailMissingFields(brand) {
@@ -274,6 +326,7 @@
       '<p class="mkt-note">Test mode. Confirming debits test credits and hands postcards and letters to the test mail service. Nothing is really printed. FORGE does not send email or text.</p>' +
       '<p class="mkt-total"><strong>Test mail total</strong> ' + money(quote.chargedCents) + '</p>' +
       '<p>Credit balance ' + money(quote.balanceCents) + '</p>' +
+      confirmAddresses(state) +
       button +
       statusLine(state);
   }
@@ -666,9 +719,27 @@
       state.leads = [sample];
       state.usingSample = true;
       state.propertyClass = 'residential';
+      state.editingId = '';
+      state.addressError = '';
       paint(state);
       return;
     }
+    if (action === 'edit-address') {
+      state.editingId = button.getAttribute('data-id') || '';
+      state.addressError = '';
+      paint(state);
+      return;
+    }
+    if (action === 'remove-address') {
+      var removeId = button.getAttribute('data-id');
+      state.leads = (state.leads || []).filter(function (lead) { return String(lead.id) !== String(removeId); });
+      if (state.editingId === removeId) state.editingId = '';
+      state.addressError = '';
+      if (state.step >= 5) await loadCost(state);
+      paint(state);
+      return;
+    }
+    if (action === 'save-address') return saveAddress(state, button);
     if (action === 'pick-brand') {
       state.brandId = button.getAttribute('data-id');
       paint(state);
@@ -1026,8 +1097,69 @@
     paint(state);
   }
 
+  function readAddressForm(form) {
+    function val(name) {
+      var el = form.querySelector('[name="' + name + '"]');
+      return el ? String(el.value || '').trim() : '';
+    }
+    return {
+      address: val('address'),
+      city: val('city'),
+      state: val('state').toUpperCase(),
+      zip: val('zip'),
+      owner: val('owner'),
+    };
+  }
+
+  async function saveAddress(state, button) {
+    var form = button.closest('form');
+    if (!form) return;
+    var row = readAddressForm(form);
+    var missing = missingMailFields(row);
+    if (missing.length) {
+      state.addressError = 'Enter a valid ' + missing.join(', ') + '.';
+      paint(state);
+      return;
+    }
+    state.addressError = '';
+    var id = button.getAttribute('data-id');
+    if (id) {
+      (state.leads || []).forEach(function (lead) {
+        if (String(lead.id) !== String(id)) return;
+        lead.address = row.address;
+        lead.city = row.city;
+        lead.state = row.state;
+        lead.zip = row.zip;
+        lead.owner = row.owner;
+      });
+      state.editingId = '';
+    } else {
+      if (!state.leads) state.leads = [];
+      state.leads.push({
+        id: 'lead_' + Date.now().toString(36),
+        address: row.address,
+        city: row.city,
+        state: row.state,
+        zip: row.zip,
+        owner: row.owner,
+        propertyType: 'SFR',
+      });
+    }
+    state.message = '';
+    if (state.step >= 5) await loadCost(state);
+    paint(state);
+  }
+
   async function confirmMail(state) {
     readCopyEdits(state);
+    var incomplete = (state.leads || []).filter(function (lead) { return missingMailFields(lead).length; });
+    if (!(state.leads || []).length || incomplete.length) {
+      state.message = incomplete.length
+        ? 'Fix the address marked below before you confirm.'
+        : 'Add a street, city, state, and ZIP for each property you want mailed.';
+      paint(state);
+      return;
+    }
     var copies = currentCopies(state);
     var pieces = selectedIds(state).filter(function (id) { return copies[id]; }).map(function (id) {
       return {

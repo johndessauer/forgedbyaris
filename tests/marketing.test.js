@@ -87,6 +87,23 @@ function world(opts) {
   return { blob: blob, deps: deps, call: call };
 }
 
+test('the sample property is a well-formed test address and a missing one can be fixed', () => {
+  assert.equal(catalog.SAMPLE_LEAD.address, '210 King St');
+  assert.equal(catalog.SAMPLE_LEAD.city, 'San Francisco');
+  assert.equal(catalog.SAMPLE_LEAD.state, 'CA');
+  assert.equal(catalog.SAMPLE_LEAD.zip, '94107');
+  const goal = app.renderGoal(app.createState({}));
+  assert.match(goal, /Add an address/);
+  assert.match(goal, /Use a sample property/);
+  const confirm = app.renderConfirm(app.createState({
+    leads: [{ id: 'a', address: '10 Oak', city: '', state: '', zip: '' }],
+    quote: { chargedCents: 0, balanceCents: 2500, shortfallCents: 0 },
+  }));
+  assert.match(confirm, /missing city, state, ZIP/);
+  assert.match(confirm, /name="zip"/);
+  assert.match(confirm, /Save address/);
+});
+
 test('property class splits residential, commercial, and unknown', () => {
   assert.equal(catalog.classifyPropertyType('SFR'), 'residential');
   assert.equal(catalog.classifyPropertyType('Single Family'), 'residential');
