@@ -3,6 +3,14 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 
+function pieceCard(html, name) {
+  const marker = '<strong>' + name + '</strong>';
+  const at = html.indexOf(marker);
+  const start = html.lastIndexOf('<article', at);
+  const end = html.indexOf('</article>', start);
+  return html.slice(start, end);
+}
+
 const pricing = require('../netlify/functions/_Lib/marketing-pricing');
 const thanks = require('../netlify/functions/_Lib/marketing-thanks');
 const orderApi = require('../netlify/functions/_Lib/marketing-order-http');
@@ -103,6 +111,46 @@ test('a handwritten order is refused while the note service is not connected', a
   assert.match(picker, /\$3\.65 each/);
   assert.equal(picker.toLowerCase().includes('thanks'), false);
   assert.equal(picker.toLowerCase().includes('lob'), false);
+  const note = pieceCard(picker, 'Handwritten note');
+  assert.match(note, /<article class="mkt-piece-card is-on">[\s\S]*mkt-style/);
+  assert.match(note, /class="mkt-field"><span>Style<\/span>/);
+  assert.match(note, /class="mkt-field"><span>Handwriting<\/span>/);
+  assert.match(note, /class="mkt-style-help"/);
+  assert.equal((note.match(/mkt-pill is-soon/g) || []).length, 1);
+  const postcard = pieceCard(picker, 'Postcard');
+  assert.match(postcard, /class="mkt-field"><span>Size<\/span>/);
+  assert.match(postcard, /\$1\.09 each/);
+  const letter = pieceCard(picker, 'Letter');
+  assert.match(letter, /class="mkt-field"><span>Print<\/span>/);
+  assert.match(letter, /\$1\.28 each/);
+  const sign = pieceCard(picker, 'Bandit sign');
+  assert.match(sign, /class="mkt-field"><span>Pack<\/span>/);
+  assert.match(sign, /\$6\.47 each/);
+  assert.match(sign, /\$323\.50 for 50/);
+  const closed = app.createState({
+    step: 2,
+    goal: 'sellers',
+    propertyClass: 'residential',
+    empire: true,
+    selected: { letter: true },
+    menu: pricing.publicMenu({}),
+  });
+  closed.recsFor = 'residential:sellers';
+  const closedCard = pieceCard(app.renderPicker(closed), 'Postcard');
+  assert.equal(closedCard.includes('mkt-style'), false);
+  const hangerState = app.createState({
+    step: 2,
+    goal: 'sellers',
+    propertyClass: 'residential',
+    empire: true,
+    selected: { 'door-hanger': true },
+    menu: pricing.publicMenu({}),
+  });
+  hangerState.recsFor = 'residential:sellers';
+  const hanger = pieceCard(app.renderPicker(hangerState), 'Door hanger');
+  assert.equal((hanger.match(/mkt-pill is-soon/g) || []).length, 1);
+  assert.match(hanger, /\$1\.82 each/);
+  assert.match(hanger, /\$91\.00 for 50/);
   const page = ['marketing.html', 'assets/js/marketing-app.js']
     .map(file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8')).join('\n');
   assert.equal(/thanks\.io|dirt cheap|wise pelican|\blob\b/i.test(page), false);
