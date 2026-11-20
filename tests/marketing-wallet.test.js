@@ -382,6 +382,8 @@ test('the markup report is allowlist-only and lists Lob cost, price, and markup'
   assert.match(empty, /\$1\.09/);
   assert.match(empty, /Not charged in this test/);
   assert.match(empty, /Add \$25/);
+  assert.match(empty, /class="mkt-row mkt-next"><button type="button" data-action="step" data-step="6">Continue to confirm/);
+  assert.match(fs.readFileSync(path.join(__dirname, '../assets/css/marketing.css'), 'utf8'), /\.mkt-next \{ margin-top: 24px; \}/);
   assert.match(confirm, /Confirm test mail/);
   assert.match(confirm, /Nothing is really printed/);
   assert.equal((empty + confirm).toLowerCase().includes('lob'), false);

@@ -261,7 +261,7 @@
       '<p class="mkt-note">Test mode. Nothing is really printed. FORGE does not send email or text.</p>' +
       table + topUpButtons() +
       statusLine(state) +
-      '<div class="mkt-row"><button type="button" data-action="step" data-step="6">Continue to confirm</button></div>';
+      '<div class="mkt-row mkt-next"><button type="button" data-action="step" data-step="6">Continue to confirm</button></div>';
   }
 
   function renderConfirm(state) {
