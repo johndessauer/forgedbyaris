@@ -7,9 +7,9 @@ const wallet = require('../netlify/functions/_Lib/marketing-wallet');
 const lob = require('../netlify/functions/_Lib/marketing-lob');
 const stripe = require('../netlify/functions/_Lib/marketing-stripe');
 const storeLib = require('../netlify/functions/_Lib/marketing-store');
-const walletApi = require('../netlify/functions/marketing-wallet');
-const webhookApi = require('../netlify/functions/marketing-stripe-webhook');
-const orderApi = require('../netlify/functions/marketing-order');
+const walletApi = require('../netlify/functions/_Lib/marketing-wallet-http');
+const webhookApi = require('../netlify/functions/_Lib/marketing-stripe-webhook-http');
+const orderApi = require('../netlify/functions/_Lib/marketing-order-http');
 const app = require('../assets/js/marketing-app');
 
 const SECRET = 'whsec_marketing_test';
@@ -129,8 +129,10 @@ test('a live mail key is refused unless test mail is explicitly turned on', () =
   assert.equal(lob.assertMailKey({ LOB_API_KEY: 'test_secret' }).testMode, true);
   assert.equal(lob.assertMailKey({ LOB_API_KEY: 'live_secret', MARKETING_LIVE_MAIL: 'true' }).testMode, false);
   assert.throws(() => stripe.assertTestStripeKey({ MARKETING_STRIPE_SECRET_KEY: 'sk_live_secret' }), /Test checkout is not configured/);
+  assert.throws(() => stripe.assertTestStripeKey({ MARKETING_STRIPE_SECRET_KEY: 'rk_live_secret' }), /Test checkout is not configured/);
   assert.throws(() => stripe.assertTestStripeKey({ STRIPE_SECRET_KEY: 'sk_test_other' }), /Test checkout is not configured/);
-  assert.equal(stripe.assertTestStripeKey({ MARKETING_STRIPE_SECRET_KEY: 'sk_test_ok' }), 'sk_test_ok');
+  assert.equal(stripe.assertTestStripeKey({ MARKETING_STRIPE_SECRET_KEY: 'sk_test_51example' }), 'sk_test_51example');
+  assert.equal(stripe.assertTestStripeKey({ MARKETING_STRIPE_SECRET_KEY: 'rk_test_sandbox' }), 'rk_test_sandbox');
 });
 
 test('top-up checkout uses only the test key and the webhook credits the wallet once', async () => {
@@ -173,6 +175,19 @@ test('confirm debits the wallet, sends a test postcard, and returns the credits 
   const quote = await box.call(handler, { action: 'quote', channels: ['postcard', 'bandit', 'email'], leads: [LEAD] });
   assert.equal(quote.status, 200);
   assert.equal(quote.body.chargedCents, 109);
+  const formatted = await box.call(handler, {
+    action: 'quote',
+    channels: ['postcard'],
+    leads: [
+      { address: '412 W Joliet St, Crown Point, IN 46307', owner: 'M. Delgado' },
+      { address: '2107 Delaware Pkwy', city: 'Crown Point', state: 'IN', zip: '46307' },
+      { address: 'No city here' },
+    ],
+  });
+  assert.equal(formatted.body.selectedLeadCount, 3);
+  assert.equal(formatted.body.leadCount, 2);
+  assert.equal(formatted.body.lines[0].quantity, 2);
+  assert.equal(formatted.body.lines[0].studentPriceCents, 218);
   assert.equal(JSON.stringify(quote.body).toLowerCase().includes('lob'), false);
   assert.equal(quote.body.lines.some(row => row.channelId === 'bandit' && row.mailed === false), true);
 
@@ -328,4 +343,15 @@ test('the markup report is allowlist-only and lists Lob cost, price, and markup'
   assert.match(confirm, /Confirm test mail/);
   assert.match(confirm, /Nothing is really printed/);
   assert.equal((empty + confirm).toLowerCase().includes('lob'), false);
+  const zero = app.renderCost(app.createState({
+    quote: {
+      leadCount: 0,
+      selectedLeadCount: 2,
+      chargedCents: 0,
+      balanceCents: 0,
+      shortfallCents: 0,
+      lines: [{ channelId: 'postcard', mailed: true, quantity: 0, unitStudentPriceCents: 109, studentPriceCents: 0 }],
+    },
+  }));
+  assert.match(zero, /Count is 0 because none of the 2 selected properties have a street, city, state, and ZIP/);
 });

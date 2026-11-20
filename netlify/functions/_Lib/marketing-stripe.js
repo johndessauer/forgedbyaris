@@ -1,11 +1,13 @@
 // Marketing wallet checkout. Uses MARKETING_STRIPE_SECRET_KEY only.
-// A key that is not sk_test_ is refused. Live checkout keys are never read.
+// A sandbox secret (sk_test_) or sandbox restricted key (rk_test_) is accepted.
+// Live keys are refused. Live checkout env vars are never read.
 const crypto = require('crypto');
 const { TOP_UPS_CENTS } = require('./marketing-pricing');
+const { readRuntimeEnv } = require('./runtime-env');
 
 function assertTestStripeKey(env) {
-  const key = String(env && env.MARKETING_STRIPE_SECRET_KEY || '').trim();
-  if (!key || !key.startsWith('sk_test_')) {
+  const key = readRuntimeEnv(env, 'MARKETING_STRIPE_SECRET_KEY');
+  if (!key || !(key.startsWith('sk_test_') || key.startsWith('rk_test_'))) {
     const err = new Error('Test checkout is not configured.');
     err.statusCode = 503;
     throw err;
@@ -76,6 +78,7 @@ function verifyWebhook(rawBody, header, secret) {
 
 module.exports = {
   assertTestStripeKey: assertTestStripeKey,
+  readWebhookSecret: function (env) { return readRuntimeEnv(env, 'MARKETING_STRIPE_WEBHOOK_SECRET'); },
   allowedTopUp: allowedTopUp,
   createTopUpSession: createTopUpSession,
   verifyWebhook: verifyWebhook,

@@ -1,60 +1,13 @@
-// Test-mode Marketing credit top-ups. Reads MARKETING_STRIPE_SECRET_KEY only.
-const { json, preflight } = require('./_Lib/http');
-const { loadMarketingGate } = require('./_Lib/marketing-access');
-const { openBlobStore } = require('./_Lib/marketing-store');
-const wallet = require('./_Lib/marketing-wallet');
-const stripe = require('./_Lib/marketing-stripe');
-const { TOP_UPS_CENTS } = require('./_Lib/marketing-pricing');
+// Current Netlify function format, not the Lambda-compatible exports.handler.
+// Variables marked "Contains secret values" are not injected into that Lambda
+// environment, so MARKETING_STRIPE_SECRET_KEY was empty there even when set.
+import { createHandler } from './_Lib/marketing-wallet-http.js';
+import { fromRequest, toResponse } from './_Lib/function-adapter.js';
 
-function createHandler(deps) {
-  const options = deps || {};
-  return async function handler(event) {
-    if (event.httpMethod === 'OPTIONS') return preflight();
-    const gate = await loadMarketingGate(event, {
-      requireMembership: options.requireMembership,
-      getMember: options.getMember,
-      env: options.env || process.env,
-    });
-    if (gate.response) return gate.response;
-    if (!gate.flag.allowed) return json(403, { error: 'Marketing is not available on this account yet.' });
+const handler = createHandler({
+  fetch: (url, init) => fetch(url, init),
+});
 
-    let store;
-    try { store = options.getStore ? options.getStore() : openBlobStore(event); }
-    catch (err) { return json(503, { error: 'Marketing credits are not available.' }); }
+export default async (req) => toResponse(await handler(await fromRequest(req)));
 
-    const memberId = gate.access.memberId;
-    if (event.httpMethod === 'GET') {
-      const row = await wallet.readWallet(store, memberId);
-      return json(200, { balanceCents: row.balanceCents, topUpsCents: TOP_UPS_CENTS, testMode: true });
-    }
-    if (event.httpMethod !== 'POST') return json(405, { error: 'Method not allowed' });
-
-    let body;
-    try { body = JSON.parse(event.body || '{}'); }
-    catch (err) { return json(400, { error: 'Invalid JSON body' }); }
-    if (body.action !== 'topup') return json(400, { error: 'Unknown wallet action.' });
-
-    const origin = options.origin || 'https://forgedbyaris.com';
-    try {
-      const session = await stripe.createTopUpSession({
-        env: options.env || process.env,
-        fetch: options.fetch,
-        amountCents: body.amountCents,
-        memberId: memberId,
-        successUrl: origin + '/marketing.html?wallet=ok',
-        cancelUrl: origin + '/marketing.html?wallet=cancel',
-      });
-      return json(200, { url: session.url, testMode: true });
-    } catch (err) {
-      const status = err && err.statusCode ? err.statusCode : 502;
-      return json(status, { error: err.message || 'Test checkout could not be started.' });
-    }
-  };
-}
-
-exports.createHandler = createHandler;
-let prod = null;
-exports.handler = function (event, context) {
-  if (!prod) prod = createHandler({ fetch: function () { return fetch.apply(null, arguments); } });
-  return prod(event, context);
-};
+export const config = { path: '/api/marketing-wallet' };

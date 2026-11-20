@@ -1,10 +1,11 @@
 // Test-mode mail. A live key is refused unless MARKETING_LIVE_MAIL is the
 // string "true". The key itself is never returned to the browser.
 const { mailFormat } = require('./marketing-pricing');
+const { readRuntimeEnv } = require('./runtime-env');
 
 function assertMailKey(env) {
-  const key = String(env && env.LOB_API_KEY || '').trim();
-  const live = String(env && env.MARKETING_LIVE_MAIL || '') === 'true';
+  const key = readRuntimeEnv(env, 'LOB_API_KEY');
+  const live = readRuntimeEnv(env, 'MARKETING_LIVE_MAIL') === 'true';
   if (!key) {
     const err = new Error('Mail is not configured.');
     err.statusCode = 503;
@@ -38,13 +39,60 @@ function fromAddress(brand) {
   };
 }
 
-function toAddress(lead) {
+function firstText() {
+  for (let i = 0; i < arguments.length; i++) {
+    if (arguments[i] == null) continue;
+    const text = String(arguments[i]).trim();
+    if (text) return text;
+  }
+  return '';
+}
+
+function parseCityStateZip(tail) {
+  const match = String(tail || '').trim().match(/^([A-Za-z]{2})\s+(\d{5}(?:-\d{4})?)$/);
+  if (!match) return null;
+  return { state: match[1].toUpperCase(), zip: match[2] };
+}
+
+// Property Search often stores one formatted line ("412 W Joliet St, Crown
+// Point, IN 46307") and leaves city, state, and ZIP empty. Split that line
+// so the count matches properties that actually have a mailing address.
+function normalizeMailLead(lead) {
+  const row = lead && typeof lead === 'object' ? lead : {};
+  const details = row.details && typeof row.details === 'object' ? row.details : {};
+  let address = firstText(row.address, row.street, row.addressLine1, row.line1, details.address, details.street);
+  let city = firstText(row.city, details.city);
+  let state = firstText(row.state, details.state);
+  let zip = firstText(row.zip, row.zipCode, row.postalCode, details.zip, details.zipCode);
+  if ((!city || !state || !zip) && address.indexOf(',') !== -1) {
+    const parts = address.split(',').map(function (part) { return part.trim(); }).filter(Boolean);
+    if (parts.length >= 3) {
+      const region = parseCityStateZip(parts[parts.length - 1]);
+      if (region) {
+        city = city || parts[parts.length - 2];
+        state = state || region.state;
+        zip = zip || region.zip;
+        address = parts.slice(0, -2).join(', ');
+      }
+    }
+  }
   return {
-    name: String(lead.owner || 'Resident').slice(0, 40),
-    address_line1: String(lead.address || '').slice(0, 64),
-    address_city: String(lead.city || '').slice(0, 40),
-    address_state: String(lead.state || '').slice(0, 2).toUpperCase(),
-    address_zip: String(lead.zip || '').slice(0, 10),
+    owner: firstText(row.owner, details.owner) || 'Resident',
+    address: address,
+    city: city,
+    state: state,
+    zip: zip,
+  };
+}
+
+function toAddress(lead) {
+  const row = normalizeMailLead(lead);
+  return {
+    name: String(row.owner || 'Resident').slice(0, 40),
+    address_line1: String(row.address || '').slice(0, 64),
+    address_city: String(row.city || '').slice(0, 40),
+    address_state: String(row.state || '').slice(0, 2).toUpperCase(),
+    address_zip: String(row.zip || '').slice(0, 10),
   };
 }
 
@@ -125,5 +173,6 @@ async function sendPieces(options) {
 module.exports = {
   assertMailKey: assertMailKey,
   mailable: mailable,
+  normalizeMailLead: normalizeMailLead,
   sendPieces: sendPieces,
 };

@@ -63,7 +63,10 @@ function openBlobStore(event, deps) {
     return options.getNamedStore(STORE_NAME);
   }
   const blobs = require('@netlify/blobs');
-  if (event && typeof blobs.connectLambda === 'function') blobs.connectLambda(event);
+  // Lambda handlers carry the blob token on event.blobs. The current
+  // function runtime configures getStore itself, and connectLambda on an
+  // empty event would wipe that.
+  if (event && event.blobs && typeof blobs.connectLambda === 'function') blobs.connectLambda(event);
   return blobs.getStore(STORE_NAME);
 }
 
