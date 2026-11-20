@@ -1,6 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 
 const pricing = require('../netlify/functions/_Lib/marketing-pricing');
 const wallet = require('../netlify/functions/_Lib/marketing-wallet');
@@ -133,6 +135,31 @@ test('a live mail key is refused unless test mail is explicitly turned on', () =
   assert.throws(() => stripe.assertTestStripeKey({ STRIPE_SECRET_KEY: 'sk_test_other' }), /Test checkout is not configured/);
   assert.equal(stripe.assertTestStripeKey({ MARKETING_STRIPE_SECRET_KEY: 'sk_test_51example' }), 'sk_test_51example');
   assert.equal(stripe.assertTestStripeKey({ MARKETING_STRIPE_SECRET_KEY: 'rk_test_sandbox' }), 'rk_test_sandbox');
+  assert.equal(stripe.assertTestStripeKey({ MARKETING_STRIPE_SECRET_KEY: '"sk_test_quoted"\n' }), 'sk_test_quoted');
+
+  const prior = process.env.MARKETING_STRIPE_SECRET_KEY;
+  process.env.MARKETING_STRIPE_SECRET_KEY = 'rk_live_should_not_win';
+  globalThis.Netlify = { env: { get: (name) => name === 'MARKETING_STRIPE_SECRET_KEY' ? "'sk_test_from_netlify'\n" : '' } };
+  try {
+    assert.equal(stripe.assertTestStripeKey(process.env), 'sk_test_from_netlify');
+  } finally {
+    if (prior == null) delete process.env.MARKETING_STRIPE_SECRET_KEY;
+    else process.env.MARKETING_STRIPE_SECRET_KEY = prior;
+    delete globalThis.Netlify;
+  }
+
+  function reasonOf(env) {
+    try {
+      stripe.assertTestStripeKey(env);
+    } catch (err) {
+      return err.reason;
+    }
+    return '';
+  }
+  assert.equal(reasonOf({}), 'missing');
+  assert.equal(reasonOf({ MARKETING_STRIPE_SECRET_KEY: 'sk_live_abc' }), 'live_key_refused');
+  assert.equal(reasonOf({ MARKETING_STRIPE_SECRET_KEY: 'pk_test_publishable' }), 'bad_prefix:pk_');
+  assert.equal(reasonOf({ MARKETING_STRIPE_SECRET_KEY: 'whsec_webhook' }), 'bad_prefix:whs');
 });
 
 test('top-up checkout uses only the test key and the webhook credits the wallet once', async () => {
@@ -149,7 +176,22 @@ test('top-up checkout uses only the test key and the webhook credits the wallet 
   const live = rig({ env: { MARKETING_STRIPE_SECRET_KEY: 'sk_live_nope' } });
   const refused = await live.call(walletApi.createHandler(live.deps), { action: 'topup', amountCents: 5000 });
   assert.equal(refused.status, 503);
+  assert.equal(refused.body.reason, 'live_key_refused');
+  assert.equal(JSON.stringify(refused.body).includes('sk_live_nope'), false);
   assert.equal(live.calls.length, 0);
+
+  const missing = rig({ env: { MARKETING_STRIPE_SECRET_KEY: '' } });
+  const empty = await missing.call(walletApi.createHandler(missing.deps), { action: 'topup', amountCents: 2500 });
+  assert.equal(empty.body.reason, 'missing');
+
+  const page = fs.readFileSync(path.join(__dirname, '../assets/js/marketing-app.js'), 'utf8');
+  const topup = page.slice(page.indexOf('async function startTopUp'), page.indexOf('async function confirmMail'));
+  assert.match(topup, /postJson\(state\.token, '\/api\/marketing-wallet'/);
+  assert.equal(topup.indexOf("'/api/marketing-wallet'") < topup.indexOf('Test checkout is not configured'), true);
+  const shown = app.createState({ quote: { chargedCents: 109, balanceCents: 0, shortfallCents: 109, lines: [] } });
+  shown.message = 'Test checkout is not configured.';
+  shown.reason = 'missing';
+  assert.match(app.renderCost(shown), /<p class="mkt-reason">missing<\/p>/);
 
   const payload = JSON.stringify({
     type: 'checkout.session.completed',

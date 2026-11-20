@@ -47,7 +47,9 @@ function createHandler(deps) {
       return json(200, { url: session.url, testMode: true });
     } catch (err) {
       const status = err && err.statusCode ? err.statusCode : 502;
-      return json(status, { error: err.message || 'Test checkout could not be started.' });
+      const body = { error: err.message || 'Test checkout could not be started.' };
+      if (err && err.reason) body.reason = err.reason;
+      return json(status, body);
     }
   };
 }

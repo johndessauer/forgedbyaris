@@ -115,6 +115,7 @@ button, input, textarea, select { font-family: inherit; }
 .mkt-check span { flex: 1 1 auto; }
 .mkt-save { display: flex; justify-content: flex-start; }
 .mkt-message { color: #1a1203; background: #f0d48a; border-radius: 8px; padding: 10px 12px; font-weight: 600; }
+.mkt-reason { margin: 4px 0 0; font-size: 11px; letter-spacing: 0.4px; color: var(--grey-light); }
 .mkt-saved { color: var(--green); margin: 0; }
 .mkt-piece { background: #f7f5f2; color: #1a1a1a; border-radius: 10px; padding: 12px; border-top: 4px solid var(--brand, #1F3348); }
 .mkt-piece strong { color: var(--brand, #1F3348); }

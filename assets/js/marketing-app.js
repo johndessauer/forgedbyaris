@@ -41,6 +41,7 @@
       sender: input.sender || { name: '', phone: '' },
       previewId: input.previewId || '',
       message: '',
+      reason: '',
       recommendation: '',
       attested: false,
       usingSample: false,
@@ -259,7 +260,7 @@
     return '<h2 class="mkt-ask">Cost</h2>' +
       '<p class="mkt-note">Test mode. Nothing is really printed. FORGE does not send email or text.</p>' +
       table + topUpButtons() +
-      (state.message ? '<p class="mkt-message">' + esc(state.message) + '</p>' : '') +
+      statusLine(state) +
       '<div class="mkt-row"><button type="button" data-action="step" data-step="6">Continue to confirm</button></div>';
   }
 
@@ -274,7 +275,12 @@
       '<p class="mkt-total"><strong>Test mail total</strong> ' + money(quote.chargedCents) + '</p>' +
       '<p>Credit balance ' + money(quote.balanceCents) + '</p>' +
       button +
-      (state.message ? '<p class="mkt-message">' + esc(state.message) + '</p>' : '');
+      statusLine(state);
+  }
+
+  function statusLine(state) {
+    return (state.message ? '<p class="mkt-message">' + esc(state.message) + '</p>' : '') +
+      (state.reason ? '<p class="mkt-reason">' + esc(state.reason) + '</p>' : '');
   }
 
   function renderCopy(state) {
@@ -606,6 +612,7 @@
         state.step = next;
         state.view = 'flow';
         state.message = '';
+        state.reason = '';
         if (next === 5 || next === 6) {
           state.message = 'Loading the test price…';
           paint(state);
@@ -864,12 +871,14 @@
   }
 
   async function startTopUp(state, cents) {
+    state.reason = '';
     var result = await postJson(state.token, '/api/marketing-wallet', { action: 'topup', amountCents: cents });
     if (result.ok && result.url) {
       window.location.href = result.url;
       return;
     }
     state.message = result.error || 'Test checkout is not configured.';
+    state.reason = result.reason || (result.error ? 'client_status_' + (result.status || 0) : 'client_non_json');
     paint(state);
   }
 
