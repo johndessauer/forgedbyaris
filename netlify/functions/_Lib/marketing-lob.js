@@ -1,6 +1,6 @@
 // Test-mode mail. A live key is refused unless MARKETING_LIVE_MAIL is the
 // string "true". The key itself is never returned to the browser.
-const { LOB_CHANNELS } = require('./marketing-pricing');
+const { mailFormat } = require('./marketing-pricing');
 
 function assertMailKey(env) {
   const key = String(env && env.LOB_API_KEY || '').trim();
@@ -78,7 +78,7 @@ async function sendPieces(options) {
   const brand = options.brand;
   const leads = (options.leads || []).filter(mailable);
   const pieces = (options.pieces || []).filter(function (piece) {
-    return LOB_CHANNELS.indexOf(piece.channel) !== -1;
+    return !!mailFormat(piece && piece.channel);
   });
   if (!leads.length) {
     const err = new Error('Add a street, city, state, and ZIP for each property you want mailed.');
@@ -94,9 +94,10 @@ async function sendPieces(options) {
   const ids = [];
   for (const lead of leads) {
     for (const piece of pieces) {
-      const path = piece.channel === 'letter' ? '/v1/letters' : '/v1/postcards';
+      const format = mailFormat(piece.channel);
+      const path = format === 'letter' ? '/v1/letters' : '/v1/postcards';
       const html = pieceHtml(brand, piece.variantA || '');
-      const payload = piece.channel === 'letter'
+      const payload = format === 'letter'
         ? { to: toAddress(lead), from: from, file: html, color: false, mail_type: 'usps_standard', use_type: 'marketing', description: 'FORGE test letter' }
         : { to: toAddress(lead), from: from, front: html, back: html, size: '4x6', mail_type: 'usps_first_class', use_type: 'marketing', description: 'FORGE test postcard' };
       const response = await fetchImpl('https://api.lob.com' + path, {

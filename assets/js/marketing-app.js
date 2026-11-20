@@ -301,11 +301,27 @@
     var attest = needsAttest
       ? '<label class="mkt-check mkt-attest"><input type="checkbox" data-attest="1"' + (state.attested ? ' checked' : '') + '> ' + esc(catalog.ATTESTATION_TEXT) + '</label><p class="mkt-note">' + esc(catalog.INFO_ONLY_LABEL) + ' Phone numbers are not shown in this step.</p>'
       : '';
+    var approved = ids.filter(function (id) { return state.approved[state.propertyClass + ':' + id]; });
+    var canMail = approved.some(isMailable);
+    var forward = canMail
+      ? '<div class="mkt-row"><button type="button" data-action="step" data-step="5">Continue to cost</button></div>'
+      : (approved.length ? '<p class="mkt-note">These pieces are send-it-yourself and there\'s nothing to mail.</p>' : '');
     return blocks + attest +
       '<div class="mkt-notice"><strong>You are responsible.</strong> ' + esc(catalog.STUDENT_NOTICE) + '</div>' +
       '<div class="mkt-notice">' + esc(catalog.COMPLIANCE_REMINDER) + '</div>' +
       '<div class="mkt-row"><button type="button" data-action="export">Export copy</button></div>' +
+      forward +
       (state.message ? '<p class="mkt-message">' + esc(state.message) + '</p>' : '');
+  }
+
+  function isMailable(id) {
+    return id === 'postcard' || id === 'letter' || id === 'handwritten';
+  }
+
+  function approvedMailIds(state) {
+    return selectedIds(state).filter(function (id) {
+      return isMailable(id) && state.approved[state.propertyClass + ':' + id];
+    });
   }
 
   function renderBrand(state) {
@@ -673,7 +689,9 @@
       return;
     }
     if (target && target.hasAttribute('data-approve')) {
+      readCopyEdits(state);
       state.approved[target.getAttribute('data-approve')] = target.checked;
+      paint(state);
       return;
     }
     if (target && target.hasAttribute('data-attest')) {
@@ -823,7 +841,7 @@
   async function loadCost(state) {
     var result = await postJson(state.token, '/api/marketing-order', {
       action: 'quote',
-      channels: selectedIds(state),
+      channels: approvedMailIds(state),
       leads: state.leads || [],
       brandId: state.brandId,
     });
@@ -859,7 +877,7 @@
     if (!state.confirmKey) state.confirmKey = 'cfm_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
     var result = await postJson(state.token, '/api/marketing-order', {
       action: 'confirm',
-      channels: selectedIds(state),
+      channels: approvedMailIds(state),
       pieces: pieces,
       leads: state.leads || [],
       brandId: state.brandId,

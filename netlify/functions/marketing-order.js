@@ -23,7 +23,7 @@ function approvedMail(body) {
   const wanted = {};
   (body.channels || []).forEach(function (id) { wanted[String(id)] = true; });
   return (body.pieces || []).filter(function (piece) {
-    return piece && piece.approved === true && wanted[piece.channel] && pricing.LOB_CHANNELS.indexOf(piece.channel) !== -1;
+    return piece && piece.approved === true && wanted[piece.channel] && !!pricing.mailFormat(piece.channel);
   }).map(function (piece) {
     return { channel: piece.channel, variantA: String(piece.variantA || '').slice(0, 4000) };
   });
