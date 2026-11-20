@@ -239,10 +239,20 @@
     }).join('');
   }
 
+  function countNote(quote) {
+    if (!quote || quote.leadCount > 0) return '';
+    var selected = Number(quote.selectedLeadCount) || 0;
+    if (!selected) {
+      return '<p class="mkt-note">Count is 0 because no properties are loaded. On step 1, start from Property Search, or use a sample property that includes a street, city, state, and ZIP.</p>';
+    }
+    return '<p class="mkt-note">Count is 0 because none of the ' + selected + ' selected properties have a street, city, state, and ZIP. Go back to Property Search and choose properties that show a full address. A sample property counts only when it has all four.</p>';
+  }
+
   function renderCost(state) {
     var quote = state.quote;
     var table = quote
       ? '<table class="mkt-cost"><thead><tr><th>Piece</th><th>Each</th><th>Count</th><th>Total</th></tr></thead><tbody>' + costRows(state) + '</tbody></table>' +
+        countNote(quote) +
         '<p class="mkt-total"><strong>Test mail total</strong> ' + money(quote.chargedCents) + '</p>' +
         '<p>Credit balance ' + money(quote.balanceCents) + (quote.shortfallCents ? '. Add ' + money(quote.shortfallCents) + ' before you confirm.' : '.') + '</p>'
       : '<p class="mkt-note">The test price loads when you open this step.</p>';
