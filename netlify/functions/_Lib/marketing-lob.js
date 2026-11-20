@@ -145,9 +145,13 @@ async function sendPieces(options) {
       const format = mailFormat(piece.channel);
       const path = format === 'letter' ? '/v1/letters' : '/v1/postcards';
       const html = pieceHtml(brand, piece.variantA || '');
+      const styles = options.styles || {};
+      const postcardSize = styles.postcard && styles.postcard.size;
+      const size = postcardSize === '6x9' || postcardSize === '6x11' ? postcardSize : '4x6';
+      const color = !!(styles.letter && styles.letter.finish === 'color');
       const payload = format === 'letter'
-        ? { to: toAddress(lead), from: from, file: html, color: false, mail_type: 'usps_standard', use_type: 'marketing', description: 'FORGE test letter' }
-        : { to: toAddress(lead), from: from, front: html, back: html, size: '4x6', mail_type: 'usps_first_class', use_type: 'marketing', description: 'FORGE test postcard' };
+        ? { to: toAddress(lead), from: from, file: html, color: color, mail_type: 'usps_first_class', use_type: 'marketing', description: 'FORGE test letter' }
+        : { to: toAddress(lead), from: from, front: html, back: html, size: size, mail_type: 'usps_first_class', use_type: 'marketing', description: 'FORGE test postcard' };
       const response = await fetchImpl('https://api.lob.com' + path, {
         method: 'POST',
         headers: {

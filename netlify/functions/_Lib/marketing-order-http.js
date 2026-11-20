@@ -9,6 +9,7 @@ const { mailReadiness } = require('../marketing-brand');
 const pricing = require('./marketing-pricing');
 const wallet = require('./marketing-wallet');
 const lob = require('./marketing-lob');
+const thanks = require('./marketing-thanks');
 
 function orderId() {
   return 'ord_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -128,7 +129,7 @@ function createHandler(deps) {
     const rawLeads = Array.isArray(body.leads) ? body.leads : [];
     const leads = rawLeads.filter(lob.mailable);
     const channels = Array.isArray(body.channels) ? body.channels : [];
-    const quote = pricing.quoteOrder(channels, leads.length, env, body.prints);
+    const quote = pricing.quoteOrder(channels, leads.length, env, body.prints, body.styles);
     const balance = await wallet.readWallet(store, gate.access.memberId);
 
     if (body.action === 'quote') {
@@ -140,6 +141,10 @@ function createHandler(deps) {
             mailed: row.mailed,
             quantity: row.quantity,
             option: row.option || '',
+            styleId: row.styleId || '',
+            styleLabel: row.styleLabel || '',
+            orderable: !!row.orderable,
+            comingSoon: !!row.comingSoon,
             unitStudentPriceCents: row.unitStudentPriceCents,
             studentPriceCents: row.studentPriceCents,
           };
@@ -168,16 +173,6 @@ function createHandler(deps) {
       const brand = brands.find(function (row) { return row.id === body.brandId; }) || null;
       const shipTo = cleanShip(body.shipTo) || cleanShip(brand && brand.returnAddress);
       if (!shipTo) return json(400, { error: 'Add the address where printed goods should ship.' });
-      const balanceNow = await wallet.readWallet(store, gate.access.memberId);
-      if (balanceNow.balanceCents < printQuote.printChargedCents) {
-        return json(402, {
-          error: 'Add credits before this test print order.',
-          balanceCents: balanceNow.balanceCents,
-          shortfallCents: printQuote.printChargedCents - balanceNow.balanceCents,
-          chargedCents: printQuote.printChargedCents,
-          topUpsCents: pricing.TOP_UPS_CENTS,
-        });
-      }
       const idem = idempotencyKey(gate.access.memberId, body.idempotencyKey ? 'print-' + body.idempotencyKey : '');
       if (idem) {
         const prior = await readJson(store, idem);
@@ -196,6 +191,16 @@ function createHandler(deps) {
         if (prior && prior.status === 'pending') {
           return json(409, { error: 'This print order is already in progress.' });
         }
+      }
+      const balanceNow = await wallet.readWallet(store, gate.access.memberId);
+      if (balanceNow.balanceCents < printQuote.printChargedCents) {
+        return json(402, {
+          error: 'Add credits before this test print order.',
+          balanceCents: balanceNow.balanceCents,
+          shortfallCents: printQuote.printChargedCents - balanceNow.balanceCents,
+          chargedCents: printQuote.printChargedCents,
+          topUpsCents: pricing.TOP_UPS_CENTS,
+        });
       }
       const id = orderId();
       if (idem) await store.setJSON(idem, { status: 'pending', orderId: id });
@@ -274,7 +279,13 @@ function createHandler(deps) {
     }
     if (body.action !== 'confirm') return json(400, { error: 'Unknown order action.' });
 
-    const mailQuote = pricing.quoteOrder(channels, leads.length, env);
+    const noteWanted = (body.pieces || []).some(function (piece) {
+      return piece && piece.approved === true && piece.channel === 'handwritten';
+    }) && (channels.indexOf('handwritten') !== -1);
+    if (noteWanted && !pricing.handwrittenReady(env)) {
+      return json(400, { error: thanks.COMING_SOON });
+    }
+    const mailQuote = pricing.quoteOrder(channels, leads.length, env, null, body.styles);
     const brandDoc = await readJson(store, 'brands/' + memberKey(gate.access.memberId) + '.json');
     const brands = brandDoc && Array.isArray(brandDoc.brands) ? brandDoc.brands : [];
     const brand = brands.find(function (row) { return row.id === body.brandId; }) || null;
@@ -345,6 +356,7 @@ function createHandler(deps) {
         brand: brand,
         leads: leads,
         pieces: pieces,
+        styles: body.styles || {},
       });
     } catch (err) {
       await wallet.credit(store, {

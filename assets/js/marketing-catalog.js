@@ -36,14 +36,12 @@
   // Example prices from the approved picker (cost plus about 20 to 25 percent).
   // They are not charged in this step. John sets the final prices later.
   const CHANNELS = [
-    { id: 'postcard', name: 'Postcard', description: 'Printed and mailed for you, postage included. A QR code tracks scans.', group: 'fulfill', medium: 'mail', price: '$1.09 per piece', residential: true, commercial: true },
-    { id: 'letter', name: 'Letter', description: 'A plain-language one-page letter in your voice, mailed about 2 weeks after the postcard.', group: 'fulfill', medium: 'mail', price: '$0.99 per piece', residential: true, commercial: true },
-    { id: 'handwritten', name: 'Handwritten-style note', description: 'A real-looking handwritten card. Higher cost, higher open rate.', group: 'fulfill', medium: 'mail', price: '$1.42 per piece', residential: true, commercial: true },
-    { id: 'door-hanger', name: 'Door hanger', description: 'Printed hangers shipped to you in a pack for door knocking. They are not mailed to a property. Residential only.', group: 'fulfill', medium: 'print', price: 'Pack price plus shipping', residential: true, commercial: false },
-    { id: 'flyer', name: 'Flyer', description: 'Flyers shipped to you in a pack. On a commercial list this becomes a one-page property summary. Not mailed to a property.', group: 'fulfill', medium: 'print', price: 'Pack price plus shipping', residential: true, commercial: true, commercialName: 'One-page property summary', commercialDescription: 'A one-page property summary shipped to you in a pack. You mail or hand it to a decision maker.' },
-    { id: 'bandit', name: 'Bandit sign', description: 'Weatherproof sign with stake, shipped to you in a pack of 10, 25, 50, or 100. Not sent to a property. Check local sign rules. Residential only.', group: 'fulfill', medium: 'print', price: 'Pack price plus shipping', residential: true, commercial: false },
-    { id: 'yard-sign', name: 'Yard sign', description: 'A yard sign with an H-stake, shipped to you in a pack of 10, 25, 50, or 100. Not sent to a property. Residential only.', group: 'fulfill', medium: 'print', price: 'Pack price plus shipping', residential: true, commercial: false },
-    { id: 'business-card', name: 'Business card', description: 'Cards shipped to you in a pack. Not mailed to a property.', group: 'fulfill', medium: 'print', price: 'Pack price plus shipping', residential: true, commercial: true },
+    { id: 'postcard', name: 'Postcard', description: 'Mailed First Class. Choose 4 × 6, 6 × 9, or 6 × 11. A QR code tracks scans.', group: 'fulfill', medium: 'mail', residential: true, commercial: true },
+    { id: 'letter', name: 'Letter', description: 'One page, First Class, in a #10 double-window envelope. Choose color or black and white.', group: 'fulfill', medium: 'mail', residential: true, commercial: true },
+    { id: 'handwritten', name: 'Handwritten note', description: 'A folded notecard with a real stamp and a handwritten envelope, or a handwritten postcard. Pick the handwriting. Coming soon.', group: 'fulfill', medium: 'mail', residential: true, commercial: true },
+    { id: 'door-hanger', name: 'Door hanger', description: 'Coming soon. A 50-pack reference price is shown. Not mailed to a property. Residential only.', group: 'fulfill', medium: 'print', residential: true, commercial: false },
+    { id: 'bandit', name: 'Bandit sign', description: '18 × 24 full-color, both sides, corrugated, with H-stakes. Packs of 50 or 100, shipped to you. Not sent to a property. Check local sign rules. Residential only.', group: 'fulfill', medium: 'print', residential: true, commercial: false },
+    { id: 'yard-sign', name: 'Yard sign', description: '18 × 24 full-color, both sides, corrugated, with H-stakes. Packs of 50 or 100, shipped to you. Not sent to a property. Residential only.', group: 'fulfill', medium: 'print', residential: true, commercial: false },
     { id: 'skip-trace', name: 'Skip trace', description: 'Adds phones and emails to a list. Not available in this step.', group: 'fulfill', medium: 'data', price: '$0.20 per contact', residential: true, commercial: true, copy: false },
     { id: 'phone-scrub', name: 'Phone scrub', description: 'List-cleaning flags only. You still decide who to call, and you stay responsible.', group: 'fulfill', medium: 'data', price: '$0.02 per number', residential: true, commercial: true, copy: false },
     { id: 'list-pull', name: 'List pull', description: 'Pulls a list such as absentee or pre-foreclosure. Not available in this step.', group: 'fulfill', medium: 'data', price: '$0.05 per record', residential: true, commercial: true, copy: false },
@@ -65,32 +63,61 @@
 
   // Pack sizes are the only quantities a student can order. A property
   // count is never a valid pack.
+  const SIGN_OPTION = [['18x24-hstake', '18 × 24, both sides, with H-stakes']];
   const PRINT_SPECS = Object.freeze({
-    bandit: spec([10, 25, 50, 100], [
-      ['18x24-stake', '18 × 24 with stake'],
-      ['12x18-stake', '12 × 18 with stake'],
-    ]),
-    'yard-sign': spec([10, 25, 50, 100], [
-      ['18x24-hstake', '18 × 24 with H-stake'],
-      ['24x18-hstake', '24 × 18 with H-stake'],
-    ]),
-    'door-hanger': spec([25, 50, 100, 250], [
-      ['4.25x11', '4.25 × 11'],
-    ]),
-    flyer: spec([25, 50, 100, 250], [
-      ['4x6', '4 × 6'],
-      ['8.5x11', '8.5 × 11'],
-    ]),
-    'business-card': spec([100, 250, 500, 1000], [
-      ['one-side', '3.5 × 2, one side'],
-      ['two-side', '3.5 × 2, both sides'],
-    ]),
+    bandit: spec([50, 100], SIGN_OPTION, false),
+    'yard-sign': spec([50, 100], SIGN_OPTION, false),
+    'door-hanger': spec([50], [['4.25x11', '4.25 × 11']], true),
   });
 
-  function spec(packs, options) {
+  const PIECE_STYLES = Object.freeze({
+    postcard: styleSpec('size', '4x6', [
+      ['4x6', '4 × 6'],
+      ['6x9', '6 × 9'],
+      ['6x11', '6 × 11'],
+    ]),
+    letter: styleSpec('finish', 'bw', [
+      ['bw', 'Black and white'],
+      ['color', 'Color'],
+    ]),
+    handwritten: styleSpec('product', 'notecard', [
+      ['notecard', 'Folded notecard'],
+      ['4x6', '4 × 6 postcard'],
+      ['6x9', '6 × 9 postcard'],
+    ], {
+      comingSoon: true,
+      hands: [
+        ['hi-clarice', 'Hi Clarice'],
+        ['shopping-list', 'Shopping List'],
+        ['normal-print', 'Normal Print'],
+      ],
+      handDefault: 'hi-clarice',
+      ink: 'blue',
+    }),
+  });
+
+  function spec(packs, options, comingSoon) {
     return Object.freeze({
       packs: Object.freeze(packs.slice()),
+      comingSoon: !!comingSoon,
       options: Object.freeze(options.map(function (row) {
+        return Object.freeze({ id: row[0], label: row[1] });
+      })),
+    });
+  }
+
+  function styleSpec(field, fallback, choices, extra) {
+    const more = extra || {};
+    return Object.freeze({
+      field: field,
+      default: fallback,
+      comingSoon: !!more.comingSoon,
+      handDefault: more.handDefault || '',
+      ink: more.ink || '',
+      choices: Object.freeze(choices.map(function (row) {
+        return Object.freeze({ id: row[0], label: row[1] });
+      })),
+      hands: Object.freeze((more.hands || []).map(function (row) {
         return Object.freeze({ id: row[0], label: row[1] });
       })),
     });
@@ -98,6 +125,28 @@
 
   function printSpec(id) {
     return PRINT_SPECS[String(id || '')] || null;
+  }
+
+  function pieceStyle(id) {
+    return PIECE_STYLES[String(id || '')] || null;
+  }
+
+  function stylePreview(channelId, choiceId) {
+    const common = 'xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 72" fill="none"';
+    const frames = {
+      '4x6': '<rect x="28" y="16" width="64" height="42" rx="2" fill="#F4EFE4" stroke="#8AA0B4"/>',
+      '6x9': '<rect x="18" y="14" width="84" height="48" rx="2" fill="#F4EFE4" stroke="#8AA0B4"/>',
+      '6x11': '<rect x="10" y="12" width="100" height="50" rx="2" fill="#F4EFE4" stroke="#8AA0B4"/>',
+      bw: '<rect x="40" y="8" width="40" height="56" rx="1" fill="#F7F5F2" stroke="#8AA0B4"/><path d="M48 22 h24 M48 30 h24 M48 38 h16" stroke="#1F3348"/>',
+      color: '<rect x="40" y="8" width="40" height="56" rx="1" fill="#F7F5F2" stroke="#C89B3C"/><rect x="48" y="16" width="24" height="12" fill="#1F3348"/><path d="M48 36 h24 M48 44 h16" stroke="#8AA0B4"/>',
+      notecard: '<rect x="22" y="14" width="76" height="46" rx="2" fill="#F6E7A8" stroke="#C89B3C"/><path d="M34 32 q16 8 28 -2" stroke="#1D4E89" stroke-width="1.4"/>',
+      'hi-clarice': '<path d="M16 40 q20 -16 28 0 q10 18 24 -2 q12 -16 28 4" stroke="#1D4E89" stroke-width="1.6" fill="none"/>',
+      'shopping-list': '<path d="M18 24 h70 M18 36 h54 M18 48 h62" stroke="#1D4E89" stroke-width="1.4"/>',
+      'normal-print': '<path d="M20 44 h12 M36 28 v20 M52 44 h16 M74 28 v20" stroke="#1D4E89" stroke-width="1.6"/>',
+      '18x24-hstake': '<rect x="16" y="12" width="88" height="40" rx="2" fill="#F5D90A" stroke="#1F3348"/><path d="M60 52 v12 M48 64 h24" stroke="#8AA0B4" stroke-width="3"/>',
+    };
+    const body = frames[choiceId] || frames['4x6'];
+    return '<svg ' + common + '>' + body + '</svg>';
   }
 
   // Longest names first. The output filter is the second lock, after the prompt rule.
@@ -111,6 +160,8 @@
     ['PostGrid', "FORGE's mail service"],
     ['Thanks.io', "FORGE's mail service"],
     ['Thanksio', "FORGE's mail service"],
+    ['Wise Pelican', "FORGE's print service"],
+    ['WisePelican', "FORGE's print service"],
     ['DirtCheapSigns', "FORGE's print service"],
     ['Dirt Cheap Signs', "FORGE's print service"],
     ['AmericasPrinter', "FORGE's print service"],
@@ -201,7 +252,7 @@
     const commercial = opts.propertyClass === 'commercial';
     const goal = String(opts.goal || 'sellers');
     const ids = commercial
-      ? ['letter', 'call', 'networking', 'social', 'flyer']
+      ? ['letter', 'call', 'networking', 'social']
       : ['postcard', 'handwritten', 'door-knock', 'bandit', 'letter'];
     if (goal === 'buyers') ids.push('email', 'seller-page');
     if (goal === 'followup') ids.push('email');
@@ -311,9 +362,6 @@
     } else if (channel.id === 'bandit' || channel.id === 'yard-sign') {
       a = 'WE BUY HOUSES\nAS-IS · CASH · FAST\n' + phone;
       b = name.toUpperCase() + '\nLOCAL HOME BUYER\n' + phone;
-    } else if (channel.id === 'business-card') {
-      a = name + '\nLocal real estate investor\n' + phone;
-      b = name + '\nI buy houses as-is\n' + phone;
     } else if (channel.id === 'social') {
       a = commercial
         ? 'I buy commercial property in this market, including buildings that need an operator who can look at vacancy, deferred maintenance, or a 1031. If you own one and want a direct conversation, message me. ' + name + ' · ' + phone
@@ -330,7 +378,7 @@
     } else if (soft) {
       a = 'Hi ' + owner + ', I am ' + name + '. I work with homeowners who want to understand their options on ' + where + ' before things get harder. I may be able to buy the home, or point you toward other options. There is no cost to talk. ' + phone + '. ' + disclosure;
       b = 'Hi ' + owner + ', I am ' + name + '. If you have ended up with ' + where + ' and do not want to deal with the cleanup or the market, I can buy it as-is and handle the details. If you would rather keep it, I am glad to point you in a good direction. ' + phone + '.';
-    } else if (commercial && (channel.id === 'letter' || channel.id === 'flyer')) {
+    } else if (commercial && channel.id === 'letter') {
       a = 'Hello,\n\nI am ' + name + ', an independent investor. I am writing about ' + where + '. If the ownership group wants to talk through an as-is sale, seller financing, or an income-based range (a rough range, not an appraisal), I am the person to call. ' + phone + '.\n\n' + sign + '\n' + postalBlock(context) + '\n' + disclosure;
       b = 'Hello,\n\n' + name + ' here. Investors who own ' + where + ' sometimes want a direct conversation about vacancy, deferred maintenance, or a 1031 exchange. I buy property myself. There is no cost to talk. ' + phone + '.\n\n' + sign;
     } else {
@@ -352,10 +400,8 @@
       letter: '<rect x="48" y="12" width="64" height="72" rx="2" fill="#F7F5F2" stroke="#C89B3C"/><path d="M48 12 l32 26 l32 -26" stroke="#C89B3C"/><rect x="60" y="48" width="40" height="3" fill="#8AA0B4"/><rect x="60" y="56" width="32" height="3" fill="#8AA0B4"/>',
       handwritten: '<rect x="36" y="18" width="88" height="60" rx="3" fill="#F6E7A8" stroke="#C89B3C" transform="rotate(-4 80 48)"/><path d="M52 40 q20 8 36 -2" stroke="#1F3348" stroke-width="1.4"/><path d="M52 52 q24 10 40 0" stroke="#1F3348" stroke-width="1.4"/>',
       'door-hanger': '<path d="M70 10 h20 a10 10 0 0 1 0 20 h-20 a10 10 0 0 1 0 -20 z" fill="#F4EFE4" stroke="#C89B3C"/><rect x="68" y="28" width="24" height="58" rx="3" fill="#F4EFE4" stroke="#C89B3C"/><circle cx="80" cy="20" r="4" fill="#0D1B2A"/>',
-      flyer: '<rect x="46" y="10" width="68" height="76" rx="2" fill="#F7F5F2" stroke="#C89B3C"/><rect x="56" y="20" width="48" height="22" fill="#1F3348"/><rect x="56" y="50" width="40" height="3" fill="#8AA0B4"/><rect x="56" y="58" width="32" height="3" fill="#8AA0B4"/>',
       bandit: '<rect x="28" y="22" width="104" height="52" rx="2" fill="#F5D90A" stroke="#1F3348"/><rect x="40" y="34" width="80" height="6" fill="#1F3348"/><rect x="48" y="48" width="64" height="5" fill="#1F3348"/><path d="M80 74 v14" stroke="#8AA0B4" stroke-width="3"/>',
       'yard-sign': '<rect x="36" y="16" width="88" height="48" rx="2" fill="#F4EFE4" stroke="#C89B3C"/><path d="M80 64 v20 M68 84 h24" stroke="#8AA0B4" stroke-width="3"/>',
-      'business-card': '<rect x="28" y="30" width="104" height="40" rx="3" fill="#F7F5F2" stroke="#C89B3C"/><rect x="40" y="42" width="36" height="4" fill="#1F3348"/><rect x="40" y="52" width="24" height="3" fill="#8AA0B4"/>',
       'skip-trace': '<circle cx="70" cy="40" r="18" stroke="#C89B3C" stroke-width="3"/><path d="M84 54 l16 16" stroke="#C89B3C" stroke-width="3"/>',
       'phone-scrub': '<rect x="62" y="16" width="36" height="64" rx="6" stroke="#8AA0B4" stroke-width="2"/><path d="M70 34 h20 M70 44 h14" stroke="#22c55e"/>',
       'list-pull': '<rect x="40" y="18" width="80" height="60" rx="3" stroke="#C89B3C"/><path d="M52 34 h56 M52 46 h56 M52 58 h36" stroke="#8AA0B4"/>',
@@ -398,5 +444,7 @@
     artSvg: artSvg,
     PRINT_SPECS: PRINT_SPECS,
     printSpec: printSpec,
+    pieceStyle: pieceStyle,
+    stylePreview: stylePreview,
   };
 });

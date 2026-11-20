@@ -11,24 +11,30 @@ const PRINT_MARKUP_RATE = 0.30;
 const PRINT_MARKUP_RATE_MIN = 0.25;
 const PRINT_MARKUP_RATE_MAX = 0.35;
 const MAIL_PROVIDER = 'lob';
+const THANKS_PROVIDER = 'thanks-io';
 const LOB_CHANNELS = Object.freeze(['postcard', 'letter']);
 const catalog = require('../../../assets/js/marketing-catalog.js');
+const { readRuntimeEnv } = require('./runtime-env');
 
 // TODO: No print vendor is connected. Do not call a print API from this
 // file. The name below is the assumed vendor for bandit signs, yard signs,
-// door hangers, flyers, and business cards, because that name is already
+// door hangers, because that name is already
 // the print stand-in in the student-facing vendor filter. Unit costs are
 // stubs, not a published rate card. Swap this when John connects the vendor
 // and keep the 25% to 35% markup.
 const PRINT_VENDOR = 'dirt-cheap-signs';
 
-// A handwritten-style note is printed as the standard 4x6 postcard.
-// Letters stay one-page letters. Anything else is not mailed.
+// Lob mails postcards and letters only. Handwritten notes use a separate
+// adapter and are not sent here.
 function mailFormat(channelId) {
   const id = String(channelId || '');
-  if (id === 'postcard' || id === 'handwritten') return 'postcard';
+  if (id === 'postcard') return 'postcard';
   if (id === 'letter') return 'letter';
   return '';
+}
+
+function handwrittenReady(env) {
+  return !!readRuntimeEnv(env, 'THANKSIO_API_KEY') && readRuntimeEnv(env, 'MARKETING_LIVE_MAIL') === 'true';
 }
 const TOP_UPS_CENTS = Object.freeze([2500, 5000, 10000, 25000]);
 
@@ -40,28 +46,48 @@ const TOP_UPS_CENTS = Object.freeze([2500, 5000, 10000, 25000]);
 // Source, table "Pricing details - 11/01/2026":
 // https://help.lob.com/print-and-mail/ready-to-get-started/pricing-details
 //
-// 4x6 postcard, First Class: $0.909. Lob does not publish a 4x6 Standard
-// Class rate (Standard Class starts at 5x7).
-// 1-page black-and-white letter, Standard Class: $0.834. Lob's "Standard
-// Class" is USPS Marketing Mail. First Class for that same letter is
-// $1.066, so Standard Class is the cheaper published rate.
+// Postcard and letter costs are the approved Nov 20, 2026 vendor dollars.
+// 4x6 First Class is Lob's published $0.909. 6x9 and 6x11 are the approved
+// costs that price to $1.24 and $1.55 after the 20 percent mail markup.
+// Letters are one page, First Class, #10 double-window: black and white
+// $1.067 and color $1.225.
 // Printed-goods shipping is not inside those unit prices.
 function publishedCents(dollars) {
   return Math.round(dollars * 100);
 }
 
-const POSTCARD_4X6_FIRST_CLASS_USD = 0.909;
-const LETTER_BW_STANDARD_USD = 0.834;
+function mailPrice(vendorUsd) {
+  const vendorCostCents = publishedCents(vendorUsd);
+  const studentPriceCents = Math.round(Number(vendorUsd) * (1 + MAIL_MARKUP_RATE) * 100);
+  return {
+    vendorCostCents: vendorCostCents,
+    studentPriceCents: studentPriceCents,
+    markupCents: studentPriceCents - vendorCostCents,
+    markupRate: MAIL_MARKUP_RATE,
+  };
+}
+
+const POSTCARD_COSTS_USD = Object.freeze({ '4x6': 0.909, '6x9': 1.033, '6x11': 1.292 });
+const LETTER_COSTS_USD = Object.freeze({ bw: 1.067, color: 1.225 });
+const POSTCARD_4X6_FIRST_CLASS_USD = POSTCARD_COSTS_USD['4x6'];
+const LETTER_BW_FIRST_CLASS_USD = LETTER_COSTS_USD.bw;
+const LETTER_COLOR_FIRST_CLASS_USD = LETTER_COSTS_USD.color;
+// Integer cents chosen so cost × 1.20 rounds to the approved student prices.
+const HANDWRITTEN_VENDOR_CENTS = Object.freeze({ notecard: 304, '4x6': 118, '6x9': 165 });
+// Pack cost in cents. Per-sign vendor cost is the pack divided by the count.
+const SIGN_PACK_VENDOR_CENTS = Object.freeze({ 50: 24900, 100: 39500 });
+const SOON_VENDOR_CENTS = Object.freeze({ 'door-hanger': 140 });
+
+const postcardDefault = mailPrice(POSTCARD_COSTS_USD['4x6']);
+const letterDefault = mailPrice(LETTER_COSTS_USD.bw);
 
 const BASIS = Object.freeze({
-  postcard: line('mail', publishedCents(POSTCARD_4X6_FIRST_CLASS_USD), MAIL_MARKUP_RATE, MAIL_PROVIDER),
-  letter: line('mail', publishedCents(LETTER_BW_STANDARD_USD), MAIL_MARKUP_RATE, MAIL_PROVIDER),
-  handwritten: line('mail', 118, MAIL_MARKUP_RATE, null),
-  'door-hanger': line('print', 21, PRINT_MARKUP_RATE, PRINT_VENDOR),
-  flyer: line('print', 8, PRINT_MARKUP_RATE, PRINT_VENDOR),
-  bandit: line('print', 395, PRINT_MARKUP_RATE, PRINT_VENDOR),
-  'yard-sign': line('print', 395, PRINT_MARKUP_RATE, PRINT_VENDOR),
-  'business-card': line('print', 10, PRINT_MARKUP_RATE, PRINT_VENDOR),
+  postcard: line('mail', postcardDefault.vendorCostCents, MAIL_MARKUP_RATE, MAIL_PROVIDER),
+  letter: line('mail', letterDefault.vendorCostCents, MAIL_MARKUP_RATE, MAIL_PROVIDER),
+  handwritten: line('mail', HANDWRITTEN_VENDOR_CENTS.notecard, MAIL_MARKUP_RATE, THANKS_PROVIDER),
+  'door-hanger': line('print', SOON_VENDOR_CENTS['door-hanger'], PRINT_MARKUP_RATE, PRINT_VENDOR),
+  bandit: line('print', SIGN_PACK_VENDOR_CENTS[100] / 100, PRINT_MARKUP_RATE, PRINT_VENDOR),
+  'yard-sign': line('print', SIGN_PACK_VENDOR_CENTS[100] / 100, PRINT_MARKUP_RATE, PRINT_VENDOR),
   'skip-trace': unpriced('data', 20),
   'phone-scrub': unpriced('data', 2),
   'list-pull': unpriced('data', 5),
@@ -154,6 +180,30 @@ function sumBy(rows, key) {
 
 // A print line is charged only when the student picked an allowed pack and
 // size. The property count is the mail quantity and is never a print quantity.
+function stylePick(channelId, styles) {
+  const spec = catalog.pieceStyle(channelId);
+  const raw = styles && styles[channelId] || {};
+  if (!spec) return { id: '', label: '', hand: '', spec: null };
+  const chosen = spec.choices.some(function (row) { return row.id === raw[spec.field]; }) ? raw[spec.field] : spec.default;
+  const choice = spec.choices.filter(function (row) { return row.id === chosen; })[0] || spec.choices[0];
+  const hand = spec.hands && spec.hands.some(function (row) { return row.id === raw.hand; }) ? raw.hand : (spec.handDefault || '');
+  return { id: choice.id, label: choice.label, hand: hand, spec: spec };
+}
+
+function signUnit(pack, printRate) {
+  const packVendor = SIGN_PACK_VENDOR_CENTS[pack];
+  const unitVendor = packVendor / pack;
+  const unitStudent = Math.round(unitVendor * (1 + printRate));
+  return {
+    vendorCostCents: packVendor,
+    studentPriceCents: unitStudent * pack,
+    markupCents: (unitStudent * pack) - packVendor,
+    unitVendorCostCents: unitVendor,
+    unitStudentPriceCents: unitStudent,
+    markupRate: printRate,
+  };
+}
+
 function normalizePrints(prints) {
   const out = [];
   const seen = {};
@@ -162,7 +212,7 @@ function normalizePrints(prints) {
     if (!id || seen[id]) return;
     const spec = catalog.printSpec(id);
     const basis = BASIS[id];
-    if (!spec || !basis || basis.medium !== 'print') return;
+    if (!spec || spec.comingSoon || !basis || basis.medium !== 'print') return;
     const quantity = Math.floor(Number(row.quantity) || 0);
     if (spec.packs.indexOf(quantity) === -1) return;
     const option = String(row.option || '');
@@ -177,7 +227,7 @@ function normalizePrints(prints) {
 // Mail that this step can hand to the mail service is charged one per
 // property. Printed goods are a separate bulk order. Passing no print
 // selection leaves those lines at quantity 0.
-function quoteOrder(channels, quantity, env, prints) {
+function quoteOrder(channels, quantity, env, prints, styles) {
   const leadCount = Math.max(0, Math.floor(Number(quantity) || 0));
   const printRate = printMarkupRate(env);
   const requested = normalizePrints(prints);
@@ -191,28 +241,74 @@ function quoteOrder(channels, quantity, env, prints) {
     seen[key] = true;
     const basis = BASIS[key];
     if (!basis || !basis.priced) return;
+    const picked = stylePick(key, styles);
     const format = mailFormat(key);
-    const priceBasis = format ? BASIS[format] : basis;
-    const mailed = !!format;
     const print = basis.medium === 'print';
-    const request = print ? byId[key] : null;
-    const count = mailed ? leadCount : (request ? request.quantity : 0);
-    const rate = print ? printRate : MAIL_MARKUP_RATE;
-    const unitStudent = Math.round(priceBasis.vendorCostCents * (1 + rate));
-    const unitMarkup = unitStudent - priceBasis.vendorCostCents;
+    const printed = catalog.printSpec(key);
+    const soonPrint = !!(printed && printed.comingSoon);
+    const note = key === 'handwritten';
+    let unitVendor = basis.vendorCostCents;
+    let unitStudent = Math.round(unitVendor * (1 + (print ? printRate : MAIL_MARKUP_RATE)));
+    let count = 0;
+    let orderable = false;
+    let kind = print ? 'print' : basis.medium;
+    if (format === 'postcard') {
+      const price = mailPrice(POSTCARD_COSTS_USD[picked.id]);
+      unitVendor = price.vendorCostCents;
+      unitStudent = price.studentPriceCents;
+      count = leadCount;
+      orderable = true;
+      kind = 'mail';
+    } else if (format === 'letter') {
+      const price = mailPrice(LETTER_COSTS_USD[picked.id]);
+      unitVendor = price.vendorCostCents;
+      unitStudent = price.studentPriceCents;
+      count = leadCount;
+      orderable = true;
+      kind = 'mail';
+    } else if (note) {
+      unitVendor = HANDWRITTEN_VENDOR_CENTS[picked.id];
+      unitStudent = Math.round(unitVendor * (1 + MAIL_MARKUP_RATE));
+      orderable = handwrittenReady(env);
+      count = orderable ? leadCount : 0;
+      kind = 'mail';
+    } else if (print && printed && !soonPrint) {
+      const pack = byId[key] ? byId[key].quantity : 0;
+      const sample = signUnit(pack || 50, printRate);
+      unitVendor = sample.unitVendorCostCents;
+      unitStudent = sample.unitStudentPriceCents;
+      if (pack) {
+        count = pack;
+        orderable = true;
+      }
+    } else if (soonPrint) {
+      unitVendor = SOON_VENDOR_CENTS[key] || unitVendor;
+      unitStudent = Math.round(unitVendor * (1 + printRate));
+      orderable = false;
+      count = 0;
+    }
+    const rate = kind === 'mail' && !print ? MAIL_MARKUP_RATE : printRate;
+    const vendorCost = (print && count && SIGN_PACK_VENDOR_CENTS[count] && !soonPrint) ? SIGN_PACK_VENDOR_CENTS[count] : unitVendor * count;
+    const studentCost = (print && count && !soonPrint) ? unitStudent * count : unitStudent * count;
+    const markup = studentCost - vendorCost;
     lines.push({
       channelId: key,
       medium: basis.medium,
-      kind: mailed ? 'mail' : (print ? 'print' : basis.medium),
-      mailed: mailed,
+      kind: kind,
+      mailed: kind === 'mail' && orderable,
+      orderable: orderable,
+      comingSoon: note ? !orderable : soonPrint,
       quantity: count,
-      option: request ? request.option : '',
-      unitVendorCostCents: priceBasis.vendorCostCents,
+      option: byId[key] ? byId[key].option : (picked.id || ''),
+      styleId: picked.id,
+      styleLabel: picked.label,
+      handStyle: picked.hand,
+      unitVendorCostCents: unitVendor,
       unitStudentPriceCents: unitStudent,
-      vendorCostCents: priceBasis.vendorCostCents * count,
-      markupRate: rate,
-      markupCents: unitMarkup * count,
-      studentPriceCents: unitStudent * count,
+      vendorCostCents: vendorCost,
+      markupRate: note || format ? MAIL_MARKUP_RATE : rate,
+      markupCents: markup,
+      studentPriceCents: studentCost,
     });
   }
   (channels || []).forEach(add);
@@ -241,10 +337,43 @@ function publicQuote(line) {
     quantity: row.quantity,
     currency: row.currency,
     priced: row.priced,
+    styleId: row.styleId || '',
+    styleLabel: row.styleLabel || '',
     vendorCostCents: row.vendorCostCents,
     markupCents: row.markupCents,
+    markupRate: row.markupRate,
     studentPriceCents: row.studentPriceCents,
     shippingCents: row.shippingCents,
+  };
+}
+
+function publicMenu(env) {
+  const printRate = printMarkupRate(env);
+  function rowsFromUsd(table, labels) {
+    return Object.keys(table).map(function (id) {
+      return { id: id, label: labels[id], studentPriceCents: mailPrice(table[id]).studentPriceCents };
+    });
+  }
+  function rowsFromCents(table, labels) {
+    return Object.keys(table).map(function (id) {
+      return { id: id, label: labels[id], studentPriceCents: Math.round(table[id] * (1 + MAIL_MARKUP_RATE)) };
+    });
+  }
+  const soonIds = ['door-hanger'];
+  if (!handwrittenReady(env)) soonIds.push('handwritten');
+  return {
+    postcard: rowsFromUsd(POSTCARD_COSTS_USD, { '4x6': '4 × 6', '6x9': '6 × 9', '6x11': '6 × 11' }),
+    letter: rowsFromUsd(LETTER_COSTS_USD, { bw: 'Black and white', color: 'Color' }),
+    handwritten: rowsFromCents(HANDWRITTEN_VENDOR_CENTS, { notecard: 'Folded notecard', '4x6': '4 × 6 postcard', '6x9': '6 × 9 postcard' }),
+    signs: [50, 100].map(function (pack) {
+      return { id: String(pack), label: String(pack), studentPriceCents: signUnit(pack, printRate).unitStudentPriceCents };
+    }),
+    comingSoon: soonIds.map(function (id) {
+      const cents = SOON_VENDOR_CENTS[id] || HANDWRITTEN_VENDOR_CENTS.notecard;
+      const rate = id === 'handwritten' ? MAIL_MARKUP_RATE : printRate;
+      return { id: id, studentPriceCents: Math.round(cents * (1 + rate)), pack: id === 'handwritten' ? 0 : 50 };
+    }),
+    handwrittenOrderable: handwrittenReady(env),
   };
 }
 
@@ -255,11 +384,20 @@ module.exports = {
   PRINT_MARKUP_RATE_MAX: PRINT_MARKUP_RATE_MAX,
   MAIL_PROVIDER: MAIL_PROVIDER,
   PRINT_VENDOR: PRINT_VENDOR,
+  THANKS_PROVIDER: THANKS_PROVIDER,
   POSTCARD_4X6_FIRST_CLASS_USD: POSTCARD_4X6_FIRST_CLASS_USD,
-  LETTER_BW_STANDARD_USD: LETTER_BW_STANDARD_USD,
+  LETTER_BW_FIRST_CLASS_USD: LETTER_BW_FIRST_CLASS_USD,
+  LETTER_COLOR_FIRST_CLASS_USD: LETTER_COLOR_FIRST_CLASS_USD,
+  POSTCARD_COSTS_USD: POSTCARD_COSTS_USD,
+  LETTER_COSTS_USD: LETTER_COSTS_USD,
+  HANDWRITTEN_VENDOR_CENTS: HANDWRITTEN_VENDOR_CENTS,
+  SIGN_PACK_VENDOR_CENTS: SIGN_PACK_VENDOR_CENTS,
   publishedCents: publishedCents,
+  mailPrice: mailPrice,
   LOB_CHANNELS: LOB_CHANNELS,
   mailFormat: mailFormat,
+  handwrittenReady: handwrittenReady,
+  publicMenu: publicMenu,
   TOP_UPS_CENTS: TOP_UPS_CENTS,
   BASIS: BASIS,
   orderLine: orderLine,

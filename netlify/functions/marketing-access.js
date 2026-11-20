@@ -4,6 +4,7 @@
 // page can keep the Coming soon card. Missing sessions get 401.
 const { json, preflight } = require('./_Lib/http');
 const { loadMarketingGate } = require('./_Lib/marketing-access');
+const pricing = require('./_Lib/marketing-pricing');
 
 function createHandler(deps) {
   const options = deps || {};
@@ -23,6 +24,7 @@ function createHandler(deps) {
       empire: gate.flag.empire,
       brandLimit: gate.flag.brandLimit,
       reason: gate.flag.reason,
+      menu: pricing.publicMenu(options.env || process.env),
     });
   };
 }
