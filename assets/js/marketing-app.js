@@ -129,62 +129,87 @@
     return missing;
   }
 
-  function renderCard(channel, opts) {
+  function selectionKey(state) {
+    return (state.propertyClass || 'residential') + ':' + (state.goal || 'sellers');
+  }
+
+  function applyRecommendations(state) {
+    var catalog = loadCatalog();
+    var ids = catalog.recommendChannelIds({ propertyClass: state.propertyClass, goal: state.goal });
+    state.selected = {};
+    ids.forEach(function (id) {
+      var channel = catalog.channelById(id);
+      if (channel && channel.copy !== false) state.selected[id] = true;
+    });
+    state.recsFor = selectionKey(state);
+  }
+
+  function pieceBadge(channel) {
+    if (!channel || channel.copy === false) return { text: 'Coming soon', cls: 'is-soon' };
+    if (channel.group === 'fulfill') return { text: 'We mail it', cls: 'is-mail' };
+    return { text: 'You send it', cls: 'is-send' };
+  }
+
+  function renderPiece(channel, opts) {
     var catalog = loadCatalog();
     var options = opts || {};
     var name = catalog.displayName(channel, options.propertyClass);
     var description = catalog.displayDescription(channel, options.propertyClass);
-    var fulfill = channel.group === 'fulfill';
-    var selected = !!options.selected;
-    var coming = channel.copy === false;
-    var button = coming
-      ? '<button type="button" class="mkt-select" disabled>Coming soon</button>'
-      : '<button type="button" class="mkt-select' + (selected ? ' is-selected' : '') + '" data-action="toggle" data-id="' + esc(channel.id) + '">' + (selected ? 'Selected' : 'Write copy') + '</button>';
-    return '<article class="mkt-card' + (selected ? ' is-selected' : '') + (options.recommended ? ' is-recommended' : '') + '">' +
-      (options.recommended ? '<div class="mkt-badge">ARIS recommended</div>' : '') +
-      '<button type="button" class="mkt-art" data-action="preview" data-id="' + esc(channel.id) + '" aria-label="Preview ' + esc(name) + '">' + catalog.artSvg(channel.id) + '</button>' +
-      '<div class="mkt-card-body">' +
-      '<span class="mkt-pill ' + (fulfill ? 'is-fulfill' : 'is-copy') + '">' + (fulfill ? 'FORGE fulfills (coming soon)' : 'Copy only') + '</span>' +
-      '<h3>' + esc(name) + '</h3>' +
-      '<p>' + esc(description) + '</p>' +
-      '<div class="mkt-price">' + esc(channel.price) + ' <span>example · not charged</span></div>' +
-      button +
-      '</div></article>';
+    var badge = pieceBadge(channel);
+    var checked = !!options.selected && channel.copy !== false;
+    var box = channel.copy === false
+      ? '<span class="mkt-piece-lock">Not in this step</span>'
+      : '<input type="checkbox" ' + (checked ? 'checked ' : '') + 'aria-label="' + esc(name) + '">';
+    var tag = channel.copy === false ? 'div' : 'label';
+    var action = channel.copy === false ? '' : ' data-action="toggle" data-id="' + esc(channel.id) + '"';
+    return '<' + tag + ' class="mkt-piece-card' + (checked ? ' is-on' : '') + '"' + action + '>' +
+      box +
+      '<span class="mkt-piece-copy"><span class="mkt-pill ' + badge.cls + '">' + esc(badge.text) + '</span><strong>' + esc(name) + '</strong><span>' + esc(description) + '</span></span></' + tag + '>';
+  }
+
+  function recommendLine(propertyClass) {
+    if (propertyClass === 'commercial') {
+      return 'ARIS would start with a formal letter, a call script, and networking.';
+    }
+    return 'ARIS would start with a postcard, a handwritten-style note, a door-knock script, and a letter.';
   }
 
   function renderPicker(state) {
     var catalog = loadCatalog();
-    var cards = catalog.visibleChannels({
-      propertyClass: state.propertyClass,
-      filter: state.filter,
-      recommendedFirst: state.recommendedFirst,
-      goal: state.goal,
+    if (state.recsFor !== selectionKey(state)) applyRecommendations(state);
+    var recommendedIds = catalog.recommendChannelIds({ propertyClass: state.propertyClass, goal: state.goal });
+    var recommended = {};
+    recommendedIds.forEach(function (id) { recommended[id] = true; });
+    var visible = catalog.channelsForClass(state.propertyClass);
+    var picked = [];
+    var more = [];
+    recommendedIds.forEach(function (id) {
+      var channel = catalog.channelById(id);
+      if (channel) picked.push(channel);
     });
-    var empireLock = state.empire ? '' : ' disabled';
-    var filters = [
-      ['all', 'All'],
-      ['fulfill', 'FORGE fulfills'],
-      ['copy', 'Copy only'],
-    ].map(function (item) {
-      return '<button type="button" class="mkt-chip' + (state.filter === item[0] ? ' is-on' : '') + '" data-action="filter" data-filter="' + item[0] + '">' + item[1] + '</button>';
-    }).join('');
-    return '<div class="mkt-filters">' +
-      '<div class="mkt-class">' +
-      '<button type="button" class="' + (state.propertyClass === 'residential' ? 'is-on' : '') + '" data-action="class" data-class="residential">Residential</button>' +
-      '<button type="button" class="' + (state.propertyClass === 'commercial' ? 'is-on' : '') + '"' + empireLock + ' data-action="class" data-class="commercial">Commercial' + (state.empire ? '' : ' · Empire') + '</button>' +
-      '</div>' +
-      '<div class="mkt-chip-row">' + filters +
-      '<label class="mkt-sort"><input type="checkbox" data-action="recommended-first"' + (state.recommendedFirst ? ' checked' : '') + '> Recommended first</label>' +
-      '</div></div>' +
-      '<p class="mkt-aris">' + esc(state.recommendation || catalog.recommendationText(state.propertyClass)) + '</p>' +
-      (state.message ? '<p class="mkt-message">' + esc(state.message) + '</p>' : '') +
-      '<div class="mkt-grid">' + cards.map(function (row) {
-        return renderCard(row.channel, {
+    visible.forEach(function (channel) {
+      if (!recommended[channel.id]) more.push(channel);
+    });
+    var cards = function (list) {
+      return list.map(function (channel) {
+        return renderPiece(channel, {
           propertyClass: state.propertyClass,
-          recommended: row.recommended,
-          selected: !!state.selected[row.channel.id],
+          selected: !!state.selected[channel.id],
         });
-      }).join('') + '</div>' +
+      }).join('');
+    };
+    var commercialLock = state.empire ? '' : ' disabled';
+    return '<h2 class="mkt-ask">Who are you marketing to?</h2>' +
+      '<div class="mkt-who-grid">' +
+      '<button type="button" class="mkt-who' + (state.propertyClass === 'residential' ? ' is-on' : '') + '" data-action="class" data-class="residential"><strong>Residential</strong><span>Homeowners</span></button>' +
+      '<button type="button" class="mkt-who' + (state.propertyClass === 'commercial' ? ' is-on' : '') + '"' + commercialLock + ' data-action="class" data-class="commercial"><strong>Commercial</strong><span>Business and property owners</span>' + (state.empire ? '' : '<em>Empire</em>') + '</button>' +
+      '</div>' +
+      '<p class="mkt-legend">We mail it means FORGE will print or mail it later. You send it means you send it yourself. Printing and mailing are coming soon, so this step only drafts the copy.</p>' +
+      '<h2 class="mkt-ask">ARIS recommends</h2>' +
+      '<p class="mkt-aris">' + esc(recommendLine(state.propertyClass)) + '</p>' +
+      (state.message ? '<p class="mkt-message">' + esc(state.message) + '</p>' : '') +
+      '<div class="mkt-pick-list">' + cards(picked) + '</div>' +
+      '<details class="mkt-more"><summary>More options</summary><div class="mkt-pick-list">' + cards(more) + '</div></details>' +
       '<div class="mkt-row"><button type="button" data-action="generate">Write copy with ARIS</button></div>';
   }
 
@@ -527,17 +552,14 @@
       if (cls === 'commercial' && !state.empire) return;
       state.propertyClass = cls === 'commercial' ? 'commercial' : 'residential';
       state.previewId = '';
+      state.recsFor = '';
       paint(state);
       return;
     }
-    if (action === 'filter') {
-      state.filter = button.getAttribute('data-filter') || 'all';
-      paint(state);
-      return;
-    }
-    if (action === 'toggle' || action === 'preview') {
+    if (action === 'toggle') {
       var id = button.getAttribute('data-id');
-      if (action === 'toggle') state.selected[id] = !state.selected[id];
+      state.selected[id] = !state.selected[id];
+      state.recsFor = selectionKey(state);
       state.previewId = id;
       paint(state);
       return;
@@ -593,11 +615,6 @@
     }
     if (target && target.hasAttribute('data-attest')) {
       state.attested = target.checked;
-      return;
-    }
-    if (target && target.hasAttribute('data-action') && target.getAttribute('data-action') === 'recommended-first') {
-      state.recommendedFirst = target.checked;
-      paint(state);
       return;
     }
     if (target && target.hasAttribute('data-upload')) {
@@ -904,7 +921,7 @@
     createState: createState,
     renderSteps: renderSteps,
     renderGoal: renderGoal,
-    renderCard: renderCard,
+    renderPiece: renderPiece,
     renderPicker: renderPicker,
     renderCopy: renderCopy,
     renderApprove: renderApprove,

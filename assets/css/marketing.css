@@ -67,6 +67,27 @@ button, input, textarea, select { font-family: inherit; }
 .mkt-select, .mkt-row button, .mkt-offer button, .mkt-brand button[data-action="save-brand"] { background: #24344a; color: white; border: 0; border-radius: 8px; padding: 8px 12px; cursor: pointer; }
 .mkt-select.is-selected, .mkt-row button, .mkt-offer button, .mkt-brand button[data-action="save-brand"] { background: var(--orange); }
 .mkt-select:disabled { opacity: 0.55; cursor: default; }
+.mkt-ask { font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 1px; font-weight: 400; margin: 8px 0; }
+.mkt-who-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.mkt-who { text-align: left; background: #12263c; color: white; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 18px 16px; cursor: pointer; }
+.mkt-who strong { display: block; font-size: 18px; margin-bottom: 4px; }
+.mkt-who span, .mkt-who em { display: block; color: var(--grey-light); font-style: normal; font-size: 13px; }
+.mkt-who.is-on { border-color: var(--orange); box-shadow: 0 0 0 1px var(--orange); }
+.mkt-who:disabled { opacity: 0.55; cursor: not-allowed; }
+.mkt-legend { color: var(--grey-light); font-size: 13px; line-height: 1.45; }
+.mkt-pick-list { display: flex; flex-direction: column; gap: 8px; }
+.mkt-piece-card { display: flex; gap: 12px; align-items: flex-start; text-align: left; background: #12263c; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 12px; color: white; }
+.mkt-piece-card.is-on { border-color: var(--gold); }
+.mkt-piece-card input { width: 18px; height: 18px; min-width: 18px; margin-top: 3px; flex: 0 0 auto; accent-color: var(--gold); }
+.mkt-piece-copy { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.mkt-piece-copy strong { font-size: 15px; }
+.mkt-piece-copy span:last-child { color: var(--grey-light); font-size: 12px; line-height: 1.4; }
+.mkt-pill.is-mail { background: var(--green-dim); color: var(--green); }
+.mkt-pill.is-send { background: rgba(255,255,255,0.06); color: var(--grey-light); }
+.mkt-pill.is-soon { background: var(--border-sub); color: var(--grey); }
+.mkt-piece-lock { font-size: 11px; color: var(--grey); }
+.mkt-more { border: 1px solid var(--border-sub); border-radius: 10px; padding: 10px 12px; }
+.mkt-more summary { cursor: pointer; color: var(--gold); margin-bottom: 8px; }
 .mkt-filters { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
 .mkt-class, .mkt-chip-row, .mkt-row, .mkt-top-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .mkt-class button, .mkt-chip, .mkt-secondary, .mkt-top-actions button { background: var(--navy-light); color: var(--grey-light); border: 1px solid var(--border-sub); border-radius: 999px; padding: 6px 12px; cursor: pointer; }
@@ -109,6 +130,6 @@ img.mkt-logo { display: block; max-width: 140px; max-height: 56px; width: auto; 
   .sidebar { display: none; }
 }
 @media (max-width: 640px) {
-  .mkt-grid, .mkt-uploads, .mkt-colors, .mkt-address { grid-template-columns: 1fr; }
+  .mkt-grid, .mkt-uploads, .mkt-colors, .mkt-address, .mkt-who-grid { grid-template-columns: 1fr; }
   .mkt-scroll { padding: 16px; }
 }
