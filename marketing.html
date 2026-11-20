@@ -158,8 +158,20 @@ window.onload = async () => {
           phone: customFields.phone || customFields['phone-number'] || '',
         },
       });
+    } else {
+      throw new Error('Marketing did not load');
     }
-  } catch (e) {}
+  } catch (e) {
+    var loadingEl = document.getElementById('mkt-loading');
+    var lockedEl = document.getElementById('mkt-locked');
+    var appEl = document.getElementById('mkt-app');
+    if (loadingEl) loadingEl.hidden = true;
+    if (appEl) appEl.hidden = true;
+    if (lockedEl && lockedEl.hidden) {
+      lockedEl.hidden = false;
+      lockedEl.innerHTML = '<p class="mkt-message">Marketing could not be opened. Refresh the page. If this keeps happening, email support@forgedbyaris.com.</p>';
+    }
+  }
 };
 </script>
 </body>

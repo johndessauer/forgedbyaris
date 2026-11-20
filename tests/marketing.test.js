@@ -431,6 +431,74 @@ test('order lines keep vendor cost, markup, and student price without showing th
   assert.equal(catalog.containsVendorName(app.renderPicker(app.createState({ empire: true, propertyClass: 'residential' }))), false);
 });
 
+function installMarketingDocument() {
+  const nodes = {};
+  function node(id) {
+    if (!nodes[id]) {
+      nodes[id] = {
+        id: id,
+        hidden: id === 'mkt-app' || id === 'mkt-locked',
+        innerHTML: '',
+        addEventListener() {},
+      };
+    }
+    return nodes[id];
+  }
+  const previousDocument = global.document;
+  const previousFetch = global.fetch;
+  global.document = {
+    getElementById(id) { return node(id); },
+    querySelectorAll() { return []; },
+  };
+  return {
+    nodes: nodes,
+    restore() {
+      if (previousDocument === undefined) delete global.document;
+      else global.document = previousDocument;
+      if (previousFetch === undefined) delete global.fetch;
+      else global.fetch = previousFetch;
+    },
+  };
+}
+
+test('an allowlisted member sees the Marketing screen, and a failed check is visible', async () => {
+  assert.equal(/\broot\b/.test(app.start.toString()), false);
+  const page = installMarketingDocument();
+  try {
+    global.fetch = async (url) => {
+      const path = String(url);
+      if (path.includes('marketing-access')) {
+        return { ok: true, json: async () => ({ allowed: true, empire: true, brandLimit: 3, reviewer: true }) };
+      }
+      if (path.includes('marketing-brand')) return { ok: true, json: async () => ({ brands: [] }) };
+      throw new Error('unexpected ' + path);
+    };
+    await app.start({ token: 'tok', sender: { name: 'John', phone: '' } });
+    assert.equal(page.nodes['mkt-loading'].hidden, true);
+    assert.equal(page.nodes['mkt-app'].hidden, false);
+    assert.equal(page.nodes['mkt-locked'].hidden, true);
+    assert.match(page.nodes['mkt-main'].innerHTML, /What do you want this campaign to do/);
+
+    page.nodes['mkt-app'].hidden = true;
+    page.nodes['mkt-locked'].hidden = true;
+    page.nodes['mkt-locked'].innerHTML = '';
+    global.fetch = async () => { throw new Error('network down'); };
+    await app.start({ token: 'tok' });
+    assert.equal(page.nodes['mkt-app'].hidden, true);
+    assert.equal(page.nodes['mkt-loading'].hidden, true);
+    assert.equal(page.nodes['mkt-locked'].hidden, false);
+    assert.match(page.nodes['mkt-locked'].innerHTML, /Marketing could not be opened/);
+
+    global.fetch = async () => ({ ok: true, json: async () => ({ allowed: false, reason: 'flagged' }) });
+    page.nodes['mkt-locked'].innerHTML = '';
+    await app.start({ token: 'tok' });
+    assert.equal(page.nodes['mkt-app'].hidden, true);
+    assert.match(page.nodes['mkt-locked'].innerHTML, /Coming soon!/);
+  } finally {
+    page.restore();
+  }
+});
+
 test('marketing access denies a signed-out caller', async () => {
   const rig = world({ deny: true });
   const handler = accessApi.createHandler(rig.deps);

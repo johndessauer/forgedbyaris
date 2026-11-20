@@ -743,51 +743,64 @@
     paint(state);
   }
 
+  function showFallback(loading, app, locked, html) {
+    if (loading) loading.hidden = true;
+    if (app) app.hidden = true;
+    if (locked) {
+      locked.hidden = false;
+      locked.innerHTML = html;
+    }
+  }
+
   async function start(opts) {
     var options = opts || {};
     var loading = document.getElementById('mkt-loading');
     var locked = document.getElementById('mkt-locked');
     var app = document.getElementById('mkt-app');
-    var response = await fetch('/api/marketing-access', {
-      headers: options.token ? { Authorization: 'Bearer ' + options.token } : {},
-    });
-    var access = {};
-    try { access = await response.json(); } catch (err) { access = {}; }
-    if (loading) loading.hidden = true;
-    if (!response.ok || access.allowed !== true) {
-      if (locked) {
-        locked.hidden = false;
-        locked.innerHTML = lockedHtml();
+    var problem = '<p class="mkt-message">Marketing could not be opened. Refresh the page. If this keeps happening, email support@forgedbyaris.com.</p>';
+    try {
+      var response = await fetch('/api/marketing-access', {
+        headers: options.token ? { Authorization: 'Bearer ' + options.token } : {},
+      });
+      var access = {};
+      try { access = await response.json(); } catch (err) { access = {}; }
+      if (!response.ok || access.allowed !== true) {
+        showFallback(loading, app, locked, lockedHtml());
+        return;
       }
-      return;
+      var scope = typeof globalThis !== 'undefined' ? globalThis : {};
+      var entry = scope.ForgeMarketingEntry;
+      var stored = entry && entry.readLeads ? entry.readLeads() : null;
+      var state = createState({
+        empire: !!access.empire,
+        brandLimit: access.brandLimit || (access.empire ? 3 : 1),
+        reviewer: !!access.reviewer,
+        leads: stored && stored.leads ? stored.leads : [],
+        sender: options.sender || {},
+      });
+      if (stored && stored.leads && stored.leads.length) {
+        var groups = loadCatalog().splitLeads(stored.leads);
+        if (!groups.residential.length && groups.commercial.length && access.empire) state.propertyClass = 'commercial';
+      }
+      state.token = options.token;
+      var brandResponse = await fetch('/api/marketing-brand', {
+        headers: { Authorization: 'Bearer ' + options.token },
+      });
+      if (brandResponse.ok) {
+        var brandDoc = await brandResponse.json();
+        state.brands = brandDoc.brands || [];
+        state.brandId = state.brands[0] ? state.brands[0].id : '';
+      }
+      if (loading) loading.hidden = true;
+      if (app) {
+        app.hidden = false;
+        app.addEventListener('click', function (event) { onClick(state, event); });
+        app.addEventListener('change', function (event) { onChange(state, event); });
+      }
+      paint(state);
+    } catch (err) {
+      showFallback(loading, app, locked, problem);
     }
-    var stored = (root && root.ForgeMarketingEntry && root.ForgeMarketingEntry.readLeads) ? root.ForgeMarketingEntry.readLeads() : null;
-    var state = createState({
-      empire: !!access.empire,
-      brandLimit: access.brandLimit || (access.empire ? 3 : 1),
-      reviewer: !!access.reviewer,
-      leads: stored && stored.leads ? stored.leads : [],
-      sender: options.sender || {},
-    });
-    if (stored && stored.leads && stored.leads.length) {
-      var groups = loadCatalog().splitLeads(stored.leads);
-      if (!groups.residential.length && groups.commercial.length && access.empire) state.propertyClass = 'commercial';
-    }
-    state.token = options.token;
-    var brandResponse = await fetch('/api/marketing-brand', {
-      headers: { Authorization: 'Bearer ' + options.token },
-    });
-    if (brandResponse.ok) {
-      var brandDoc = await brandResponse.json();
-      state.brands = brandDoc.brands || [];
-      state.brandId = state.brands[0] ? state.brands[0].id : '';
-    }
-    if (app) {
-      app.hidden = false;
-      app.addEventListener('click', function (event) { onClick(state, event); });
-      app.addEventListener('change', function (event) { onChange(state, event); });
-    }
-    paint(state);
   }
 
   return {
