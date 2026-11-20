@@ -20,12 +20,13 @@
 
   const INFO_ONLY_LABEL = 'For information only. Not a guarantee of compliance. You are responsible for who you call and text.';
 
+  // Lob's documented example. Well-formed for a test mailing, not a real property.
   const SAMPLE_LEAD = Object.freeze({
     id: 'sample',
-    address: '123 Sample Street',
-    city: 'Sampletown',
-    state: 'ST',
-    zip: '00000',
+    address: '210 King St',
+    city: 'San Francisco',
+    state: 'CA',
+    zip: '94107',
     owner: 'Pat Example',
     propertyType: 'SFR',
     playIds: ['absentee'],

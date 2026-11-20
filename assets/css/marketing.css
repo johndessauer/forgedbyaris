@@ -104,7 +104,10 @@ button, input, textarea, select { font-family: inherit; }
 .mkt-assign { list-style: none; padding: 0; }
 .mkt-assign li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--border-sub); }
 .mkt-draft pre, .mkt-draft textarea, .mkt-brand textarea,
-.mkt-brand input:not([type="checkbox"]):not([type="file"]) { width: 100%; background: #0d1b2a; color: white; border: 1px solid var(--border-sub); border-radius: 8px; padding: 8px; }
+.mkt-brand input:not([type="checkbox"]):not([type="file"]),
+.mkt-address-form input { width: 100%; background: #0d1b2a; color: white; border: 1px solid var(--border-sub); border-radius: 8px; padding: 8px; }
+.mkt-address-form { display: grid; gap: 8px; margin: 8px 0 12px; }
+.mkt-address-form label { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; color: var(--grey-light); font-size: 13px; }
 .mkt-draft textarea { min-height: 110px; }
 .mkt-brand { display: flex; flex-direction: column; align-items: stretch; gap: 12px; text-align: left; }
 .mkt-brand > label { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; color: var(--grey-light); font-size: 13px; }
