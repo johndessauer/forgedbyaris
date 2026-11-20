@@ -453,6 +453,17 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 .ps-results-label h2 { font-family:'Bebas Neue',sans-serif; font-size:16px; letter-spacing:1.5px; color:var(--white); }
 .ps-results-label .count { font-size:12px; color:var(--light-grey); }
 .ps-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px,1fr)); gap:14px; }
+.ps-market-bar { display:none; align-items:center; justify-content:space-between; gap:12px; margin:0 0 12px; padding:10px 12px; border:1px solid rgba(200,155,60,0.35); border-radius:10px; background:rgba(200,155,60,0.08); }
+.ps-market-bar p { margin:0; color:#9CA3AF; font-size:12px; }
+.ps-market-actions { display:flex; gap:8px; flex-wrap:wrap; }
+.btn-market, .ps-market-go { background:#FF6B2B; color:#fff; border:0; border-radius:6px; padding:8px 12px; font-weight:700; font-size:12px; cursor:pointer; }
+.ps-market-go.secondary { background:transparent; border:1px solid rgba(255,255,255,0.16); color:#E5E7EB; }
+.ps-market-check { display:flex; align-items:center; gap:6px; font-size:11px; color:#9CA3AF; margin-right:auto; }
+.ps-detail[hidden] { display:none; }
+.ps-detail { position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:40; display:flex; justify-content:flex-end; }
+.ps-detail-card { width:min(420px, 100%); background:#0f2035; border-left:1px solid rgba(200,155,60,0.3); padding:22px; overflow:auto; }
+.ps-detail-card h2 { font-family:'Bebas Neue', sans-serif; letter-spacing:1px; margin:0 0 8px; }
+.ps-detail-card p { color:#9CA3AF; font-size:13px; }
 .ps-load-more-wrap { display:flex; justify-content:center; margin-top:18px; }
 .ps-load-more-btn { background:transparent; border:1px solid var(--gold); color:var(--gold); border-radius:6px; padding:10px 22px; font-size:13px; font-weight:600; cursor:pointer; }
 .ps-load-more-btn:hover { background:rgba(200,155,60,0.12); }
@@ -511,6 +522,8 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 <script src="/assets/js/member-preferences.js"></script>
 <script src="/assets/js/property-search-paging.js"></script>
 <script src="/assets/js/lead-filters.js"></script>
+<script src="/assets/js/marketing-catalog.js"></script>
+<script src="/assets/js/marketing-entry.js"></script>
 </head>
 <body>
 <div class="app">
@@ -616,7 +629,21 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
           <h2>RESULTS</h2>
           <div class="count" id="ps-results-count">—</div>
         </div>
+        <div class="ps-market-bar" id="ps-market-bar" hidden>
+          <p>Copy only. Nothing is mailed or charged. Market the properties already on this page.</p>
+          <div class="ps-market-actions">
+            <button type="button" class="ps-market-go" id="ps-market-selected">Market to these</button>
+            <button type="button" class="ps-market-go secondary" id="ps-market-loaded">Market to all loaded</button>
+          </div>
+        </div>
         <div class="ps-grid" id="ps-grid"></div>
+        <div class="ps-detail" id="ps-detail" hidden>
+          <div class="ps-detail-card">
+            <button type="button" class="ps-market-go secondary" id="ps-detail-close">Close</button>
+            <div id="ps-detail-body"></div>
+            <button type="button" class="btn-market" id="ps-detail-market">Market to this property</button>
+          </div>
+        </div>
         <div id="ps-load-more-wrap" class="ps-load-more-wrap"></div>
       </div>
     </div>
@@ -772,6 +799,12 @@ window.onload = async () => {
     currentPlanName = (hasSeparateEmpireConn && !baseConnHasEmpireBuiltIn) ? (baseName + ' + Empire') : baseName;
     memberCreatedAt = member.createdAt || null;
     memberToken = await memberstack.getMemberCookie();
+    if (window.ForgeMarketingEntry && memberToken) {
+      window.ForgeMarketingEntry.mount({
+        token: memberToken,
+        onAllowed: function () { if (typeof enableMarketingEntry === 'function') enableMarketingEntry(); },
+      }).catch(function () {});
+    }
     // Comping engine panel — shows only for admins until it goes live.
     try { if (window.ForgeComps) window.ForgeComps.init({ email: member.auth && member.auth.email, getToken: () => memberToken }); }
     catch (e) { console.error('Comps panel failed to start', e); }
@@ -1011,7 +1044,7 @@ function leadCardHtml(r) {
   const tags = metas.map(m => `<span class="tag" style="background:${m.color}22; color:${m.color}">${m.label}</span>`).join('');
   return `
     <div class="ps-lead-card" id="ps-card-${r.id}">
-      <div class="addr">${escHtml(r.address)}</div>
+      <div class="addr"${marketingUi ? ` data-market-detail="${escHtml(r.id)}"` : ''}>${escHtml(r.address)}</div>
       ${cityStateZip(r.details) ? `<div class="addr-city">${escHtml(cityStateZip(r.details))}</div>` : ''}
       <div>${tags}</div>
       <div class="meta">Owner: <strong>${escHtml(r.owner || 'Unknown')}</strong></div>
@@ -1019,6 +1052,8 @@ function leadCardHtml(r) {
       ${propertyCharsLine(r.details)}
       ${propertyLinksLine(r.mapUrl, r.zillowUrl)}
       <div class="actions">
+        ${marketingUi ? `<label class="ps-market-check"><input type="checkbox" data-market-check="${escHtml(r.id)}"${marketSelected.has(String(r.id)) ? ' checked' : ''}> Select</label>
+        <button type="button" class="btn-market" data-market-one="${escHtml(r.id)}">Market to this property</button>` : ''}
         <button class="btn-save" id="ps-save-${r.id}" onclick="saveLead('${r.id}', this)">Save Lead</button>
         ${window.ForgeComps ? window.ForgeComps.buttonFor('result', r.id) : ''}
       </div>
@@ -1161,6 +1196,7 @@ async function performSearch({ append, generation, start }) {
 }
 
 function clearSearch() {
+  marketSelected.clear();
   window.ForgePropertySearchPaging.clearState(searchState);
   document.getElementById('ps-location-input').value = '';
   selectedPlays.clear();
@@ -1219,7 +1255,129 @@ async function saveLead(id, btn) {
   }
 }
 
+let marketingUi = false;
+const marketSelected = new Set();
+let detailLeadId = '';
+
+function enableMarketingEntry() {
+  marketingUi = true;
+  const bar = document.getElementById('ps-market-bar');
+  if (bar) { bar.hidden = false; bar.style.display = 'flex'; }
+  if (lastResults.length) {
+    document.getElementById('ps-grid').innerHTML = lastResults.map(leadCardHtml).join('');
+  }
+  updateMarketButtons();
+}
+
+function updateMarketButtons() {
+  const selectedBtn = document.getElementById('ps-market-selected');
+  const loadedBtn = document.getElementById('ps-market-loaded');
+  if (selectedBtn) selectedBtn.textContent = marketSelected.size ? `Market to these (${marketSelected.size})` : 'Market to these';
+  if (loadedBtn) loadedBtn.textContent = `Market to all loaded (${lastResults.length})`;
+}
+
+function leadForMarketing(r) {
+  const d = r.details || {};
+  return {
+    id: r.id,
+    address: r.address || '',
+    owner: r.owner || '',
+    city: d.city || '',
+    state: d.state || '',
+    zip: d.zip || '',
+    propertyType: d.propertyType || '',
+    units: d.units || d.unitCount || null,
+    playIds: r.playIds || [],
+    equity: r.equity,
+  };
+}
+
+function openMarketing(leads) {
+  if (!marketingUi || !window.ForgeMarketingEntry) return;
+  if (!leads.length) {
+    alert('Select at least one property, or market every property loaded on this page.');
+    return;
+  }
+  window.ForgeMarketingEntry.writeLeads({
+    version: 1,
+    source: 'property-search',
+    createdAt: new Date().toISOString(),
+    location: document.getElementById('ps-location-input').value.trim(),
+    leadTypes: Array.from(selectedPlays),
+    totalMatched: searchState.total || leads.length,
+    loadedCount: lastResults.length,
+    leads: leads.map(leadForMarketing),
+  });
+  window.location.href = 'marketing.html';
+}
+
+function bindMarketingUi() {
+  const grid = document.getElementById('ps-grid');
+  if (grid && !grid.dataset.marketBound) {
+    grid.dataset.marketBound = '1';
+    grid.addEventListener('click', (event) => {
+      const one = event.target.closest('[data-market-one]');
+      if (one) {
+        const lead = lastResults.find(r => String(r.id) === one.getAttribute('data-market-one'));
+        if (lead) openMarketing([lead]);
+        return;
+      }
+      const detail = event.target.closest('[data-market-detail]');
+      if (detail) openPropertyDetail(detail.getAttribute('data-market-detail'));
+    });
+    grid.addEventListener('change', (event) => {
+      const box = event.target.closest('[data-market-check]');
+      if (!box) return;
+      const id = box.getAttribute('data-market-check');
+      if (box.checked) marketSelected.add(id);
+      else marketSelected.delete(id);
+      updateMarketButtons();
+    });
+  }
+  const selectedBtn = document.getElementById('ps-market-selected');
+  const loadedBtn = document.getElementById('ps-market-loaded');
+  const closeBtn = document.getElementById('ps-detail-close');
+  const detailBtn = document.getElementById('ps-detail-market');
+  if (selectedBtn && !selectedBtn.dataset.bound) {
+    selectedBtn.dataset.bound = '1';
+    selectedBtn.addEventListener('click', () => {
+      openMarketing(lastResults.filter(r => marketSelected.has(String(r.id))));
+    });
+  }
+  if (loadedBtn && !loadedBtn.dataset.bound) {
+    loadedBtn.dataset.bound = '1';
+    loadedBtn.addEventListener('click', () => openMarketing(lastResults.slice()));
+  }
+  if (closeBtn && !closeBtn.dataset.bound) {
+    closeBtn.dataset.bound = '1';
+    closeBtn.addEventListener('click', () => { document.getElementById('ps-detail').hidden = true; });
+  }
+  if (detailBtn && !detailBtn.dataset.bound) {
+    detailBtn.dataset.bound = '1';
+    detailBtn.addEventListener('click', () => {
+      const lead = lastResults.find(r => String(r.id) === String(detailLeadId));
+      if (lead) openMarketing([lead]);
+    });
+  }
+}
+
+function openPropertyDetail(id) {
+  if (!marketingUi) return;
+  const lead = lastResults.find(r => String(r.id) === String(id));
+  if (!lead) return;
+  detailLeadId = lead.id;
+  const d = lead.details || {};
+  document.getElementById('ps-detail-body').innerHTML = `
+    <h2>${escHtml(lead.address || 'Property')}</h2>
+    <p>${escHtml(cityStateZip(d) || '')}</p>
+    <p>Owner: <strong>${escHtml(lead.owner || 'Unknown')}</strong></p>
+    <p>Property type: ${escHtml(d.propertyType || 'Not on this record. Assign it in Marketing if ARIS cannot tell.')}</p>
+    <p>Est. equity: ${lead.equity ? '$' + escHtml(lead.equity) + 'K' : '—'}</p>`;
+  document.getElementById('ps-detail').hidden = false;
+}
+
 function initPropertySearch() {
+  bindMarketingUi();
   applyUrlFilters();
   renderPlayList();
   renderTypeList();

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Marketing | FORGE</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/css/marketing.css">
+<script src="https://static.memberstack.com/scripts/v1/memberstack.js" data-memberstack-app="app_cmr41qq5500q80tsx94pj61rc" defer></script>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <a href="dashboard.html"><img src="/assets/forge-logo-wide.png" alt="FORGE"></a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Navigation</div>
+      <a class="nav-item" href="dashboard.html"><span class="nav-icon">🏠</span>Dashboard</a>
+      <a class="nav-item" href="aris-coach.html"><span class="nav-icon">⚡</span>ARIS AI Coach</a>
+      <a class="nav-item" href="deal-analyzer.html"><span class="nav-icon">🔍</span>Deal Analyzer</a>
+      <a class="nav-item" href="property-search.html"><span class="nav-icon">📍</span>Property Search</a>
+      <a class="nav-item" href="crm.html"><span class="nav-icon">📋</span>Deal CRM</a>
+      <a class="nav-item" href="deal-network.html"><span class="nav-icon">🤝</span>Deal Network</a>
+      <a class="nav-item" href="capital-radar.html"><span class="nav-icon">🎯</span>Capital Radar</a>
+      <a class="nav-item" href="market-oracle.html"><span class="nav-icon">🔮</span>Market Oracle</a>
+      <a class="nav-item" href="document-vault.html"><span class="nav-icon">📂</span>Document Vault</a>
+      <a class="nav-item" href="education.html"><span class="nav-icon">🏛</span>Education</a>
+      <a class="nav-item" href="real-estate-lab.html"><span class="nav-icon">🎭</span>Real Estate Lab</a>
+      <a class="nav-item active" href="marketing.html" data-mkt-nav="1"><span class="nav-icon">📣</span>Marketing</a>
+    </div>
+    <div class="sidebar-footer">
+      <div class="profile-chip" onclick="window.location.href='profile.html'">
+        <div class="user-avatar" id="sidebar-avatar"><span id="sidebar-initials">JD</span></div>
+        <div class="user-info">
+          <div class="user-name" id="sidebar-name">Member</div>
+          <div class="user-tier" id="sidebar-tier">Member</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="mkt-scroll">
+      <div id="mkt-loading">Checking Marketing access…</div>
+      <div id="mkt-locked" hidden></div>
+      <div id="mkt-app" hidden>
+        <header class="mkt-top">
+          <div>
+            <div class="mkt-kicker">Marketing · New campaign</div>
+            <h1>Choose your <span>marketing</span></h1>
+            <p class="mkt-lead">Pick how you want to reach these owners. ARIS marks the best fit for your list. This step writes copy only.</p>
+          </div>
+          <div class="mkt-top-actions">
+            <button type="button" data-action="show-flow">Campaign</button>
+            <button type="button" data-action="show-brand">Brand Kit</button>
+          </div>
+        </header>
+        <div class="mkt-banner">Example workflow. Nothing is sent and nothing is charged. FORGE does not send email or text. You are responsible for what you send from your own phone and platforms.</div>
+        <div id="mkt-steps"></div>
+        <div class="mkt-layout">
+          <div id="mkt-main"></div>
+          <aside id="mkt-preview"></aside>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<script src="/assets/js/marketing-catalog.js"></script>
+<script src="/assets/js/marketing-entry.js"></script>
+<script src="/assets/js/marketing-app.js"></script>
+<script>
+let memberToken = null;
+let currentPlanName = 'Member';
+
+function waitForMemberstack(maxWaitMs = 6000, intervalMs = 100) {
+  return new Promise((resolve) => {
+    const start = Date.now();
+    (function poll() {
+      if (window.$memberstackReady || (window.$memberstackDom && window.$memberstackDom.getCurrentMember)) resolve(true);
+      else if (Date.now() - start >= maxWaitMs) resolve(false);
+      else setTimeout(poll, intervalMs);
+    })();
+  });
+}
+
+window.onload = async () => {
+  try {
+    await waitForMemberstack();
+    const memberstack = window.$memberstackDom;
+    const { data: member } = await memberstack.getCurrentMember();
+    if (!member) {
+      window.location.href = 'login.html';
+      return;
+    }
+    const FOUNDING_MEMBER_PRICE_IDS = ['prc_497-97-3m13d01j8', 'prc_247-97-ne13e01d6', 'prc_997-97-5fmt0nr5', 'prc_-97-direct-ka9b0lq3'];
+    const FORGE_ZERO_PLAN_ID = 'pln_forge-zero-psnx0aea';
+    const EMPIRE_PLAN_ID = 'pln_empire--871c00ah3';
+    const FOUNDATION_EMPIRE_PLAN_ID = 'pln_foundation-empire-eh1bv0h3e';
+    const FOUNDATION_EMPIRE_MANUAL_PLAN_ID = 'pln_foundation-empire-manual--ztoj0c72';
+    const FOUNDATION_PLAN_ID = 'pln_foundation--s11cv0hs9';
+    const WEBINAR_997_FOUNDATION_PLAN_ID = 'pln_forge-webinar-997-foundation-ry00fq6';
+    const FOUNDATION_180_PLAN_ID = 'pln_foundation-180-month-payment-plan--gy4q09u4';
+    const FOUNDING_MEMBER_VIP_PLAN_ID = 'pln_founding-member-vip--mzs707z3';
+    const FOUNDING_MEMBER_PLAN_ID = 'pln_founding-member-a1p70rff';
+    const FORTIVA_1997_PLAN_ID = 'pln_fortiva-foundation-1997-xt5g037j';
+    const FORTIVA_1497_PLAN_ID = 'pln_fortiva-foundation-1497-3k4v0yug';
+    const FWN_LAUNCH_PLAN_ID = 'pln_forge-launch-fwn--md00xzj';
+    const FWN_ACCELERATOR_PLAN_ID = 'pln_forge-accelerator-fwn--dz20xmt';
+    const FWN_997_PLAN_ID = 'pln_forge-fwn-997-9x30xu2';
+    const FWN_1797_PLAN_ID = 'pln_forge-fwn-1-797-es40xk6';
+    const WEBINAR_997_PLAN_ID = 'pln_forge-webinar-997-lw00b81';
+    const WEBINAR_1797_PLAN_ID = 'pln_forge-webinar-1-797-uf10b07';
+    const WEBINAR_2997_RICH_PLAN_ID = 'pln_forge-webinar-2-997-empire-rich-groves-k90037e';
+    const activeConn = (member.planConnections || []).find(
+      pc => (FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) || pc.planId === FORGE_ZERO_PLAN_ID || pc.planId === FOUNDATION_PLAN_ID || pc.planId === WEBINAR_997_FOUNDATION_PLAN_ID || pc.planId === FOUNDATION_180_PLAN_ID || pc.planId === FOUNDATION_EMPIRE_PLAN_ID || pc.planId === FOUNDATION_EMPIRE_MANUAL_PLAN_ID || pc.planId === FORTIVA_1997_PLAN_ID || pc.planId === FORTIVA_1497_PLAN_ID || pc.planId === FOUNDING_MEMBER_PLAN_ID || pc.planId === FOUNDING_MEMBER_VIP_PLAN_ID || pc.planId === FWN_LAUNCH_PLAN_ID || pc.planId === FWN_ACCELERATOR_PLAN_ID || pc.planId === FWN_997_PLAN_ID || pc.planId === FWN_1797_PLAN_ID || pc.planId === WEBINAR_997_PLAN_ID || pc.planId === WEBINAR_1797_PLAN_ID || pc.planId === WEBINAR_2997_RICH_PLAN_ID) && (pc.status === 'ACTIVE' || pc.status === 'TRIALING')
+    );
+    const hasActiveMembership = !!activeConn;
+    if (!hasActiveMembership) {
+      const planNeedsPayment = (member.planConnections || []).some(pc => {
+        if (!pc) return false;
+        const status = String(pc.status || '').toUpperCase();
+        return status !== 'ACTIVE' && status !== 'TRIALING';
+      });
+      window.location.href = planNeedsPayment ? 'billing.html?payment=failed' : 'signup.html';
+      return;
+    }
+    const hasEmpireAccess = (member.planConnections || []).some(pc =>
+      (pc.status === 'ACTIVE' || pc.status === 'TRIALING') && (
+        pc.planId === EMPIRE_PLAN_ID ||
+        pc.planId === FOUNDATION_EMPIRE_PLAN_ID ||
+        pc.planId === FOUNDATION_EMPIRE_MANUAL_PLAN_ID ||
+        pc.planId === FORGE_ZERO_PLAN_ID ||
+        FOUNDING_MEMBER_PRICE_IDS.includes(pc.payment?.priceId) ||
+        pc.planId === FOUNDING_MEMBER_PLAN_ID ||
+        pc.planId === FOUNDING_MEMBER_VIP_PLAN_ID ||
+        pc.planId === FWN_LAUNCH_PLAN_ID ||
+        pc.planId === FWN_ACCELERATOR_PLAN_ID ||
+        pc.planId === FWN_997_PLAN_ID ||
+        pc.planId === FWN_1797_PLAN_ID || pc.planId === WEBINAR_997_PLAN_ID || pc.planId === WEBINAR_1797_PLAN_ID || pc.planId === WEBINAR_2997_RICH_PLAN_ID
+      )
+    );
+    const PLAN_NAME_OVERRIDES = { 'pln_founding-member-a1p70rff': 'Founding Member' };
+    currentPlanName = PLAN_NAME_OVERRIDES[activeConn?.planId] || 'Member';
+    memberToken = await memberstack.getMemberCookie();
+    const customFields = member.customFields || {};
+    const fullName = customFields['full-name'] || (customFields['first-name'] ? customFields['first-name'] + ' ' + (customFields['last-name'] || '') : null) || member.auth?.email || 'Member';
+    const initials = fullName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+    document.getElementById('sidebar-name').textContent = fullName;
+    document.getElementById('sidebar-tier').textContent = currentPlanName;
+    document.getElementById('sidebar-initials').textContent = initials;
+    if (window.ForgeMarketingApp) {
+      await window.ForgeMarketingApp.start({
+        token: memberToken,
+        empire: hasEmpireAccess,
+        sender: {
+          name: fullName,
+          phone: customFields.phone || customFields['phone-number'] || '',
+        },
+      });
+    }
+  } catch (e) {}
+};
+</script>
+</body>
+</html>

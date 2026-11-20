@@ -1,0 +1,808 @@
+// Marketing campaign screen. Copy and export only.
+(function (root, factory) {
+  var api = factory();
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  if (root) root.ForgeMarketingApp = api;
+})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+  function loadCatalog() {
+    if (typeof globalThis !== 'undefined' && globalThis.ForgeMarketingCatalog) return globalThis.ForgeMarketingCatalog;
+    return require('./marketing-catalog.js');
+  }
+
+  function esc(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function createState(seed) {
+    var input = seed || {};
+    return {
+      view: 'flow',
+      step: 1,
+      goal: input.goal || 'sellers',
+      propertyClass: input.propertyClass || 'residential',
+      filter: input.filter || 'all',
+      recommendedFirst: input.recommendedFirst !== false,
+      selected: Object.assign({}, input.selected || {}),
+      copies: {
+        residential: Object.assign({}, (input.copies && input.copies.residential) || {}),
+        commercial: Object.assign({}, (input.copies && input.copies.commercial) || {}),
+      },
+      approved: Object.assign({}, input.approved || {}),
+      leads: Array.isArray(input.leads) ? input.leads.slice() : [],
+      brands: Array.isArray(input.brands) ? input.brands.slice() : [],
+      brandId: input.brandId || '',
+      empire: !!input.empire,
+      brandLimit: input.brandLimit || (input.empire ? 3 : 1),
+      reviewer: !!input.reviewer,
+      sender: input.sender || { name: '', phone: '' },
+      previewId: input.previewId || '',
+      message: '',
+      recommendation: '',
+      attested: false,
+      usingSample: false,
+      swatches: Array.isArray(input.swatches) ? input.swatches.slice() : [],
+    };
+  }
+
+  function activeBrand(state) {
+    return (state.brands || []).filter(function (brand) { return brand.id === state.brandId; })[0] || null;
+  }
+
+  function split(state) {
+    return loadCatalog().splitLeads(state.leads);
+  }
+
+  function unknownLeft(state) {
+    return split(state).unknown.length;
+  }
+
+  function selectedIds(state) {
+    return Object.keys(state.selected || {}).filter(function (id) { return state.selected[id]; });
+  }
+
+  function currentCopies(state) {
+    return state.copies[state.propertyClass] || {};
+  }
+
+  function renderSteps(state) {
+    var steps = [
+      [1, 'Goal & list'],
+      [2, 'Marketing type'],
+      [3, 'Copy'],
+      [4, 'Approve'],
+      [5, 'Cost'],
+      [6, 'Confirm'],
+    ];
+    return '<ol class="mkt-steps">' + steps.map(function (step) {
+      var disabled = step[0] > 4;
+      var cls = disabled ? 'is-disabled' : (state.step === step[0] ? 'is-current' : (state.step > step[0] ? 'is-done' : ''));
+      var tag = disabled ? '<span>' : '<button type="button" data-action="step" data-step="' + step[0] + '">';
+      var end = disabled ? '</span>' : '</button>';
+      return '<li class="' + cls + '">' + tag + '<b>' + step[0] + '</b> ' + esc(step[1]) + (disabled ? ' · coming soon' : '') + end + '</li>';
+    }).join('') + '</ol>';
+  }
+
+  function renderGoal(state) {
+    var catalog = loadCatalog();
+    var groups = split(state);
+    var leads = state.leads || [];
+    var brand = activeBrand(state);
+    var mailMissing = brand ? mailMissingFields(brand) : ['business name', 'return address', 'phone'];
+    var offer = !state.brandId
+      ? '<div class="mkt-offer"><p>I can set up your Brand Kit in about two minutes: logo, colors, and the name and phone that go on every piece. You can skip it. Skipping uses a plain template with your name and phone, and no FORGE branding.</p><button type="button" data-action="show-brand">Set up Brand Kit</button></div>'
+      : '';
+    var summary = leads.length
+      ? '<p class="mkt-count">You selected <strong>' + leads.length + '</strong> ' + (leads.length === 1 ? 'property' : 'properties') + (groups.residential.length ? ' · ' + groups.residential.length + ' residential' : '') + (groups.commercial.length ? ' · ' + groups.commercial.length + ' commercial' : '') + (groups.unknown.length ? ' · ' + groups.unknown.length + ' to assign' : '') + '.</p>'
+      : '<p class="mkt-count">No properties are loaded. Start from Property Search, or use one sample property so you can see the flow. The sample is not a real address.</p><button type="button" class="mkt-secondary" data-action="use-sample">Use a sample property</button>';
+    var unknown = groups.unknown.map(function (lead) {
+      var current = lead.assignedClass || '';
+      return '<li><span>' + esc(lead.address || 'Unknown address') + '</span> <select data-assign="' + esc(lead.id) + '"><option value="">Assign</option><option value="residential"' + (current === 'residential' ? ' selected' : '') + '>Residential</option><option value="commercial"' + (state.empire ? '' : ' disabled') + (current === 'commercial' ? ' selected' : '') + '>Commercial' + (state.empire ? '' : ' (Empire)') + '</option></select></li>';
+    }).join('');
+    var goals = [
+      ['sellers', 'Find motivated sellers'],
+      ['followup', 'Follow up on a lead list'],
+      ['buyers', 'Market a real estate deal to cash buyers'],
+    ].map(function (goal) {
+      return '<label class="mkt-choice' + (state.goal === goal[0] ? ' is-on' : '') + '"><input type="radio" name="mkt-goal" value="' + goal[0] + '"' + (state.goal === goal[0] ? ' checked' : '') + '> ' + esc(goal[1]) + '</label>';
+    }).join('');
+    var commercialLock = !state.empire && groups.commercial.length
+      ? '<p class="mkt-note">Commercial marketing is part of Empire. Those properties stay out of this campaign until the plan includes Empire.</p>'
+      : '';
+    var mailNote = mailMissing.length
+      ? '<p class="mkt-note">Before any mail copy can be exported, the Brand Kit needs your ' + esc(mailMissing.join(', ')) + '. Logo, colors, and headshot stay optional.</p>'
+      : '';
+    return offer + summary + (unknown ? '<h3>Assign property types ARIS will not guess</h3><ul class="mkt-assign">' + unknown + '</ul>' : '') + commercialLock + '<h3>What do you want this campaign to do?</h3><div class="mkt-choices">' + goals + '</div>' + '<p class="mkt-aris">' + esc(catalog.recommendationText(state.propertyClass)) + '</p>' + mailNote + (state.message ? '<p class="mkt-message">' + esc(state.message) + '</p>' : '') + '<div class="mkt-row"><button type="button" data-action="continue-goal">Continue</button></div>';
+  }
+
+  function mailMissingFields(brand) {
+    var missing = [];
+    if (!brand || !String(brand.businessName || '').trim()) missing.push('business name');
+    var digits = String(brand && brand.phone || '').replace(/\D/g, '');
+    if (digits.length < 7) missing.push('phone');
+    var addr = (brand && brand.returnAddress) || {};
+    if (!String(addr.line1 || '').trim() || !String(addr.city || '').trim() || !String(addr.state || '').trim() || !String(addr.zip || '').trim()) missing.push('return address');
+    return missing;
+  }
+
+  function renderCard(channel, opts) {
+    var catalog = loadCatalog();
+    var options = opts || {};
+    var name = catalog.displayName(channel, options.propertyClass);
+    var description = catalog.displayDescription(channel, options.propertyClass);
+    var fulfill = channel.group === 'fulfill';
+    var selected = !!options.selected;
+    var coming = channel.copy === false;
+    var button = coming
+      ? '<button type="button" class="mkt-select" disabled>Coming soon</button>'
+      : '<button type="button" class="mkt-select' + (selected ? ' is-selected' : '') + '" data-action="toggle" data-id="' + esc(channel.id) + '">' + (selected ? 'Selected' : 'Write copy') + '</button>';
+    return '<article class="mkt-card' + (selected ? ' is-selected' : '') + (options.recommended ? ' is-recommended' : '') + '">' +
+      (options.recommended ? '<div class="mkt-badge">ARIS recommended</div>' : '') +
+      '<button type="button" class="mkt-art" data-action="preview" data-id="' + esc(channel.id) + '" aria-label="Preview ' + esc(name) + '">' + catalog.artSvg(channel.id) + '</button>' +
+      '<div class="mkt-card-body">' +
+      '<span class="mkt-pill ' + (fulfill ? 'is-fulfill' : 'is-copy') + '">' + (fulfill ? 'FORGE fulfills (coming soon)' : 'Copy only') + '</span>' +
+      '<h3>' + esc(name) + '</h3>' +
+      '<p>' + esc(description) + '</p>' +
+      '<div class="mkt-price">' + esc(channel.price) + ' <span>example · not charged</span></div>' +
+      button +
+      '</div></article>';
+  }
+
+  function renderPicker(state) {
+    var catalog = loadCatalog();
+    var cards = catalog.visibleChannels({
+      propertyClass: state.propertyClass,
+      filter: state.filter,
+      recommendedFirst: state.recommendedFirst,
+      goal: state.goal,
+    });
+    var empireLock = state.empire ? '' : ' disabled';
+    var filters = [
+      ['all', 'All'],
+      ['fulfill', 'FORGE fulfills'],
+      ['copy', 'Copy only'],
+    ].map(function (item) {
+      return '<button type="button" class="mkt-chip' + (state.filter === item[0] ? ' is-on' : '') + '" data-action="filter" data-filter="' + item[0] + '">' + item[1] + '</button>';
+    }).join('');
+    return '<div class="mkt-filters">' +
+      '<div class="mkt-class">' +
+      '<button type="button" class="' + (state.propertyClass === 'residential' ? 'is-on' : '') + '" data-action="class" data-class="residential">Residential</button>' +
+      '<button type="button" class="' + (state.propertyClass === 'commercial' ? 'is-on' : '') + '"' + empireLock + ' data-action="class" data-class="commercial">Commercial' + (state.empire ? '' : ' · Empire') + '</button>' +
+      '</div>' +
+      '<div class="mkt-chip-row">' + filters +
+      '<label class="mkt-sort"><input type="checkbox" data-action="recommended-first"' + (state.recommendedFirst ? ' checked' : '') + '> Recommended first</label>' +
+      '</div></div>' +
+      '<p class="mkt-aris">' + esc(state.recommendation || catalog.recommendationText(state.propertyClass)) + '</p>' +
+      (state.message ? '<p class="mkt-message">' + esc(state.message) + '</p>' : '') +
+      '<div class="mkt-grid">' + cards.map(function (row) {
+        return renderCard(row.channel, {
+          propertyClass: state.propertyClass,
+          recommended: row.recommended,
+          selected: !!state.selected[row.channel.id],
+        });
+      }).join('') + '</div>' +
+      '<div class="mkt-row"><button type="button" data-action="generate">Write copy with ARIS</button></div>';
+  }
+
+  function renderCopy(state) {
+    var catalog = loadCatalog();
+    var copies = currentCopies(state);
+    var ids = selectedIds(state).filter(function (id) { return copies[id]; });
+    if (!ids.length) return '<p>Nothing has been written yet.</p><button type="button" data-action="step" data-step="2">Back to the picker</button>';
+    return '<p class="mkt-aris">' + esc(state.recommendation || '') + '</p>' + ids.map(function (id) {
+      var channel = catalog.channelById(id);
+      var piece = copies[id];
+      var name = catalog.displayName(channel, state.propertyClass);
+      return '<article class="mkt-draft"><h3>' + esc(name) + '</h3><p class="mkt-source">' + (piece.source === 'aris' ? 'Written by ARIS. Edit it before you approve it.' : 'Starting draft. ARIS did not return this one, so edit it before you approve it.') + '</p><h4>Variant A</h4><pre>' + esc(piece.variantA) + '</pre><h4>Variant B</h4><pre>' + esc(piece.variantB) + '</pre></article>';
+    }).join('') + '<div class="mkt-row"><button type="button" data-action="step" data-step="4">Edit and approve</button></div>';
+  }
+
+  function renderApprove(state) {
+    var catalog = loadCatalog();
+    var copies = currentCopies(state);
+    var ids = selectedIds(state).filter(function (id) { return copies[id]; });
+    var needsAttest = ids.some(function (id) {
+      var channel = catalog.channelById(id);
+      return channel && channel.attest;
+    });
+    var blocks = ids.map(function (id) {
+      var channel = catalog.channelById(id);
+      var piece = copies[id];
+      var name = catalog.displayName(channel, state.propertyClass);
+      var key = state.propertyClass + ':' + id;
+      return '<article class="mkt-draft"><h3>' + esc(name) + '</h3>' +
+        '<label>Variant A<textarea data-copy="' + esc(key) + '" data-variant="variantA">' + esc(piece.variantA) + '</textarea></label>' +
+        '<label>Variant B<textarea data-copy="' + esc(key) + '" data-variant="variantB">' + esc(piece.variantB) + '</textarea></label>' +
+        '<label class="mkt-check"><input type="checkbox" data-approve="' + esc(key) + '"' + (state.approved[key] ? ' checked' : '') + '> Approve this piece</label></article>';
+    }).join('');
+    var attest = needsAttest
+      ? '<label class="mkt-check mkt-attest"><input type="checkbox" data-attest="1"' + (state.attested ? ' checked' : '') + '> ' + esc(catalog.ATTESTATION_TEXT) + '</label><p class="mkt-note">' + esc(catalog.INFO_ONLY_LABEL) + ' Phone numbers are not shown in this step.</p>'
+      : '';
+    return blocks + attest +
+      '<div class="mkt-notice"><strong>You are responsible.</strong> ' + esc(catalog.STUDENT_NOTICE) + '</div>' +
+      '<div class="mkt-notice">' + esc(catalog.COMPLIANCE_REMINDER) + '</div>' +
+      '<div class="mkt-row"><button type="button" data-action="export">Export copy</button></div>' +
+      (state.message ? '<p class="mkt-message">' + esc(state.message) + '</p>' : '');
+  }
+
+  function renderBrand(state) {
+    var catalog = loadCatalog();
+    var brand = activeBrand(state) || {
+      businessName: state.sender.name || '',
+      phone: state.sender.phone || '',
+      disclosure: catalog.DISCLOSURE_DEFAULT,
+      returnAddress: {},
+      colors: {},
+    };
+    var addr = brand.returnAddress || {};
+    var slots = (state.brands || []).map(function (row) {
+      return '<button type="button" class="mkt-chip' + (row.id === state.brandId ? ' is-on' : '') + '" data-action="pick-brand" data-id="' + esc(row.id) + '">' + esc(row.label || row.businessName || 'Brand') + '</button>';
+    }).join('');
+    var add = state.brands.length < state.brandLimit
+      ? '<button type="button" class="mkt-secondary" data-action="new-brand">Add a brand</button>'
+      : '<p class="mkt-note">' + (state.empire ? 'Empire includes 3 brands.' : 'Foundation includes one Brand Kit. More brands are part of Empire.') + '</p>';
+    return '<form id="mkt-brand-form" class="mkt-brand">' +
+      '<div class="mkt-chip-row">' + slots + add + '</div>' +
+      '<p class="mkt-note">Students change the logo, the colors, and the text. Fonts and layouts stay on the neutral template. The template does not carry FORGE branding.</p>' +
+      '<label>Business name<input name="businessName" value="' + esc(brand.businessName || '') + '"></label>' +
+      '<label>Phone<input name="phone" value="' + esc(brand.phone || '') + '"></label>' +
+      '<label>Website<input name="website" value="' + esc(brand.website || '') + '"></label>' +
+      '<label>Email<input name="email" value="' + esc(brand.email || '') + '"></label>' +
+      '<label>Sign-off<input name="signOff" value="' + esc(brand.signOff || '') + '"></label>' +
+      '<label>Tagline (optional)<input name="tagline" value="' + esc(brand.tagline || '') + '"></label>' +
+      '<label>Disclosure line<textarea name="disclosure">' + esc(brand.disclosure || catalog.DISCLOSURE_DEFAULT) + '</textarea></label>' +
+      '<div class="mkt-address"><span>Mailing return address</span>' +
+      '<input name="line1" placeholder="Street" value="' + esc(addr.line1 || '') + '">' +
+      '<input name="line2" placeholder="Line 2" value="' + esc(addr.line2 || '') + '">' +
+      '<input name="city" placeholder="City" value="' + esc(addr.city || '') + '">' +
+      '<input name="state" placeholder="State" value="' + esc(addr.state || '') + '">' +
+      '<input name="zip" placeholder="ZIP" value="' + esc(addr.zip || '') + '"></div>' +
+      '<div class="mkt-colors"><label>Primary<input name="primary" value="' + esc((brand.colors && brand.colors.primary) || '') + '" placeholder="#1F3348"></label>' +
+      '<label>Accent<input name="accent" value="' + esc((brand.colors && brand.colors.accent) || '') + '" placeholder="#5C6B7A"></label></div>' +
+      '<p class="mkt-note">Upload a logo and ARIS will suggest three colors from it. You can keep them or type your own.</p>' +
+      ((state.swatches || []).length ? '<div class="mkt-chip-row">' + state.swatches.map(function (hex, index) {
+        var slot = index === 0 ? 'primary' : 'accent';
+        return '<button type="button" data-action="apply-swatch" data-slot="' + slot + '" data-hex="' + esc(hex) + '">Use ' + slot + ' ' + esc(hex) + '</button>';
+      }).join('') + '</div>' : '') +
+      '<label class="mkt-check"><input type="checkbox" name="rights"> ' + esc(catalog.RIGHTS_TEXT) + ' A headshot must be of you, or of someone who gave permission.</label>' +
+      '<div class="mkt-row"><label class="mkt-file">Logo PNG or SVG<input type="file" accept="image/png,image/svg+xml,.svg" data-upload="logo"></label>' +
+      '<label class="mkt-file">Headshot JPG or PNG<input type="file" accept="image/png,image/jpeg" data-upload="headshot"></label>' +
+      '<button type="button" data-action="save-brand">Save Brand Kit</button></div>' +
+      (state.message ? '<p class="mkt-message">' + esc(state.message) + '</p>' : '') +
+      '</form>';
+  }
+
+  function renderMain(state) {
+    if (state.view === 'brand') return renderBrand(state);
+    if (state.step === 2) return renderPicker(state);
+    if (state.step === 3) return renderCopy(state);
+    if (state.step === 4) return renderApprove(state);
+    return renderGoal(state);
+  }
+
+  function previewLead(state) {
+    var catalog = loadCatalog();
+    var groups = split(state);
+    var pool = state.propertyClass === 'commercial' ? groups.commercial : groups.residential;
+    return (pool && pool[0]) || (state.leads && state.leads[0]) || catalog.SAMPLE_LEAD;
+  }
+
+  function renderPreview(state) {
+    var catalog = loadCatalog();
+    var channel = catalog.channelById(state.previewId) || catalog.channelById('postcard');
+    var brand = activeBrand(state) || {};
+    var colors = brand.colors || {};
+    var primary = colors.primary || '#1F3348';
+    var accent = colors.accent || '#5C6B7A';
+    var ink = colors.textOnPrimary || '#F7F5F2';
+    var lead = previewLead(state);
+    var piece = (currentCopies(state)[channel.id]) || catalog.starterPiece(channel.id, {
+      propertyClass: state.propertyClass,
+      brand: brand,
+      sender: state.sender,
+      leads: [lead],
+    });
+    var sample = !state.leads.length || lead.sample;
+    var name = catalog.displayName(channel, state.propertyClass);
+    return '<div class="mkt-preview">' +
+      '<div class="mkt-kicker">Preview · tap any card</div>' +
+      '<h2>' + esc(name) + '</h2>' +
+      (sample ? '<p class="mkt-note">Sample data. Not a real owner and not a real address.</p>' : '') +
+      '<div class="mkt-piece" style="--brand:' + esc(primary) + ';--accent:' + esc(accent) + ';--ink:' + esc(ink) + '">' +
+      (brand.logo ? '<div class="mkt-logo">Logo on file</div>' : '') +
+      '<strong>' + esc(brand.businessName || state.sender.name || 'Your name') + '</strong>' +
+      '<p>' + esc(piece ? piece.variantA : '') + '</p>' +
+      '<div class="mkt-qr" aria-hidden="true"></div>' +
+      '<small>' + esc(brand.disclosure || catalog.DISCLOSURE_DEFAULT) + '</small>' +
+      '</div>' +
+      '<p class="mkt-price">' + esc(channel.price) + ' · example · not charged</p>' +
+      '<p class="mkt-note">Wallet, printing, and mailing are not in this step.</p></div>';
+  }
+
+  function lockedHtml() {
+    return '<div class="module-card coming" aria-disabled="true"><div class="module-icon">📣</div><div class="module-name">Marketing</div><div class="module-desc">Send mail and outreach campaigns to your leads, right from FORGE.</div><div class="module-status soon">Coming soon!</div></div><p class="mkt-note"><a href="dashboard.html">Back to the dashboard</a></p>';
+  }
+
+  function paint(state) {
+    var steps = document.getElementById('mkt-steps');
+    var main = document.getElementById('mkt-main');
+    var preview = document.getElementById('mkt-preview');
+    if (steps) steps.innerHTML = state.view === 'brand' ? '' : renderSteps(state);
+    if (main) main.innerHTML = renderMain(state);
+    if (preview) preview.innerHTML = state.view === 'brand' ? renderPreview(state) : renderPreview(state);
+  }
+
+  function readCopyEdits(state) {
+    document.querySelectorAll('[data-copy]').forEach(function (el) {
+      var parts = String(el.getAttribute('data-copy') || '').split(':');
+      var cls = parts[0];
+      var id = parts[1];
+      var variant = el.getAttribute('data-variant');
+      if (!state.copies[cls] || !state.copies[cls][id] || (variant !== 'variantA' && variant !== 'variantB')) return;
+      state.copies[cls][id][variant] = el.value;
+    });
+  }
+
+  function readBrandForm() {
+    var form = document.getElementById('mkt-brand-form');
+    if (!form) return null;
+    var val = function (name) {
+      var el = form.querySelector('[name="' + name + '"]');
+      return el ? el.value : '';
+    };
+    return {
+      id: '',
+      businessName: val('businessName'),
+      phone: val('phone'),
+      website: val('website'),
+      email: val('email'),
+      signOff: val('signOff'),
+      tagline: val('tagline'),
+      disclosure: val('disclosure'),
+      returnAddress: {
+        line1: val('line1'),
+        line2: val('line2'),
+        city: val('city'),
+        state: val('state'),
+        zip: val('zip'),
+      },
+      colors: { primary: val('primary'), accent: val('accent') },
+      rights: !!(form.querySelector('[name="rights"]') && form.querySelector('[name="rights"]').checked),
+    };
+  }
+
+  async function postJson(token, url, body) {
+    var response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: token ? 'Bearer ' + token : '',
+      },
+      body: JSON.stringify(body),
+    });
+    var data = {};
+    try { data = await response.json(); } catch (err) { data = {}; }
+    data.ok = response.ok;
+    data.status = response.status;
+    return data;
+  }
+
+  function cropSquare(file) {
+    return new Promise(function (resolve) {
+      if (!file || !/^image\/(png|jpeg)$/.test(file.type) || typeof document === 'undefined') {
+        resolve(file);
+        return;
+      }
+      var url = URL.createObjectURL(file);
+      var image = new Image();
+      image.onload = function () {
+        var side = Math.min(image.width, image.height);
+        var canvas = document.createElement('canvas');
+        canvas.width = side;
+        canvas.height = side;
+        canvas.getContext('2d').drawImage(image, Math.floor((image.width - side) / 2), Math.floor((image.height - side) / 2), side, side, 0, 0, side, side);
+        canvas.toBlob(function (blob) {
+          URL.revokeObjectURL(url);
+          if (!blob) { resolve(file); return; }
+          resolve(new File([blob], String(file.name || 'headshot').replace(/\.\w+$/, '') + '.png', { type: 'image/png' }));
+        }, 'image/png');
+      };
+      image.onerror = function () { URL.revokeObjectURL(url); resolve(file); };
+      image.src = url;
+    });
+  }
+
+  function fileToBase64(file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () { resolve(String(reader.result || '')); };
+      reader.onerror = function () { reject(new Error('Could not read that file.')); };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function sampleColors(file) {
+    return new Promise(function (resolve) {
+      if (!file || !/^image\/(png|jpeg|jpg)$/.test(file.type)) {
+        resolve([]);
+        return;
+      }
+      var url = URL.createObjectURL(file);
+      var image = new Image();
+      image.onload = function () {
+        var canvas = document.createElement('canvas');
+        canvas.width = 24;
+        canvas.height = 24;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(image, 0, 0, 24, 24);
+        var data = ctx.getImageData(0, 0, 24, 24).data;
+        var counts = {};
+        for (var i = 0; i < data.length; i += 16) {
+          if (data[i + 3] < 200) continue;
+          var hex = '#' + [data[i], data[i + 1], data[i + 2]].map(function (n) {
+            return Math.min(255, Math.round(n / 32) * 32).toString(16).padStart(2, '0');
+          }).join('');
+          counts[hex] = (counts[hex] || 0) + 1;
+        }
+        URL.revokeObjectURL(url);
+        resolve(Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; }).slice(0, 8));
+      };
+      image.onerror = function () { resolve([]); };
+      image.src = url;
+    });
+  }
+
+  async function onClick(state, event) {
+    var button = event.target.closest('[data-action]');
+    if (!button) return;
+    var action = button.getAttribute('data-action');
+    if (action === 'step') {
+      var next = Number(button.getAttribute('data-step'));
+      if (next >= 1 && next <= 4) {
+        if (state.step === 4) readCopyEdits(state);
+        state.step = next;
+        state.view = 'flow';
+        state.message = '';
+        paint(state);
+      }
+      return;
+    }
+    if (action === 'show-brand') {
+      state.view = 'brand';
+      state.message = '';
+      paint(state);
+      return;
+    }
+    if (action === 'show-flow' || action === 'continue-goal') {
+      if (action === 'continue-goal' && unknownLeft(state)) {
+        state.message = 'Assign every property ARIS could not classify. ARIS does not guess.';
+        paint(state);
+        return;
+      }
+      if (action === 'continue-goal' && state.propertyClass === 'commercial' && !state.empire) return;
+      state.view = 'flow';
+      if (action === 'continue-goal') state.step = 2;
+      state.message = '';
+      paint(state);
+      return;
+    }
+    if (action === 'class') {
+      var cls = button.getAttribute('data-class');
+      if (cls === 'commercial' && !state.empire) return;
+      state.propertyClass = cls === 'commercial' ? 'commercial' : 'residential';
+      state.previewId = '';
+      paint(state);
+      return;
+    }
+    if (action === 'filter') {
+      state.filter = button.getAttribute('data-filter') || 'all';
+      paint(state);
+      return;
+    }
+    if (action === 'toggle' || action === 'preview') {
+      var id = button.getAttribute('data-id');
+      if (action === 'toggle') state.selected[id] = !state.selected[id];
+      state.previewId = id;
+      paint(state);
+      return;
+    }
+    if (action === 'use-sample') {
+      var sample = Object.assign({}, loadCatalog().SAMPLE_LEAD);
+      state.leads = [sample];
+      state.usingSample = true;
+      state.propertyClass = 'residential';
+      paint(state);
+      return;
+    }
+    if (action === 'pick-brand') {
+      state.brandId = button.getAttribute('data-id');
+      paint(state);
+      return;
+    }
+    if (action === 'new-brand') {
+      state.brandId = '';
+      paint(state);
+      return;
+    }
+    if (action === 'apply-swatch') {
+      var slot = button.getAttribute('data-slot') === 'accent' ? 'accent' : 'primary';
+      var field = document.querySelector('#mkt-brand-form [name="' + slot + '"]');
+      if (field) field.value = button.getAttribute('data-hex') || '';
+      return;
+    }
+    if (action === 'generate') return generate(state);
+    if (action === 'save-brand') return saveBrand(state);
+    if (action === 'export') return exportCopy(state);
+  }
+
+  function onChange(state, event) {
+    var target = event.target;
+    if (target && target.name === 'mkt-goal') {
+      state.goal = target.value;
+      paint(state);
+      return;
+    }
+    if (target && target.hasAttribute('data-assign')) {
+      var leadId = target.getAttribute('data-assign');
+      state.leads.forEach(function (lead) {
+        if (String(lead.id) === leadId) lead.assignedClass = target.value;
+      });
+      paint(state);
+      return;
+    }
+    if (target && target.hasAttribute('data-approve')) {
+      state.approved[target.getAttribute('data-approve')] = target.checked;
+      return;
+    }
+    if (target && target.hasAttribute('data-attest')) {
+      state.attested = target.checked;
+      return;
+    }
+    if (target && target.hasAttribute('data-action') && target.getAttribute('data-action') === 'recommended-first') {
+      state.recommendedFirst = target.checked;
+      paint(state);
+      return;
+    }
+    if (target && target.hasAttribute('data-upload')) {
+      uploadFile(state, target.getAttribute('data-upload'), target.files && target.files[0]);
+    }
+  }
+
+  async function saveBrand(state) {
+    var form = readBrandForm();
+    if (!form) return;
+    form.id = state.brandId || '';
+    var saved = await postJson(state.token, '/api/marketing-brand', { action: 'save', brand: form });
+    if (!saved.ok) {
+      state.message = saved.error || 'Brand Kit could not be saved.';
+      paint(state);
+      return;
+    }
+    if (saved.brand) {
+      state.brandId = saved.brand.id;
+      var replaced = false;
+      state.brands = state.brands.map(function (row) {
+        if (row.id === saved.brand.id) { replaced = true; return saved.brand; }
+        return row;
+      });
+      if (!replaced) state.brands.push(saved.brand);
+    }
+    state.message = saved.flagged
+      ? 'Saved. The name was flagged for John to review. Nothing was emailed.'
+      : 'Brand Kit saved.';
+    if (form.colors && (form.colors.primary || form.colors.accent)) {
+      state.message += ' Colors saved.';
+    }
+    paint(state);
+  }
+
+  async function uploadFile(state, kind, file) {
+    if (!file) return;
+    var form = readBrandForm();
+    if (!form || !form.rights) {
+      state.message = 'Check the rights box before you upload.';
+      paint(state);
+      return;
+    }
+    if (!state.brandId) {
+      await saveBrand(state);
+      if (!state.brandId) return;
+    }
+    if (kind === 'headshot') file = await cropSquare(file);
+    var dataBase64 = await fileToBase64(file);
+    var uploaded = await postJson(state.token, '/api/marketing-brand', {
+      action: 'upload',
+      brandId: state.brandId,
+      kind: kind,
+      fileName: file.name,
+      dataBase64: dataBase64,
+      rightsAccepted: true,
+    });
+    if (!uploaded.ok) {
+      state.message = uploaded.error || 'That file could not be saved.';
+      paint(state);
+      return;
+    }
+    if (kind === 'logo') {
+      var samples = uploaded.swatches && uploaded.swatches.length ? uploaded.swatches : await sampleColors(file);
+      if (samples.length) {
+        var suggested = await postJson(state.token, '/api/marketing-brand', { action: 'suggest', samples: samples });
+        if (suggested.ok && suggested.swatches) {
+          state.swatches = suggested.swatches;
+          state.message = 'Suggested colors from the logo: ' + suggested.swatches.join(', ') + '. Use a swatch or type your own. ' + (uploaded.warnings || []).join(' ');
+        }
+      }
+    }
+    if (uploaded.brand) {
+      state.brands = state.brands.map(function (row) { return row.id === uploaded.brand.id ? uploaded.brand : row; });
+    }
+    if (!state.message) state.message = (uploaded.warnings || []).join(' ') || 'File saved.';
+    if (uploaded.flagged) state.message += ' Flagged for John. Nothing was emailed.';
+    paint(state);
+  }
+
+  async function generate(state) {
+    var catalog = loadCatalog();
+    var ids = selectedIds(state).filter(function (id) {
+      var channel = catalog.channelById(id);
+      return channel && channel.copy !== false && catalog.channelsForClass(state.propertyClass).some(function (row) { return row.id === id; });
+    });
+    if (!ids.length) {
+      state.message = 'Select at least one type ARIS can write. Printing and data services are coming soon.';
+      paint(state);
+      return;
+    }
+    var groups = split(state);
+    var leads = state.propertyClass === 'commercial' ? groups.commercial : groups.residential;
+    state.message = 'ARIS is writing…';
+    paint(state);
+    var result = await postJson(state.token, '/api/marketing-copy', {
+      action: 'generate',
+      goal: state.goal,
+      propertyClass: state.propertyClass,
+      channels: ids,
+      brandId: state.brandId,
+      leads: leads,
+      sender: state.sender,
+    });
+    if (!result.ok) {
+      ids.forEach(function (id) {
+        state.copies[state.propertyClass][id] = catalog.starterPiece(id, {
+          propertyClass: state.propertyClass,
+          brand: activeBrand(state),
+          sender: state.sender,
+          leads: leads,
+          softTone: (leads || []).some(function (lead) {
+            return (lead.playIds || []).indexOf('prefore') !== -1 || (lead.playIds || []).indexOf('inherited') !== -1;
+          }),
+        });
+      });
+      state.recommendation = catalog.recommendationText(state.propertyClass);
+      state.message = result.error || 'ARIS is unavailable, so these are starting drafts.';
+    } else {
+      (result.copies || []).forEach(function (piece) {
+        state.copies[state.propertyClass][piece.channel] = piece;
+      });
+      state.recommendation = result.recommendation || '';
+      state.message = '';
+    }
+    state.step = 3;
+    state.view = 'flow';
+    paint(state);
+  }
+
+  async function exportCopy(state) {
+    readCopyEdits(state);
+    var catalog = loadCatalog();
+    var copies = currentCopies(state);
+    var ids = selectedIds(state).filter(function (id) { return copies[id]; });
+    var pieces = ids.map(function (id) {
+      var key = state.propertyClass + ':' + id;
+      return {
+        channel: id,
+        variantA: copies[id].variantA,
+        variantB: copies[id].variantB,
+        approved: !!state.approved[key],
+      };
+    });
+    var needsAttest = ids.some(function (id) {
+      var channel = catalog.channelById(id);
+      return channel && channel.attest;
+    });
+    if (needsAttest && !state.attested) {
+      state.message = 'Export stays off until you confirm the calling and texting statement.';
+      paint(state);
+      return;
+    }
+    var result = await postJson(state.token, '/api/marketing-copy', {
+      action: 'export',
+      propertyClass: state.propertyClass,
+      channels: ids,
+      pieces: pieces,
+      brandId: state.brandId,
+      accepted: needsAttest ? true : false,
+    });
+    if (!result.ok) {
+      state.message = result.error || 'That copy could not be exported.';
+      paint(state);
+      return;
+    }
+    var blob = new Blob([result.text], { type: 'text/plain' });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = result.filename || 'forge-marketing-copy.txt';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    state.message = 'Exported. The compliance reminder is at the top of the file. FORGE did not send it.';
+    paint(state);
+  }
+
+  async function start(opts) {
+    var options = opts || {};
+    var loading = document.getElementById('mkt-loading');
+    var locked = document.getElementById('mkt-locked');
+    var app = document.getElementById('mkt-app');
+    var response = await fetch('/api/marketing-access', {
+      headers: options.token ? { Authorization: 'Bearer ' + options.token } : {},
+    });
+    var access = {};
+    try { access = await response.json(); } catch (err) { access = {}; }
+    if (loading) loading.hidden = true;
+    if (!response.ok || access.allowed !== true) {
+      if (locked) {
+        locked.hidden = false;
+        locked.innerHTML = lockedHtml();
+      }
+      return;
+    }
+    var stored = (root && root.ForgeMarketingEntry && root.ForgeMarketingEntry.readLeads) ? root.ForgeMarketingEntry.readLeads() : null;
+    var state = createState({
+      empire: !!access.empire,
+      brandLimit: access.brandLimit || (access.empire ? 3 : 1),
+      reviewer: !!access.reviewer,
+      leads: stored && stored.leads ? stored.leads : [],
+      sender: options.sender || {},
+    });
+    if (stored && stored.leads && stored.leads.length) {
+      var groups = loadCatalog().splitLeads(stored.leads);
+      if (!groups.residential.length && groups.commercial.length && access.empire) state.propertyClass = 'commercial';
+    }
+    state.token = options.token;
+    var brandResponse = await fetch('/api/marketing-brand', {
+      headers: { Authorization: 'Bearer ' + options.token },
+    });
+    if (brandResponse.ok) {
+      var brandDoc = await brandResponse.json();
+      state.brands = brandDoc.brands || [];
+      state.brandId = state.brands[0] ? state.brands[0].id : '';
+    }
+    if (app) {
+      app.hidden = false;
+      app.addEventListener('click', function (event) { onClick(state, event); });
+      app.addEventListener('change', function (event) { onChange(state, event); });
+    }
+    paint(state);
+  }
+
+  return {
+    createState: createState,
+    renderSteps: renderSteps,
+    renderGoal: renderGoal,
+    renderCard: renderCard,
+    renderPicker: renderPicker,
+    renderCopy: renderCopy,
+    renderApprove: renderApprove,
+    renderBrand: renderBrand,
+    renderMain: renderMain,
+    renderPreview: renderPreview,
+    lockedHtml: lockedHtml,
+    mailMissingFields: mailMissingFields,
+    start: start,
+  };
+});

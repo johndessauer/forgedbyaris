@@ -1,0 +1,103 @@
+:root {
+  --black: #0D1B2A;
+  --navy: #0f2035;
+  --navy-light: #162840;
+  --navy-mid: #1a3350;
+  --orange: #FF6B2B;
+  --orange-dim: rgba(255,107,43,0.12);
+  --gold: #C89B3C;
+  --gold-dim: rgba(200,155,60,0.15);
+  --green: #22c55e;
+  --green-dim: rgba(34,197,94,0.12);
+  --white: #FFFFFF;
+  --grey: #6B7280;
+  --grey-light: #9CA3AF;
+  --border: rgba(200,155,60,0.18);
+  --border-sub: rgba(255,255,255,0.06);
+  --sidebar-w: 240px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; background: var(--black); color: var(--white); font-family: Inter, sans-serif; }
+a { color: var(--gold); }
+button, input, textarea, select { font-family: inherit; }
+.app { display: flex; min-height: 100vh; }
+.sidebar { width: var(--sidebar-w); background: var(--navy); border-right: 1px solid var(--border-sub); display: flex; flex-direction: column; }
+.sidebar-logo { padding: 18px 16px 12px; border-bottom: 1px solid var(--border-sub); }
+.sidebar-logo img { width: 148px; height: auto; display: block; }
+.sidebar-section { padding: 16px 12px 8px; }
+.sidebar-section-label { font-size: 9px; letter-spacing: 2.5px; text-transform: uppercase; color: var(--grey); padding: 0 6px; margin-bottom: 6px; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 6px; font-size: 13px; font-weight: 500; color: var(--grey-light); text-decoration: none; }
+.nav-item:hover { background: var(--border-sub); color: var(--white); }
+.nav-item.active { background: var(--orange-dim); color: var(--orange); border: 1px solid rgba(255,107,43,0.2); }
+.sidebar-footer { margin-top: auto; padding: 16px 14px; border-top: 1px solid var(--border-sub); }
+.profile-chip { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; background: var(--border-sub); cursor: pointer; }
+.user-avatar { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, var(--gold), #a07820); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--black); }
+.user-name { font-size: 12px; font-weight: 600; }
+.user-tier { font-size: 10px; color: var(--gold); letter-spacing: 1px; text-transform: uppercase; }
+.main { flex: 1; min-width: 0; }
+.mkt-scroll { padding: 22px 28px 48px; }
+.mkt-kicker { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--gold); }
+.mkt-top { display: flex; justify-content: space-between; gap: 16px; align-items: flex-end; }
+.mkt-top h1 { font-family: 'Bebas Neue', sans-serif; font-size: 42px; letter-spacing: 1px; margin: 4px 0; font-weight: 400; }
+.mkt-top h1 span { color: var(--gold); }
+.mkt-lead, .mkt-note, .mkt-aris, .mkt-count { color: var(--grey-light); line-height: 1.5; font-size: 14px; }
+.mkt-banner { margin: 14px 0; padding: 8px 12px; border-radius: 8px; background: #3a2a12; color: #f0d48a; font-size: 12px; letter-spacing: 0.4px; text-align: center; }
+.mkt-steps { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; padding: 0; margin: 0 0 16px; }
+.mkt-steps li button, .mkt-steps li span { background: var(--navy-light); color: var(--grey-light); border: 1px solid var(--border-sub); border-radius: 999px; padding: 6px 10px; font-size: 12px; }
+.mkt-steps li.is-current button { background: var(--orange); color: white; border-color: var(--orange); }
+.mkt-steps li.is-done button { border-color: var(--gold); color: var(--gold); }
+.mkt-steps li.is-disabled span { opacity: 0.55; }
+.mkt-steps button { cursor: pointer; }
+.mkt-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; align-items: start; }
+.mkt-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.mkt-card { background: #12263c; border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; min-height: 280px; position: relative; }
+.mkt-card.is-selected { border-color: var(--orange); box-shadow: 0 0 0 1px var(--orange); }
+.mkt-badge { position: absolute; top: 8px; left: 8px; background: var(--gold); color: #1a1203; font-size: 9px; letter-spacing: 0.6px; text-transform: uppercase; font-weight: 700; padding: 3px 6px; border-radius: 4px; }
+.mkt-art { background: #0e1c2e; border: 0; padding: 16px 12px 8px; cursor: pointer; }
+.mkt-art svg { width: 100%; height: 84px; display: block; }
+.mkt-card-body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+.mkt-card h3 { margin: 0; font-size: 16px; letter-spacing: 0.4px; }
+.mkt-card p { margin: 0; color: var(--grey-light); font-size: 12px; line-height: 1.4; flex: 1; }
+.mkt-pill { align-self: flex-start; font-size: 9px; letter-spacing: 0.6px; text-transform: uppercase; font-weight: 700; border-radius: 4px; padding: 3px 6px; }
+.mkt-pill.is-fulfill { background: var(--green-dim); color: var(--green); }
+.mkt-pill.is-copy { background: rgba(255,255,255,0.06); color: var(--grey-light); }
+.mkt-price { color: var(--gold); font-weight: 700; font-size: 14px; }
+.mkt-price span { display: block; font-weight: 500; color: var(--grey-light); font-size: 11px; }
+.mkt-preview .mkt-price { font-weight: 500; color: var(--grey-light); font-size: 11px; }
+.mkt-select, .mkt-row button, .mkt-offer button, .mkt-brand button[data-action="save-brand"] { background: #24344a; color: white; border: 0; border-radius: 8px; padding: 8px 12px; cursor: pointer; }
+.mkt-select.is-selected, .mkt-row button, .mkt-offer button, .mkt-brand button[data-action="save-brand"] { background: var(--orange); }
+.mkt-select:disabled { opacity: 0.55; cursor: default; }
+.mkt-filters { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+.mkt-class, .mkt-chip-row, .mkt-row, .mkt-top-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.mkt-class button, .mkt-chip, .mkt-secondary, .mkt-top-actions button { background: var(--navy-light); color: var(--grey-light); border: 1px solid var(--border-sub); border-radius: 999px; padding: 6px 12px; cursor: pointer; }
+.mkt-class button.is-on, .mkt-chip.is-on { background: var(--gold-dim); color: var(--gold); border-color: var(--gold); }
+.mkt-class button:disabled { opacity: 0.5; cursor: not-allowed; }
+.mkt-offer, .mkt-draft, .mkt-notice, .mkt-preview, .module-card { background: var(--navy-light); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin: 0 0 12px; }
+.mkt-choice { display: block; padding: 8px 0; }
+.mkt-assign { list-style: none; padding: 0; }
+.mkt-assign li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--border-sub); }
+.mkt-draft pre, .mkt-draft textarea, .mkt-brand textarea, .mkt-brand input { width: 100%; background: #0d1b2a; color: white; border: 1px solid var(--border-sub); border-radius: 8px; padding: 8px; }
+.mkt-draft textarea { min-height: 110px; }
+.mkt-brand { display: flex; flex-direction: column; gap: 8px; }
+.mkt-address { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mkt-colors { display: flex; gap: 8px; }
+.mkt-check { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: var(--grey-light); }
+.mkt-message { color: var(--gold); }
+.mkt-piece { background: #f7f5f2; color: #1a1a1a; border-radius: 10px; padding: 12px; border-top: 4px solid var(--brand, #1F3348); }
+.mkt-piece strong { color: var(--brand, #1F3348); }
+.mkt-piece p { white-space: pre-wrap; font-size: 12px; }
+.mkt-piece small { display: block; color: #5c6b7a; }
+.mkt-qr { width: 42px; height: 42px; margin-left: auto; background: repeating-linear-gradient(90deg, #1a1a1a 0 4px, transparent 4px 8px), repeating-linear-gradient(#1a1a1a 0 4px, #fff 4px 8px); }
+.module-card.coming { opacity: 0.7; max-width: 280px; }
+.module-name { font-family: 'Bebas Neue', sans-serif; letter-spacing: 1px; font-size: 20px; }
+.module-status.soon { display: inline-block; margin-top: 8px; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--grey); }
+#mkt-locked, #mkt-loading { padding: 28px; }
+@media (max-width: 1100px) {
+  .mkt-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mkt-layout { grid-template-columns: 1fr; }
+  .sidebar { display: none; }
+}
+@media (max-width: 640px) {
+  .mkt-grid { grid-template-columns: 1fr; }
+  .mkt-scroll { padding: 16px; }
+}
