@@ -11,6 +11,7 @@ const brandApi = require('../netlify/functions/marketing-brand');
 const copyApi = require('../netlify/functions/marketing-copy');
 const accessApi = require('../netlify/functions/marketing-access');
 const app = require('../assets/js/marketing-app');
+const pricing = require('../netlify/functions/_Lib/marketing-pricing');
 
 const root = path.join(__dirname, '..');
 function read(rel) { return fs.readFileSync(path.join(root, rel), 'utf8'); }
@@ -387,6 +388,47 @@ test('the home card stays Coming soon and the flagged surfaces are wired', () =>
     selected: { call: true },
     copies: { residential: { call: { variantA: 'A', variantB: 'B' } }, commercial: {} },
   })), new RegExp(catalog.ATTESTATION_TEXT.slice(0, 40).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+});
+
+test('order lines keep vendor cost, markup, and student price without showing the provider', () => {
+  const postcard = pricing.orderLine('postcard', 47);
+  assert.equal(postcard.unitVendorCostCents, 91);
+  assert.equal(postcard.unitStudentPriceCents, 109);
+  assert.equal(postcard.vendorCostCents + postcard.markupCents, postcard.studentPriceCents);
+  assert.equal(postcard.markupRate, pricing.MAIL_MARKUP_RATE);
+  assert.equal(postcard.provider, pricing.MAIL_PROVIDER);
+  assert.equal(postcard.billing.method, null);
+  assert.equal(postcard.billing.stripeReference, null);
+  assert.equal(postcard.billing.walletDebitCents, null);
+
+  const letter = pricing.orderLine('letter', 1);
+  assert.equal(letter.vendorCostCents + letter.markupCents, letter.studentPriceCents);
+  assert.equal(letter.markupRate, 0.20);
+  assert.equal(letter.provider, pricing.MAIL_PROVIDER);
+
+  const hanger = pricing.orderLine('door-hanger', 1000);
+  const sign = pricing.orderLine('bandit', 100);
+  assert.equal(hanger.markupRate, pricing.PRINT_MARKUP_RATE);
+  assert.equal(sign.markupRate, pricing.PRINT_MARKUP_RATE);
+  assert.ok(pricing.PRINT_MARKUP_RATE >= 0.25 && pricing.PRINT_MARKUP_RATE <= pricing.PRINT_MARKUP_RATE_MAX);
+  assert.equal(hanger.shippingCents, null);
+  assert.equal(hanger.vendorCostCents + hanger.markupCents, hanger.studentPriceCents);
+  assert.equal(sign.vendorCostCents + sign.markupCents, sign.studentPriceCents);
+  assert.equal(pricing.BASIS.handwritten.provider, null);
+  assert.equal(pricing.BASIS.handwritten.markupRate, 0.20);
+
+  const shown = pricing.publicQuote(postcard);
+  assert.equal(Object.prototype.hasOwnProperty.call(shown, 'provider'), false);
+  assert.equal(JSON.stringify(shown).toLowerCase().includes(pricing.MAIL_PROVIDER), false);
+
+  assert.equal(pricing.orderLine('call', 3).priced, false);
+  assert.equal(pricing.orderLine('skip-trace', 10).priced, false);
+  assert.equal(pricing.orderLine('skip-trace', 10).studentPriceCents, null);
+
+  const memberFiles = ['marketing.html', 'assets/js/marketing-app.js', 'assets/js/marketing-entry.js', 'assets/css/marketing.css']
+    .map(read).join('\n');
+  assert.equal(new RegExp('\\b' + pricing.MAIL_PROVIDER + '\\b', 'i').test(memberFiles), false);
+  assert.equal(catalog.containsVendorName(app.renderPicker(app.createState({ empire: true, propertyClass: 'residential' }))), false);
 });
 
 test('marketing access denies a signed-out caller', async () => {
