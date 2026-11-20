@@ -12,6 +12,15 @@ const PRINT_MARKUP_RATE_MIN = 0.25;
 const PRINT_MARKUP_RATE_MAX = 0.35;
 const MAIL_PROVIDER = 'lob';
 const LOB_CHANNELS = Object.freeze(['postcard', 'letter']);
+
+// A handwritten-style note is printed as the standard 4x6 postcard.
+// Letters stay one-page letters. Anything else is not mailed.
+function mailFormat(channelId) {
+  const id = String(channelId || '');
+  if (id === 'postcard' || id === 'handwritten') return 'postcard';
+  if (id === 'letter') return 'letter';
+  return '';
+}
 const TOP_UPS_CENTS = Object.freeze([2500, 5000, 10000, 25000]);
 
 // Mail unit costs are Lob Developer edition, the plan a new account gets
@@ -145,19 +154,21 @@ function quoteOrder(channels, quantity, env) {
     seen[key] = true;
     const basis = BASIS[key];
     if (!basis || !basis.priced) return;
-    const mailed = LOB_CHANNELS.indexOf(key) !== -1;
-    const rate = basis.medium === 'print' ? printRate : MAIL_MARKUP_RATE;
-    const unitStudent = Math.round(basis.vendorCostCents * (1 + rate));
-    const unitMarkup = unitStudent - basis.vendorCostCents;
+    const format = mailFormat(key);
+    const priceBasis = format ? BASIS[format] : basis;
+    const mailed = !!format;
+    const rate = priceBasis.medium === 'print' ? printRate : MAIL_MARKUP_RATE;
+    const unitStudent = Math.round(priceBasis.vendorCostCents * (1 + rate));
+    const unitMarkup = unitStudent - priceBasis.vendorCostCents;
     const count = mailed ? qty : 0;
     lines.push({
       channelId: key,
       medium: basis.medium,
       mailed: mailed,
       quantity: mailed ? qty : 0,
-      unitVendorCostCents: basis.vendorCostCents,
+      unitVendorCostCents: priceBasis.vendorCostCents,
       unitStudentPriceCents: unitStudent,
-      vendorCostCents: basis.vendorCostCents * count,
+      vendorCostCents: priceBasis.vendorCostCents * count,
       markupRate: rate,
       markupCents: unitMarkup * count,
       studentPriceCents: unitStudent * count,
@@ -199,6 +210,7 @@ module.exports = {
   LETTER_BW_STANDARD_USD: LETTER_BW_STANDARD_USD,
   publishedCents: publishedCents,
   LOB_CHANNELS: LOB_CHANNELS,
+  mailFormat: mailFormat,
   TOP_UPS_CENTS: TOP_UPS_CENTS,
   BASIS: BASIS,
   orderLine: orderLine,

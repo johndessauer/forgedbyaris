@@ -188,12 +188,15 @@ test('confirm debits the wallet, sends a test postcard, and returns the credits 
     ],
   });
   assert.equal(sent.status, 200);
-  assert.equal(sent.body.chargedCents, 109);
+  assert.equal(sent.body.chargedCents, 218);
   assert.equal(sent.body.testMode, true);
-  assert.equal((await wallet.readWallet(box.blob, 'mem_john')).balanceCents, 10000 - 109);
-  assert.equal(box.calls.length, 1);
+  assert.equal((await wallet.readWallet(box.blob, 'mem_john')).balanceCents, 10000 - 218);
+  assert.equal(box.calls.length, 2);
   assert.equal(box.calls[0].url, 'https://api.lob.com/v1/postcards');
+  assert.equal(box.calls[1].url, 'https://api.lob.com/v1/postcards');
   const mailed = JSON.parse(box.calls[0].init.body);
+  const note = JSON.parse(box.calls[1].init.body);
+  assert.equal(note.size, '4x6');
   assert.equal(mailed.size, '4x6');
   assert.equal(mailed.mail_type, 'usps_first_class');
   assert.match(mailed.front, /#1F3348/);
@@ -211,8 +214,8 @@ test('confirm debits the wallet, sends a test postcard, and returns the credits 
     pieces: [{ channel: 'postcard', variantA: 'Hello', approved: true }],
   });
   assert.equal(replay.body.duplicate, true);
-  assert.equal((await wallet.readWallet(box.blob, 'mem_john')).balanceCents, 10000 - 109);
-  assert.equal(box.calls.length, 1);
+  assert.equal((await wallet.readWallet(box.blob, 'mem_john')).balanceCents, 10000 - 218);
+  assert.equal(box.calls.length, 2);
 
   const broken = rig({
     blob: box.blob,
@@ -230,7 +233,7 @@ test('confirm debits the wallet, sends a test postcard, and returns the credits 
   const letterBody = JSON.parse(broken.calls[0].init.body);
   assert.equal(letterBody.color, false);
   assert.equal(letterBody.mail_type, 'usps_standard');
-  assert.equal((await wallet.readWallet(box.blob, 'mem_john')).balanceCents, 10000 - 109);
+  assert.equal((await wallet.readWallet(box.blob, 'mem_john')).balanceCents, 10000 - 218);
 
   const live = rig({ blob: box.blob, env: { LOB_API_KEY: 'live_secret' } });
   const blocked = await live.call(orderApi.createHandler(live.deps), {
@@ -243,7 +246,41 @@ test('confirm debits the wallet, sends a test postcard, and returns the credits 
   assert.equal(blocked.status, 403);
   assert.match(blocked.body.error, /not a test key/);
   assert.equal(live.calls.length, 0);
-  assert.equal((await wallet.readWallet(box.blob, 'mem_john')).balanceCents, 10000 - 109);
+  assert.equal((await wallet.readWallet(box.blob, 'mem_john')).balanceCents, 10000 - 218);
+});
+
+test('an approved handwritten-style note continues to cost as a 4x6 postcard', () => {
+  const note = pricing.quoteOrder(['handwritten'], 1, {});
+  assert.equal(pricing.mailFormat('handwritten'), 'postcard');
+  assert.equal(note.lines[0].mailed, true);
+  assert.equal(note.lines[0].unitVendorCostCents, pricing.publishedCents(pricing.POSTCARD_4X6_FIRST_CLASS_USD));
+  assert.equal(note.lines[0].unitStudentPriceCents, 109);
+  assert.equal(note.chargedCents, 109);
+
+  function draft(selected, approved) {
+    return app.createState({
+      propertyClass: 'residential',
+      selected: selected,
+      copies: {
+        residential: {
+          handwritten: { variantA: 'Note', variantB: 'B' },
+          postcard: { variantA: 'Card', variantB: 'B' },
+          call: { variantA: 'Call', variantB: 'B' },
+        },
+        commercial: {},
+      },
+      approved: approved,
+    });
+  }
+  const mailed = app.renderApprove(draft({ handwritten: true }, { 'residential:handwritten': true }));
+  assert.match(mailed, /Continue to cost/);
+  assert.match(app.renderApprove(draft({ postcard: true }, { 'residential:postcard': true })), /Continue to cost/);
+  const own = app.renderApprove(draft({ call: true }, { 'residential:call': true }));
+  assert.match(own, /These pieces are send-it-yourself and there's nothing to mail/);
+  assert.equal(own.includes('Continue to cost'), false);
+  const waiting = app.renderApprove(draft({ postcard: true }, {}));
+  assert.equal(waiting.includes('Continue to cost'), false);
+  assert.equal(waiting.includes('nothing to mail'), false);
 });
 
 test('the markup report is allowlist-only and lists Lob cost, price, and markup', async () => {
