@@ -179,7 +179,7 @@
     if (propertyClass === 'commercial') {
       return 'For a commercial list I would start with a formal letter, a call script for the decision maker, and networking. Bandit signs and door hangers are not offered on commercial marketing. Cadence stays slower, with more value in each touch.';
     }
-    return 'For a residential list I would start with a postcard, a handwritten-style note, and a door-knock script, then a letter. You run the calls, texts, and door knocking yourself. Printing and mailing from FORGE is coming soon, so this step only drafts the copy.';
+    return 'For a residential list I would start with a postcard, a handwritten-style note, and a door-knock script, then a letter. You run the calls, texts, and door knocking yourself. Mail from FORGE is in test mode, so nothing is really printed yet.';
   }
 
   function displayName(channel, propertyClass) {

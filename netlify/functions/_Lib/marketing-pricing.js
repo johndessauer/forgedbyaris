@@ -1,16 +1,18 @@
-// Step 2 pricing shape. Nothing here charges a card, opens a wallet, or
-// places an order. Member pages must not import this file: the mail
+// Marketing prices. Member pages must not import this file: the mail
 // provider name stays off every screen and out of ARIS copy.
 //
-// Decided for step 2 (not built): a prepaid Stripe credit wallet, mail at
-// vendor cost + 20%, printed goods at vendor cost + 25% to 35%. Each
-// future order line keeps vendor cost, the markup, and the student price
-// so the three numbers still add up after rounding.
+// Mail and postage: vendor cost × 1.20.
+// Printed goods: vendor cost + 25% to 35%, default 30% (MARKETING_PRINT_MARKUP).
+// Only postcards and letters are charged and mailed. Each line keeps
+// vendor cost, markup, and student price so the three numbers add up.
 
 const MAIL_MARKUP_RATE = 0.20;
-const PRINT_MARKUP_RATE = 0.25;
+const PRINT_MARKUP_RATE = 0.30;
+const PRINT_MARKUP_RATE_MIN = 0.25;
 const PRINT_MARKUP_RATE_MAX = 0.35;
 const MAIL_PROVIDER = 'lob';
+const LOB_CHANNELS = Object.freeze(['postcard', 'letter']);
+const TOP_UPS_CENTS = Object.freeze([2500, 5000, 10000, 25000]);
 
 // Vendor unit costs are the published list prices from the spec, in cents,
 // rounded to the nearest cent. Student unit price is that cost times
@@ -103,6 +105,58 @@ function orderLine(channelId, quantity) {
   };
 }
 
+function printMarkupRate(env) {
+  const raw = Number(env && env.MARKETING_PRINT_MARKUP);
+  if (!Number.isFinite(raw)) return PRINT_MARKUP_RATE;
+  return Math.min(PRINT_MARKUP_RATE_MAX, Math.max(PRINT_MARKUP_RATE_MIN, raw));
+}
+
+function sumBy(rows, key) {
+  return rows.reduce(function (total, row) { return total + (Number(row[key]) || 0); }, 0);
+}
+
+// Mail that this step can hand to the mail service is charged.
+// Printed goods are priced and shown, and are not charged or sent yet.
+function quoteOrder(channels, quantity, env) {
+  const qty = Math.max(0, Math.floor(Number(quantity) || 0));
+  const printRate = printMarkupRate(env);
+  const lines = [];
+  const seen = {};
+  (channels || []).forEach(function (id) {
+    const key = String(id || '');
+    if (!key || seen[key]) return;
+    seen[key] = true;
+    const basis = BASIS[key];
+    if (!basis || !basis.priced) return;
+    const mailed = LOB_CHANNELS.indexOf(key) !== -1;
+    const rate = basis.medium === 'print' ? printRate : MAIL_MARKUP_RATE;
+    const unitStudent = Math.round(basis.vendorCostCents * (1 + rate));
+    const unitMarkup = unitStudent - basis.vendorCostCents;
+    const count = mailed ? qty : 0;
+    lines.push({
+      channelId: key,
+      medium: basis.medium,
+      mailed: mailed,
+      quantity: mailed ? qty : 0,
+      unitVendorCostCents: basis.vendorCostCents,
+      unitStudentPriceCents: unitStudent,
+      vendorCostCents: basis.vendorCostCents * count,
+      markupRate: rate,
+      markupCents: unitMarkup * count,
+      studentPriceCents: unitStudent * count,
+    });
+  });
+  const charged = lines.filter(function (row) { return row.mailed; });
+  return {
+    lines: lines,
+    leadCount: qty,
+    vendorCostCents: sumBy(charged, 'vendorCostCents'),
+    chargedCents: sumBy(charged, 'studentPriceCents'),
+    markupCents: sumBy(charged, 'markupCents'),
+    testMode: String(env && env.MARKETING_LIVE_MAIL || '') !== 'true',
+  };
+}
+
 // Safe to show a member. The provider name is not on this object.
 function publicQuote(line) {
   const row = line || {};
@@ -121,9 +175,14 @@ function publicQuote(line) {
 module.exports = {
   MAIL_MARKUP_RATE: MAIL_MARKUP_RATE,
   PRINT_MARKUP_RATE: PRINT_MARKUP_RATE,
+  PRINT_MARKUP_RATE_MIN: PRINT_MARKUP_RATE_MIN,
   PRINT_MARKUP_RATE_MAX: PRINT_MARKUP_RATE_MAX,
   MAIL_PROVIDER: MAIL_PROVIDER,
+  LOB_CHANNELS: LOB_CHANNELS,
+  TOP_UPS_CENTS: TOP_UPS_CENTS,
   BASIS: BASIS,
   orderLine: orderLine,
   publicQuote: publicQuote,
+  printMarkupRate: printMarkupRate,
+  quoteOrder: quoteOrder,
 };

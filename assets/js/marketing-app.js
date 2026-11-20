@@ -46,6 +46,8 @@
       usingSample: false,
       swatches: Array.isArray(input.swatches) ? input.swatches.slice() : [],
       logoUrls: Object.assign({}, input.logoUrls || {}),
+      quote: input.quote || null,
+      confirmKey: '',
     };
   }
 
@@ -79,7 +81,7 @@
       [6, 'Confirm'],
     ];
     return '<ol class="mkt-steps">' + steps.map(function (step) {
-      var disabled = step[0] > 4;
+      var disabled = false;
       var cls = disabled ? 'is-disabled' : (state.step === step[0] ? 'is-current' : (state.step > step[0] ? 'is-done' : ''));
       var tag = disabled ? '<span>' : '<button type="button" data-action="step" data-step="' + step[0] + '">';
       var end = disabled ? '</span>' : '</button>';
@@ -204,13 +206,65 @@
       '<button type="button" class="mkt-who' + (state.propertyClass === 'residential' ? ' is-on' : '') + '" data-action="class" data-class="residential"><strong>Residential</strong><span>Homeowners</span></button>' +
       '<button type="button" class="mkt-who' + (state.propertyClass === 'commercial' ? ' is-on' : '') + '"' + commercialLock + ' data-action="class" data-class="commercial"><strong>Commercial</strong><span>Business and property owners</span>' + (state.empire ? '' : '<em>Empire</em>') + '</button>' +
       '</div>' +
-      '<p class="mkt-legend">We mail it means FORGE will print or mail it later. You send it means you send it yourself. Printing and mailing are coming soon, so this step only drafts the copy.</p>' +
+      '<p class="mkt-legend">We mail it means FORGE can mail it in test mode. Nothing is really printed yet. You send it means you send it yourself. FORGE does not send email or text.</p>' +
       '<h2 class="mkt-ask">ARIS recommends</h2>' +
       '<p class="mkt-aris">' + esc(recommendLine(state.propertyClass)) + '</p>' +
       (state.message ? '<p class="mkt-message">' + esc(state.message) + '</p>' : '') +
       '<div class="mkt-pick-list">' + cards(picked) + '</div>' +
       '<details class="mkt-more"><summary>More options</summary><div class="mkt-pick-list">' + cards(more) + '</div></details>' +
       '<div class="mkt-row"><button type="button" data-action="generate">Write copy with ARIS</button></div>';
+  }
+
+  function money(cents) {
+    var n = Math.round(Number(cents) || 0);
+    var sign = n < 0 ? '-' : '';
+    var abs = Math.abs(n);
+    return sign + '$' + Math.floor(abs / 100) + '.' + String(abs % 100).padStart(2, '0');
+  }
+
+  function topUpButtons() {
+    return '<div class="mkt-row">' + [2500, 5000, 10000, 25000].map(function (cents) {
+      return '<button type="button" class="mkt-secondary" data-action="topup" data-amount="' + cents + '">Add ' + money(cents) + '</button>';
+    }).join('') + '</div>';
+  }
+
+  function costRows(state) {
+    var catalog = loadCatalog();
+    var quote = state.quote || { lines: [] };
+    return (quote.lines || []).map(function (line) {
+      var channel = catalog.channelById(line.channelId);
+      var name = catalog.displayName(channel, state.propertyClass) || line.channelId;
+      var total = line.mailed ? money(line.studentPriceCents) : 'Not charged in this test';
+      return '<tr><td>' + esc(name) + '</td><td>' + money(line.unitStudentPriceCents) + '</td><td>' + (line.mailed ? esc(line.quantity) : '—') + '</td><td>' + esc(total) + '</td></tr>';
+    }).join('');
+  }
+
+  function renderCost(state) {
+    var quote = state.quote;
+    var table = quote
+      ? '<table class="mkt-cost"><thead><tr><th>Piece</th><th>Each</th><th>Count</th><th>Total</th></tr></thead><tbody>' + costRows(state) + '</tbody></table>' +
+        '<p class="mkt-total"><strong>Test mail total</strong> ' + money(quote.chargedCents) + '</p>' +
+        '<p>Credit balance ' + money(quote.balanceCents) + (quote.shortfallCents ? '. Add ' + money(quote.shortfallCents) + ' before you confirm.' : '.') + '</p>'
+      : '<p class="mkt-note">The test price loads when you open this step.</p>';
+    return '<h2 class="mkt-ask">Cost</h2>' +
+      '<p class="mkt-note">Test mode. Nothing is really printed. FORGE does not send email or text.</p>' +
+      table + topUpButtons() +
+      (state.message ? '<p class="mkt-message">' + esc(state.message) + '</p>' : '') +
+      '<div class="mkt-row"><button type="button" data-action="step" data-step="6">Continue to confirm</button></div>';
+  }
+
+  function renderConfirm(state) {
+    var quote = state.quote || {};
+    var short = quote.shortfallCents > 0;
+    var button = short
+      ? '<p class="mkt-message">Add ' + money(quote.shortfallCents) + ' in test credits before this mailing.</p>' + topUpButtons()
+      : '<div class="mkt-row"><button type="button" data-action="confirm-mail">Confirm test mail</button></div>';
+    return '<h2 class="mkt-ask">Confirm</h2>' +
+      '<p class="mkt-note">Test mode. Confirming debits test credits and hands postcards and letters to the test mail service. Nothing is really printed. FORGE does not send email or text.</p>' +
+      '<p class="mkt-total"><strong>Test mail total</strong> ' + money(quote.chargedCents) + '</p>' +
+      '<p>Credit balance ' + money(quote.balanceCents) + '</p>' +
+      button +
+      (state.message ? '<p class="mkt-message">' + esc(state.message) + '</p>' : '');
   }
 
   function renderCopy(state) {
@@ -307,6 +361,8 @@
   function renderMain(state) {
     if (state.view === 'brand') return renderBrand(state);
     if (state.step === 2) return renderPicker(state);
+    if (state.step === 5) return renderCost(state);
+    if (state.step === 6) return renderConfirm(state);
     if (state.step === 3) return renderCopy(state);
     if (state.step === 4) return renderApprove(state);
     return renderGoal(state);
@@ -519,11 +575,16 @@
     var action = button.getAttribute('data-action');
     if (action === 'step') {
       var next = Number(button.getAttribute('data-step'));
-      if (next >= 1 && next <= 4) {
+      if (next >= 1 && next <= 6) {
         if (state.step === 4) readCopyEdits(state);
         state.step = next;
         state.view = 'flow';
         state.message = '';
+        if (next === 5 || next === 6) {
+          state.message = 'Loading the test price…';
+          paint(state);
+          await loadCost(state);
+        }
         paint(state);
       }
       return;
@@ -590,6 +651,8 @@
       return;
     }
     if (action === 'generate') return generate(state);
+    if (action === 'topup') return startTopUp(state, Number(button.getAttribute('data-amount')));
+    if (action === 'confirm-mail') return confirmMail(state);
     if (action === 'save-brand') return saveBrand(state);
     if (action === 'export') return exportCopy(state);
   }
@@ -755,6 +818,64 @@
       state.message = 'The upload did not go through. Try again.';
       paint(state);
     }
+  }
+
+  async function loadCost(state) {
+    var result = await postJson(state.token, '/api/marketing-order', {
+      action: 'quote',
+      channels: selectedIds(state),
+      leads: state.leads || [],
+      brandId: state.brandId,
+    });
+    if (!result.ok) {
+      state.message = result.error || 'The test price could not be loaded.';
+      return;
+    }
+    state.quote = result;
+    state.message = '';
+  }
+
+  async function startTopUp(state, cents) {
+    var result = await postJson(state.token, '/api/marketing-wallet', { action: 'topup', amountCents: cents });
+    if (result.ok && result.url) {
+      window.location.href = result.url;
+      return;
+    }
+    state.message = result.error || 'Test checkout is not configured.';
+    paint(state);
+  }
+
+  async function confirmMail(state) {
+    readCopyEdits(state);
+    var copies = currentCopies(state);
+    var pieces = selectedIds(state).filter(function (id) { return copies[id]; }).map(function (id) {
+      return {
+        channel: id,
+        variantA: copies[id].variantA,
+        variantB: copies[id].variantB,
+        approved: !!state.approved[state.propertyClass + ':' + id],
+      };
+    });
+    if (!state.confirmKey) state.confirmKey = 'cfm_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    var result = await postJson(state.token, '/api/marketing-order', {
+      action: 'confirm',
+      channels: selectedIds(state),
+      pieces: pieces,
+      leads: state.leads || [],
+      brandId: state.brandId,
+      idempotencyKey: state.confirmKey,
+    });
+    if (!result.ok) {
+      if (result.status !== 409) state.confirmKey = '';
+      state.message = result.error || 'The test mailing was not accepted.';
+      if (result.shortfallCents && state.quote) state.quote.shortfallCents = result.shortfallCents;
+      paint(state);
+      return;
+    }
+    if (state.quote) state.quote.balanceCents = result.balanceCents;
+    state.confirmKey = '';
+    state.message = 'Test mail accepted. Nothing was really printed.';
+    paint(state);
   }
 
   async function generate(state) {
@@ -925,6 +1046,8 @@
     renderPicker: renderPicker,
     renderCopy: renderCopy,
     renderApprove: renderApprove,
+    renderCost: renderCost,
+    renderConfirm: renderConfirm,
     renderBrand: renderBrand,
     renderMain: renderMain,
     renderPreview: renderPreview,
