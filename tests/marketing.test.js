@@ -562,6 +562,15 @@ test('a 500 by 500 PNG uploads as the raw file, and the rights box is required',
   assert.ok(page.indexOf('role="status"') < page.indexOf('Business name'));
   assert.match(page, /image\/webp/);
   assert.match(read('assets/js/marketing-app.js'), /Check the rights box to upload\./);
+  const brand = app.renderBrand(app.createState({ empire: true }));
+  const rightsAt = brand.indexOf('class="mkt-check"');
+  const uploadsAt = brand.indexOf('class="mkt-uploads"');
+  const saveAt = brand.indexOf('class="mkt-save"');
+  assert.ok(rightsAt > -1 && uploadsAt > rightsAt && saveAt > uploadsAt);
+  assert.match(brand.slice(rightsAt - 7, uploadsAt), /<label class="mkt-check"><input type="checkbox" name="rights"><span>I own this logo or image/);
+  assert.equal((brand.match(/class="mkt-file"/g) || []).length, 2);
+  assert.match(read('assets/css/marketing.css'), /input:not\(\[type="checkbox"\]\):not\(\[type="file"\]\)/);
+  assert.match(read('assets/css/marketing.css'), /\.mkt-uploads \{ display: grid; grid-template-columns: 1fr 1fr/);
 });
 
 test('the blob store is connected from the Lambda event before it opens', () => {

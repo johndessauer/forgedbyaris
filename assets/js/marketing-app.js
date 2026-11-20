@@ -270,11 +270,11 @@
         var slot = index === 0 ? 'primary' : 'accent';
         return '<button type="button" data-action="apply-swatch" data-slot="' + slot + '" data-hex="' + esc(hex) + '">Use ' + slot + ' ' + esc(hex) + '</button>';
       }).join('') + '</div>' : '') +
-      '<label class="mkt-check"><input type="checkbox" name="rights"> ' + esc(catalog.RIGHTS_TEXT) + ' A headshot must be of you, or of someone who gave permission.</label>' +
+      '<label class="mkt-check"><input type="checkbox" name="rights"><span>' + esc(catalog.RIGHTS_TEXT) + ' A headshot must be of you, or of someone who gave permission.</span></label>' +
       savedLogo + savedHead +
-      '<div class="mkt-row"><label class="mkt-file">Logo PNG, JPG, SVG, or WebP<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml,.png,.jpg,.jpeg,.webp,.svg" data-upload="logo"></label>' +
-      '<label class="mkt-file">Headshot JPG, PNG, or WebP<input type="file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" data-upload="headshot"></label>' +
-      '<button type="button" data-action="save-brand">Save Brand Kit</button></div>' +
+      '<div class="mkt-uploads"><label class="mkt-file"><span>Logo PNG, JPG, SVG, or WebP</span><input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml,.png,.jpg,.jpeg,.webp,.svg" data-upload="logo"></label>' +
+      '<label class="mkt-file"><span>Headshot JPG, PNG, or WebP</span><input type="file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" data-upload="headshot"></label></div>' +
+      '<div class="mkt-save"><button type="button" data-action="save-brand">Save Brand Kit</button></div>' +
       '</form>';
   }
 
