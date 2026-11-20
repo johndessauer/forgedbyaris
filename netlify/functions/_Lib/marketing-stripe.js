@@ -3,16 +3,15 @@
 // Live keys are refused. Live checkout env vars are never read.
 const crypto = require('crypto');
 const { TOP_UPS_CENTS } = require('./marketing-pricing');
-const { readRuntimeEnv } = require('./runtime-env');
+const { readRuntimeEnv, keyReason } = require('./runtime-env');
 
 function assertTestStripeKey(env) {
   const key = readRuntimeEnv(env, 'MARKETING_STRIPE_SECRET_KEY');
-  if (!key || !(key.startsWith('sk_test_') || key.startsWith('rk_test_'))) {
-    const err = new Error('Test checkout is not configured.');
-    err.statusCode = 503;
-    throw err;
-  }
-  return key;
+  if (key.startsWith('sk_test_') || key.startsWith('rk_test_')) return key;
+  const err = new Error('Test checkout is not configured.');
+  err.statusCode = 503;
+  err.reason = keyReason(key);
+  throw err;
 }
 
 function allowedTopUp(cents) {
@@ -21,7 +20,7 @@ function allowedTopUp(cents) {
 }
 
 async function createTopUpSession(options) {
-  const secret = assertTestStripeKey(options.env || {});
+  const secret = assertTestStripeKey(options.env);
   const amount = allowedTopUp(options.amountCents);
   if (!amount) {
     const err = new Error('Choose $25, $50, $100, or $250.');
