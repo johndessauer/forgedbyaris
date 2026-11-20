@@ -88,6 +88,10 @@ button, input, textarea, select { font-family: inherit; }
 .mkt-piece-lock { font-size: 11px; color: var(--grey); }
 .mkt-more { border: 1px solid var(--border-sub); border-radius: 10px; padding: 10px 12px; }
 .mkt-more summary { cursor: pointer; color: var(--gold); margin-bottom: 8px; }
+.mkt-cost { width: 100%; border-collapse: collapse; margin: 8px 0 12px; }
+.mkt-cost th, .mkt-cost td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border-sub); font-size: 13px; }
+.mkt-cost th { color: var(--gold); font-weight: 600; }
+.mkt-total { font-size: 16px; }
 .mkt-filters { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
 .mkt-class, .mkt-chip-row, .mkt-row, .mkt-top-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .mkt-class button, .mkt-chip, .mkt-secondary, .mkt-top-actions button { background: var(--navy-light); color: var(--grey-light); border: 1px solid var(--border-sub); border-radius: 999px; padding: 6px 12px; cursor: pointer; }

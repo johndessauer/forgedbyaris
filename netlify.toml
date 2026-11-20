@@ -18,6 +18,12 @@
 [functions.marketing-copy]
   timeout = 26
 
+[functions.marketing-order]
+  timeout = 26
+
+[functions.marketing-stripe-webhook]
+  timeout = 26
+
 # Comping engine: three RentCast calls run in parallel (8s timeout each,
 # one retry). 26s, as aris-quote already uses, leaves room for a retry.
 [functions.rentcast-comps]
@@ -151,6 +157,21 @@
 [[redirects]]
   from = "/api/marketing-copy"
   to = "/.netlify/functions/marketing-copy"
+  status = 200
+
+[[redirects]]
+  from = "/api/marketing-wallet"
+  to = "/.netlify/functions/marketing-wallet"
+  status = 200
+
+[[redirects]]
+  from = "/api/marketing-stripe-webhook"
+  to = "/.netlify/functions/marketing-stripe-webhook"
+  status = 200
+
+[[redirects]]
+  from = "/api/marketing-order"
+  to = "/.netlify/functions/marketing-order"
   status = 200
 
 [[redirects]]

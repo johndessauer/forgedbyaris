@@ -389,7 +389,7 @@ test('the home card stays Coming soon and the flagged surfaces are wired', () =>
   assert.match(search, /ps-market-bar/);
   assert.match(search, /enableMarketingEntry/);
   const page = read('marketing.html');
-  assert.match(page, /Nothing is sent and nothing is charged/);
+  assert.match(page, /Test mode\. Mail is not really printed or delivered/);
   assert.match(page, /FORGE does not send email or text/);
   assert.match(page, /planNeedsPayment \? 'billing\.html\?payment=failed' : 'signup\.html'/);
   assert.match(read('netlify/edge-functions/member-page.js'), /'\/marketing\.html'/);
@@ -403,7 +403,12 @@ test('the home card stays Coming soon and the flagged surfaces are wired', () =>
   assert.match(picker, /ARIS recommends/);
   assert.match(picker, /We mail it/);
   assert.match(picker, /You send it/);
-  assert.match(picker, /Printing and mailing are coming soon, so this step only drafts the copy/);
+  assert.match(picker, /Nothing is really printed yet/);
+  assert.match(picker, /FORGE does not send email or text/);
+  const steps = app.renderSteps(home);
+  assert.match(steps, /data-step="5"/);
+  assert.match(steps, /data-step="6"/);
+  assert.equal(steps.includes('coming soon'), false);
   assert.match(picker, /More options/);
   assert.equal(picker.includes('Recommended first'), false);
   assert.equal(picker.includes('FORGE fulfills'), false);
