@@ -199,7 +199,15 @@
     state.goalNote = picked.line;
     state.fromSearch = true;
     state.step = 2;
+    state.leads = stored.leads.slice();
     return true;
+  }
+
+  function isFreshMarketHandoff(search, stored) {
+    var params = new URLSearchParams(String(search || '').replace(/^\?/, ''));
+    if (params.get('wallet')) return false;
+    if (params.get('from') !== 'property-search') return false;
+    return !!(stored && stored.source === 'property-search' && stored.leads && stored.leads.length);
   }
 
   function missingMailFields(lead) {
@@ -1217,6 +1225,9 @@
       recommendation: state.recommendation,
       attested: !!state.attested,
       usingSample: !!state.usingSample,
+      fromSearch: !!state.fromSearch,
+      goalNote: state.goalNote || '',
+      showAddAddress: !!state.showAddAddress,
       swatches: state.swatches,
       quote: state.quote,
       confirmKey: state.confirmKey,
@@ -1259,6 +1270,9 @@
     state.recommendation = draft.recommendation || '';
     state.attested = !!draft.attested;
     state.usingSample = !!draft.usingSample;
+    state.fromSearch = !!draft.fromSearch;
+    state.goalNote = draft.goalNote || '';
+    state.showAddAddress = !!draft.showAddAddress;
     state.swatches = Array.isArray(draft.swatches) ? draft.swatches.slice() : [];
     state.quote = draft.quote || state.quote;
     state.confirmKey = draft.confirmKey || '';
@@ -1271,10 +1285,23 @@
     state.noticed = !!draft.noticed;
   }
 
+  function clearCampaign(storage) {
+    var targets = storage ? [storage] : browserStores();
+    targets.forEach(function (store) {
+      try { store.removeItem(CAMPAIGN_KEY); } catch (err) {}
+    });
+  }
+
   function resumeCampaign(state, search, storage) {
     var params = new URLSearchParams(String(search || '').replace(/^\?/, ''));
     var wallet = params.get('wallet');
     var returning = wallet === 'success' || wallet === 'ok' || wallet === 'cancel';
+    // A Market click is a new campaign. The saved wallet campaign must not
+    // put the page back on its old step.
+    if (!returning && state.fromSearch && params.get('from') === 'property-search') {
+      clearCampaign(storage);
+      return { wallet: '', fresh: true, before: null };
+    }
     var draft = readCampaign(storage);
     if (draft) applyCampaign(state, draft);
     if (!returning && !draft) return null;
@@ -1596,7 +1623,9 @@
         var groups = loadCatalog().splitLeads(stored.leads);
         if (!groups.residential.length && groups.commercial.length && access.empire) state.propertyClass = 'commercial';
       }
-      arriveFromSearch(state, stored);
+      var pageSearch = '';
+      try { pageSearch = location.search || ''; } catch (err) { pageSearch = ''; }
+      if (isFreshMarketHandoff(pageSearch, stored)) arriveFromSearch(state, stored);
       state.token = options.token;
       var brandResponse = await fetch('/api/marketing-brand', {
         headers: { Authorization: 'Bearer ' + options.token },
@@ -1614,8 +1643,12 @@
       }
       await ensureLogo(state);
       var walletReturn = null;
-      if (typeof location !== 'undefined') walletReturn = resumeCampaign(state, location.search);
+      if (typeof location !== 'undefined') walletReturn = resumeCampaign(state, pageSearch);
+      if (walletReturn && walletReturn.fresh) saveCampaign(null, state, 0);
       paint(state);
+      if (walletReturn && walletReturn.fresh && typeof history !== 'undefined' && history.replaceState) {
+        try { history.replaceState(null, '', location.pathname); } catch (err) {}
+      }
       if (walletReturn && (walletReturn.wallet === 'success' || walletReturn.wallet === 'ok')) {
         if (typeof history !== 'undefined' && history.replaceState) history.replaceState(null, '', location.pathname);
         pollBalance(state, walletReturn.before);
@@ -1649,5 +1682,6 @@
     resumeCampaign: resumeCampaign,
     pickCampaignGoal: pickCampaignGoal,
     arriveFromSearch: arriveFromSearch,
+    isFreshMarketHandoff: isFreshMarketHandoff,
   };
 });

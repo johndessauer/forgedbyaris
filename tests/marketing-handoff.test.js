@@ -3,6 +3,7 @@
 // address when the county has one.
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('fs');
 const Module = require('module');
 const path = require('path');
 
@@ -134,4 +135,47 @@ test('every lead type maps to a mailable address, and absentees use the owner ma
   assert.equal(app.arriveFromSearch(plain, null), false);
   assert.equal(plain.step, 1);
   assert.match(app.renderGoal(plain), /<h3>Add an address<\/h3>/);
+});
+
+test('a fresh Market handoff opens step 2 and replaces a saved campaign', () => {
+  const ps = loadPropertySearch();
+  const search = fs.readFileSync(path.join(__dirname, '../property-search.html'), 'utf8');
+  assert.match(search, /marketing\.html\?from=property-search/);
+  assert.equal(search.split('openMarketing(').length, 6);
+  assert.match(fs.readFileSync(path.join(__dirname, '../marketing.html'), 'utf8'), /marketing-app\.js\?v=20261120-handoff/);
+  const prefore = entry.leadForMarketing(ps.mapRadarRecord(radar('prefore', false), 0, ['prefore']));
+  const stored = { source: 'property-search', leadTypes: ['prefore'], leads: [prefore] };
+  assert.equal(app.isFreshMarketHandoff('?from=property-search', stored), true);
+  assert.equal(app.isFreshMarketHandoff('', stored), false);
+  assert.equal(app.isFreshMarketHandoff('?wallet=success&from=property-search', stored), false);
+  const mem = new Map();
+  const storage = {
+    getItem: (key) => mem.has(key) ? mem.get(key) : null,
+    setItem: (key, value) => mem.set(key, value),
+    removeItem: (key) => mem.delete(key),
+  };
+  app.saveCampaign(storage, app.createState({
+    step: 1,
+    goal: 'buyers',
+    leads: [{ id: 'old', address: '1 Old St', city: 'Gary', state: 'IN', zip: '46402' }],
+  }), 0);
+  const state = app.createState({ leads: stored.leads, empire: true });
+  assert.equal(app.arriveFromSearch(state, stored), true);
+  const resumed = app.resumeCampaign(state, '?from=property-search', storage);
+  assert.equal(resumed.fresh, true);
+  assert.equal(state.step, 2);
+  assert.equal(state.goal, 'sellers');
+  assert.equal(state.leads[0].address, prefore.address);
+  assert.match(app.renderPicker(state), /ARIS picked Find motivated sellers/);
+  assert.equal(app.readCampaign(storage), null);
+  app.saveCampaign(storage, state, 0);
+  const again = app.createState({});
+  app.resumeCampaign(again, '', storage);
+  assert.equal(again.step, 2);
+  assert.equal(again.goal, 'sellers');
+  const wallet = app.createState({ fromSearch: true, step: 2, goal: 'sellers' });
+  app.saveCampaign(storage, app.createState({ step: 5, goal: 'buyers', leads: state.leads }), 2500);
+  app.resumeCampaign(wallet, '?wallet=success', storage);
+  assert.equal(wallet.step, 5);
+  assert.equal(wallet.goal, 'buyers');
 });
