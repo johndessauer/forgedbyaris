@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 // Runs once on a deploy preview, where LOB_API_KEY is available and is not
-// in this repo. Prints Lob test ids only. Never prints the key.
+// in this repo. Prints Lob test ids only. Never prints the key. Also writes
+// those lines into the published preview so the ids can be read back.
+const fs = require('fs');
+const path = require('path');
 const lob = require('../netlify/functions/_Lib/marketing-lob');
+const lines = [];
 
 function redact(text) {
   const key = String(process.env.LOB_API_KEY || '');
@@ -21,25 +25,25 @@ async function attempt(label, brand, lead) {
         { channel: 'letter', variantA: 'FORGE test letter. Nothing is really printed.' },
       ],
     });
-    console.log('lob-preview-probe ' + label + ' ids=' + result.ids.join(','));
+    say('lob-preview-probe ' + label + ' ids=' + result.ids.join(','));
     return true;
   } catch (err) {
-    console.log('lob-preview-probe ' + label + ' failed ' + redact(err && (err.detail || err.message)));
+    say('lob-preview-probe ' + label + ' failed ' + redact(err && (err.detail || err.message)));
     return false;
   }
 }
 
 async function main() {
   if (process.env.CONTEXT !== 'deploy-preview') {
-    console.log('lob-preview-probe skipped context=' + (process.env.CONTEXT || 'unset'));
+    say('lob-preview-probe skipped context=' + (process.env.CONTEXT || 'unset'));
     return;
   }
   if (typeof fetch !== 'function') {
-    console.log('lob-preview-probe skipped no-fetch');
+    say('lob-preview-probe skipped no-fetch');
     return;
   }
   const key = String(process.env.LOB_API_KEY || '');
-  console.log('lob-preview-probe key-present=' + (key ? 'yes' : 'no') + ' test-prefix=' + (key.startsWith('test_') ? 'yes' : 'no'));
+  say('lob-preview-probe key-present=' + (key ? 'yes' : 'no') + ' test-prefix=' + (key.startsWith('test_') ? 'yes' : 'no'));
   if (!key.startsWith('test_')) return;
 
   const sampleBrand = {
@@ -63,6 +67,17 @@ async function main() {
   await attempt('deliverable', deliverableBrand, deliverableLead);
 }
 
+function say(line) {
+  console.log(line);
+  lines.push(line);
+}
+
+function writeResult() {
+  const out = path.join(__dirname, '..', 'public');
+  if (!fs.existsSync(out)) return;
+  fs.writeFileSync(path.join(out, 'lob-probe-result.txt'), lines.join('\n') + '\n');
+}
+
 main().catch(function (err) {
-  console.log('lob-preview-probe failed ' + redact(err && err.message));
-});
+  say('lob-preview-probe failed ' + redact(err && err.message));
+}).then(writeResult);

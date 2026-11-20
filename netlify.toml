@@ -175,6 +175,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/marketing-lob-probe"
+  to = "/.netlify/functions/marketing-lob-probe"
+  status = 200
+
+[[redirects]]
   from = "/api/fwn-checkout"
   to = "/.netlify/functions/fwn-checkout"
   status = 200

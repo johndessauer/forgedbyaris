@@ -10,6 +10,7 @@ const storeLib = require('../netlify/functions/_Lib/marketing-store');
 const walletApi = require('../netlify/functions/marketing-wallet');
 const webhookApi = require('../netlify/functions/marketing-stripe-webhook');
 const orderApi = require('../netlify/functions/marketing-order');
+const probeApi = require('../netlify/functions/marketing-lob-probe');
 const app = require('../assets/js/marketing-app');
 
 const SECRET = 'whsec_marketing_test';
@@ -244,6 +245,25 @@ test('confirm debits the wallet, sends a test postcard, and returns the credits 
   assert.match(blocked.body.error, /not a test key/);
   assert.equal(live.calls.length, 0);
   assert.equal((await wallet.readWallet(box.blob, 'mem_john')).balanceCents, 10000 - 109);
+});
+
+test('the preview mail probe refuses a non-test key and returns ids without the key', async () => {
+  const hidden = await probeApi.createHandler({ env: { CONTEXT: 'production', LOB_API_KEY: 'test_x' }, fetch: async () => { throw new Error('should not send'); } })();
+  assert.equal(hidden.statusCode, 404);
+  const refused = await probeApi.createHandler({ env: { CONTEXT: 'deploy-preview', LOB_API_KEY: 'live_secret' }, fetch: async () => { throw new Error('should not send'); } })();
+  assert.equal(refused.statusCode, 503);
+  const calls = [];
+  const sent = await probeApi.createHandler({
+    env: { CONTEXT: 'deploy-preview', LOB_API_KEY: 'test_lob_key' },
+    fetch: async (url) => {
+      calls.push(url);
+      return { ok: true, json: async () => ({ id: url.includes('letters') ? 'ltr_test_1' : 'psc_test_1' }) };
+    },
+  })();
+  const body = JSON.parse(sent.body);
+  assert.deepEqual(body.attempts[0].ids, ['psc_test_1', 'ltr_test_1']);
+  assert.equal(JSON.stringify(body).includes('test_lob_key'), false);
+  assert.equal(calls.length, 2);
 });
 
 test('the markup report is allowlist-only and lists Lob cost, price, and markup', async () => {
