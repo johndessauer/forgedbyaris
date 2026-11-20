@@ -442,7 +442,6 @@ test('printed goods ship in a pack and never use the property count', async () =
   const packed = pricing.quoteOrder(['postcard'], 40, { MARKETING_PRINT_MARKUP: '0.30' }, [
     { channelId: 'bandit', quantity: 50, option: '18x24-hstake' },
     { channelId: 'yard-sign', quantity: 100, option: '18x24-hstake' },
-    { channelId: 'business-card', quantity: 50, option: '3.5x2' },
   ]);
   const sign = packed.lines.find(row => row.channelId === 'bandit');
   const yard = packed.lines.find(row => row.channelId === 'yard-sign');
@@ -453,7 +452,7 @@ test('printed goods ship in a pack and never use the property count', async () =
   assert.equal(sign.vendorCostCents, 24900);
   assert.equal(yard.quantity, 100);
   assert.equal(yard.unitStudentPriceCents, 514);
-  assert.equal(packed.lines.some(row => row.channelId === 'business-card' && row.quantity > 0), false);
+  assert.equal(packed.lines.some(row => row.channelId === 'business-card' || row.channelId === 'flyer'), false);
   assert.equal(packed.lines.find(row => row.channelId === 'postcard').quantity, 40);
   assert.equal(packed.mailChargedCents, 40 * 109);
   assert.equal(packed.printChargedCents, sign.studentPriceCents + yard.studentPriceCents);

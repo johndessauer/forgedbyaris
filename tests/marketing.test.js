@@ -135,10 +135,11 @@ test('commercial hides bandit signs, door hangers, and door-knock scripts', () =
   assert.equal(commercial.includes('yard-sign'), false);
   assert.equal(commercial.includes('door-hanger'), false);
   assert.equal(commercial.includes('door-knock'), false);
-  assert.ok(residential.includes('business-card'));
-  assert.ok(commercial.includes('business-card'));
+  assert.equal(residential.includes('flyer'), false);
+  assert.equal(residential.includes('business-card'), false);
+  assert.equal(commercial.includes('flyer'), false);
+  assert.equal(commercial.includes('business-card'), false);
   assert.ok(commercial.includes('letter'));
-  assert.equal(catalog.displayName(catalog.channelById('flyer'), 'commercial'), 'One-page property summary');
   const recommended = catalog.recommendChannelIds({ propertyClass: 'commercial', goal: 'sellers' });
   assert.equal(recommended.includes('bandit'), false);
   assert.equal(recommended.includes('door-knock'), false);
@@ -440,7 +441,8 @@ test('the home card stays Coming soon and the flagged surfaces are wired', () =>
   assert.equal(commercial.includes('Bandit sign'), false);
   assert.equal(commercial.includes('Door hanger'), false);
   assert.equal(commercial.includes('Door-knock script'), false);
-  assert.match(commercial, /One-page property summary/);
+  assert.equal(commercial.includes('Flyer'), false);
+  assert.equal(commercial.includes('Business card'), false);
   assert.equal(commercialState.selected.letter, true);
   assert.equal(catalog.containsVendorName(picker + commercial), false);
   const goal = app.renderGoal(app.createState({

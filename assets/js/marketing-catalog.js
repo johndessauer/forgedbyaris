@@ -40,10 +40,8 @@
     { id: 'letter', name: 'Letter', description: 'One page, First Class, in a #10 double-window envelope. Choose color or black and white.', group: 'fulfill', medium: 'mail', residential: true, commercial: true },
     { id: 'handwritten', name: 'Handwritten note', description: 'A folded notecard with a real stamp and a handwritten envelope, or a handwritten postcard. Pick the handwriting. Coming soon.', group: 'fulfill', medium: 'mail', residential: true, commercial: true },
     { id: 'door-hanger', name: 'Door hanger', description: 'Coming soon. A 50-pack reference price is shown. Not mailed to a property. Residential only.', group: 'fulfill', medium: 'print', residential: true, commercial: false },
-    { id: 'flyer', name: 'Flyer', description: 'Coming soon. 8.5 × 11, shipped to you. On a commercial list this becomes a one-page property summary.', group: 'fulfill', medium: 'print', residential: true, commercial: true, commercialName: 'One-page property summary', commercialDescription: 'Coming soon. A one-page property summary, shipped to you.' },
     { id: 'bandit', name: 'Bandit sign', description: '18 × 24 full-color, both sides, corrugated, with H-stakes. Packs of 50 or 100, shipped to you. Not sent to a property. Check local sign rules. Residential only.', group: 'fulfill', medium: 'print', residential: true, commercial: false },
     { id: 'yard-sign', name: 'Yard sign', description: '18 × 24 full-color, both sides, corrugated, with H-stakes. Packs of 50 or 100, shipped to you. Not sent to a property. Residential only.', group: 'fulfill', medium: 'print', residential: true, commercial: false },
-    { id: 'business-card', name: 'Business card', description: 'Coming soon. A 50-pack reference price is shown. Not mailed to a property.', group: 'fulfill', medium: 'print', residential: true, commercial: true },
     { id: 'skip-trace', name: 'Skip trace', description: 'Adds phones and emails to a list. Not available in this step.', group: 'fulfill', medium: 'data', price: '$0.20 per contact', residential: true, commercial: true, copy: false },
     { id: 'phone-scrub', name: 'Phone scrub', description: 'List-cleaning flags only. You still decide who to call, and you stay responsible.', group: 'fulfill', medium: 'data', price: '$0.02 per number', residential: true, commercial: true, copy: false },
     { id: 'list-pull', name: 'List pull', description: 'Pulls a list such as absentee or pre-foreclosure. Not available in this step.', group: 'fulfill', medium: 'data', price: '$0.05 per record', residential: true, commercial: true, copy: false },
@@ -70,8 +68,6 @@
     bandit: spec([50, 100], SIGN_OPTION, false),
     'yard-sign': spec([50, 100], SIGN_OPTION, false),
     'door-hanger': spec([50], [['4.25x11', '4.25 × 11']], true),
-    flyer: spec([50], [['8.5x11', '8.5 × 11']], true),
-    'business-card': spec([50], [['3.5x2', '3.5 × 2']], true),
   });
 
   const PIECE_STYLES = Object.freeze({
@@ -256,7 +252,7 @@
     const commercial = opts.propertyClass === 'commercial';
     const goal = String(opts.goal || 'sellers');
     const ids = commercial
-      ? ['letter', 'call', 'networking', 'social', 'flyer']
+      ? ['letter', 'call', 'networking', 'social']
       : ['postcard', 'handwritten', 'door-knock', 'bandit', 'letter'];
     if (goal === 'buyers') ids.push('email', 'seller-page');
     if (goal === 'followup') ids.push('email');
@@ -366,9 +362,6 @@
     } else if (channel.id === 'bandit' || channel.id === 'yard-sign') {
       a = 'WE BUY HOUSES\nAS-IS · CASH · FAST\n' + phone;
       b = name.toUpperCase() + '\nLOCAL HOME BUYER\n' + phone;
-    } else if (channel.id === 'business-card') {
-      a = name + '\nLocal real estate investor\n' + phone;
-      b = name + '\nI buy houses as-is\n' + phone;
     } else if (channel.id === 'social') {
       a = commercial
         ? 'I buy commercial property in this market, including buildings that need an operator who can look at vacancy, deferred maintenance, or a 1031. If you own one and want a direct conversation, message me. ' + name + ' · ' + phone
@@ -385,7 +378,7 @@
     } else if (soft) {
       a = 'Hi ' + owner + ', I am ' + name + '. I work with homeowners who want to understand their options on ' + where + ' before things get harder. I may be able to buy the home, or point you toward other options. There is no cost to talk. ' + phone + '. ' + disclosure;
       b = 'Hi ' + owner + ', I am ' + name + '. If you have ended up with ' + where + ' and do not want to deal with the cleanup or the market, I can buy it as-is and handle the details. If you would rather keep it, I am glad to point you in a good direction. ' + phone + '.';
-    } else if (commercial && (channel.id === 'letter' || channel.id === 'flyer')) {
+    } else if (commercial && channel.id === 'letter') {
       a = 'Hello,\n\nI am ' + name + ', an independent investor. I am writing about ' + where + '. If the ownership group wants to talk through an as-is sale, seller financing, or an income-based range (a rough range, not an appraisal), I am the person to call. ' + phone + '.\n\n' + sign + '\n' + postalBlock(context) + '\n' + disclosure;
       b = 'Hello,\n\n' + name + ' here. Investors who own ' + where + ' sometimes want a direct conversation about vacancy, deferred maintenance, or a 1031 exchange. I buy property myself. There is no cost to talk. ' + phone + '.\n\n' + sign;
     } else {
@@ -407,10 +400,8 @@
       letter: '<rect x="48" y="12" width="64" height="72" rx="2" fill="#F7F5F2" stroke="#C89B3C"/><path d="M48 12 l32 26 l32 -26" stroke="#C89B3C"/><rect x="60" y="48" width="40" height="3" fill="#8AA0B4"/><rect x="60" y="56" width="32" height="3" fill="#8AA0B4"/>',
       handwritten: '<rect x="36" y="18" width="88" height="60" rx="3" fill="#F6E7A8" stroke="#C89B3C" transform="rotate(-4 80 48)"/><path d="M52 40 q20 8 36 -2" stroke="#1F3348" stroke-width="1.4"/><path d="M52 52 q24 10 40 0" stroke="#1F3348" stroke-width="1.4"/>',
       'door-hanger': '<path d="M70 10 h20 a10 10 0 0 1 0 20 h-20 a10 10 0 0 1 0 -20 z" fill="#F4EFE4" stroke="#C89B3C"/><rect x="68" y="28" width="24" height="58" rx="3" fill="#F4EFE4" stroke="#C89B3C"/><circle cx="80" cy="20" r="4" fill="#0D1B2A"/>',
-      flyer: '<rect x="46" y="10" width="68" height="76" rx="2" fill="#F7F5F2" stroke="#C89B3C"/><rect x="56" y="20" width="48" height="22" fill="#1F3348"/><rect x="56" y="50" width="40" height="3" fill="#8AA0B4"/><rect x="56" y="58" width="32" height="3" fill="#8AA0B4"/>',
       bandit: '<rect x="28" y="22" width="104" height="52" rx="2" fill="#F5D90A" stroke="#1F3348"/><rect x="40" y="34" width="80" height="6" fill="#1F3348"/><rect x="48" y="48" width="64" height="5" fill="#1F3348"/><path d="M80 74 v14" stroke="#8AA0B4" stroke-width="3"/>',
       'yard-sign': '<rect x="36" y="16" width="88" height="48" rx="2" fill="#F4EFE4" stroke="#C89B3C"/><path d="M80 64 v20 M68 84 h24" stroke="#8AA0B4" stroke-width="3"/>',
-      'business-card': '<rect x="28" y="30" width="104" height="40" rx="3" fill="#F7F5F2" stroke="#C89B3C"/><rect x="40" y="42" width="36" height="4" fill="#1F3348"/><rect x="40" y="52" width="24" height="3" fill="#8AA0B4"/>',
       'skip-trace': '<circle cx="70" cy="40" r="18" stroke="#C89B3C" stroke-width="3"/><path d="M84 54 l16 16" stroke="#C89B3C" stroke-width="3"/>',
       'phone-scrub': '<rect x="62" y="16" width="36" height="64" rx="6" stroke="#8AA0B4" stroke-width="2"/><path d="M70 34 h20 M70 44 h14" stroke="#22c55e"/>',
       'list-pull': '<rect x="40" y="18" width="80" height="60" rx="3" stroke="#C89B3C"/><path d="M52 34 h56 M52 46 h56 M52 58 h36" stroke="#8AA0B4"/>',

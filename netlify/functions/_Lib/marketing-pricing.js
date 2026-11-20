@@ -18,7 +18,7 @@ const { readRuntimeEnv } = require('./runtime-env');
 
 // TODO: No print vendor is connected. Do not call a print API from this
 // file. The name below is the assumed vendor for bandit signs, yard signs,
-// door hangers, flyers, and business cards, because that name is already
+// door hangers, because that name is already
 // the print stand-in in the student-facing vendor filter. Unit costs are
 // stubs, not a published rate card. Swap this when John connects the vendor
 // and keep the 25% to 35% markup.
@@ -76,7 +76,7 @@ const LETTER_COLOR_FIRST_CLASS_USD = LETTER_COSTS_USD.color;
 const HANDWRITTEN_VENDOR_CENTS = Object.freeze({ notecard: 304, '4x6': 118, '6x9': 165 });
 // Pack cost in cents. Per-sign vendor cost is the pack divided by the count.
 const SIGN_PACK_VENDOR_CENTS = Object.freeze({ 50: 24900, 100: 39500 });
-const SOON_VENDOR_CENTS = Object.freeze({ 'door-hanger': 140, flyer: 163, 'business-card': 73 });
+const SOON_VENDOR_CENTS = Object.freeze({ 'door-hanger': 140 });
 
 const postcardDefault = mailPrice(POSTCARD_COSTS_USD['4x6']);
 const letterDefault = mailPrice(LETTER_COSTS_USD.bw);
@@ -86,10 +86,8 @@ const BASIS = Object.freeze({
   letter: line('mail', letterDefault.vendorCostCents, MAIL_MARKUP_RATE, MAIL_PROVIDER),
   handwritten: line('mail', HANDWRITTEN_VENDOR_CENTS.notecard, MAIL_MARKUP_RATE, THANKS_PROVIDER),
   'door-hanger': line('print', SOON_VENDOR_CENTS['door-hanger'], PRINT_MARKUP_RATE, PRINT_VENDOR),
-  flyer: line('print', SOON_VENDOR_CENTS.flyer, PRINT_MARKUP_RATE, PRINT_VENDOR),
   bandit: line('print', SIGN_PACK_VENDOR_CENTS[100] / 100, PRINT_MARKUP_RATE, PRINT_VENDOR),
   'yard-sign': line('print', SIGN_PACK_VENDOR_CENTS[100] / 100, PRINT_MARKUP_RATE, PRINT_VENDOR),
-  'business-card': line('print', SOON_VENDOR_CENTS['business-card'], PRINT_MARKUP_RATE, PRINT_VENDOR),
   'skip-trace': unpriced('data', 20),
   'phone-scrub': unpriced('data', 2),
   'list-pull': unpriced('data', 5),
@@ -361,7 +359,7 @@ function publicMenu(env) {
       return { id: id, label: labels[id], studentPriceCents: Math.round(table[id] * (1 + MAIL_MARKUP_RATE)) };
     });
   }
-  const soonIds = ['door-hanger', 'flyer', 'business-card'];
+  const soonIds = ['door-hanger'];
   if (!handwrittenReady(env)) soonIds.push('handwritten');
   return {
     postcard: rowsFromUsd(POSTCARD_COSTS_USD, { '4x6': '4 × 6', '6x9': '6 × 9', '6x11': '6 × 11' }),

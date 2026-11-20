@@ -19,8 +19,8 @@ test('style prices are vendor cost plus the approved markup', () => {
   assert.deepEqual(byId(menu.signs), { '50': 647, '100': 514 });
   const soon = byId(menu.comingSoon);
   assert.equal(soon['door-hanger'], 182);
-  assert.equal(soon.flyer, 212);
-  assert.equal(soon['business-card'], 95);
+  assert.equal(soon.flyer, undefined);
+  assert.equal(soon['business-card'], undefined);
   assert.equal(soon.handwritten, 365);
   assert.equal(menu.handwrittenOrderable, false);
   const body = JSON.stringify(menu).toLowerCase();
