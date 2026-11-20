@@ -29,11 +29,13 @@
 //   Flipped: bought and sold within 24 months, intrafamily excluded.
 //   Long-Term Owner: 25+ years.
 //   Bored Investor: absentee, owned 10+ years.
-//   Zombie: pre-foreclosure and vacant.
+//   Zombie: active notice and vacant. Opt-in. See PREFORE_STAGES.
 //   Active Investor Owned: approximate. See that entry.
 //   Potentially Inherited: approximate. See that entry.
-//   Pre-Foreclosure: notice filed, not auction, not bank-owned.
-//   Foreclosure Activity: pre-foreclosure or auction, not bank-owned.
+//   Pre-Foreclosures: the list from before the extra lead types. Currently
+//     in foreclosure, which includes a notice, an auction, or bank-owned
+//     that has not been resold. It is not the two-stage notice list.
+//   Foreclosure Activity: notice or auction, not bank-owned. Opt-in.
 
 const catalog = require('../../../assets/js/lead-filters');
 
@@ -59,9 +61,13 @@ const STATE_NAMES = {
   wyoming: 'WY',
 };
 
-// Active pre-foreclosure only. inForeclosure also matches auction and bank-owned,
-// which is why the old prefore mapping was too wide. Preforeclosure-Sold, Old,
-// and Released are finished or stale filings, so they stay out.
+// Active notice stages only. Foreclosure Activity and Zombie use this list
+// when the member opts into those lead types. Preforeclosure-Sold, Old, and
+// Released are finished or stale filings, so they stay out of those lists.
+// The Pre-Foreclosures button does not use this list. It uses inForeclosure,
+// the same flag as before the extra lead types. That flag also includes
+// auction and bank-owned that has not been resold. Do not send it in the
+// same query as ForeclosureStage.
 const PREFORE_STAGES = ['Preforeclosure', 'Preforeclosure-NTS'];
 const AUCTION_STAGES = ['Auction', 'Auction-UNK', 'Sale Pending'];
 const BANK_OWNED_STAGES = ['Bank Owned', 'Bank Owned-Held'];
@@ -108,6 +114,15 @@ function ownedWithinYears(years, now) {
 
 function stageCriterion(stages) {
   return { name: 'ForeclosureStage', value: stages.slice() };
+}
+
+// inForeclosure and ForeclosureStage in one query can return nothing or a
+// misleading set. The broad flag is the Pre-Foreclosures button on its own.
+// When a tighter stage list is also selected, that list is the intersection,
+// so the broad flag is left out.
+function dropBroadForeclosureWhenStageSet(criteria) {
+  if (!criteria.some(item => item.name === 'ForeclosureStage')) return criteria;
+  return criteria.filter(item => item.name !== 'inForeclosure');
 }
 
 // criteria(now) returns the AND-list for that lead type.
@@ -209,7 +224,12 @@ const LEAD_CRITERIA = {
   },
   prefore: {
     label: 'Pre-Foreclosures',
-    criteria: () => [stageCriterion(PREFORE_STAGES)],
+    // Same criterion the page used before the extra lead types: currently
+    // in foreclosure. That includes a filed notice, a scheduled auction,
+    // and bank-owned property that has not been resold. Foreclosure
+    // Activity, Foreclosures (Bank-Owned), and Zombie Property stay
+    // separate opt-in lists with their own stage criteria.
+    criteria: () => [{ name: 'inForeclosure', value: [1] }],
   },
   upsidedown: {
     label: 'Upside Down',
@@ -361,6 +381,7 @@ function compileSearch(input, now) {
   playIds.forEach(id => criteria.push(...LEAD_CRITERIA[id].criteria(when)));
   criteria.push(...types.criteria);
   if (equity.criterion) criteria.push(equity.criterion);
+  const finalCriteria = dropBroadForeclosureWhenStageSet(criteria);
 
   const link = catalog.buildPropertySearchLink({
     location,
@@ -373,7 +394,7 @@ function compileSearch(input, now) {
   });
 
   return {
-    criteria,
+    criteria: finalCriteria,
     playIds,
     propertyTypes,
     propertyMode,
