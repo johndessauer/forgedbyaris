@@ -320,13 +320,16 @@
     var approved = ids.filter(function (id) { return state.approved[state.propertyClass + ':' + id]; });
     var canMail = approved.some(isMailable);
     var forward = canMail
-      ? '<div class="mkt-row"><button type="button" data-action="step" data-step="5">Continue to cost</button></div>'
-      : (approved.length ? '<p class="mkt-note">These pieces are send-it-yourself and there\'s nothing to mail.</p>' : '');
+      ? '<button type="button" data-action="step" data-step="5">Continue to cost</button>'
+      : '';
+    var ownNote = !canMail && approved.length
+      ? '<p class="mkt-note">These pieces are send-it-yourself and there\'s nothing to mail.</p>'
+      : '';
     return blocks + attest +
       '<div class="mkt-notice"><strong>You are responsible.</strong> ' + esc(catalog.STUDENT_NOTICE) + '</div>' +
       '<div class="mkt-notice">' + esc(catalog.COMPLIANCE_REMINDER) + '</div>' +
-      '<div class="mkt-row"><button type="button" data-action="export">Export copy</button></div>' +
-      forward +
+      '<div class="mkt-actions"><button type="button" data-action="export">Export copy</button>' + forward + '</div>' +
+      ownNote +
       (state.message ? '<p class="mkt-message">' + esc(state.message) + '</p>' : '');
   }
 

@@ -330,7 +330,7 @@ test('an approved handwritten-style note continues to cost as a 4x6 postcard', (
     });
   }
   const mailed = app.renderApprove(draft({ handwritten: true }, { 'residential:handwritten': true }));
-  assert.match(mailed, /Continue to cost/);
+  assert.match(mailed, /class="mkt-actions"><button type="button" data-action="export">Export copy<\/button><button type="button" data-action="step" data-step="5">Continue to cost<\/button>/);
   assert.match(app.renderApprove(draft({ postcard: true }, { 'residential:postcard': true })), /Continue to cost/);
   const own = app.renderApprove(draft({ call: true }, { 'residential:call': true }));
   assert.match(own, /These pieces are send-it-yourself and there's nothing to mail/);
