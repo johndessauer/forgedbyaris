@@ -3,7 +3,7 @@
 # public site. Functions and edge functions still deploy from netlify/ in
 # the base directory (not from public/).
 [build]
-  command = "node scripts/publish-site.js && node scripts/lob-preview-probe.js"
+  command = "node scripts/publish-site.js"
   publish = "public"
 
 [functions]
@@ -172,11 +172,6 @@
 [[redirects]]
   from = "/api/marketing-order"
   to = "/.netlify/functions/marketing-order"
-  status = 200
-
-[[redirects]]
-  from = "/api/marketing-lob-probe"
-  to = "/.netlify/functions/marketing-lob-probe"
   status = 200
 
 [[redirects]]
