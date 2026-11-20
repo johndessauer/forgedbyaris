@@ -480,7 +480,7 @@ test('order lines keep vendor cost, markup, and student price without showing th
   assert.equal(hanger.shippingCents, null);
   assert.equal(hanger.vendorCostCents + hanger.markupCents, hanger.studentPriceCents);
   assert.equal(sign.vendorCostCents + sign.markupCents, sign.studentPriceCents);
-  assert.equal(pricing.BASIS.handwritten.provider, null);
+  assert.equal(pricing.BASIS.handwritten.provider, pricing.THANKS_PROVIDER);
   assert.equal(pricing.BASIS.handwritten.markupRate, 0.20);
 
   const shown = pricing.publicQuote(postcard);

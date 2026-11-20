@@ -61,6 +61,9 @@ button, input, textarea, select { font-family: inherit; }
 .mkt-pill { align-self: flex-start; font-size: 9px; letter-spacing: 0.6px; text-transform: uppercase; font-weight: 700; border-radius: 4px; padding: 3px 6px; }
 .mkt-pill.is-fulfill, .mkt-pill.is-mail { background: var(--green-dim); color: var(--green); }
 .mkt-pill.is-ship { background: var(--gold-dim); color: var(--gold); }
+.mkt-style { display: grid; grid-template-columns: 120px 1fr; gap: 12px; align-items: center; margin: 0 0 12px 28px; }
+.mkt-style svg { width: 120px; height: 72px; background: #0e1c2e; border-radius: 8px; }
+.mkt-style select { background: #12263c; color: var(--white); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; padding: 8px; }
 .mkt-ship, .mkt-pack { display: grid; gap: 8px; margin: 8px 0 16px; }
 .mkt-pack { grid-template-columns: 1fr 120px 1fr; align-items: end; }
 .mkt-ship input, .mkt-pack select { background: #12263c; color: var(--white); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; padding: 8px; }

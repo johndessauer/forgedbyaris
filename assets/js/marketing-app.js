@@ -53,6 +53,8 @@
       swatches: Array.isArray(input.swatches) ? input.swatches.slice() : [],
       logoUrls: Object.assign({}, input.logoUrls || {}),
       quote: input.quote || null,
+      styles: Object.assign({}, input.styles || {}),
+      menu: input.menu || null,
       confirmKey: '',
       printKey: '',
       prints: Object.assign({}, input.prints || {}),
@@ -302,8 +304,12 @@
     state.recsFor = selectionKey(state);
   }
 
-  function pieceBadge(channel) {
+  function pieceBadge(channel, opts) {
+    var options = opts || {};
     if (!channel || channel.copy === false) return { text: 'Coming soon', cls: 'is-soon' };
+    var printed = loadCatalog().printSpec(channel.id);
+    var noteSoon = channel.id === 'handwritten' && !options.handwrittenOrderable;
+    if (noteSoon || (printed && printed.comingSoon)) return { text: 'Coming soon', cls: 'is-soon' };
     if (channel.medium === 'print') return { text: 'Ship to me', cls: 'is-ship' };
     if (channel.group === 'fulfill') return { text: 'We mail it', cls: 'is-mail' };
     return { text: 'You send it', cls: 'is-send' };
@@ -314,7 +320,7 @@
     var options = opts || {};
     var name = catalog.displayName(channel, options.propertyClass);
     var description = catalog.displayDescription(channel, options.propertyClass);
-    var badge = pieceBadge(channel);
+    var badge = pieceBadge(channel, options);
     var checked = !!options.selected && channel.copy !== false;
     var box = channel.copy === false
       ? '<span class="mkt-piece-lock">Not in this step</span>'
@@ -331,6 +337,65 @@
       return 'ARIS would start with a formal letter, a call script, and networking.';
     }
     return 'ARIS would start with a postcard, a handwritten-style note, a door-knock script, and a letter.';
+  }
+
+  function styleValue(state, channelId) {
+    var spec = loadCatalog().pieceStyle(channelId);
+    if (!spec) return {};
+    var saved = (state.styles || {})[channelId] || {};
+    var value = {};
+    value[spec.field] = spec.choices.some(function (row) { return row.id === saved[spec.field]; }) ? saved[spec.field] : spec.default;
+    if (spec.hands && spec.hands.length) {
+      value.hand = spec.hands.some(function (row) { return row.id === saved.hand; }) ? saved.hand : spec.handDefault;
+    }
+    return value;
+  }
+
+  function menuCents(state, channelId, choiceId) {
+    var menu = state.menu || {};
+    var list = menu[channelId] || menu.signs || [];
+    if (channelId === 'bandit' || channelId === 'yard-sign') list = menu.signs || [];
+    var found = null;
+    list.forEach(function (row) {
+      if (row.id === choiceId) found = row;
+    });
+    if (!found) {
+      (menu.comingSoon || []).forEach(function (row) {
+        if (row.id === channelId) found = row;
+      });
+    }
+    return found ? found.studentPriceCents : null;
+  }
+
+  function styleBlock(state, channel) {
+    var catalog = loadCatalog();
+    var spec = catalog.pieceStyle(channel.id);
+    var printed = catalog.printSpec(channel.id);
+    if (!spec && !printed) return '';
+    var value = styleValue(state, channel.id);
+    var choiceId = spec ? value[spec.field] : ((state.prints || {})[channel.id] || {}).option;
+    var preview = catalog.stylePreview(channel.id, spec ? choiceId : (printed && printed.options[0] ? printed.options[0].id : ''));
+    var cents = spec ? menuCents(state, channel.id, choiceId) : menuCents(state, channel.id, '50');
+    var price = cents == null ? '' : '<span class="mkt-price">' + money(cents) + ' each</span>';
+    var soon = ((spec && spec.comingSoon && channel.id === 'handwritten' && !(state.menu && state.menu.handwrittenOrderable)) || (printed && printed.comingSoon))
+      ? '<span class="mkt-pill is-soon">Coming soon</span>'
+      : '';
+    var selects = '';
+    if (spec) {
+      selects += '<label>' + esc(spec.field === 'size' ? 'Size' : (spec.field === 'finish' ? 'Print' : 'Style')) +
+        '<select data-style="' + esc(channel.id) + '" data-style-field="' + esc(spec.field) + '">' +
+        spec.choices.map(function (row) {
+          return '<option value="' + esc(row.id) + '"' + (row.id === choiceId ? ' selected' : '') + '>' + esc(row.label) + '</option>';
+        }).join('') + '</select></label>';
+      if (spec.hands && spec.hands.length) {
+        selects += '<label>Handwriting<select data-style="' + esc(channel.id) + '" data-style-field="hand">' +
+          spec.hands.map(function (row) {
+            return '<option value="' + esc(row.id) + '"' + (row.id === value.hand ? ' selected' : '') + '>' + esc(row.label) + '</option>';
+          }).join('') + '</select></label>';
+        selects += '<p class="mkt-note">Ink: blue. A folded notecard uses a real stamp, a handwritten envelope, and realism mode.</p>';
+      }
+    }
+    return '<div class="mkt-style">' + preview + soon + selects + price + '</div>';
   }
 
   function renderPicker(state) {
@@ -354,7 +419,8 @@
         return renderPiece(channel, {
           propertyClass: state.propertyClass,
           selected: !!state.selected[channel.id],
-        });
+          handwrittenOrderable: !!(state.menu && state.menu.handwrittenOrderable),
+        }) + (state.selected[channel.id] ? styleBlock(state, channel) : '');
       }).join('');
     };
     var commercialLock = state.empire ? '' : ' disabled';
@@ -394,8 +460,9 @@
     }).map(function (line) {
       var channel = catalog.channelById(line.channelId);
       var name = catalog.displayName(channel, state.propertyClass) || line.channelId;
+      if (line.styleLabel) name += ' · ' + line.styleLabel;
       var charged = kind === 'print' ? line.quantity > 0 : !!line.mailed;
-      var total = charged ? money(line.studentPriceCents) : 'Not charged in this test';
+      var total = line.comingSoon ? 'Coming soon' : (charged ? money(line.studentPriceCents) : 'Not charged in this test');
       var count = charged ? line.quantity : '—';
       return '<tr><td>' + esc(name) + '</td><td>' + money(line.unitStudentPriceCents) + '</td><td>' + esc(count) + '</td><td>' + esc(total) + '</td></tr>';
     }).join('');
@@ -439,7 +506,7 @@
 
   function printChoice(state, id) {
     var spec = loadCatalog().printSpec(id);
-    if (!spec) return null;
+    if (!spec || spec.comingSoon) return null;
     var saved = (state.prints || {})[id] || {};
     var quantity = spec.packs.indexOf(Number(saved.quantity)) >= 0 ? Number(saved.quantity) : spec.packs[0];
     var option = spec.options.some(function (row) { return row.id === saved.option; }) ? saved.option : spec.options[0].id;
@@ -712,7 +779,7 @@
       '<div class="mkt-qr-block"><div class="mkt-qr" aria-hidden="true"></div><span class="mkt-qr-caption">QR code (placeholder)</span></div>' +
       '<small>' + esc(disclosure) + '</small>' +
       '</div>' +
-      '<p class="mkt-price">' + esc(channel.price) + ' · example · not charged</p>' +
+      '<p class="mkt-price">' + (menuCents(state, channel.id, (styleValue(state, channel.id)[ (catalog.pieceStyle(channel.id) || {}).field ])) == null ? 'Price follows the style you pick.' : money(menuCents(state, channel.id, styleValue(state, channel.id)[(catalog.pieceStyle(channel.id) || {}).field])) + ' each') + '</p>' +
       '<p class="mkt-note">Wallet, printing, and mailing are not in this step.</p></div>';
   }
 
@@ -1006,6 +1073,17 @@
       uploadFile(state, target.getAttribute('data-upload'), target.files && target.files[0]);
       return;
     }
+    if (target && target.hasAttribute('data-style')) {
+      var styleId = target.getAttribute('data-style');
+      var field = target.getAttribute('data-style-field');
+      if (!state.styles) state.styles = {};
+      var current = styleValue(state, styleId);
+      current[field] = target.value;
+      state.styles[styleId] = current;
+      if (state.step >= 5) loadCost(state).then(function () { paint(state); });
+      else paint(state);
+      return;
+    }
     if (target && (target.hasAttribute('data-print-pack') || target.hasAttribute('data-print-option'))) {
       var printId = target.getAttribute('data-print-pack') || target.getAttribute('data-print-option');
       var choice = printChoice(state, printId);
@@ -1165,6 +1243,7 @@
       action: 'quote',
       channels: approvedMailIds(state),
       prints: printOrders(state),
+      styles: state.styles || {},
       leads: state.leads || [],
       brandId: state.brandId,
     });
@@ -1233,6 +1312,7 @@
       confirmKey: state.confirmKey,
       printKey: state.printKey,
       prints: state.prints,
+      styles: state.styles,
       shipTo: state.shipTo,
       shipTouched: !!state.shipTouched,
       sender: state.sender,
@@ -1278,6 +1358,7 @@
     state.confirmKey = draft.confirmKey || '';
     state.printKey = draft.printKey || '';
     state.prints = Object.assign({}, draft.prints || {});
+    state.styles = Object.assign({}, draft.styles || {});
     state.shipTo = draft.shipTo || null;
     state.shipTouched = !!draft.shipTouched;
     state.sender = draft.sender || state.sender;
@@ -1429,12 +1510,23 @@
         approved: !!state.approved[state.propertyClass + ':' + id],
       };
     });
+    var mailIds = approvedMailIds(state).filter(function (id) {
+      return id !== 'handwritten' || (state.menu && state.menu.handwrittenOrderable);
+    });
+    if (!mailIds.length) {
+      state.message = approvedMailIds(state).indexOf('handwritten') !== -1
+        ? 'Handwritten notes are coming soon.'
+        : 'Approve a postcard or a letter before you confirm.';
+      paint(state);
+      return;
+    }
     if (!state.confirmKey) state.confirmKey = 'cfm_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
     var result = await postJson(state.token, '/api/marketing-order', {
       action: 'confirm',
-      channels: approvedMailIds(state),
-      pieces: pieces,
+      channels: mailIds,
+      pieces: pieces.filter(function (piece) { return mailIds.indexOf(piece.channel) !== -1; }),
       leads: state.leads || [],
+      styles: state.styles || {},
       brandId: state.brandId,
       idempotencyKey: state.confirmKey,
     });
@@ -1618,6 +1710,7 @@
         reviewer: !!access.reviewer,
         leads: stored && stored.leads ? stored.leads : [],
         sender: options.sender || {},
+        menu: access.menu || null,
       });
       if (stored && stored.leads && stored.leads.length) {
         var groups = loadCatalog().splitLeads(stored.leads);
