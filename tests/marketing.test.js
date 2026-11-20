@@ -12,6 +12,7 @@ const copyApi = require('../netlify/functions/marketing-copy');
 const accessApi = require('../netlify/functions/marketing-access');
 const app = require('../assets/js/marketing-app');
 const pricing = require('../netlify/functions/_Lib/marketing-pricing');
+const marketingStore = require('../netlify/functions/_Lib/marketing-store');
 
 const root = path.join(__dirname, '..');
 function read(rel) { return fs.readFileSync(path.join(root, rel), 'utf8'); }
@@ -561,6 +562,24 @@ test('a 500 by 500 PNG uploads as the raw file, and the rights box is required',
   assert.ok(page.indexOf('role="status"') < page.indexOf('Business name'));
   assert.match(page, /image\/webp/);
   assert.match(read('assets/js/marketing-app.js'), /Check the rights box to upload\./);
+});
+
+test('the blob store is connected from the Lambda event before it opens', () => {
+  const calls = [];
+  const event = { blobs: 'from-netlify', headers: { 'x-nf-site-id': 'site' } };
+  const store = marketingStore.openBlobStore(event, {
+    connectLambda(got) { calls.push(['connect', got]); },
+    getNamedStore(name) { calls.push(['store', name]); return { ready: true }; },
+  });
+  assert.deepEqual(calls, [['connect', event], ['store', 'marketing']]);
+  assert.equal(store.ready, true);
+  assert.equal(marketingStore.STORE_NAME, 'marketing');
+  assert.doesNotMatch(marketingStore.STORE_NAME, /\//);
+  assert.match(read('netlify/functions/marketing-brand.js'), /openBlobStore\(event\)/);
+  assert.match(read('netlify/functions/marketing-copy.js'), /openBlobStore\(event\)/);
+  assert.throws(() => marketingStore.openBlobStore(event, {
+    connectLambda() { const err = new Error('The environment has not been configured to use Netlify Blobs'); throw err; },
+  }), /not been configured/);
 });
 
 test('marketing access denies a signed-out caller', async () => {

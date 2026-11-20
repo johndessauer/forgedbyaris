@@ -47,9 +47,24 @@ function createMemoryBlobStore() {
   };
 }
 
-function openBlobStore() {
-  const { getStore } = require('@netlify/blobs');
-  return getStore(STORE_NAME);
+// These functions use the Lambda-compatible handler(event) signature.
+// @netlify/blobs does not configure itself in that mode. connectLambda
+// reads the site id and token Netlify already puts on the event, so no
+// API token or site id has to be set as an environment variable.
+function openBlobStore(event, deps) {
+  const options = deps || {};
+  if (options.connectLambda || options.getNamedStore) {
+    if (options.connectLambda) options.connectLambda(event);
+    if (!options.getNamedStore) {
+      const err = new Error('Brand Kit storage is not available.');
+      err.statusCode = 503;
+      throw err;
+    }
+    return options.getNamedStore(STORE_NAME);
+  }
+  const blobs = require('@netlify/blobs');
+  if (event && typeof blobs.connectLambda === 'function') blobs.connectLambda(event);
+  return blobs.getStore(STORE_NAME);
 }
 
 async function readJson(store, key) {

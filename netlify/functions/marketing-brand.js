@@ -132,7 +132,7 @@ function createHandler(deps) {
     if (!gate.flag.allowed) return json(403, { error: 'Marketing is not available on this account yet.' });
 
     let store;
-    try { store = options.getStore ? options.getStore() : openBlobStore(); }
+    try { store = options.getStore ? options.getStore() : openBlobStore(event); }
     catch (err) { return json(503, { error: 'Brand Kit storage is not available.' }); }
 
     const memberId = gate.access.memberId;

@@ -231,7 +231,7 @@ function createHandler(deps) {
     catch (err) { return json(400, { error: 'Invalid JSON body' }); }
 
     let store;
-    try { store = options.getStore ? options.getStore() : openBlobStore(); }
+    try { store = options.getStore ? options.getStore() : openBlobStore(event); }
     catch (err) { return json(503, { error: 'Marketing storage is not available.' }); }
 
     try {
