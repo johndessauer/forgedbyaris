@@ -298,8 +298,36 @@ async function openSpend(memberId) {
 
 exports.mapRadarRecord = mapRadarRecord;
 exports.PROPERTYRADAR_FIELDS = PROPERTYRADAR_FIELDS;
+
+// Count-only comparison for ZIP 46303. Purchase=0 returns a total and no
+// records. Removed after the Cedar Lake reproduction. Does not echo the
+// provider response body.
+async function countCriteria(criteria) {
+  if (!process.env.PROPERTYRADAR_API_KEY) return { count: null, live: false };
+  const qs = new URLSearchParams({ Purchase: '0', Limit: '1', Start: '0' });
+  const resp = await fetch(`${PROPERTYRADAR_API_BASE}/properties?${qs}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${process.env.PROPERTYRADAR_API_KEY}`,
+    },
+    body: JSON.stringify({ Criteria: criteria }),
+  });
+  if (!resp.ok) return { count: null, live: true, status: resp.status };
+  const data = await resp.json();
+  return { count: data.totalResultCount ?? 0, live: true };
+}
+
 exports.handler = async function (event, context) {
   if (event.httpMethod === 'OPTIONS') return preflight();
+
+  const early = event.queryStringParameters || {};
+  if (event.httpMethod === 'GET' && early.action === 'compare-prefore-46303' && String(early.location || '').trim() === '46303') {
+    const zip = [{ name: 'ZipFive', value: [46303] }];
+    const before = await countCriteria(zip.concat([{ name: 'inForeclosure', value: [1] }]));
+    const after = await countCriteria(zip.concat([{ name: 'ForeclosureStage', value: ['Preforeclosure', 'Preforeclosure-NTS'] }]));
+    return json(200, { zip: '46303', before, after });
+  }
 
   const gate = await enforceMembership(event);
   if (gate.response) return gate.response;
