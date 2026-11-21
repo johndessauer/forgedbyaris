@@ -656,6 +656,7 @@
       var channel = catalog.channelById(line.channelId);
       var name = catalog.displayName(channel, state.propertyClass) || line.channelId;
       if (line.styleLabel) name += ' · ' + line.styleLabel;
+      if (line.handLabel) name += ' · ' + line.handLabel;
       var charged = kind === 'print' ? line.quantity > 0 : !!line.mailed;
       var total = line.comingSoon ? 'Coming soon' : (charged ? money(line.studentPriceCents) : 'Not charged in this test');
       var count = charged ? line.quantity : '—';
@@ -959,6 +960,22 @@
     var body = withoutDisclosure(piece ? piece.variantA : '', disclosure);
     var sample = !state.leads.length || lead.sample;
     var name = catalog.displayName(channel, state.propertyClass);
+    if (channel.id === 'handwritten' || channel.id === 'yellow-letter') {
+      var pickedHand = styleChoice(state, channel);
+      var handName = '';
+      if (pickedHand && pickedHand.spec && pickedHand.spec.hands) {
+        pickedHand.spec.hands.forEach(function (row) {
+          if (row.id === pickedHand.hand) handName = row.label;
+        });
+      }
+      return '<div class="mkt-preview">' +
+        '<div class="mkt-kicker">Preview</div>' +
+        '<h2>' + esc(name) + '</h2>' +
+        (handName ? '<p class="mkt-note">Handwriting: ' + esc(handName) + '</p>' : '') +
+        previewSvg(state, channel) +
+        '<small>' + esc(disclosure) + '</small>' +
+        '</div>';
+    }
     var logoUrl = state.logoUrls && brand.id ? state.logoUrls[brand.id] : '';
     var showLogo = channel.id !== 'handwritten' && (logoUrl || brand.logo);
     var logoHtml = '';
@@ -1314,6 +1331,7 @@
       var current = styleValue(state, styleId);
       current[field] = target.value;
       state.styles[styleId] = current;
+      if (field === 'hand') state.previewId = styleId;
       if (state.step >= 5) loadCost(state).then(function () { paint(state); });
       else paint(state);
       return;

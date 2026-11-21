@@ -73,7 +73,8 @@ function csv(orders) {
     const kind = order.kind || 'mail';
     const pieces = (order.pieces || []).map(function (piece) {
       const option = piece.option ? ' ' + piece.option : '';
-      return (piece.channelId || piece.channel) + ' x' + piece.quantity + option;
+      const hand = piece.handLabel ? ' ' + piece.handLabel : '';
+      return (piece.channelId || piece.channel) + ' x' + piece.quantity + option + hand;
     }).join('; ');
     const rate = kind === 'print' && order.printMarkupRate != null
       ? Number(order.printMarkupRate).toFixed(2)
@@ -158,6 +159,8 @@ function createHandler(deps) {
             option: row.option || '',
             styleId: row.styleId || '',
             styleLabel: row.styleLabel || '',
+            handStyle: row.handStyle || '',
+            handLabel: row.handLabel || '',
             orderable: !!row.orderable,
             comingSoon: !!row.comingSoon,
             unitStudentPriceCents: row.unitStudentPriceCents,

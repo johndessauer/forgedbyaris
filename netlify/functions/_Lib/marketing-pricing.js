@@ -199,7 +199,8 @@ function stylePick(channelId, styles) {
   const chosen = spec.choices.some(function (row) { return row.id === raw[spec.field]; }) ? raw[spec.field] : spec.default;
   const choice = spec.choices.filter(function (row) { return row.id === chosen; })[0] || spec.choices[0];
   const hand = spec.hands && spec.hands.some(function (row) { return row.id === raw.hand; }) ? raw.hand : (spec.handDefault || '');
-  return { id: choice.id, label: choice.label, hand: hand, spec: spec };
+  const handRow = spec.hands && spec.hands.filter(function (row) { return row.id === hand; })[0];
+  return { id: choice.id, label: choice.label, hand: hand, handLabel: handRow ? handRow.label : '', spec: spec };
 }
 
 function signUnit(pack, printRate) {
@@ -335,6 +336,7 @@ function quoteOrder(channels, quantity, env, prints, styles) {
       styleId: picked.id,
       styleLabel: picked.label,
       handStyle: picked.hand,
+      handLabel: picked.handLabel || '',
       unitVendorCostCents: unitVendor,
       unitStudentPriceCents: unitStudent,
       vendorCostCents: vendorCost,
@@ -372,6 +374,8 @@ function publicQuote(line) {
     priced: row.priced,
     styleId: row.styleId || '',
     styleLabel: row.styleLabel || '',
+    handStyle: row.handStyle || '',
+    handLabel: row.handLabel || '',
     vendorCostCents: row.vendorCostCents,
     markupCents: row.markupCents,
     markupRate: row.markupRate,

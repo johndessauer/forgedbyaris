@@ -64,6 +64,31 @@ test('style prices are vendor cost plus the approved markup', () => {
   assert.equal(signs.printChargedCents, 0);
 });
 
+test('the student picks a handwriting style and the preview follows it', () => {
+  const state = app.createState({
+    step: 2,
+    goal: 'sellers',
+    propertyClass: 'residential',
+    empire: true,
+    selected: { 'yellow-letter': true, handwritten: true },
+    styles: { 'yellow-letter': { hand: 'normal-print' }, handwritten: { hand: 'that-dude' } },
+    menu: pricing.publicMenu({ THANKSIO_API_KEY: 'tio_test_key' }),
+  });
+  state.recsFor = 'residential:sellers';
+  const html = app.renderPicker(state);
+  const yellow = pieceCard(html, 'Yellow letter');
+  const note = pieceCard(html, 'Handwritten note');
+  assert.match(yellow, /<span>Handwriting<\/span>/);
+  assert.match(yellow, /value="normal-print" selected/);
+  assert.match(yellow, /Patrick Hand/);
+  ['Shopping List', 'Lazy Note', 'Blurred Lines', 'That Dude'].forEach((label) => {
+    assert.match(yellow, new RegExp(label));
+  });
+  assert.match(note, /value="that-dude" selected/);
+  assert.match(note, /Nanum Pen Script/);
+  assert.equal(/thanks\.io|\blob\b/i.test(html), false);
+});
+
 test('a handwritten order is refused while the note service is not connected', async () => {
   const ready = thanks.readiness({});
   assert.equal(ready.ok, false);

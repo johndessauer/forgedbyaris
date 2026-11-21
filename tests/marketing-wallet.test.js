@@ -440,7 +440,7 @@ test('a handwritten note and a yellow letter debit the wallet and stay in test m
     brandId: 'brand_1',
     channels: ['handwritten', 'yellow-letter'],
     leads: [Object.assign({ playIds: ['absentee'] }, LEAD, { address: '500 Mail St', city: 'Chicago', state: 'IL', zip: '60601' })],
-    styles: { handwritten: { product: 'notecard', hand: 'shopping-list' }, 'yellow-letter': { hand: 'shopping-list' } },
+    styles: { handwritten: { product: 'notecard', hand: 'shopping-list' }, 'yellow-letter': { hand: 'that-dude' } },
     pieces: [
       { channel: 'handwritten', variantA: 'A short note', approved: true },
       { channel: 'yellow-letter', variantA: 'A yellow letter', approved: true },
@@ -464,6 +464,15 @@ test('a handwritten note and a yellow letter debit the wallet and stay in test m
   assert.equal(note.handwriting_style_id, 7);
   assert.equal(note.return_name, 'Sample Buys');
   assert.equal(JSON.parse(box.calls[2].init.body).front_image_url.endsWith('/assets/marketing/stock/yellow-lined-paper.jpg'), true);
+  assert.equal(JSON.parse(box.calls[2].init.body).handwriting_style_id, 5);
+  const saved = JSON.parse(await box.blob.get('orders/' + sent.body.orderId + '.json'));
+  const yellowPiece = saved.pieces.find(function (row) { return row.channelId === 'yellow-letter'; });
+  const notePiece = saved.pieces.find(function (row) { return row.channelId === 'handwritten'; });
+  assert.equal(yellowPiece.handStyle, 'that-dude');
+  assert.equal(yellowPiece.handLabel, 'That Dude');
+  assert.equal(notePiece.handStyle, 'shopping-list');
+  assert.equal(notePiece.handLabel, 'Shopping List');
+  assert.equal(JSON.stringify(yellowPiece).toLowerCase().includes('thanks'), false);
   const report = await box.call(handler, null, 'GET', { queryStringParameters: { format: 'csv' } });
   assert.match(report.raw, /5\.60,6\.72,1\.12/);
   assert.match(report.raw, /thanks-io/);
