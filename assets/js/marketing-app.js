@@ -60,6 +60,7 @@
       prints: Object.assign({}, input.prints || {}),
       shipTo: input.shipTo || null,
       shipTouched: !!input.shipTouched,
+      zoomChannel: '',
     };
   }
 
@@ -327,9 +328,13 @@
       : '<input type="checkbox" ' + (checked ? 'checked ' : '') + 'aria-label="' + esc(name) + '">';
     var tag = channel.copy === false ? 'div' : 'label';
     var action = channel.copy === false ? '' : ' data-action="toggle" data-id="' + esc(channel.id) + '"';
-    return '<' + tag + ' class="mkt-piece-card' + (checked ? ' is-on' : '') + '"' + action + '>' +
+    var inside = options.inside || '';
+    return '<article class="mkt-piece-card' + (checked ? ' is-on' : '') + '">' +
+      '<' + tag + ' class="mkt-piece-head"' + action + '>' +
       box +
-      '<span class="mkt-piece-copy"><span class="mkt-pill ' + badge.cls + '">' + esc(badge.text) + '</span><strong>' + esc(name) + '</strong><span>' + esc(description) + '</span></span></' + tag + '>';
+      '<span class="mkt-piece-copy"><span class="mkt-pill ' + badge.cls + '">' + esc(badge.text) + '</span><strong>' + esc(name) + '</strong><span>' + esc(description) + '</span></span></' + tag + '>' +
+      inside +
+      '</article>';
   }
 
   function recommendLine(propertyClass) {
@@ -367,35 +372,127 @@
     return found ? found.studentPriceCents : null;
   }
 
-  function styleBlock(state, channel) {
+  function styleSelect(label, attrs, rows, selected, fieldClass) {
+    var options = rows.map(function (row) {
+      var id = row.id != null ? row.id : row;
+      var text = row.label != null ? row.label : row;
+      return '<option value="' + esc(id) + '"' + (String(id) === String(selected) ? ' selected' : '') + '>' + esc(text) + '</option>';
+    }).join('');
+    return '<label class="mkt-field' + (fieldClass ? ' ' + fieldClass : '') + '"><span>' + esc(label) + '</span><select' + (attrs ? ' ' + attrs : '') + '>' + options + '</select></label>';
+  }
+
+  function styleChoice(state, channel) {
     var catalog = loadCatalog();
     var spec = catalog.pieceStyle(channel.id);
     var printed = catalog.printSpec(channel.id);
-    if (!spec && !printed) return '';
-    var value = styleValue(state, channel.id);
-    var choiceId = spec ? value[spec.field] : ((state.prints || {})[channel.id] || {}).option;
-    var preview = catalog.stylePreview(channel.id, spec ? choiceId : (printed && printed.options[0] ? printed.options[0].id : ''));
-    var cents = spec ? menuCents(state, channel.id, choiceId) : menuCents(state, channel.id, '50');
-    var price = cents == null ? '' : '<span class="mkt-price">' + money(cents) + ' each</span>';
-    var soon = ((spec && spec.comingSoon && channel.id === 'handwritten' && !(state.menu && state.menu.handwrittenOrderable)) || (printed && printed.comingSoon))
-      ? '<span class="mkt-pill is-soon">Coming soon</span>'
-      : '';
-    var selects = '';
+    var value = spec ? styleValue(state, channel.id) : {};
     if (spec) {
-      selects += '<label>' + esc(spec.field === 'size' ? 'Size' : (spec.field === 'finish' ? 'Print' : 'Style')) +
-        '<select data-style="' + esc(channel.id) + '" data-style-field="' + esc(spec.field) + '">' +
-        spec.choices.map(function (row) {
-          return '<option value="' + esc(row.id) + '"' + (row.id === choiceId ? ' selected' : '') + '>' + esc(row.label) + '</option>';
-        }).join('') + '</select></label>';
-      if (spec.hands && spec.hands.length) {
-        selects += '<label>Handwriting<select data-style="' + esc(channel.id) + '" data-style-field="hand">' +
-          spec.hands.map(function (row) {
-            return '<option value="' + esc(row.id) + '"' + (row.id === value.hand ? ' selected' : '') + '>' + esc(row.label) + '</option>';
-          }).join('') + '</select></label>';
-        selects += '<p class="mkt-note">Ink: blue. A folded notecard uses a real stamp, a handwritten envelope, and realism mode.</p>';
+      return {
+        spec: spec,
+        printed: printed,
+        choiceId: value[spec.field],
+        hand: value.hand || '',
+        pack: 0,
+      };
+    }
+    if (!printed) return null;
+    var saved = printChoice(state, channel.id);
+    var pack = saved ? saved.quantity : (printed.packs[0] || 50);
+    var option = saved ? saved.option : (printed.options[0] ? printed.options[0].id : '');
+    if (printed.comingSoon) {
+      var soonRow = null;
+      ((state.menu && state.menu.comingSoon) || []).forEach(function (row) {
+        if (row.id === channel.id) soonRow = row;
+      });
+      if (soonRow && soonRow.pack) pack = soonRow.pack;
+    }
+    return { spec: null, printed: printed, choiceId: option, hand: '', pack: pack };
+  }
+
+  function stylePrice(state, channel, picked) {
+    if (!picked) return '';
+    if (picked.spec) {
+      var each = menuCents(state, channel.id, picked.choiceId);
+      return each == null ? '' : '<p class="mkt-style-price mkt-price">' + money(each) + ' each</p>';
+    }
+    var printed = picked.printed;
+    var unit = null;
+    if (printed && printed.comingSoon) {
+      ((state.menu && state.menu.comingSoon) || []).forEach(function (row) {
+        if (row.id === channel.id) unit = row.studentPriceCents;
+      });
+    } else {
+      unit = menuCents(state, channel.id, String(picked.pack));
+    }
+    if (unit == null) return '';
+    var pack = picked.pack || 0;
+    var total = pack ? '<span>' + money(unit * pack) + ' for ' + pack + '</span>' : '';
+    return '<p class="mkt-style-price mkt-price">' + money(unit) + ' each' + total + '</p>';
+  }
+
+  function styleHelp(channel, picked) {
+    if (!picked) return '';
+    if (channel.id === 'postcard') return 'The preview matches the size you pick.';
+    if (channel.id === 'letter') return 'Shown in a #10 double-window envelope.';
+    if (channel.id === 'handwritten') {
+      return picked.choiceId === 'notecard'
+        ? 'Ink: blue. A folded notecard uses a real stamp, a handwritten envelope, and realism mode.'
+        : 'Ink: blue. The message is handwritten on the postcard.';
+    }
+    if (channel.id === 'bandit' || channel.id === 'yard-sign') return '18 × 24, both sides, with H-stakes. Ships to you, not to a property.';
+    if (channel.id === 'door-hanger') return 'A 50-pack reference price. Not mailed to a property.';
+    return '';
+  }
+
+  function previewSvg(state, channel) {
+    var picked = styleChoice(state, channel);
+    if (!picked) return '';
+    var previewId = picked.spec ? picked.choiceId : (picked.choiceId || (picked.printed && picked.printed.options[0] ? picked.printed.options[0].id : ''));
+    return loadCatalog().stylePreview(channel.id, previewId, { hand: picked.hand });
+  }
+
+  function styleBlock(state, channel) {
+    var picked = styleChoice(state, channel);
+    if (!picked) return '';
+    var preview = previewSvg(state, channel);
+    var thumb = '<button type="button" class="mkt-thumb" data-action="zoom-preview" data-id="' + esc(channel.id) + '" aria-label="Enlarge ' + esc(channel.name) + ' preview">' + preview + '</button>';
+    var fields = '';
+    if (picked.spec) {
+      var fieldLabel = picked.spec.field === 'size' ? 'Size' : (picked.spec.field === 'finish' ? 'Print' : 'Style');
+      fields += styleSelect(fieldLabel, 'data-style="' + esc(channel.id) + '" data-style-field="' + esc(picked.spec.field) + '"', picked.spec.choices, picked.choiceId);
+      if (picked.spec.hands && picked.spec.hands.length) {
+        fields += styleSelect('Handwriting', 'data-style="' + esc(channel.id) + '" data-style-field="hand"', picked.spec.hands, picked.hand);
+      }
+    } else if (picked.printed) {
+      var live = picked.printed.comingSoon ? '' : 'data-print-option="' + esc(channel.id) + '"';
+      var packAttrs = picked.printed.comingSoon ? '' : 'data-print-pack="' + esc(channel.id) + '"';
+      if (picked.printed.options.length) fields += styleSelect('Size', live, picked.printed.options, picked.choiceId);
+      if (picked.printed.packs.length) {
+        fields += styleSelect('Pack', packAttrs, picked.printed.packs.map(function (qty) {
+          return { id: qty, label: String(qty) };
+        }), picked.pack, 'is-short');
       }
     }
-    return '<div class="mkt-style">' + preview + soon + selects + price + '</div>';
+    var help = styleHelp(channel, picked);
+    return '<div class="mkt-style">' + thumb +
+      '<div class="mkt-style-fields">' + fields + '</div>' +
+      stylePrice(state, channel, picked) +
+      (help ? '<p class="mkt-style-help">' + esc(help) + '</p>' : '') +
+      '</div>';
+  }
+
+  function zoomMarkup(state) {
+    if (!state || !state.zoomChannel) return '';
+    var channel = loadCatalog().channelById(state.zoomChannel);
+    if (!channel) return '';
+    var svg = previewSvg(state, channel);
+    if (!svg) return '';
+    var name = loadCatalog().displayName(channel, state.propertyClass);
+    return '<div class="mkt-lightbox" role="dialog" aria-modal="true" aria-label="' + esc(name) + ' preview">' +
+      '<button type="button" class="mkt-lightbox-backdrop" data-action="close-zoom" aria-label="Close preview"></button>' +
+      '<div class="mkt-lightbox-card"><div class="mkt-lightbox-bar"><span>' + esc(name) + '</span>' +
+      '<button type="button" class="mkt-lightbox-close" data-action="close-zoom">Close</button></div>' +
+      svg + '</div></div>';
   }
 
   function renderPicker(state) {
@@ -420,7 +517,8 @@
           propertyClass: state.propertyClass,
           selected: !!state.selected[channel.id],
           handwrittenOrderable: !!(state.menu && state.menu.handwrittenOrderable),
-        }) + (state.selected[channel.id] ? styleBlock(state, channel) : '');
+          inside: state.selected[channel.id] ? styleBlock(state, channel) : '',
+        });
       }).join('');
     };
     var commercialLock = state.empire ? '' : ' disabled';
@@ -435,7 +533,8 @@
       (state.message ? '<p class="mkt-message">' + esc(state.message) + '</p>' : '') +
       '<div class="mkt-pick-list">' + cards(picked) + '</div>' +
       '<details class="mkt-more"><summary>More options</summary><div class="mkt-pick-list">' + cards(more) + '</div></details>' +
-      '<div class="mkt-row"><button type="button" data-action="generate">Write copy with ARIS</button></div>';
+      '<div class="mkt-row"><button type="button" data-action="generate">Write copy with ARIS</button></div>' +
+      zoomMarkup(state);
   }
 
   function money(cents) {
@@ -979,11 +1078,22 @@
       paint(state);
       return;
     }
+    if (action === 'zoom-preview') {
+      state.zoomChannel = button.getAttribute('data-id') || '';
+      paint(state);
+      return;
+    }
+    if (action === 'close-zoom') {
+      state.zoomChannel = '';
+      paint(state);
+      return;
+    }
     if (action === 'toggle') {
       var id = button.getAttribute('data-id');
       state.selected[id] = !state.selected[id];
       state.recsFor = selectionKey(state);
       state.previewId = id;
+      state.zoomChannel = '';
       paint(state);
       return;
     }
@@ -1092,7 +1202,8 @@
       if (target.hasAttribute('data-print-pack')) choice.quantity = Number(target.value);
       else choice.option = target.value;
       state.prints[printId] = choice;
-      loadCost(state).then(function () { paint(state); });
+      if (state.step >= 5) loadCost(state).then(function () { paint(state); });
+      else paint(state);
       return;
     }
     if (target && target.hasAttribute('data-ship')) {
@@ -1733,6 +1844,14 @@
         app.hidden = false;
         app.addEventListener('click', function (event) { onClick(state, event); });
         app.addEventListener('change', function (event) { onChange(state, event); });
+      }
+      if (typeof document.addEventListener === 'function') {
+        document.addEventListener('keydown', function (event) {
+          if ((event.key === 'Escape' || event.key === 'Esc') && state.zoomChannel) {
+            state.zoomChannel = '';
+            paint(state);
+          }
+        });
       }
       await ensureLogo(state);
       var walletReturn = null;
