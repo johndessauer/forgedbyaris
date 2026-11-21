@@ -138,16 +138,25 @@ async function sendNotes(options) {
       }
       const id = String(data.id);
       if (ready.testMode) {
-        const cancel = await options.fetch(API + '/orders/' + encodeURIComponent(id) + '/cancel', {
-          method: 'PUT',
-          headers: {
-            Authorization: 'Bearer ' + ready.key,
-            'Content-Type': 'application/json',
-          },
-        });
+        let cancel;
+        try {
+          cancel = await options.fetch(API + '/orders/' + encodeURIComponent(id) + '/cancel', {
+            method: 'PUT',
+            headers: {
+              Authorization: 'Bearer ' + ready.key,
+              'Content-Type': 'application/json',
+            },
+          });
+        } catch (err) {
+          console.error('Marketing mail cancel failed', id);
+          const failure = new Error('The test mailing was not accepted.');
+          failure.statusCode = 502;
+          throw failure;
+        }
         const cancelled = await readJson(cancel);
         const status = cancelled && cancelled.order && cancelled.order.status;
         if (!cancel.ok && String(status || '').toLowerCase() !== 'cancelled') {
+          console.error('Marketing mail cancel failed', id, cancel.status || 0);
           const err = new Error('The test mailing was not accepted.');
           err.statusCode = 502;
           throw err;

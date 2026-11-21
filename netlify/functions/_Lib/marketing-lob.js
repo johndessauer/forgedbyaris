@@ -105,13 +105,13 @@ function hexColor(value, fallback) {
   return /^#[0-9A-Fa-f]{6}$/.test(String(value || '')) ? String(value) : fallback;
 }
 
-function pieceHtml(brand, text) {
+function pieceHtml(brand, text, testMode) {
   const colors = brand.colors || {};
   const primary = hexColor(colors.primary, '#1F3348');
   const accent = hexColor(colors.accent, '#C89B3C');
   const disclosure = brand.disclosure || '';
   return '<html><body style="font-family:sans-serif;font-size:14px;margin:0;">'
-    + '<p style="color:#666;font-size:11px;padding:8px 12px 0;">TEST — not a real mailing</p>'
+    + (testMode ? '<p style="color:#666;font-size:11px;padding:8px 12px 0;">TEST — not a real mailing</p>' : '')
     + '<div style="background:' + primary + ';color:#fff;padding:12px 16px;font-weight:700;">' + esc(brand.businessName || '') + '</div>'
     + '<div style="height:4px;background:' + accent + ';"></div>'
     + '<p style="padding:12px 16px;">' + esc(text).replace(/\n/g, '<br>') + '</p>'
@@ -144,16 +144,20 @@ async function sendPieces(options) {
     for (const piece of pieces) {
       const format = mailFormat(piece.channel);
       const path = format === 'letter' ? '/v1/letters' : '/v1/postcards';
-      const html = pieceHtml(brand, piece.variantA || '');
+      const liveMail = readRuntimeEnv(env, 'MARKETING_LIVE_MAIL') === 'true';
+      const html = pieceHtml(brand, piece.variantA || '', !liveMail);
       const styles = options.styles || {};
       const postcardSize = piece.channel === 'jumbo-postcard'
         ? '6x11'
         : (styles.postcard && styles.postcard.size);
       const size = postcardSize === '6x9' || postcardSize === '6x11' ? postcardSize : '4x6';
       const color = piece.channel === 'offer-letter' || !!(styles.letter && styles.letter.finish === 'color');
+      const description = liveMail
+        ? (format === 'letter' ? 'FORGE letter' : 'FORGE postcard')
+        : (format === 'letter' ? 'FORGE test letter' : 'FORGE test postcard');
       const payload = format === 'letter'
-        ? { to: toAddress(lead), from: from, file: html, color: color, mail_type: 'usps_first_class', use_type: 'marketing', description: 'FORGE test letter' }
-        : { to: toAddress(lead), from: from, front: html, back: html, size: size, mail_type: 'usps_first_class', use_type: 'marketing', description: 'FORGE test postcard' };
+        ? { to: toAddress(lead), from: from, file: html, color: color, mail_type: 'usps_first_class', use_type: 'marketing', description: description }
+        : { to: toAddress(lead), from: from, front: html, back: html, size: size, mail_type: 'usps_first_class', use_type: 'marketing', description: description };
       const response = await fetchImpl('https://api.lob.com' + path, {
         method: 'POST',
         headers: {

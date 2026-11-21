@@ -266,7 +266,7 @@
   function indicia(x, y, w, h, look) {
     const cx = x + w / 2;
     return '<rect x="' + n(x) + '" y="' + n(y) + '" width="' + n(w) + '" height="' + n(h) + '" fill="#fff" stroke="' + look.ink + '" stroke-width="1.2"/>' +
-      T('PRSRT STD', cx, y + h * 0.28, Math.max(7, h * 0.16), look.ink, SANS, 700, 'middle', '0.4') +
+      T('FIRST CLASS', cx, y + h * 0.28, Math.max(7, h * 0.14), look.ink, SANS, 700, 'middle', '0.4') +
       T('U.S. POSTAGE PAID', cx, y + h * 0.5, Math.max(6, h * 0.12), look.ink, SANS, 500, 'middle') +
       T('ANYTOWN ST', cx, y + h * 0.7, Math.max(6, h * 0.12), look.ink, SANS, 600, 'middle') +
       T('PERMIT NO. 1', cx, y + h * 0.88, Math.max(6, h * 0.11), look.muted, SANS, 500, 'middle');
