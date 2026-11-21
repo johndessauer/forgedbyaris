@@ -1,13 +1,22 @@
 // Marketing wallet checkout. Uses MARKETING_STRIPE_SECRET_KEY only.
-// A sandbox secret (sk_test_) or sandbox restricted key (rk_test_) is accepted.
-// Live keys are refused. Live checkout env vars are never read.
+// A sandbox secret (sk_test_) or sandbox restricted key (rk_test_) is always
+// accepted and funds the test wallet. Live keys (sk_live_ / rk_live_) are
+// accepted only when MARKETING_LIVE_MAIL is the string "true". That same
+// flag is what makes mail leave test mode, so test credits and live credits
+// stay in different wallets. Checkout is card-only.
 const crypto = require('crypto');
 const { TOP_UPS_CENTS } = require('./marketing-pricing');
 const { readRuntimeEnv, keyReason } = require('./runtime-env');
 
+function liveMail(env) {
+  return readRuntimeEnv(env, 'MARKETING_LIVE_MAIL') === 'true';
+}
+
 function assertTestStripeKey(env) {
   const key = readRuntimeEnv(env, 'MARKETING_STRIPE_SECRET_KEY');
+  const liveKey = key.startsWith('sk_live_') || key.startsWith('rk_live_');
   if (key.startsWith('sk_test_') || key.startsWith('rk_test_')) return key;
+  if (liveKey && liveMail(env)) return key;
   const err = new Error('Test checkout is not configured.');
   err.statusCode = 503;
   err.reason = keyReason(key);
@@ -21,6 +30,7 @@ function allowedTopUp(cents) {
 
 async function createTopUpSession(options) {
   const secret = assertTestStripeKey(options.env);
+  const live = liveMail(options.env) && (secret.startsWith('sk_live_') || secret.startsWith('rk_live_'));
   const amount = allowedTopUp(options.amountCents);
   if (!amount) {
     const err = new Error('Choose $25, $50, $100, or $250.');
@@ -29,14 +39,16 @@ async function createTopUpSession(options) {
   }
   const body = new URLSearchParams();
   body.set('mode', 'payment');
+  body.set('payment_method_types[0]', 'card');
   body.set('success_url', options.successUrl);
   body.set('cancel_url', options.cancelUrl);
   body.set('client_reference_id', String(options.memberId));
   body.set('line_items[0][quantity]', '1');
   body.set('line_items[0][price_data][currency]', 'usd');
   body.set('line_items[0][price_data][unit_amount]', String(amount));
-  body.set('line_items[0][price_data][product_data][name]', 'FORGE Marketing credits (test)');
+  body.set('line_items[0][price_data][product_data][name]', live ? 'FORGE Marketing credits' : 'FORGE Marketing credits (test)');
   body.set('metadata[purpose]', 'marketing-wallet');
+  body.set('metadata[wallet_mode]', live ? 'live' : 'test');
   body.set('metadata[member_id]', String(options.memberId));
   body.set('metadata[amount_cents]', String(amount));
   const response = await options.fetch('https://api.stripe.com/v1/checkout/sessions', {
@@ -76,6 +88,7 @@ function verifyWebhook(rawBody, header, secret) {
 }
 
 module.exports = {
+  liveMail: liveMail,
   assertTestStripeKey: assertTestStripeKey,
   readWebhookSecret: function (env) { return readRuntimeEnv(env, 'MARKETING_STRIPE_WEBHOOK_SECRET'); },
   allowedTopUp: allowedTopUp,

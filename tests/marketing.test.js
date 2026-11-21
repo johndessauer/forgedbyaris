@@ -186,6 +186,21 @@ test('production flag stays on the admin allowlist and previews open', () => {
   assert.equal(stranger.allowed, false);
   const forced = access.decideMarketingAccess({ email: 'member@example.com', empire: false, env: { CONTEXT: 'deploy-preview', MARKETING_FEATURE: 'closed' } });
   assert.equal(forced.allowed, false);
+  const zero = 'pln_forge-zero-psnx0aea';
+  const foundation = 'pln_foundation--s11cv0hs9';
+  const openZero = access.decideMarketingAccess({ email: 'zero@example.com', planIds: [zero], env: { CONTEXT: 'production', MARKETING_FEATURE: 'open' } });
+  assert.equal(openZero.allowed, false);
+  assert.equal(openZero.reason, 'plan');
+  const openPaid = access.decideMarketingAccess({ email: 'paid@example.com', planIds: [foundation], env: { CONTEXT: 'production', MARKETING_FEATURE: 'open' } });
+  assert.equal(openPaid.allowed, true);
+  assert.equal(openPaid.reason, 'open');
+  const openBoth = access.decideMarketingAccess({ email: 'both@example.com', planIds: [zero, foundation], env: { CONTEXT: 'production', MARKETING_FEATURE: 'open' } });
+  assert.equal(openBoth.allowed, true);
+  const listedZero = access.decideMarketingAccess({ email: 'john@thedessauergroup.com', planIds: [zero], env: { CONTEXT: 'production', MARKETING_FEATURE: 'open' } });
+  assert.equal(listedZero.allowed, true);
+  assert.equal(listedZero.reason, 'allowlist');
+  const includeZero = access.decideMarketingAccess({ email: 'zero@example.com', planIds: [zero], env: { CONTEXT: 'production', MARKETING_FEATURE: 'open', MARKETING_EXCLUDE_PLANS: 'none' } });
+  assert.equal(includeZero.allowed, true);
 });
 
 test('logo and headshot validation cleans SVG and rejects animation', () => {

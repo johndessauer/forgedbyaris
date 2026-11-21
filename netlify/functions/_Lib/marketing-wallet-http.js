@@ -23,9 +23,10 @@ function createHandler(deps) {
     catch (err) { return json(503, { error: 'Marketing credits are not available.' }); }
 
     const memberId = gate.access.memberId;
+    const mode = wallet.walletMode(options.env || process.env);
     if (event.httpMethod === 'GET') {
-      const row = await wallet.readWallet(store, memberId);
-      return json(200, { balanceCents: row.balanceCents, topUpsCents: TOP_UPS_CENTS, testMode: true });
+      const row = await wallet.readWallet(store, memberId, mode);
+      return json(200, { balanceCents: row.balanceCents, topUpsCents: TOP_UPS_CENTS, testMode: mode !== 'live' });
     }
     if (event.httpMethod !== 'POST') return json(405, { error: 'Method not allowed' });
 

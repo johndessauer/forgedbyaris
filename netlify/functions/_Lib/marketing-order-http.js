@@ -122,6 +122,7 @@ function createHandler(deps) {
     let store;
     try { store = options.getStore ? options.getStore() : openBlobStore(event); }
     catch (err) { return json(503, { error: 'Marketing credits are not available.' }); }
+    const mode = wallet.walletMode(env);
 
     if (event.httpMethod === 'GET') {
       if (!gate.flag.reviewer) return json(403, { error: 'Only an allowlisted admin can read the markup report.' });
@@ -146,7 +147,7 @@ function createHandler(deps) {
     const leads = rawLeads.filter(lob.mailable);
     const channels = Array.isArray(body.channels) ? body.channels : [];
     const quote = pricing.quoteOrder(channels, leads.length, env, body.prints, body.styles);
-    const balance = await wallet.readWallet(store, gate.access.memberId);
+    const balance = await wallet.readWallet(store, gate.access.memberId, mode);
 
     if (body.action === 'quote') {
       return json(200, {
@@ -200,7 +201,7 @@ function createHandler(deps) {
       if (idem) {
         const prior = await readJson(store, idem);
         if (prior && prior.status === 'recorded') {
-          const again = await wallet.readWallet(store, gate.access.memberId);
+          const again = await wallet.readWallet(store, gate.access.memberId, mode);
           return json(200, {
             orderId: prior.orderId,
             testMode: true,
@@ -215,7 +216,7 @@ function createHandler(deps) {
           return json(409, { error: 'This print order is already in progress.' });
         }
       }
-      const balanceNow = await wallet.readWallet(store, gate.access.memberId);
+      const balanceNow = await wallet.readWallet(store, gate.access.memberId, mode);
       if (balanceNow.balanceCents < printQuote.printChargedCents) {
         return json(402, {
           error: 'Add credits before this test print order.',
@@ -231,7 +232,8 @@ function createHandler(deps) {
         memberId: gate.access.memberId,
         amountCents: printQuote.printChargedCents,
         orderId: id,
-        note: 'Test print order',
+        note: mode === 'live' ? 'Print order' : 'Test print order',
+        mode: mode,
       });
       if (!debit.debited) {
         if (idem) await store.delete(idem);
@@ -279,7 +281,8 @@ function createHandler(deps) {
           memberId: gate.access.memberId,
           amountCents: printQuote.printChargedCents,
           orderId: id,
-          note: 'Test print order returned',
+          note: mode === 'live' ? 'Print order returned' : 'Test print order returned',
+          mode: mode,
         });
         if (idem) await store.delete(idem);
         return json(502, { error: 'The test print order was not recorded. The credits were returned.' });
@@ -351,7 +354,7 @@ function createHandler(deps) {
     if (idem) {
       const prior = await readJson(store, idem);
       if (prior && prior.status === 'sent') {
-        const again = await wallet.readWallet(store, gate.access.memberId);
+        const again = await wallet.readWallet(store, gate.access.memberId, mode);
         return json(200, {
           orderId: prior.orderId,
           testMode: prior.testMode,
@@ -372,7 +375,8 @@ function createHandler(deps) {
       memberId: gate.access.memberId,
       amountCents: mailQuote.chargedCents,
       orderId: id,
-      note: 'Test mail',
+      note: mode === 'live' ? 'Mail' : 'Test mail',
+      mode: mode,
     });
     if (!debit.debited) {
       if (idem) await store.delete(idem);
@@ -413,7 +417,8 @@ function createHandler(deps) {
         memberId: gate.access.memberId,
         amountCents: mailQuote.chargedCents,
         orderId: id,
-        note: 'Test mail returned',
+        note: mode === 'live' ? 'Mail returned' : 'Test mail returned',
+        mode: mode,
       });
       if (idem) await store.delete(idem);
       return json(err.statusCode || 502, { error: 'The test mailing was not accepted. The credits were returned.' });

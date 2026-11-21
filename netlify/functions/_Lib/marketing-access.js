@@ -1,6 +1,13 @@
 // Who can see Marketing. Production stays on the admin allowlist.
 // Deploy previews, branch deploys, and local dev open it for any member
 // so the preview can be reviewed. CONTEXT unset fails closed.
+//
+// MARKETING_FEATURE=open (or all) lets every paying member in, except a
+// member whose only live plan is on the exclude list. That list defaults
+// to free FORGE Zero. Set MARKETING_EXCLUDE_PLANS=none to turn the
+// exclusion off, or to a comma-separated plan id list to replace it.
+// The allowlist still wins, including for a Zero member on the list.
+const { PLAN_IDS } = require('./plans');
 const ADMIN_EMAILS = Object.freeze([
   'john@thedessauergroup.com',
   'jdessauer@antonagency.com',
@@ -21,6 +28,20 @@ function memberEmail(member) {
   return '';
 }
 
+function excludedPlanIds(env) {
+  const raw = String(env.MARKETING_EXCLUDE_PLANS || '').trim();
+  if (!raw) return [PLAN_IDS.FORGE_ZERO];
+  if (raw.toLowerCase() === 'none' || raw.toLowerCase() === 'off') return [];
+  return emailList(raw);
+}
+
+function onlyExcludedPlan(planIds, env) {
+  const ids = (planIds || []).map(function (id) { return String(id || '').trim(); }).filter(Boolean);
+  if (!ids.length) return false;
+  const excluded = new Set(excludedPlanIds(env));
+  return ids.every(function (id) { return excluded.has(id); });
+}
+
 function decideMarketingAccess(input) {
   const opts = input || {};
   const env = opts.env || {};
@@ -32,17 +53,27 @@ function decideMarketingAccess(input) {
   const onAllowlist = !!email && allow.has(email);
   const opened = mode === 'open' || mode === 'all';
   const preview = mode !== 'closed' && PREVIEW_CONTEXTS.has(context);
-  const allowed = opened || onAllowlist || preview;
+  const blocked = opened && onlyExcludedPlan(opts.planIds, env);
+  let allowed = false;
   let reason = 'flagged';
-  if (opened) reason = 'open';
-  else if (onAllowlist) reason = 'allowlist';
-  else if (preview) reason = 'preview';
+  if (onAllowlist) {
+    allowed = true;
+    reason = 'allowlist';
+  } else if (opened && !blocked) {
+    allowed = true;
+    reason = 'open';
+  } else if (blocked) {
+    reason = 'plan';
+  } else if (preview) {
+    allowed = true;
+    reason = 'preview';
+  }
   return {
     allowed: allowed,
     reviewer: onAllowlist,
     empire: !!opts.empire,
     brandLimit: opts.empire ? 3 : 1,
-    reason: allowed ? reason : 'flagged',
+    reason: reason,
     context: context || 'unset',
   };
 }
@@ -79,9 +110,15 @@ async function loadMarketingGate(event, deps) {
     return { response: json(503, { error: 'Could not verify this account.' }) };
   }
 
+  const connections = member && Array.isArray(member.planConnections) ? member.planConnections : [];
+  const planIds = connections.filter(function (row) {
+    const status = String(row && row.status || '').toUpperCase();
+    return status === 'ACTIVE' || status === 'TRIALING';
+  }).map(function (row) { return String(row.planId || ''); }).filter(Boolean);
   const flag = decideMarketingAccess({
     email: memberEmail(member),
     empire: access.empire,
+    planIds: planIds,
     env: options.env || process.env,
     context: options.context,
   });
@@ -92,6 +129,7 @@ module.exports = {
   ADMIN_EMAILS: ADMIN_EMAILS,
   PREVIEW_CONTEXTS: PREVIEW_CONTEXTS,
   memberEmail: memberEmail,
+  excludedPlanIds: excludedPlanIds,
   decideMarketingAccess: decideMarketingAccess,
   loadMarketingGate: loadMarketingGate,
 };

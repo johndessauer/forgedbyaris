@@ -147,6 +147,26 @@ test('a handwritten order is refused while the note service is not connected', a
     brand: { businessName: 'Sample Buys', returnAddress: { line1: '1 Main St', city: 'Sampletown', state: 'ST', zip: '00000' } },
   });
   assert.deepEqual(live, ['POST https://api.thanks.io/api/v2/send/notecard']);
+  const errors = [];
+  const log = console.error;
+  console.error = function () { errors.push(Array.from(arguments).join(' ')); };
+  try {
+    await assert.rejects(
+      () => thanks.sendNotes({
+        env: { THANKSIO_API_KEY: 'tio_test_key' },
+        fetch: async (url) => ({ ok: !String(url).includes('/cancel'), status: 409, json: async () => ({ id: 4, order: { status: 'reviewing' } }) }),
+        pieces: [{ channel: 'handwritten', variantA: 'Hi' }],
+        leads: [{ address: '210 King St', city: 'San Francisco', state: 'CA', zip: '94107' }],
+        styles: { handwritten: { product: 'notecard', hand: 'shopping-list' } },
+        brand: { businessName: 'Sample Buys', returnAddress: { line1: '1 Main St', city: 'Sampletown', state: 'ST', zip: '00000' } },
+      }),
+      /not accepted/
+    );
+  } finally {
+    console.error = log;
+  }
+  assert.match(errors.join('\n'), /Marketing mail cancel failed/);
+  assert.equal(errors.join('\n').includes('tio_'), false);
 
   const blob = storeLib.createMemoryBlobStore();
   await blob.setJSON('brands/mem_john.json', { brands: [{ id: 'brand_1', businessName: 'Sample Buys', phone: '555-0100', returnAddress: { line1: '1 Main St', city: 'Sampletown', state: 'ST', zip: '00000' } }] });
@@ -241,7 +261,8 @@ test('a handwritten order is refused while the note service is not connected', a
   assert.match(postcard46, /data-face="front"/);
   assert.match(postcard46, /data-face="back"/);
   assert.match(postcard46, /Your Name/);
-  assert.match(postcard46, /PRSRT STD/);
+  assert.match(postcard46, /FIRST CLASS/);
+  assert.equal(postcard46.includes('PRSRT STD'), false);
   assert.match(postcard46, /\(555\) 555-0100/);
   assert.equal(/we buy houses/i.test(postcard46), false);
   assert.equal(postcard46.includes('home in your'), true);

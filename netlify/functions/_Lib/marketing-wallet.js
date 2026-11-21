@@ -1,22 +1,34 @@
 // Prepaid Marketing credits. Amounts are integer cents.
 // A Stripe session id is credited once. A debit that does not fit is refused
 // and does not change the balance.
+//
+// Test credits stay at wallet/{member}.json. Live credits, used only when
+// MARKETING_LIVE_MAIL is "true", stay at wallet/live/{member}.json. A test
+// balance is never read while mail is live, and a live balance is never
+// read while mail is in test.
 const { memberKey, readJson } = require('./marketing-store');
+const { readRuntimeEnv } = require('./runtime-env');
 
-function walletKey(memberId) {
-  return 'wallet/' + memberKey(memberId) + '.json';
+function walletMode(env) {
+  return readRuntimeEnv(env, 'MARKETING_LIVE_MAIL') === 'true' ? 'live' : 'test';
 }
 
-function ledgerKey(memberId) {
-  return 'ledger/' + memberKey(memberId) + '.json';
+function walletKey(memberId, mode) {
+  const id = memberKey(memberId);
+  return mode === 'live' ? 'wallet/live/' + id + '.json' : 'wallet/' + id + '.json';
+}
+
+function ledgerKey(memberId, mode) {
+  const id = memberKey(memberId);
+  return mode === 'live' ? 'ledger/live/' + id + '.json' : 'ledger/' + id + '.json';
 }
 
 function newId(prefix) {
   return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
-async function readWallet(store, memberId) {
-  const row = await readJson(store, walletKey(memberId));
+async function readWallet(store, memberId, mode) {
+  const row = await readJson(store, walletKey(memberId, mode));
   const balance = row && Number(row.balanceCents);
   return {
     memberId: memberId,
@@ -25,15 +37,15 @@ async function readWallet(store, memberId) {
   };
 }
 
-async function readLedger(store, memberId) {
-  const rows = await readJson(store, ledgerKey(memberId));
+async function readLedger(store, memberId, mode) {
+  const rows = await readJson(store, ledgerKey(memberId, mode));
   return Array.isArray(rows) ? rows : [];
 }
 
-async function writeBoth(store, memberId, balanceCents, ledger) {
+async function writeBoth(store, memberId, balanceCents, ledger, mode) {
   const now = new Date().toISOString();
-  await store.setJSON(walletKey(memberId), { balanceCents: balanceCents, updatedAt: now });
-  await store.setJSON(ledgerKey(memberId), ledger);
+  await store.setJSON(walletKey(memberId, mode), { balanceCents: balanceCents, updatedAt: now });
+  await store.setJSON(ledgerKey(memberId, mode), ledger);
   return now;
 }
 
@@ -45,13 +57,14 @@ async function credit(store, input) {
     err.statusCode = 400;
     throw err;
   }
-  const ledger = await readLedger(store, memberId);
+  const mode = input.mode === 'live' ? 'live' : 'test';
+  const ledger = await readLedger(store, memberId, mode);
   const sessionId = input.stripeSessionId ? String(input.stripeSessionId) : '';
   if (sessionId && ledger.some(function (row) { return row.stripeSessionId === sessionId; })) {
-    const wallet = await readWallet(store, memberId);
+    const wallet = await readWallet(store, memberId, mode);
     return { credited: false, duplicate: true, balanceCents: wallet.balanceCents };
   }
-  const wallet = await readWallet(store, memberId);
+  const wallet = await readWallet(store, memberId, mode);
   const next = wallet.balanceCents + amount;
   const entry = {
     id: newId('led'),
@@ -65,7 +78,7 @@ async function credit(store, input) {
     note: String(input.note || 'Top-up').slice(0, 160),
   };
   ledger.push(entry);
-  await writeBoth(store, memberId, next, ledger);
+  await writeBoth(store, memberId, next, ledger, mode);
   return { credited: true, duplicate: false, balanceCents: next, entry: entry };
 }
 
@@ -77,7 +90,8 @@ async function debit(store, input) {
     err.statusCode = 400;
     throw err;
   }
-  const wallet = await readWallet(store, memberId);
+  const mode = input.mode === 'live' ? 'live' : 'test';
+  const wallet = await readWallet(store, memberId, mode);
   if (wallet.balanceCents < amount) {
     return {
       debited: false,
@@ -85,7 +99,7 @@ async function debit(store, input) {
       shortfallCents: amount - wallet.balanceCents,
     };
   }
-  const ledger = await readLedger(store, memberId);
+  const ledger = await readLedger(store, memberId, mode);
   const next = wallet.balanceCents - amount;
   const entry = {
     id: newId('led'),
@@ -99,11 +113,12 @@ async function debit(store, input) {
     note: String(input.note || 'Mail').slice(0, 160),
   };
   ledger.push(entry);
-  await writeBoth(store, memberId, next, ledger);
+  await writeBoth(store, memberId, next, ledger, mode);
   return { debited: true, balanceCents: next, entry: entry };
 }
 
 module.exports = {
+  walletMode: walletMode,
   readWallet: readWallet,
   readLedger: readLedger,
   credit: credit,

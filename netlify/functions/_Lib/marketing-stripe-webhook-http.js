@@ -41,7 +41,8 @@ function createHandler(deps) {
       memberId: memberId,
       amountCents: amount,
       stripeSessionId: session.id,
-      note: 'Test top-up',
+      note: meta.wallet_mode === 'live' ? 'Top-up' : 'Test top-up',
+      mode: meta.wallet_mode === 'live' ? 'live' : 'test',
     });
     return json(200, { credited: result.credited, duplicate: result.duplicate, balanceCents: result.balanceCents });
   };

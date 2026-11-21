@@ -162,6 +162,8 @@ test('a live mail key is refused unless test mail is explicitly turned on', () =
   assert.equal(reasonOf({ MARKETING_STRIPE_SECRET_KEY: 'sk_live_abc' }), 'live_key_refused');
   assert.equal(reasonOf({ MARKETING_STRIPE_SECRET_KEY: 'pk_test_publishable' }), 'bad_prefix:pk_');
   assert.equal(reasonOf({ MARKETING_STRIPE_SECRET_KEY: 'whsec_webhook' }), 'bad_prefix:whs');
+  assert.equal(stripe.assertTestStripeKey({ MARKETING_STRIPE_SECRET_KEY: 'sk_live_ok', MARKETING_LIVE_MAIL: 'true' }), 'sk_live_ok');
+  assert.equal(stripe.assertTestStripeKey({ MARKETING_STRIPE_SECRET_KEY: 'rk_live_ok', MARKETING_LIVE_MAIL: 'true' }), 'rk_live_ok');
 });
 
 test('top-up checkout uses only the test key and the webhook credits the wallet once', async () => {
@@ -176,6 +178,9 @@ test('top-up checkout uses only the test key and the webhook credits the wallet 
   assert.match(decodeURIComponent(box.calls[0].init.body), /wallet=success/);
   assert.match(decodeURIComponent(box.calls[0].init.body), /wallet=cancel/);
   assert.match(decodeURIComponent(box.calls[0].init.body), /metadata\[amount_cents\]=2500/);
+  assert.match(decodeURIComponent(box.calls[0].init.body), /payment_method_types\[0\]=card/);
+  assert.match(decodeURIComponent(box.calls[0].init.body), /metadata\[wallet_mode\]=test/);
+  assert.equal(decodeURIComponent(box.calls[0].init.body).includes('klarna'), false);
   assert.equal(box.calls[0].init.body.includes('sk_live'), false);
 
   const live = rig({ env: { MARKETING_STRIPE_SECRET_KEY: 'sk_live_nope' } });
@@ -622,4 +627,58 @@ test('printed goods ship in a pack and never use the property count', async () =
   assert.equal(cost.includes('data-print-pack="bandit"'), false);
   assert.match(app.renderApprove(screen), /Continue to cost/);
   assert.equal(app.renderPicker(app.createState({ empire: true, propertyClass: 'residential' })).includes('Bandit sign'), false);
+});
+
+test('live mail spends the live wallet and drops the test banner', async () => {
+  const store = storeLib.createMemoryBlobStore();
+  await wallet.credit(store, { memberId: 'mem_john', amountCents: 5000, stripeSessionId: 'cs_test_only' });
+  await wallet.credit(store, { memberId: 'mem_john', amountCents: 50, stripeSessionId: 'cs_live_only', mode: 'live' });
+  assert.equal((await wallet.readWallet(store, 'mem_john')).balanceCents, 5000);
+  assert.equal((await wallet.readWallet(store, 'mem_john', 'live')).balanceCents, 50);
+
+  const calls = [];
+  const sent = await lob.sendPieces({
+    env: { LOB_API_KEY: 'live_lob_key', MARKETING_LIVE_MAIL: 'true' },
+    fetch: async (url, init) => {
+      calls.push(JSON.parse(init.body));
+      return { ok: true, json: async () => ({ id: 'ltr_live' }) };
+    },
+    brand: BRAND,
+    leads: [LEAD],
+    pieces: [{ channel: 'letter', variantA: 'A short letter' }],
+    styles: { letter: { finish: 'bw' } },
+  });
+  assert.equal(sent.testMode, false);
+  assert.equal(calls[0].description, 'FORGE letter');
+  assert.equal(calls[0].file.includes('TEST — not a real mailing'), false);
+  assert.equal(calls[0].file.includes('FORGE test'), false);
+
+  const box = rig({
+    env: { LOB_API_KEY: 'live_lob_key', MARKETING_LIVE_MAIL: 'true' },
+    blob: store,
+  });
+  await box.blob.setJSON('brands/mem_john.json', { brands: [BRAND] });
+  const refused = await box.call(orderApi.createHandler(box.deps), {
+    action: 'confirm',
+    brandId: 'brand_1',
+    channels: ['letter'],
+    leads: [LEAD],
+    pieces: [{ channel: 'letter', variantA: 'A short letter', approved: true }],
+  });
+  assert.equal(refused.status, 402);
+  assert.equal((await wallet.readWallet(store, 'mem_john')).balanceCents, 5000);
+  assert.equal((await wallet.readWallet(store, 'mem_john', 'live')).balanceCents, 50);
+
+  await wallet.credit(store, { memberId: 'mem_john', amountCents: 5000, stripeSessionId: 'cs_live_more', mode: 'live' });
+  const accepted = await box.call(orderApi.createHandler(box.deps), {
+    action: 'confirm',
+    brandId: 'brand_1',
+    channels: ['letter'],
+    leads: [LEAD],
+    pieces: [{ channel: 'letter', variantA: 'A short letter', approved: true }],
+  });
+  assert.equal(accepted.status, 200, JSON.stringify(accepted.body));
+  assert.equal(accepted.body.testMode, false);
+  assert.equal((await wallet.readWallet(store, 'mem_john')).balanceCents, 5000);
+  assert.equal((await wallet.readWallet(store, 'mem_john', 'live')).balanceCents, 5050 - 128);
 });
