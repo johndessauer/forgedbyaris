@@ -12,7 +12,7 @@ const PRINT_MARKUP_RATE_MIN = 0.25;
 const PRINT_MARKUP_RATE_MAX = 0.35;
 const MAIL_PROVIDER = 'lob';
 const THANKS_PROVIDER = 'thanks-io';
-const LOB_CHANNELS = Object.freeze(['postcard', 'letter']);
+const LOB_CHANNELS = Object.freeze(['postcard', 'letter', 'jumbo-postcard', 'offer-letter']);
 const catalog = require('../../../assets/js/marketing-catalog.js');
 const { readRuntimeEnv } = require('./runtime-env');
 
@@ -28,8 +28,8 @@ const PRINT_VENDOR = 'dirt-cheap-signs';
 // adapter and are not sent here.
 function mailFormat(channelId) {
   const id = String(channelId || '');
-  if (id === 'postcard') return 'postcard';
-  if (id === 'letter') return 'letter';
+  if (id === 'postcard' || id === 'jumbo-postcard') return 'postcard';
+  if (id === 'letter' || id === 'offer-letter') return 'letter';
   return '';
 }
 
@@ -69,6 +69,10 @@ function mailPrice(vendorUsd) {
 
 const POSTCARD_COSTS_USD = Object.freeze({ '4x6': 0.909, '6x9': 1.033, '6x11': 1.292 });
 const LETTER_COSTS_USD = Object.freeze({ bw: 1.067, color: 1.225 });
+// Jumbo is Lob's 6×11 First Class postcard at the Developer rate John approved.
+// The offer letter is a one-page color letter in a #10 envelope, First Class.
+const JUMBO_POSTCARD_6X11_USD = 1.294;
+const OFFER_LETTER_COLOR_USD = 1.226;
 const POSTCARD_4X6_FIRST_CLASS_USD = POSTCARD_COSTS_USD['4x6'];
 const LETTER_BW_FIRST_CLASS_USD = LETTER_COSTS_USD.bw;
 const LETTER_COLOR_FIRST_CLASS_USD = LETTER_COSTS_USD.color;
@@ -85,6 +89,8 @@ const BASIS = Object.freeze({
   postcard: line('mail', postcardDefault.vendorCostCents, MAIL_MARKUP_RATE, MAIL_PROVIDER),
   letter: line('mail', letterDefault.vendorCostCents, MAIL_MARKUP_RATE, MAIL_PROVIDER),
   handwritten: line('mail', HANDWRITTEN_VENDOR_CENTS.notecard, MAIL_MARKUP_RATE, THANKS_PROVIDER),
+  'jumbo-postcard': line('mail', mailPrice(JUMBO_POSTCARD_6X11_USD).vendorCostCents, MAIL_MARKUP_RATE, MAIL_PROVIDER),
+  'offer-letter': line('mail', mailPrice(OFFER_LETTER_COLOR_USD).vendorCostCents, MAIL_MARKUP_RATE, MAIL_PROVIDER),
   'door-hanger': line('print', SOON_VENDOR_CENTS['door-hanger'], PRINT_MARKUP_RATE, PRINT_VENDOR),
   'yard-sign': line('print', SIGN_PACK_VENDOR_CENTS[100] / 100, PRINT_MARKUP_RATE, PRINT_VENDOR),
   'skip-trace': unpriced('data', 20),
@@ -251,7 +257,21 @@ function quoteOrder(channels, quantity, env, prints, styles) {
     let count = 0;
     let orderable = false;
     let kind = print ? 'print' : basis.medium;
-    if (format === 'postcard') {
+    if (key === 'jumbo-postcard') {
+      const price = mailPrice(JUMBO_POSTCARD_6X11_USD);
+      unitVendor = price.vendorCostCents;
+      unitStudent = price.studentPriceCents;
+      count = leadCount;
+      orderable = true;
+      kind = 'mail';
+    } else if (key === 'offer-letter') {
+      const price = mailPrice(OFFER_LETTER_COLOR_USD);
+      unitVendor = price.vendorCostCents;
+      unitStudent = price.studentPriceCents;
+      count = leadCount;
+      orderable = true;
+      kind = 'mail';
+    } else if (format === 'postcard') {
       const price = mailPrice(POSTCARD_COSTS_USD[picked.id]);
       unitVendor = price.vendorCostCents;
       unitStudent = price.studentPriceCents;
@@ -334,6 +354,7 @@ function publicQuote(line) {
   return {
     channelId: row.channelId,
     quantity: row.quantity,
+    option: row.option || '',
     currency: row.currency,
     priced: row.priced,
     styleId: row.styleId || '',
@@ -363,6 +384,8 @@ function publicMenu(env) {
   return {
     postcard: rowsFromUsd(POSTCARD_COSTS_USD, { '4x6': '4 × 6', '6x9': '6 × 9', '6x11': '6 × 11' }),
     letter: rowsFromUsd(LETTER_COSTS_USD, { bw: 'Black and white', color: 'Color' }),
+    'jumbo-postcard': [{ id: '6x11', label: '6 × 11', studentPriceCents: mailPrice(JUMBO_POSTCARD_6X11_USD).studentPriceCents }],
+    'offer-letter': [{ id: 'color', label: 'Color', studentPriceCents: mailPrice(OFFER_LETTER_COLOR_USD).studentPriceCents }],
     handwritten: rowsFromCents(HANDWRITTEN_VENDOR_CENTS, { notecard: 'Folded notecard', '4x6': '4 × 6 postcard', '6x9': '6 × 9 postcard' }),
     signs: [],
     comingSoon: soonIds.map(function (id) {
@@ -387,6 +410,8 @@ module.exports = {
   LETTER_COLOR_FIRST_CLASS_USD: LETTER_COLOR_FIRST_CLASS_USD,
   POSTCARD_COSTS_USD: POSTCARD_COSTS_USD,
   LETTER_COSTS_USD: LETTER_COSTS_USD,
+  JUMBO_POSTCARD_6X11_USD: JUMBO_POSTCARD_6X11_USD,
+  OFFER_LETTER_COLOR_USD: OFFER_LETTER_COLOR_USD,
   HANDWRITTEN_VENDOR_CENTS: HANDWRITTEN_VENDOR_CENTS,
   SIGN_PACK_VENDOR_CENTS: SIGN_PACK_VENDOR_CENTS,
   publishedCents: publishedCents,

@@ -101,7 +101,10 @@ test('unpriced sign choices are not given a made-up price and are not orderable'
 
   assert.equal(catalog.priceMode('bandit', {}), 'soon');
   assert.equal(catalog.designOrderable('bandit'), false);
-  assert.equal(catalog.priceMode('jumbo-postcard', {}), 'soon');
+  assert.equal(catalog.priceMode('jumbo-postcard', {}), 'priced');
+  assert.equal(catalog.priceMode('offer-letter', {}), 'priced');
+  assert.equal(catalog.designOrderable('jumbo-postcard'), true);
+  assert.equal(catalog.designOrderable('offer-letter'), true);
   assert.equal(catalog.priceMode('yard-sign', {}), 'soon');
   assert.equal(catalog.designOrderable('yard-sign'), false);
   const yardArt = catalog.stylePreview('yard-sign', '');
@@ -146,12 +149,18 @@ test('unpriced sign choices are not given a made-up price and are not orderable'
     bandit: { quantity: 50, option: '18x24-hstake' },
   };
   const chosen = app.renderPicker(preview);
-  ['Yellow letter', 'Jumbo postcard', 'Offer letter'].forEach((name) => {
-    const card = pieceCard(chosen, name);
-    assert.equal((card.match(/mkt-pill is-soon/g) || []).length, 1, name);
-    assert.match(card, /Pricing coming soon/);
-    assert.equal(card.includes('data-print-pack'), false, name);
-  });
+  const yellow = pieceCard(chosen, 'Yellow letter');
+  assert.equal((yellow.match(/mkt-pill is-soon/g) || []).length, 1);
+  assert.match(yellow, /Pricing coming soon/);
+  const jumbo = pieceCard(chosen, 'Jumbo postcard');
+  const offer = pieceCard(chosen, 'Offer letter');
+  assert.match(jumbo, /We mail it/);
+  assert.match(jumbo, /\$1\.55 each/);
+  assert.equal(jumbo.includes('Coming soon'), false);
+  assert.match(offer, /We mail it/);
+  assert.match(offer, /\$1\.47 each/);
+  assert.match(offer, /not a binding offer/);
+  assert.equal(offer.includes('Coming soon'), false);
   const cost = app.renderCost(preview);
   assert.equal(cost.includes('Bandit sign'), false);
   assert.equal(cost.includes('data-print-pack="bandit"'), false);

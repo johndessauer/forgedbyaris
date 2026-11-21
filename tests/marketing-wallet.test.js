@@ -336,6 +336,65 @@ test('confirm debits the wallet, sends a test postcard, and returns the credits 
   assert.equal((await wallet.readWallet(box.blob, 'mem_john')).balanceCents, 10000 - 124);
 });
 
+test('jumbo postcards and offer letters quote, confirm, and show on the markup report', async () => {
+  const quoted = pricing.quoteOrder(['jumbo-postcard', 'offer-letter'], 2, {});
+  const jumbo = quoted.lines.find(row => row.channelId === 'jumbo-postcard');
+  const offer = quoted.lines.find(row => row.channelId === 'offer-letter');
+  assert.equal(pricing.mailFormat('jumbo-postcard'), 'postcard');
+  assert.equal(pricing.mailFormat('offer-letter'), 'letter');
+  assert.equal(jumbo.orderable, true);
+  assert.equal(jumbo.comingSoon, false);
+  assert.equal(jumbo.quantity, 2);
+  assert.equal(jumbo.styleId, '6x11');
+  assert.equal(jumbo.unitVendorCostCents, 129);
+  assert.equal(jumbo.unitStudentPriceCents, 155);
+  assert.equal(jumbo.studentPriceCents, 310);
+  assert.equal(offer.orderable, true);
+  assert.equal(offer.quantity, 2);
+  assert.equal(offer.styleId, 'color');
+  assert.equal(offer.unitVendorCostCents, 123);
+  assert.equal(offer.unitStudentPriceCents, 147);
+  assert.equal(offer.studentPriceCents, 294);
+  assert.equal(quoted.mailChargedCents, 604);
+  assert.equal(quoted.chargedCents, 604);
+  assert.equal(quoted.vendorCostCents, 504);
+  assert.equal(quoted.markupCents, 100);
+  assert.equal(JSON.stringify(quoted).toLowerCase().includes('lob'), false);
+
+  const box = rig();
+  await box.blob.setJSON('brands/mem_john.json', { brands: [BRAND] });
+  await wallet.credit(box.blob, { memberId: 'mem_john', amountCents: 2000, stripeSessionId: 'cs_jumbo' });
+  const handler = orderApi.createHandler(box.deps);
+  const sent = await box.call(handler, {
+    action: 'confirm',
+    brandId: 'brand_1',
+    channels: ['jumbo-postcard', 'offer-letter'],
+    leads: [LEAD],
+    pieces: [
+      { channel: 'jumbo-postcard', variantA: 'A short jumbo note', approved: true },
+      { channel: 'offer-letter', variantA: 'This is not a binding offer.', approved: true },
+    ],
+  });
+  assert.equal(sent.status, 200);
+  assert.equal(sent.body.testMode, true);
+  assert.equal(sent.body.chargedCents, 302);
+  assert.equal(JSON.stringify(sent.body).toLowerCase().includes('lob'), false);
+  assert.equal((await wallet.readWallet(box.blob, 'mem_john')).balanceCents, 2000 - 302);
+  assert.equal(box.calls.length, 2);
+  assert.equal(box.calls[0].url, 'https://api.lob.com/v1/postcards');
+  assert.equal(JSON.parse(box.calls[0].init.body).size, '6x11');
+  assert.equal(box.calls[1].url, 'https://api.lob.com/v1/letters');
+  assert.equal(JSON.parse(box.calls[1].init.body).color, true);
+  assert.equal(JSON.parse(box.calls[1].init.body).mail_type, 'usps_first_class');
+
+  const report = await box.call(handler, null, 'GET', { queryStringParameters: { format: 'csv' } });
+  assert.equal(report.status, 200);
+  assert.match(report.raw, /jumbo-postcard x1 6x11/);
+  assert.match(report.raw, /offer-letter x1 color/);
+  assert.match(report.raw, /2\.52,3\.02,0\.50/);
+  assert.match(report.raw, /0\.20/);
+});
+
 test('handwritten notes stay unorderable until the note service is connected', () => {
   const note = pricing.quoteOrder(['handwritten'], 3, {});
   assert.equal(pricing.mailFormat('handwritten'), '');

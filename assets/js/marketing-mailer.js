@@ -274,9 +274,9 @@
   }
 
   function cardSize(kind) {
-    const table = { '4x6': [6, 4], '6x9': [9, 6], '6x11': [11, 6], jumbo: [12, 9] };
+    const table = { '4x6': [6, 4], '6x9': [9, 6], '6x11': [11, 6], jumbo: [11, 6] };
     const pair = table[kind] || table['4x6'];
-    return { w: pair[0] * INCH, h: pair[1] * INCH, label: kind === 'jumbo' ? '9 × 12' : kind.replace('x', ' × ') };
+    return { w: pair[0] * INCH, h: pair[1] * INCH, label: kind === 'jumbo' || kind === '6x11' ? '6 × 11' : String(kind).replace('x', ' × ') };
   }
 
   function postcardFront(size, look, copy, id) {
@@ -459,35 +459,31 @@
     return { name: 'letter', label: 'LETTER', w: w, h: h, inner: inner };
   }
 
-  function offerPage(look, copy) {
+  function offerPage(look, copy, id) {
     const w = 8.5 * INCH;
     const h = 11 * INCH;
-    const pad = 32;
-    let inner = shadow(w, h, 2) + sheet(w, h, '#fbf8f2', '#e0d8cc', 2);
-    inner += '<rect width="' + n(w) + '" height="8" fill="' + look.accent + '"/>';
-    inner += T('SAMPLE — NOT A CHECK', w / 2, 36, 12, look.accent, SANS, 700, 'middle', '1.2');
-    inner += '<rect x="' + n(pad) + '" y="52" width="' + n(w - pad * 2) + '" height="168" rx="4" fill="#fff" stroke="' + look.accent + '" stroke-width="1.4"/>';
-    inner += logo(pad + 12, 66, 32, look);
-    inner += T(look.who.name, pad + 54, 82, 14, look.ink, SERIF, 700);
-    inner += T(look.who.line1, pad + 54, 100, 11, look.muted, SANS, 500);
-    inner += T('DATE', w - pad - 120, 78, 9, look.muted, SANS, 700);
-    inner += T(sampleDate(), w - pad - 120, 96, 12, look.ink, SANS, 600);
-    inner += T('PAY TO THE ORDER OF', pad + 16, 140, 9, look.muted, SANS, 700, 'start', '0.6');
-    inner += T('Alex Homeowner', pad + 16, 160, 16, look.ink, SERIF, 650);
-    inner += '<rect x="' + n(pad + 16) + '" y="168" width="' + n(w - pad * 2 - 150) + '" height="1" fill="' + look.soft + '"/>';
-    inner += '<rect x="' + n(w - pad - 110) + '" y="142" width="94" height="28" fill="' + look.soft + '"/>';
-    inner += T('$ ——', w - pad - 63, 162, 14, look.ink, SANS, 700, 'middle');
-    inner += T(copy.headline, pad + 16, 196, 12, look.ink, SANS, 500);
-    inner += T(look.who.name, w - pad - 20, 200, 18, look.accent, SCRIPT, 500, 'end');
-    inner += barcode(pad + 16, 206, 180, 8);
-    inner += T('Dear Homeowner,', pad, 258, 15, look.ink, SERIF, 600);
-    let y = 286;
-    copy.paragraphs.slice(0, 3).forEach(function (paragraph) {
-      const block = lines(paragraph, pad, y, w - pad * 2, 13, look.ink, SERIF, 400, 2, 1.35);
-      inner += block.svg;
-      y += block.height + 10;
-    });
-    inner += T(copy.ps, pad, h - 48, 12, look.ink, SERIF, 500);
+    const pad = 36;
+    let inner = shadow(w, h, 2) + sheet(w, h, look.layout === 'bold' ? '#161b22' : '#fbf8f2', '#e0d8cc', 2);
+    if (look.layout === 'bold') inner += '<rect width="' + n(w) + '" height="16" fill="' + look.accent + '"/>';
+    else inner += '<rect width="' + n(w) + '" height="6" fill="' + look.accent + '"/>';
+    if (look.layout === 'photo') inner += '<g transform="translate(' + n(w - pad - 130) + ' 28)">' + house(120, 78, look, id || 'offer', true) + '</g>';
+    inner += logo(pad, 24, 32, look);
+    inner += T(look.who.name, pad + 42, 40, 15, look.ink, look.layout === 'bold' ? SANS : SERIF, 700);
+    inner += T(look.who.phone, pad + 42, 56, 11, look.muted, SANS, 500);
+    inner += T(sampleDate(), w - pad, 40, 12, look.muted, SANS, 500, 'end');
+    inner += T('Property', pad, 92, 10, look.accent, SANS, 700, 'start', '1.1');
+    inner += T('456 Oak Ave', pad, 110, 14, look.ink, SERIF, 650);
+    inner += T('Anytown, ST 00000', pad, 128, 12, look.muted, SANS, 500);
+    inner += T('Dear Homeowner,', pad, 160, 15, look.ink, SERIF, 600);
+    const head = lines(copy.headline, pad, 186, w - pad * 2, 16, look.ink, look.layout === 'script' ? SCRIPT : SERIF, 650, 2, 1.2);
+    inner += head.svg;
+    let y = 186 + head.height + 8;
+    const body = lines(copy.paragraphs[0], pad, y, w - pad * 2 - (look.layout === 'photo' ? 120 : 0), 13, look.ink, SERIF, 400, 4, 1.35);
+    inner += body.svg;
+    y += body.height + 16;
+    inner += T('This is not a binding offer.', pad, y, 13, look.accent, SANS, 700);
+    inner += T(look.who.name, pad, y + 36, 26, look.accent, SCRIPT, 500);
+    inner += T(look.who.name + '  ·  ' + look.who.phone, pad, y + 58, 12, look.ink, SANS, 600);
     return { name: 'letter', label: 'OFFER', w: w, h: h, inner: inner };
   }
 
@@ -637,7 +633,7 @@
     }
     if (id === 'offer-letter') {
       return compose([
-        offerPage(look, copy),
+        offerPage(look, copy, salt),
         envelope('color', false, look),
       ], swatch);
     }

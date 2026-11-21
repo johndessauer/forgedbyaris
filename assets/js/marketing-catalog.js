@@ -42,8 +42,8 @@
     { id: 'door-hanger', name: 'Door hanger', description: 'Coming soon. A 50-pack reference price is shown. Not mailed to a property. Residential only.', group: 'fulfill', medium: 'print', residential: true, commercial: false },
     { id: 'yard-sign', name: 'Yard sign', description: '18 × 24 on a wire step-in stake. Cash offer, any condition, or sold. Coming soon. Not sent to a property. Residential only.', group: 'fulfill', medium: 'print', residential: true, commercial: false, comingSoon: true, selectable: false },
     { id: 'yellow-letter', name: 'Yellow letter', description: 'Letter size with a handwritten look on yellow paper. Coming soon. Not mailed yet.', group: 'fulfill', medium: 'mail', residential: true, commercial: true, comingSoon: true },
-    { id: 'jumbo-postcard', name: 'Jumbo postcard', description: 'Oversized postcard, larger than 6 × 11. Coming soon. Not mailed yet.', group: 'fulfill', medium: 'mail', residential: true, commercial: true, comingSoon: true },
-    { id: 'offer-letter', name: 'Offer letter', description: 'A check-style offer page. Coming soon. It is a marketing sample, not a real check, and it is not mailed yet.', group: 'fulfill', medium: 'mail', residential: true, commercial: true, comingSoon: true },
+    { id: 'jumbo-postcard', name: 'Jumbo postcard', description: 'A 6 × 11 postcard, mailed First Class. One per property.', group: 'fulfill', medium: 'mail', residential: true, commercial: true },
+    { id: 'offer-letter', name: 'Offer letter', description: 'A one-page offer in a #10 envelope, printed in color and mailed First Class. It invites a conversation. It is not a binding offer.', group: 'fulfill', medium: 'mail', residential: true, commercial: true },
     { id: 'skip-trace', name: 'Skip trace', description: 'Adds phones and emails to a list. Not available in this step.', group: 'fulfill', medium: 'data', price: '$0.20 per contact', residential: true, commercial: true, copy: false },
     { id: 'phone-scrub', name: 'Phone scrub', description: 'List-cleaning flags only. You still decide who to call, and you stay responsible.', group: 'fulfill', medium: 'data', price: '$0.02 per number', residential: true, commercial: true, copy: false },
     { id: 'list-pull', name: 'List pull', description: 'Pulls a list such as absentee or pre-foreclosure. Not available in this step.', group: 'fulfill', medium: 'data', price: '$0.05 per record', residential: true, commercial: true, copy: false },
@@ -79,6 +79,12 @@
     ]),
     letter: styleSpec('finish', 'bw', [
       ['bw', 'Black and white'],
+      ['color', 'Color'],
+    ]),
+    'jumbo-postcard': styleSpec('size', '6x11', [
+      ['6x11', '6 × 11'],
+    ]),
+    'offer-letter': styleSpec('finish', 'color', [
       ['color', 'Color'],
     ]),
     handwritten: styleSpec('product', 'notecard', [
@@ -214,13 +220,13 @@
   }
 
   function designOrderable(id) {
-    if (id === 'bandit' || id === 'yard-sign' || id === 'yellow-letter' || id === 'jumbo-postcard' || id === 'offer-letter') return false;
+    if (id === 'bandit' || id === 'yard-sign' || id === 'yellow-letter') return false;
     return true;
   }
 
   function priceMode(id, design) {
     const row = normalizeDesign(id, design);
-    if (id === 'bandit' || id === 'yard-sign' || id === 'yellow-letter' || id === 'jumbo-postcard' || id === 'offer-letter') return 'soon';
+    if (id === 'bandit' || id === 'yard-sign' || id === 'yellow-letter') return 'soon';
     if (id === 'letter' && row.envelope === 'plain') return 'soon';
     if (id === 'door-hanger') return row.hangerSize === '4.25x11' ? 'reference' : 'soon';
     return 'priced';
@@ -463,6 +469,9 @@
     } else if (channel.id === 'door-knock') {
       a = 'Hi, I am ' + name + ', a local investor. I am not an agent. I am working in the neighborhood and wanted to ask, person to person, if you have thought about selling ' + where + ' as-is. If this is a bad time I will leave. My phone is ' + phone + '.\nSafety: go in daylight, stay on the walk, leave when asked, and do not step inside.';
       b = 'Short version: "I buy houses as-is, no repairs and no agent fees. If ' + where + ' is more work than you want, here is my number, ' + phone + '. If you would rather I not stop by again, tell me and I will not."';
+    } else if (channel.id === 'offer-letter') {
+      a = 'Property: ' + where + '\n\nDear ' + owner + ',\n\nI would like to talk about a simple as-is sale of ' + where + '. This is an invitation to discuss, and it is not a binding offer. There is no cost to talk.\n\n' + name + '\n' + phone;
+      b = 'Property: ' + where + '\n\nDear ' + owner + ',\n\nIf you want to hear what a sale of ' + where + ' could look like, I am glad to talk. This is not a binding offer, and you can say no.\n\n' + name + '\n' + phone;
     } else if (channel.id === 'yard-sign') {
       a = 'CASH OFFER\nANY CONDITION\n' + phone;
       b = 'SELL FAST\nNO REPAIRS · NO FEES\n' + phone;
