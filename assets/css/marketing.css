@@ -84,6 +84,16 @@ button.mkt-thumb { display: block; cursor: zoom-in; }
 .mkt-field select, .mkt-style select { width: 100%; background: #0e1c2e; color: var(--white); border: 1px solid rgba(255,255,255,0.14); border-radius: 8px; padding: 7px 8px; font-size: 13px; font-weight: 500; letter-spacing: 0; text-transform: none; }
 .mkt-style-price { grid-area: price; margin: 0; text-align: right; justify-self: end; white-space: nowrap; }
 .mkt-style-help { grid-area: help; margin: 0; color: var(--grey); font-size: 12px; line-height: 1.45; }
+.mkt-options { display: flex; flex-direction: column; gap: 10px; }
+.mkt-templates { display: flex; flex-wrap: wrap; gap: 8px; margin-left: 30px; }
+.mkt-template { width: 96px; margin: 0; padding: 4px 4px 6px; border: 1px solid rgba(255,255,255,0.14); border-radius: 8px; background: transparent; color: var(--grey-light); cursor: pointer; }
+.mkt-template.is-on { border-color: var(--gold); color: white; }
+.mkt-template-art { display: block; width: 88px; height: 60px; overflow: hidden; border-radius: 6px; background: #f4f1ec; }
+.mkt-template-art svg { width: 88px; height: 60px; display: block; }
+.mkt-template span:last-child { display: block; margin-top: 4px; font-size: 9px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; line-height: 1.2; }
+.mkt-angles { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 14px; }
+.mkt-angle { background: #12263c; color: var(--grey-light); border: 1px solid rgba(255,255,255,0.12); border-radius: 999px; padding: 6px 10px; font-size: 12px; cursor: pointer; }
+.mkt-angle.is-on { border-color: var(--gold); color: var(--gold); }
 .mkt-ship, .mkt-pack { display: grid; gap: 8px; margin: 8px 0 16px; }
 .mkt-pack { grid-template-columns: 1fr 120px 1fr; align-items: end; }
 .mkt-ship input, .mkt-pack select { background: #12263c; color: var(--white); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; padding: 8px; }
@@ -176,6 +186,7 @@ img.mkt-logo { display: block; max-width: 140px; max-height: 56px; width: auto; 
   .mkt-actions { flex-direction: column; align-items: flex-start; gap: 16px; }
   .mkt-pack { grid-template-columns: 1fr; }
   .mkt-style { grid-template-columns: 1fr; grid-template-areas: "thumb" "fields" "price" "help"; margin-left: 0; }
+  .mkt-templates { margin-left: 0; }
   .mkt-style-price { text-align: left; justify-self: start; }
   .mkt-field, .mkt-field.is-short { flex: 1 1 100%; max-width: none; }
   .mkt-lightbox { padding: 16px; }
