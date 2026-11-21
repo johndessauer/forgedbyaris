@@ -431,16 +431,9 @@
   status = 404
   force = true
 
-# Short path for the Chris/Eddie/Ian FWN book-a-call round-robin.
-# Same widget as DEMO_URL in assets/site.js. 302 (not a rewrite) so the
-# browser lands on the LeadConnector widget. No query key is set here, so
-# Netlify forwards the request query string (for example ?ref=blog).
-# Trailing-slash normalization matches /book and /book/.
-[[redirects]]
-  from = "/book"
-  to = "https://api.leadconnectorhq.com/widget/booking/JlM6SoqbqCKmDois6PHx"
-  status = 302
-  force = true
+# /book is a 302 from netlify/edge-functions/book.js. A static redirect
+# cannot add utm_source, utm_content, and utm_medium without dropping or
+# overwriting the query string GHL needs for attribution.
 
 # FWN index. The FWN pages live under /fwn/ (997, 1797, accelerator, launch,
 # thank-you, 4-numbers-deal-sheet.pdf) but there is no /fwn/index.html, so
