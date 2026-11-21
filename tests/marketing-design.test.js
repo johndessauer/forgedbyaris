@@ -15,7 +15,7 @@ function pieceCard(html, name) {
 }
 
 test('each mail and print piece has at least four templates', () => {
-  ['postcard', 'letter', 'handwritten', 'bandit', 'yard-sign', 'door-hanger', 'step-in-sign', 'yellow-letter', 'jumbo-postcard', 'offer-letter'].forEach((id) => {
+  ['postcard', 'letter', 'handwritten', 'bandit', 'yard-sign', 'door-hanger', 'yellow-letter', 'jumbo-postcard', 'offer-letter'].forEach((id) => {
     assert.ok(catalog.templatesFor(id).length >= 4, id);
   });
   assert.ok(catalog.templatesFor('bandit').length >= 5);
@@ -117,4 +117,57 @@ test('unpriced sign choices are not given a made-up price and are not orderable'
   assert.equal(catalog.priceMode('bandit', { signSize: '18x24', sides: 'double', stakes: 'h-stake' }), 'priced');
   assert.equal(catalog.priceMode('jumbo-postcard', {}), 'soon');
   assert.equal(catalog.designOrderable('bandit', { stakes: 'none' }), false);
+  assert.equal(catalog.priceMode('yard-sign', {}), 'soon');
+  assert.equal(catalog.designOrderable('yard-sign', { signSize: '18x24', sides: 'double', stakes: 'h-stake' }), false);
+  const yardArt = catalog.stylePreview('yard-sign', '');
+  assert.match(yardArt, /data-stake="step-in"/);
+  assert.match(yardArt, /WE BUY/);
+  assert.match(catalog.stylePreview('yard-sign', '', { template: 'sold' }), />SOLD</);
+  assert.equal(yardArt.includes('#ffe14a'), false);
+
+  const preview = app.createState({
+    step: 2,
+    goal: 'sellers',
+    propertyClass: 'residential',
+    empire: true,
+    menu: menu,
+  });
+  preview.recsFor = 'residential:sellers';
+  const yardCard = pieceCard(app.renderPicker(preview), 'Yard sign');
+  assert.equal((yardCard.match(/mkt-pill is-soon/g) || []).length, 1);
+  assert.equal(yardCard.includes('type="checkbox"'), false);
+  assert.equal(yardCard.includes('Ship to me'), false);
+  assert.equal(yardCard.includes('$6.47'), false);
+  assert.equal(yardCard.includes('data-print-pack'), false);
+  assert.match(yardCard, /Pricing coming soon/);
+  assert.match(yardCard, /mkt-template/);
+  assert.match(yardCard, /Sold/);
+  assert.match(yardCard, /data-stake="step-in"/);
+
+  preview.selected = { 'yellow-letter': true, 'jumbo-postcard': true, 'offer-letter': true, 'yard-sign': true, bandit: true };
+  preview.approved = {
+    'residential:yellow-letter': true,
+    'residential:jumbo-postcard': true,
+    'residential:offer-letter': true,
+    'residential:yard-sign': true,
+    'residential:bandit': true,
+  };
+  preview.quote = { lines: [] };
+  preview.prints = {
+    'yard-sign': { quantity: 50, option: '18x24-hstake' },
+    bandit: { quantity: 50, option: '18x24-hstake' },
+  };
+  const chosen = app.renderPicker(preview);
+  ['Yellow letter', 'Jumbo postcard', 'Offer letter'].forEach((name) => {
+    const card = pieceCard(chosen, name);
+    assert.equal((card.match(/mkt-pill is-soon/g) || []).length, 1, name);
+    assert.match(card, /Pricing coming soon/);
+    assert.equal(card.includes('data-print-pack'), false, name);
+  });
+  const cost = app.renderCost(preview);
+  assert.match(cost, /data-print-pack="bandit"/);
+  assert.equal(cost.includes('data-print-pack="yard-sign"'), false);
+  assert.equal(cost.includes('data-print-pack="yellow-letter"'), false);
+  assert.equal(cost.includes('data-print-pack="jumbo-postcard"'), false);
+  assert.equal(cost.includes('data-print-pack="offer-letter"'), false);
 });

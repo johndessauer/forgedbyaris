@@ -324,12 +324,13 @@
     var name = catalog.displayName(channel, options.propertyClass);
     var description = catalog.displayDescription(channel, options.propertyClass);
     var badge = pieceBadge(channel, options);
-    var checked = !!options.selected && channel.copy !== false;
-    var box = channel.copy === false
-      ? '<span class="mkt-piece-lock">Not in this step</span>'
+    var selectable = channel.copy !== false && channel.selectable !== false;
+    var checked = !!options.selected && selectable;
+    var box = !selectable
+      ? ''
       : '<input type="checkbox" ' + (checked ? 'checked ' : '') + 'aria-label="' + esc(name) + '">';
-    var tag = channel.copy === false ? 'div' : 'label';
-    var action = channel.copy === false ? '' : ' data-action="toggle" data-id="' + esc(channel.id) + '"';
+    var tag = selectable ? 'label' : 'div';
+    var action = selectable ? ' data-action="toggle" data-id="' + esc(channel.id) + '"' : '';
     var inside = options.inside || '';
     return '<article class="mkt-piece-card' + (checked ? ' is-on' : '') + '">' +
       '<' + tag + ' class="mkt-piece-head"' + action + '>' +
@@ -451,7 +452,8 @@
   function styleHelp(channel, picked, design) {
     var mode = loadCatalog().priceMode(channel.id, design);
     if (channel.id === 'letter' && design && design.envelope === 'plain') return 'A plain envelope does not have a test price yet. This test mailing uses a window envelope.';
-    if (mode === 'soon' && (channel.id === 'bandit' || channel.id === 'yard-sign')) return 'This size, side, or stake is not in the test price. The priced sign is 18 × 24, both sides, with H-stakes.';
+    if (channel.id === 'yard-sign') return 'Preview only. 18 × 24 on a wire step-in stake. Not orderable yet.';
+    if (mode === 'soon' && channel.id === 'bandit') return 'This size, side, or stake is not in the test price. The priced sign is 18 × 24, both sides, with H-stakes.';
     if (mode === 'soon') return 'Preview only. Not orderable yet.';
     if (channel.id === 'postcard') return 'Template does not change this test price.';
     if (channel.id === 'letter') return 'Window envelope. Template does not change this test price.';
@@ -461,7 +463,7 @@
         ? inkNote + ' A folded notecard uses a real stamp and a handwritten envelope.'
         : inkNote + ' The message is handwritten on the postcard.';
     }
-    if (channel.id === 'bandit' || channel.id === 'yard-sign') return 'Background and lettering do not change this test price. Corrugated plastic, 4mm.';
+    if (channel.id === 'bandit') return 'Background and lettering do not change this test price. Corrugated plastic, 4mm.';
     if (channel.id === 'door-hanger') return 'Finish does not change this reference price. Not mailed to a property.';
     return '';
   }
@@ -533,7 +535,9 @@
           { id: 'black', label: 'Black' },
         ], design.ink, 'is-short');
       }
-    } else if (channel.id === 'bandit' || channel.id === 'yard-sign' || channel.id === 'step-in-sign') {
+    } else if (channel.id === 'yard-sign') {
+      fields += '';
+    } else if (channel.id === 'bandit') {
       fields += designSelect('Size', channel.id, 'signSize', [
         { id: '18x24', label: '18 × 24' },
         { id: '24x18', label: '24 × 18' },
@@ -558,9 +562,10 @@
       fields += designSelect('Material', channel.id, 'material', [
         { id: 'corrugated-4mm', label: 'Corrugated 4mm' },
       ], design.material);
-      fields += designSelect('Stakes', channel.id, 'stakes', channel.id === 'step-in-sign'
-        ? [{ id: 'step', label: 'Step-in' }, { id: 'none', label: 'No stake' }]
-        : [{ id: 'h-stake', label: 'H-stakes' }, { id: 'none', label: 'No stake' }], design.stakes);
+      fields += designSelect('Stakes', channel.id, 'stakes', [
+        { id: 'h-stake', label: 'H-stakes' },
+        { id: 'none', label: 'No stake' },
+      ], design.stakes);
       if (picked && picked.printed && picked.printed.packs.length) {
         var packAttrs = picked.printed.comingSoon ? '' : 'data-print-pack="' + esc(channel.id) + '"';
         fields += styleSelect('Pack', packAttrs, picked.printed.packs.map(function (qty) {
@@ -641,7 +646,7 @@
           propertyClass: state.propertyClass,
           selected: !!state.selected[channel.id],
           handwrittenOrderable: !!(state.menu && state.menu.handwrittenOrderable),
-          inside: state.selected[channel.id] ? styleBlock(state, channel) : '',
+          inside: (state.selected[channel.id] || channel.selectable === false) ? styleBlock(state, channel) : '',
         });
       }).join('');
     };
@@ -1849,7 +1854,7 @@
     var catalog = loadCatalog();
     var ids = selectedIds(state).filter(function (id) {
       var channel = catalog.channelById(id);
-      return channel && channel.copy !== false && catalog.channelsForClass(state.propertyClass).some(function (row) { return row.id === id; });
+      return channel && channel.copy !== false && channel.selectable !== false && catalog.channelsForClass(state.propertyClass).some(function (row) { return row.id === id; });
     });
     if (!ids.length) {
       state.message = 'Select at least one type ARIS can write. Printing and data services are coming soon.';
