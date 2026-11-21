@@ -14,9 +14,9 @@ const MAX_LEADS_IN_PROMPT = 8;
 
 const SOFT_PLAYS = { prefore: true, foreactivity: true, foreclosure: true, inherited: true, probate: true };
 
-function systemPrompt(propertyClass) {
+function systemPrompt(propertyClass, angleId) {
   const tone = propertyClass === 'commercial'
-    ? 'Write to a company, an LLC, or a trust. Help the student find the decision maker. Use investor language: NOI, cap rate, vacancy, deferred maintenance, and 1031 exchange. Any value talk is a rough income-based range, not an appraisal. Offer seller financing and creative terms as a conversation, not a promise. Never recommend bandit signs, yard signs, or door hangers.'
+    ? 'Write to a company, an LLC, or a trust. Help the student find the decision maker. Use investor language: NOI, cap rate, vacancy, deferred maintenance, and 1031 exchange. Any value talk is a rough income-based range, not an appraisal. Offer seller financing and creative terms as a conversation, not a promise. Never recommend yard signs or door hangers.'
     : 'Write to an individual homeowner or small landlord. Sound personal. Talk about the hassle of ownership and a simple as-is close. Do not use commercial jargon.';
   return [
     'You are ARIS inside FORGE. You draft marketing copy the student will edit and approve. You never send mail, email, or text. You never place an order and you never quote a charge.',
@@ -33,7 +33,14 @@ function systemPrompt(propertyClass) {
     '- The default disclosure, when a disclosure is provided, stays in the piece.',
     'Return only JSON with this shape: {"recommendation":"two sentences","copies":[{"channel":"postcard","variantA":"...","variantB":"..."}]}',
     'Write two variants for each requested channel. Keep postcards and signs short. Keep letters to one page of plain language.',
-  ].join('\n');
+    angleInstruction(propertyClass, angleId),
+  ].filter(Boolean).join('\n');
+}
+
+function angleInstruction(propertyClass, angleId) {
+  const angle = catalog.angleById(angleId, propertyClass);
+  if (!angle) return '';
+  return 'The student chose this message angle: ' + angle.label + '. Write every variant from that angle. ' + angle.guard;
 }
 
 function publicLead(lead) {
@@ -80,7 +87,8 @@ function userPrompt(input) {
     brand: brandBlock(input.brand, input.sender),
     leads: leads,
     softTone: softTone(leads),
-    note: 'Merge the brand and the first property into the copy. Do not invent other owners or addresses.',
+    angle: catalog.angleById(input.angle, input.propertyClass),
+    note: 'Merge the brand and the first property into the copy. Do not invent other owners or addresses. Follow the message angle when one is present.',
   });
 }
 
@@ -274,8 +282,8 @@ async function generateCopy(store, gate, body, fetchImpl, env) {
   const payload = {
     model: MODEL,
     max_tokens: MAX_TOKENS,
-    system: systemPrompt(propertyClass),
-    messages: [{ role: 'user', content: userPrompt({ goal: goal, propertyClass: propertyClass, channels: channels, brand: brand, sender: sender, leads: leads }) }],
+    system: systemPrompt(propertyClass, body.angle),
+    messages: [{ role: 'user', content: userPrompt({ goal: goal, propertyClass: propertyClass, channels: channels, brand: brand, sender: sender, leads: leads, angle: body.angle }) }],
   };
   const response = await fetchImpl('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -301,6 +309,7 @@ async function generateCopy(store, gate, body, fetchImpl, env) {
         brand: brand,
         sender: sender,
         leads: leads,
+        angle: body.angle,
         softTone: softTone(leads),
       });
       if (starter) copies.push(starter);

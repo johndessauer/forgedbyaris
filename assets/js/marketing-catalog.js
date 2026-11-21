@@ -40,8 +40,10 @@
     { id: 'letter', name: 'Letter', description: 'One page, First Class, in a #10 double-window envelope. Choose color or black and white.', group: 'fulfill', medium: 'mail', residential: true, commercial: true },
     { id: 'handwritten', name: 'Handwritten note', description: 'A folded notecard with a real stamp and a handwritten envelope, or a handwritten postcard. Pick the handwriting. Coming soon.', group: 'fulfill', medium: 'mail', residential: true, commercial: true },
     { id: 'door-hanger', name: 'Door hanger', description: 'Coming soon. A 50-pack reference price is shown. Not mailed to a property. Residential only.', group: 'fulfill', medium: 'print', residential: true, commercial: false },
-    { id: 'bandit', name: 'Bandit sign', description: '18 × 24 full-color, both sides, corrugated, with H-stakes. Packs of 50 or 100, shipped to you. Not sent to a property. Check local sign rules. Residential only.', group: 'fulfill', medium: 'print', residential: true, commercial: false },
-    { id: 'yard-sign', name: 'Yard sign', description: '18 × 24 full-color, both sides, corrugated, with H-stakes. Packs of 50 or 100, shipped to you. Not sent to a property. Residential only.', group: 'fulfill', medium: 'print', residential: true, commercial: false },
+    { id: 'yard-sign', name: 'Yard sign', description: '18 × 24 on a wire step-in stake. Cash offer, any condition, or sold. Coming soon. Not sent to a property. Residential only.', group: 'fulfill', medium: 'print', residential: true, commercial: false, comingSoon: true, selectable: false },
+    { id: 'yellow-letter', name: 'Yellow letter', description: 'Letter size with a handwritten look on yellow paper. Coming soon. Not mailed yet.', group: 'fulfill', medium: 'mail', residential: true, commercial: true, comingSoon: true },
+    { id: 'jumbo-postcard', name: 'Jumbo postcard', description: 'Oversized postcard, larger than 6 × 11. Coming soon. Not mailed yet.', group: 'fulfill', medium: 'mail', residential: true, commercial: true, comingSoon: true },
+    { id: 'offer-letter', name: 'Offer letter', description: 'A check-style offer page. Coming soon. It is a marketing sample, not a real check, and it is not mailed yet.', group: 'fulfill', medium: 'mail', residential: true, commercial: true, comingSoon: true },
     { id: 'skip-trace', name: 'Skip trace', description: 'Adds phones and emails to a list. Not available in this step.', group: 'fulfill', medium: 'data', price: '$0.20 per contact', residential: true, commercial: true, copy: false },
     { id: 'phone-scrub', name: 'Phone scrub', description: 'List-cleaning flags only. You still decide who to call, and you stay responsible.', group: 'fulfill', medium: 'data', price: '$0.02 per number', residential: true, commercial: true, copy: false },
     { id: 'list-pull', name: 'List pull', description: 'Pulls a list such as absentee or pre-foreclosure. Not available in this step.', group: 'fulfill', medium: 'data', price: '$0.05 per record', residential: true, commercial: true, copy: false },
@@ -65,8 +67,7 @@
   // count is never a valid pack.
   const SIGN_OPTION = [['18x24-hstake', '18 × 24, both sides, with H-stakes']];
   const PRINT_SPECS = Object.freeze({
-    bandit: spec([50, 100], SIGN_OPTION, false),
-    'yard-sign': spec([50, 100], SIGN_OPTION, false),
+    'yard-sign': spec([50, 100], SIGN_OPTION, true),
     'door-hanger': spec([50], [['4.25x11', '4.25 × 11']], true),
   });
 
@@ -131,234 +132,125 @@
     return PIECE_STYLES[String(id || '')] || null;
   }
 
-  function px(value) {
-    return Math.round(value * 10) / 10;
+  const ANGLES = [
+    { id: 'cash', label: 'Cash Offer', residential: true, commercial: true, kicker: 'CASH OFFER', headline: ['CASH', 'OFFER'], card: 'Cash offer. As-is.', opener: 'A cash offer, as-is, with no repairs and no agent fees.', alt: 'A simple cash sale, with no repairs and no agent fees.', guard: 'Do not promise a price.', mailHeadline: 'A cash offer. As-is.', mailSub: 'No repairs. No agent fees. You choose the date.', bullets: ['Cash, as-is', 'No repairs first', 'You pick the date'], paragraphs: ["I'm looking to buy a home in your neighborhood, and I can make the next step simple.", 'If you want a cash offer as-is, with no repairs and no agent fees, I am ready to talk.', 'I will not name a price in a letter. A short call is enough to see if a sale makes sense.', 'If now is not the time, set this aside. There is no cost to talk.'], ps: 'P.S. Call or text when you want a straightforward conversation.' },
+    { id: 'prefore', label: 'Behind on Payments / Pre-foreclosure', residential: true, commercial: true, kicker: 'OPTIONS', headline: ['BEHIND?', 'OPTIONS'], card: 'A private option.', opener: 'If the payments have gotten hard, there may be a private option.', alt: 'I can talk through options. I will not pretend to know your file.', guard: 'Do not say you know they are behind or in foreclosure.', mailHeadline: 'A private option.', mailSub: 'If the payments have gotten hard, there may be another path.', bullets: ['A private talk', 'As-is sale', 'No listing'], paragraphs: ['If the payments have gotten hard, there may be a private option.', 'I buy houses as-is. I will not pretend to know your file, and this is not a notice.', 'A conversation can cover a simple sale, with no repairs and no showings.', 'There is no cost to talk, and you can say no.'], ps: 'P.S. This is an invitation to talk, not a statement about your mortgage.' },
+    { id: 'probate', label: 'Inherited / Probate', residential: true, commercial: true, kicker: 'INHERITED', headline: ['INHERITED?', 'WE HELP'], card: 'A simple way to sell.', opener: 'If you inherited a property and want a simple way to sell, I can help.', alt: 'No clean-out required before a conversation.', guard: 'Do not say you know they inherited it.', mailHeadline: 'A simple way to sell.', mailSub: 'If you inherited a property, you do not have to handle it alone.', bullets: ['No clean-out first', 'As-is', 'Your timeline'], paragraphs: ['If you inherited a property and want a simple way to sell, I can help.', 'I buy as-is. No clean-out is required before a conversation.', 'I do not assume how the property came to you. If a sale would help, we can talk.', 'If you would rather keep it, that is fine too.'], ps: 'P.S. One call is enough to see whether a sale would help.' },
+    { id: 'landlord', label: 'Tired Landlord', residential: true, commercial: true, kicker: 'TIRED?', headline: ['TIRED', 'LANDLORD'], card: 'Sell the rental as-is.', opener: 'If the rentals are more work than they are worth, I buy as-is.', alt: 'No showings and no repairs before we talk.', guard: 'Do not claim you know their rents.', mailHeadline: 'Sell the rental as-is.', mailSub: 'If the rentals are more work than they are worth, there is a direct buyer.', bullets: ['No showings', 'No repairs', 'As-is'], paragraphs: ['If the rentals are more work than they are worth, I buy as-is.', 'No showings and no repairs are required before we talk.', 'I will not guess your rents. A direct conversation is enough.', 'You choose whether a sale makes sense.'], ps: 'P.S. I buy the property. I am not asking to manage it.' },
+    { id: 'vacant', label: 'Vacant Property', residential: true, commercial: true, kicker: 'VACANT', headline: ['VACANT?', 'CASH'], card: 'A cash offer for an empty house.', opener: 'If the property is sitting empty, I can make a cash offer as-is.', alt: 'A direct buyer for a house that is not being used.', guard: 'Do not say you inspected the property.', mailHeadline: 'A cash offer for an empty house.', mailSub: 'If the property is sitting empty, it does not have to stay that way.', bullets: ['Cash offer', 'As-is', 'No repairs'], paragraphs: ['If the property is sitting empty, I can make a cash offer as-is.', 'I have not inspected it, and I will not pretend that I have.', 'No repairs and no clean-out are required before a conversation.', 'If you want a direct buyer, call or text.'], ps: 'P.S. An empty house can still be a simple sale.' },
+    { id: 'divorce', label: 'Divorce', residential: true, commercial: false, kicker: 'SIMPLE SALE', headline: ['SIMPLE', 'SALE'], card: 'A sale on your timeline.', opener: 'If you need a simple sale on your timeline, I buy as-is.', alt: 'One conversation. No listing and no repairs.', guard: 'Do not say you know about a divorce.', mailHeadline: 'A sale on your timeline.', mailSub: 'A simple as-is sale, with no listing and no repairs.', bullets: ['Your timeline', 'No listing', 'No repairs'], paragraphs: ['If you need a simple sale on your timeline, I buy as-is.', 'One conversation. No listing and no repairs.', 'I will not assume anything about your situation. This is only an offer to talk.', 'You can say no, and that is the end of it.'], ps: 'P.S. You set the pace. A short call is enough.' },
+    { id: 'repairs', label: 'Code Violations / Repairs', residential: true, commercial: true, kicker: 'NO REPAIRS', headline: ['NO', 'REPAIRS'], card: 'No repairs first.', opener: 'No repairs first. I can still make an as-is cash offer.', alt: 'Leave the repairs. I can still make an as-is offer.', guard: 'Do not say you know about a code case.', mailHeadline: 'No repairs first.', mailSub: 'Leave the work. An as-is offer can still start with a call.', bullets: ['No repairs', 'As-is cash', 'No clean-out'], paragraphs: ['No repairs first. I can still make an as-is cash offer.', 'Leave the work where it is. I do not need a perfect house to start a conversation.', 'I will not claim to know about any code case. This letter is only an invitation.', 'If a simple sale would help, call or text.'], ps: 'P.S. You do not have to fix anything before we talk.' },
+    { id: 'expired', label: 'Expired Listing', residential: true, commercial: true, kicker: 'EXPIRED', headline: ['LISTING', 'EXPIRED?'], card: 'A direct buyer.', opener: 'If a listing already ran its course, I am a direct buyer.', alt: 'Skip another listing and talk to a buyer.', guard: 'Do not say you know their listing history.', mailHeadline: 'A direct buyer.', mailSub: 'If a listing already ran its course, you can talk to a buyer.', bullets: ['No new listing', 'As-is', 'Direct buyer'], paragraphs: ['If a listing already ran its course, I am a direct buyer.', 'You can skip another listing and talk to someone who buys the house.', 'I do not know your listing history, and I will not pretend to.', 'A short call is enough to see if an as-is sale fits.'], ps: 'P.S. This is a conversation with a buyer, not another listing pitch.' },
+    { id: 'tax', label: 'Tax Delinquent', residential: true, commercial: true, kicker: 'TAXES', headline: ['BEHIND', 'ON TAXES?'], card: 'A private sale is one option.', opener: 'If the taxes are getting heavy, a private sale is one option.', alt: 'I buy as-is. This is a conversation, not a notice.', guard: 'Do not say you know they are tax delinquent.', mailHeadline: 'A private sale is one option.', mailSub: 'If the taxes are getting heavy, you can talk through a sale.', bullets: ['Private sale', 'As-is', 'No notice'], paragraphs: ['If the taxes are getting heavy, a private sale is one option.', 'I buy as-is. This is a conversation, not a notice.', 'I will not say I know your tax situation. You can tell me only what you want to.', 'There is no cost to talk.'], ps: 'P.S. This is not a bill and not a government notice.' },
+    { id: 'neighbor', label: "Neighbor: I'm buying in your area", residential: true, commercial: false, kicker: 'NEARBY', headline: ['BUYING', 'NEARBY'], card: 'I am buying in this area.', opener: 'I am buying houses in your area.', alt: 'Your neighbor can sell as-is, with no agent fees.', guard: 'Do not pretend to live there if the brand does not say so.', mailHeadline: 'I am buying in this area.', mailSub: 'A neighbor can sell as-is, with no agent fees.', bullets: ['Buying nearby', 'As-is', 'No agent fees'], paragraphs: ['I am buying houses in your area.', 'Your neighbor can sell as-is, with no agent fees and no repairs first.', 'I will not pretend to live on the block unless that is actually true.', 'If you have thought about selling, a call or text is enough.'], ps: 'P.S. I am an independent buyer, reaching out to homeowners nearby.' },
+  ];
+
+  const MAIL_TEMPLATES = [
+    { id: 'classic', label: 'Classic', layout: 'classic' },
+    { id: 'bold', label: 'Bold', layout: 'bold' },
+    { id: 'friendly', label: 'Friendly', layout: 'friendly' },
+    { id: 'minimal', label: 'Minimal', layout: 'minimal' },
+    { id: 'photo', label: 'Property', layout: 'photo' },
+    { id: 'script', label: 'Handwritten', layout: 'script' },
+  ];
+
+  const YARD_TEMPLATES = [
+    { id: 'cash-offer', label: 'Cash Offer', fill: '#f7f7f5', ink: '#1a1a1a', band: '#c1121f', layout: 'cash-offer', lines: ['CASH', 'OFFER'] },
+    { id: 'any-condition', label: 'Any Condition', fill: '#f4f7fb', ink: '#143d7a', band: '#143d7a', layout: 'stack', lines: ['ANY', 'CONDITION'] },
+    { id: 'sell-fast', label: 'Sell Fast', fill: '#fffdf8', ink: '#1c2430', band: '#1c2430', layout: 'stack', lines: ['SELL', 'FAST'] },
+    { id: 'no-repairs', label: 'No Repairs', fill: '#fffdf8', ink: '#1a1a1a', band: '#c1121f', layout: 'marker', lines: ['No repairs', 'No fees'] },
+    { id: 'sold', label: 'Sold', fill: '#c1121f', ink: '#ffffff', band: '#8d0c16', layout: 'sold', lines: ['SOLD'] },
+    { id: 'call', label: 'Call', fill: '#f7f7f5', ink: '#1a1a1a', band: '#c1121f', layout: 'phone', lines: ['CALL'] },
+  ];
+
+  const SIGN_COLOR_FILLS = { yellow: '#ffe14a', white: '#f7f7f5', red: '#e10600', orange: '#ff6a00' };
+  const SIGN_INK_FILLS = { black: '#161616', red: '#c1121f', blue: '#143d7a' };
+
+  function anglesFor(propertyClass) {
+    const commercial = propertyClass === 'commercial';
+    return ANGLES.filter(function (angle) { return commercial ? angle.commercial : angle.residential; });
   }
 
-  function xmlText(value) {
-    return String(value == null ? '' : value)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
+  function angleById(id, propertyClass) {
+    const list = propertyClass ? anglesFor(propertyClass) : ANGLES;
+    const found = list.filter(function (angle) { return angle.id === id; })[0];
+    return found || null;
   }
 
-  // One frame for every piece. The artwork inside is drawn to the real
-  // proportion of the option the student picked.
-  function frameSvg(inner) {
-    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 110" width="160" height="110" focusable="false" aria-hidden="true">' +
-      '<rect width="160" height="110" fill="#f4f1ec"/>' + inner + '</svg>';
+  function templatesFor(id) {
+    const key = String(id || '');
+    if (key === 'yard-sign') return YARD_TEMPLATES;
+    if (key === 'postcard' || key === 'letter' || key === 'handwritten' || key === 'door-hanger' || key === 'yellow-letter' || key === 'jumbo-postcard' || key === 'offer-letter') return MAIL_TEMPLATES;
+    return [];
   }
 
-  function paperShadow(x, y, w, h) {
-    return '<rect x="' + px(x + 1.1) + '" y="' + px(y + 1.6) + '" width="' + px(w) + '" height="' + px(h) + '" rx="2" fill="#1c2430" opacity="0.14"/>';
+  function templateById(id, templateId) {
+    const list = templatesFor(id);
+    return list.filter(function (row) { return row.id === templateId; })[0] || list[0] || null;
   }
 
-  const HAND_FONT = {
-    'hi-clarice': 'Great Vibes, Segoe Script, cursive',
-    'shopping-list': 'Caveat, Segoe Print, cursive',
-    'normal-print': 'Patrick Hand, Segoe Print, sans-serif',
-  };
-
-  function handCopy(hand) {
-    if (hand === 'shopping-list') return ['Hi —', 'call me', 'today'];
-    if (hand === 'normal-print') return ['Hi,', 'as-is.', 'Call me.'];
-    return ['Hello,', 'call me'];
+  function normalizeDesign(id, raw) {
+    const saved = raw || {};
+    const templates = templatesFor(id);
+    const template = templates.some(function (row) { return row.id === saved.template; }) ? saved.template : (templates[0] ? templates[0].id : 'classic');
+    const signSize = saved.signSize === '24x18' ? '24x18' : '18x24';
+    const signColor = Object.prototype.hasOwnProperty.call(SIGN_COLOR_FILLS, saved.signColor) ? saved.signColor : '';
+    const lettering = Object.prototype.hasOwnProperty.call(SIGN_INK_FILLS, saved.lettering) ? saved.lettering : '';
+    const sides = saved.sides === 'single' ? 'single' : 'double';
+    const stakes = saved.stakes === 'none' ? 'none' : 'h-stake';
+    return {
+      template: template,
+      signSize: signSize,
+      signColor: signColor,
+      lettering: lettering,
+      sides: sides,
+      stakes: stakes,
+      material: 'corrugated-4mm',
+      envelope: saved.envelope === 'plain' ? 'plain' : 'window',
+      ink: saved.ink === 'black' ? 'black' : 'blue',
+      hangerSize: saved.hangerSize === '3.5x8.5' || saved.hangerSize === '4.25x14' ? saved.hangerSize : '4.25x11',
+      hangerFinish: saved.hangerFinish === 'uv' ? 'uv' : 'standard',
+    };
   }
 
-  function writeLines(hand, lines, x, y, size) {
-    const font = HAND_FONT[hand] || HAND_FONT['hi-clarice'];
-    const script = !hand || hand === 'hi-clarice';
-    const fontSize = script ? size * 1.55 : size;
-    const leading = fontSize * (script ? 0.92 : 1.22);
-    return lines.map(function (line, index) {
-      return '<text x="' + px(x) + '" y="' + px(y + index * leading) + '" fill="#1d4e89" font-family="' + font + '" font-size="' + px(fontSize) + '">' + xmlText(line) + '</text>';
-    }).join('');
+  function designOrderable(id) {
+    if (id === 'bandit' || id === 'yard-sign' || id === 'yellow-letter' || id === 'jumbo-postcard' || id === 'offer-letter') return false;
+    return true;
   }
 
-  function postageStamp(x, y, w, h) {
-    const width = w || 14;
-    const height = h || 16;
-    return '<rect x="' + px(x) + '" y="' + px(y) + '" width="' + px(width) + '" height="' + px(height) + '" rx="1" fill="#d4544a" stroke="#f6d2ce" stroke-width="0.7"/>' +
-      '<circle cx="' + px(x + width / 2) + '" cy="' + px(y + height / 2) + '" r="' + px(Math.min(width, height) * 0.28) + '" fill="none" stroke="#f8e6e3" stroke-width="0.7"/>';
+  function priceMode(id, design) {
+    const row = normalizeDesign(id, design);
+    if (id === 'bandit' || id === 'yard-sign' || id === 'yellow-letter' || id === 'jumbo-postcard' || id === 'offer-letter') return 'soon';
+    if (id === 'letter' && row.envelope === 'plain') return 'soon';
+    if (id === 'door-hanger') return row.hangerSize === '4.25x11' ? 'reference' : 'soon';
+    return 'priced';
   }
 
-  function houseMark(cx, cy, scale) {
-    const half = scale * 0.46;
-    const roof = cy - scale * 0.42;
-    const eave = cy - scale * 0.05;
-    const bodyBottom = cy + scale * 0.48;
-    return '<path d="M' + px(cx) + ' ' + px(roof) + ' L' + px(cx + half + scale * 0.12) + ' ' + px(eave) + ' L' + px(cx - half - scale * 0.12) + ' ' + px(eave) + ' Z" fill="#f4f1ec"/>' +
-      '<rect x="' + px(cx - half) + '" y="' + px(eave) + '" width="' + px(half * 2) + '" height="' + px(bodyBottom - eave) + '" fill="#f4f1ec"/>' +
-      '<rect x="' + px(cx - half * 0.22) + '" y="' + px(eave + (bodyBottom - eave) * 0.42) + '" width="' + px(half * 0.44) + '" height="' + px((bodyBottom - eave) * 0.58) + '" fill="#243246"/>';
-  }
-
-  function postcardBox(sizeId) {
-    const inch = 132 / 11;
-    const table = { '4x6': [6, 4], '6x9': [9, 6], '6x11': [11, 6] };
-    const pair = table[sizeId] || table['4x6'];
-    const w = pair[0] * inch;
-    const h = pair[1] * inch;
-    return { x: (160 - w) / 2, y: (110 - h) / 2, w: w, h: h };
-  }
-
-  function postcardArt(sizeId) {
-    const box = postcardBox(sizeId);
-    const photo = box.w * 0.38;
-    const bar = Math.max(1.5, box.h * 0.055);
-    const textX = box.x + photo + box.w * 0.07;
-    const textW = box.w - photo - box.w * 0.12;
-    const top = box.y + box.h * 0.28;
-    const gap = box.h * 0.16;
-    return paperShadow(box.x, box.y, box.w, box.h) +
-      '<rect x="' + px(box.x) + '" y="' + px(box.y) + '" width="' + px(box.w) + '" height="' + px(box.h) + '" rx="2" fill="#fffdf8" stroke="#e3dcd0" stroke-width="0.7"/>' +
-      '<path d="M' + px(box.x + photo) + ' ' + px(box.y) + ' H' + px(box.x + 2) + ' Q' + px(box.x) + ' ' + px(box.y) + ' ' + px(box.x) + ' ' + px(box.y + 2) + ' V' + px(box.y + box.h - 2) + ' Q' + px(box.x) + ' ' + px(box.y + box.h) + ' ' + px(box.x + 2) + ' ' + px(box.y + box.h) + ' H' + px(box.x + photo) + ' Z" fill="#243246"/>' +
-      houseMark(box.x + photo * 0.5, box.y + box.h * 0.52, Math.min(photo, box.h) * 0.62) +
-      '<rect x="' + px(textX) + '" y="' + px(top) + '" width="' + px(textW) + '" height="' + px(bar) + '" rx="0.6" fill="#243246"/>' +
-      '<rect x="' + px(textX) + '" y="' + px(top + gap) + '" width="' + px(textW * 0.78) + '" height="' + px(bar * 0.7) + '" rx="0.5" fill="#8b97a3"/>' +
-      '<rect x="' + px(textX) + '" y="' + px(top + gap * 2) + '" width="' + px(textW * 0.62) + '" height="' + px(bar * 0.7) + '" rx="0.5" fill="#c5bfb4"/>' +
-      '<rect x="' + px(box.x + box.w - box.w * 0.1) + '" y="' + px(box.y + box.h - box.h * 0.22) + '" width="' + px(Math.max(4, box.w * 0.06)) + '" height="' + px(Math.max(4, box.h * 0.12)) + '" fill="#243246"/>';
-  }
-
-  function letterArt(finish) {
-    const w = 142;
-    const h = w * (4.125 / 9.5);
-    const x = (160 - w) / 2;
-    const y = (110 - h) / 2;
-    const color = finish === 'color';
-    const top = { x: x + 9, y: y + 13, w: 52, h: 14 };
-    const bottom = { x: x + 9, y: y + 32, w: 74, h: 22 };
-    function rule(rx, ry, rw, fill) {
-      return '<rect x="' + px(rx) + '" y="' + px(ry) + '" width="' + px(rw) + '" height="1.35" rx="0.4" fill="' + fill + '"/>';
+  function previewMailer() {
+    if (typeof module === 'object' && module.exports && typeof require === 'function') {
+      return require('./marketing-mailer');
     }
-    const ink = '#3e4a57';
-    const topLines = color
-      ? '<rect x="' + px(top.x + 2) + '" y="' + px(top.y + 2) + '" width="' + px(top.w - 4) + '" height="6.2" rx="0.4" fill="#243246"/>' +
-        '<rect x="' + px(top.x + 2) + '" y="' + px(top.y + 9.4) + '" width="18" height="1.8" rx="0.3" fill="#2f6f86"/>'
-      : rule(top.x + 3, top.y + 4, 32, ink) + rule(top.x + 3, top.y + 8, 24, ink);
-    const body = color
-      ? '<rect x="' + px(bottom.x + 3) + '" y="' + px(bottom.y + 3) + '" width="16" height="12" rx="0.6" fill="#2a4564"/>' +
-        '<rect x="' + px(bottom.x + 5) + '" y="' + px(bottom.y + 5) + '" width="8" height="5" fill="#d5e6ee"/>' +
-        rule(bottom.x + 23, bottom.y + 5, 40, ink) +
-        rule(bottom.x + 23, bottom.y + 9.5, 34, '#2f6f86') +
-        rule(bottom.x + 23, bottom.y + 14, 26, ink)
-      : rule(bottom.x + 3, bottom.y + 5, 52, ink) +
-        rule(bottom.x + 3, bottom.y + 10, 46, ink) +
-        rule(bottom.x + 3, bottom.y + 15, 34, ink);
-    function windowPane(pane, inner) {
-      return '<rect x="' + px(pane.x) + '" y="' + px(pane.y) + '" width="' + px(pane.w) + '" height="' + px(pane.h) + '" rx="1.2" fill="#fbfcfe" stroke="#c3d0dc" stroke-width="0.7"/>' + inner;
-    }
-    return paperShadow(x, y, w, h) +
-      '<rect x="' + px(x) + '" y="' + px(y) + '" width="' + px(w) + '" height="' + px(h) + '" rx="2" fill="#f7f4ee" stroke="#ddd4c8" stroke-width="0.8"/>' +
-      '<path d="M' + px(x + 1) + ' ' + px(y + 1) + ' L' + px(x + w / 2) + ' ' + px(y + 7) + ' L' + px(x + w - 1) + ' ' + px(y + 1) + '" fill="none" stroke="#e7dfd4" stroke-width="0.7"/>' +
-      windowPane(top, topLines) +
-      windowPane(bottom, body);
-  }
-
-  function noteArt(hand) {
-    const ex = 36;
-    const ey = 48;
-    const ew = 112;
-    const eh = 48;
-    const cx = 12;
-    const cy = 12;
-    const cw = 102;
-    const ch = 66;
-    const fold = cx + 40;
-    const script = !hand || hand === 'hi-clarice';
-    return paperShadow(ex, ey, ew, eh) +
-      '<rect x="' + px(ex) + '" y="' + px(ey) + '" width="' + px(ew) + '" height="' + px(eh) + '" rx="2" fill="#f3efe6" stroke="#ddd4c8" stroke-width="0.7"/>' +
-      postageStamp(ex + ew - 20, ey + 7, 13, 15) +
-      paperShadow(cx, cy, cw, ch) +
-      '<rect x="' + px(cx) + '" y="' + px(cy) + '" width="' + px(cw) + '" height="' + px(ch) + '" rx="2" fill="#fffdf8" stroke="#e4ddd2" stroke-width="0.7"/>' +
-      '<rect x="' + px(cx + 0.7) + '" y="' + px(cy + 0.7) + '" width="' + px(fold - cx - 0.7) + '" height="' + px(ch - 1.4) + '" fill="#f4f0e8"/>' +
-      '<line x1="' + px(fold) + '" y1="' + px(cy + 5) + '" x2="' + px(fold) + '" y2="' + px(cy + ch - 5) + '" stroke="#e3dacd" stroke-width="0.8"/>' +
-      writeLines(hand, handCopy(hand), fold + 6, cy + (script ? 30 : 22), script ? 8 : 9);
-  }
-
-  function handwrittenCardArt(sizeId, hand) {
-    const box = postcardBox(sizeId === '6x9' ? '6x9' : '4x6');
-    const mid = box.x + box.w * 0.56;
-    const script = !hand || hand === 'hi-clarice';
-    const stampW = Math.max(10, box.w * 0.12);
-    const stampH = stampW * 1.15;
-    return paperShadow(box.x, box.y, box.w, box.h) +
-      '<rect x="' + px(box.x) + '" y="' + px(box.y) + '" width="' + px(box.w) + '" height="' + px(box.h) + '" rx="2" fill="#fffdf8" stroke="#e4ddd2" stroke-width="0.7"/>' +
-      '<line x1="' + px(mid) + '" y1="' + px(box.y + 5) + '" x2="' + px(mid) + '" y2="' + px(box.y + box.h - 5) + '" stroke="#eadfce" stroke-width="0.6"/>' +
-      writeLines(hand, handCopy(hand), box.x + box.w * 0.06, box.y + box.h * (script ? 0.42 : 0.32), Math.max(5.5, box.h * 0.15)) +
-      postageStamp(box.x + box.w - stampW - box.w * 0.05, box.y + box.h * 0.08, stampW, stampH) +
-      '<rect x="' + px(mid + box.w * 0.06) + '" y="' + px(box.y + box.h * 0.48) + '" width="' + px(box.w * 0.3) + '" height="1.2" rx="0.4" fill="#c9c0b4"/>' +
-      '<rect x="' + px(mid + box.w * 0.06) + '" y="' + px(box.y + box.h * 0.62) + '" width="' + px(box.w * 0.26) + '" height="1.2" rx="0.4" fill="#c9c0b4"/>' +
-      '<rect x="' + px(mid + box.w * 0.06) + '" y="' + px(box.y + box.h * 0.76) + '" width="' + px(box.w * 0.22) + '" height="1.2" rx="0.4" fill="#c9c0b4"/>';
-  }
-
-  function stake(cx, top) {
-    return '<line x1="' + px(cx) + '" y1="' + px(top) + '" x2="' + px(cx) + '" y2="104" stroke="#8d97a1" stroke-width="2.5" stroke-linecap="round"/>' +
-      '<line x1="' + px(cx - 16) + '" y1="104" x2="' + px(cx + 16) + '" y2="104" stroke="#8d97a1" stroke-width="2.5" stroke-linecap="round"/>';
-  }
-
-  function signFace(fill, ink, rule) {
-    const signH = 74;
-    const signW = signH * (18 / 24);
-    const x = (160 - signW) / 2;
-    const y = 6;
-    let ribs = '';
-    if (fill === '#f5d20a') {
-      for (let i = 0; i < 8; i += 1) {
-        const lx = x + 5 + i * ((signW - 10) / 7);
-        ribs += '<line x1="' + px(lx) + '" y1="' + px(y + 2) + '" x2="' + px(lx) + '" y2="' + px(y + signH - 2) + '" stroke="#e0b000" stroke-width="0.8" opacity="0.7"/>';
-      }
-    }
-    return stake(80, y + signH - 1) +
-      paperShadow(x, y, signW, signH) +
-      '<rect x="' + px(x) + '" y="' + px(y) + '" width="' + px(signW) + '" height="' + px(signH) + '" rx="1.4" fill="' + fill + '" stroke="' + ink + '" stroke-width="1.1"/>' +
-      ribs +
-      '<text x="80" y="' + px(y + 24) + '" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="8" font-weight="700" fill="' + ink + '">WE BUY</text>' +
-      '<text x="80" y="' + px(y + 35) + '" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="8" font-weight="700" fill="' + ink + '">HOUSES</text>' +
-      (rule ? '<rect x="' + px(x + 10) + '" y="' + px(y + 40) + '" width="' + px(signW - 20) + '" height="1" fill="' + rule + '"/>' : '') +
-      '<text x="80" y="' + px(y + 54) + '" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="6.2" font-weight="600" fill="' + ink + '">555-0100</text>';
-  }
-
-  function hangerArt() {
-    const x = 63;
-    const y = 8;
-    const w = 34;
-    const h = 94;
-    const cx = x + w / 2;
-    const shoulder = y + 26;
-    const d = 'M' + px(x + 7) + ' ' + px(shoulder) +
-      ' V' + px(y + 16) +
-      ' C' + px(x + 7) + ' ' + px(y + 4) + ' ' + px(x + w - 7) + ' ' + px(y + 4) + ' ' + px(x + w - 7) + ' ' + px(y + 16) +
-      ' V' + px(shoulder) +
-      ' H' + px(x + w) +
-      ' V' + px(y + h - 7) +
-      ' Q' + px(x + w) + ' ' + px(y + h) + ' ' + px(x + w - 7) + ' ' + px(y + h) +
-      ' H' + px(x + 7) +
-      ' Q' + px(x) + ' ' + px(y + h) + ' ' + px(x) + ' ' + px(y + h - 7) +
-      ' V' + px(shoulder) +
-      ' H' + px(x + 7) +
-      ' Z M' + px(cx - 4.2) + ' ' + px(y + 15) +
-      ' a4.2 4.2 0 1 0 8.4 0 a4.2 4.2 0 1 0 -8.4 0 Z';
-    return paperShadow(x + 1, y + 2, w, h) +
-      '<path d="' + d + '" fill="#fffdf8" stroke="#cfc6ba" stroke-width="1" fill-rule="evenodd"/>' +
-      '<rect x="' + px(x + 7) + '" y="' + px(shoulder + 12) + '" width="' + px(w - 14) + '" height="2" rx="0.6" fill="#d9d1c6"/>' +
-      '<rect x="' + px(x + 8) + '" y="' + px(shoulder + 18) + '" width="' + px(w - 16) + '" height="1.3" rx="0.5" fill="#e6dfd4"/>' +
-      '<rect x="' + px(x + 8) + '" y="' + px(shoulder + 23) + '" width="' + px(w - 18) + '" height="1.3" rx="0.5" fill="#e6dfd4"/>';
+    return globalThis.ForgeMarketingMailer;
   }
 
   function stylePreview(channelId, choiceId, extra) {
     const more = extra || {};
     const id = String(channelId || '');
-    const choice = String(choiceId || '');
-    const hand = more.hand || 'hi-clarice';
-    let inner = '';
-    if (id === 'letter') inner = letterArt(choice === 'color' ? 'color' : 'bw');
-    else if (id === 'handwritten' && (choice === '4x6' || choice === '6x9')) inner = handwrittenCardArt(choice, hand);
-    else if (id === 'handwritten') inner = noteArt(hand);
-    else if (id === 'bandit') inner = signFace('#f5d20a', '#1a1a1a', '');
-    else if (id === 'yard-sign') inner = signFace('#f7f5f0', '#243246', '#243246');
-    else if (id === 'door-hanger') inner = hangerArt();
-    else inner = postcardArt(choice || '4x6');
-    return frameSvg(inner);
+    const design = normalizeDesign(id, more.design);
+    if (more.template) design.template = more.template;
+    if (more.swatch || (more.design && more.design.swatch)) design.swatch = true;
+    const angle = angleById(more.angle, more.propertyClass) || ANGLES[0];
+    return previewMailer().render({
+      id: id,
+      choice: String(choiceId || ''),
+      design: design,
+      template: templateById(id, design.template),
+      swatch: !!design.swatch,
+      hand: more.hand || 'hi-clarice',
+      angle: angle,
+      brand: more.brand || {},
+      commercial: more.propertyClass === 'commercial',
+    });
   }
 
   // Longest names first. The output filter is the second lock, after the prompt rule.
@@ -465,7 +357,7 @@
     const goal = String(opts.goal || 'sellers');
     const ids = commercial
       ? ['letter', 'call', 'networking', 'social']
-      : ['postcard', 'handwritten', 'door-knock', 'bandit', 'letter'];
+      : ['postcard', 'handwritten', 'door-knock', 'letter'];
     if (goal === 'buyers') ids.push('email', 'seller-page');
     if (goal === 'followup') ids.push('email');
     const allowed = {};
@@ -480,7 +372,7 @@
 
   function recommendationText(propertyClass) {
     if (propertyClass === 'commercial') {
-      return 'For a commercial list I would start with a formal letter, a call script for the decision maker, and networking. Bandit signs and door hangers are not offered on commercial marketing. Cadence stays slower, with more value in each touch.';
+      return 'For a commercial list I would start with a formal letter, a call script for the decision maker, and networking. Yard signs and door hangers are not offered on commercial marketing. Cadence stays slower, with more value in each touch.';
     }
     return 'For a residential list I would start with a postcard, a handwritten-style note, and a door-knock script, then a letter. You run the calls, texts, and door knocking yourself. Mail from FORGE is in test mode, so nothing is really printed yet.';
   }
@@ -562,7 +454,7 @@
       b = owner + ', ' + name + ' here. Following up on ' + where + ' since you opted in. No repairs, no agent fees. ' + phone + '. Reply STOP to opt out.';
     } else if (channel.id === 'email') {
       a = 'Subject: ' + where + '\n\nHi ' + owner + ',\n\nI am ' + name + ', a local investor. If you want a simple as-is offer on ' + where + ', I can close on your timeline. No repairs and no agent fees.\n\n' + sign + '\n' + phone + '\n' + postalBlock(context) + '\n\nUnsubscribe: reply to this email with "unsubscribe".\n' + disclosure;
-      b = 'Subject: A simple option for ' + where + '\n\nHi ' + owner + ',\n\nI buy houses in this area and I can make this easy if ' + where + ' is more than you want to manage. There is no cost to talk.\n\n' + sign + '\n' + phone + '\n' + postalBlock(context) + '\n\nUnsubscribe: reply with "unsubscribe".\n' + disclosure;
+      b = 'Subject: A simple option for ' + where + '\n\nHi ' + owner + ',\n\n' + (commercial ? "I'm looking to buy a property in your area" : "I'm looking to buy a home in your neighborhood") + ' and I can make this easy if ' + where + ' is more than you want to manage. There is no cost to talk.\n\n' + sign + '\n' + phone + '\n' + postalBlock(context) + '\n\nUnsubscribe: reply with "unsubscribe".\n' + disclosure;
     } else if (channel.id === 'call') {
       a = commercial
         ? 'Opening: This is ' + name + '. I am calling about ' + where + '. I am an investor, not a broker. Who is the person who decides on a sale? I can talk through an income-based range, seller financing, or a straightforward as-is close. ' + phone + '.'
@@ -571,9 +463,9 @@
     } else if (channel.id === 'door-knock') {
       a = 'Hi, I am ' + name + ', a local investor. I am not an agent. I am working in the neighborhood and wanted to ask, person to person, if you have thought about selling ' + where + ' as-is. If this is a bad time I will leave. My phone is ' + phone + '.\nSafety: go in daylight, stay on the walk, leave when asked, and do not step inside.';
       b = 'Short version: "I buy houses as-is, no repairs and no agent fees. If ' + where + ' is more work than you want, here is my number, ' + phone + '. If you would rather I not stop by again, tell me and I will not."';
-    } else if (channel.id === 'bandit' || channel.id === 'yard-sign') {
-      a = 'WE BUY HOUSES\nAS-IS · CASH · FAST\n' + phone;
-      b = name.toUpperCase() + '\nLOCAL HOME BUYER\n' + phone;
+    } else if (channel.id === 'yard-sign') {
+      a = 'CASH OFFER\nANY CONDITION\n' + phone;
+      b = 'SELL FAST\nNO REPAIRS · NO FEES\n' + phone;
     } else if (channel.id === 'social') {
       a = commercial
         ? 'I buy commercial property in this market, including buildings that need an operator who can look at vacancy, deferred maintenance, or a 1031. If you own one and want a direct conversation, message me. ' + name + ' · ' + phone
@@ -595,7 +487,12 @@
       b = 'Hello,\n\n' + name + ' here. Investors who own ' + where + ' sometimes want a direct conversation about vacancy, deferred maintenance, or a 1031 exchange. I buy property myself. There is no cost to talk. ' + phone + '.\n\n' + sign;
     } else {
       a = 'Hi ' + owner + ', I am ' + name + ', a local investor. If managing ' + where + ' has stopped being worth the hassle, I can make a simple cash offer, as-is, no repairs, no agent fees, and close when you want. A quick call or text to ' + phone + ' is all it takes. ' + disclosure;
-      b = 'Hi ' + owner + ', I am ' + name + '. I buy houses in this area and I can make the sale of ' + where + ' simple: as-is, no showings, and a closing date you choose. If you would rather not sell, no problem. ' + phone + '.';
+      b = 'Hi ' + owner + ', I am ' + name + '. ' + (commercial ? "I'm looking to buy a property in your area" : "I'm looking to buy a home in your neighborhood") + ' and I can make the sale of ' + where + ' simple: as-is, no showings, and a closing date you choose. If you would rather not sell, no problem. ' + phone + '.';
+    }
+    const angle = angleById(context.angle, commercial ? 'commercial' : 'residential');
+    if (angle) {
+      a = angle.opener + '\n' + a;
+      b = angle.alt + '\n' + b;
     }
     return {
       channel: channel.id,
@@ -612,7 +509,6 @@
       letter: '<rect x="48" y="12" width="64" height="72" rx="2" fill="#F7F5F2" stroke="#C89B3C"/><path d="M48 12 l32 26 l32 -26" stroke="#C89B3C"/><rect x="60" y="48" width="40" height="3" fill="#8AA0B4"/><rect x="60" y="56" width="32" height="3" fill="#8AA0B4"/>',
       handwritten: '<rect x="36" y="18" width="88" height="60" rx="3" fill="#F6E7A8" stroke="#C89B3C" transform="rotate(-4 80 48)"/><path d="M52 40 q20 8 36 -2" stroke="#1F3348" stroke-width="1.4"/><path d="M52 52 q24 10 40 0" stroke="#1F3348" stroke-width="1.4"/>',
       'door-hanger': '<path d="M70 10 h20 a10 10 0 0 1 0 20 h-20 a10 10 0 0 1 0 -20 z" fill="#F4EFE4" stroke="#C89B3C"/><rect x="68" y="28" width="24" height="58" rx="3" fill="#F4EFE4" stroke="#C89B3C"/><circle cx="80" cy="20" r="4" fill="#0D1B2A"/>',
-      bandit: '<rect x="28" y="22" width="104" height="52" rx="2" fill="#F5D90A" stroke="#1F3348"/><rect x="40" y="34" width="80" height="6" fill="#1F3348"/><rect x="48" y="48" width="64" height="5" fill="#1F3348"/><path d="M80 74 v14" stroke="#8AA0B4" stroke-width="3"/>',
       'yard-sign': '<rect x="36" y="16" width="88" height="48" rx="2" fill="#F4EFE4" stroke="#C89B3C"/><path d="M80 64 v20 M68 84 h24" stroke="#8AA0B4" stroke-width="3"/>',
       'skip-trace': '<circle cx="70" cy="40" r="18" stroke="#C89B3C" stroke-width="3"/><path d="M84 54 l16 16" stroke="#C89B3C" stroke-width="3"/>',
       'phone-scrub': '<rect x="62" y="16" width="36" height="64" rx="6" stroke="#8AA0B4" stroke-width="2"/><path d="M70 34 h20 M70 44 h14" stroke="#22c55e"/>',
@@ -658,5 +554,12 @@
     printSpec: printSpec,
     pieceStyle: pieceStyle,
     stylePreview: stylePreview,
+    anglesFor: anglesFor,
+    angleById: angleById,
+    templatesFor: templatesFor,
+    normalizeDesign: normalizeDesign,
+    designOrderable: designOrderable,
+    priceMode: priceMode,
+    ANGLES: ANGLES,
   };
 });

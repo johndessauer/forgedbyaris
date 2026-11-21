@@ -54,6 +54,8 @@
       logoUrls: Object.assign({}, input.logoUrls || {}),
       quote: input.quote || null,
       styles: Object.assign({}, input.styles || {}),
+      designs: Object.assign({}, input.designs || {}),
+      angle: input.angle || 'cash',
       menu: input.menu || null,
       confirmKey: '',
       printKey: '',
@@ -307,7 +309,7 @@
 
   function pieceBadge(channel, opts) {
     var options = opts || {};
-    if (!channel || channel.copy === false) return { text: 'Coming soon', cls: 'is-soon' };
+    if (!channel || channel.copy === false || channel.comingSoon) return { text: 'Coming soon', cls: 'is-soon' };
     var printed = loadCatalog().printSpec(channel.id);
     var noteSoon = channel.id === 'handwritten' && !options.handwrittenOrderable;
     if (noteSoon || (printed && printed.comingSoon)) return { text: 'Coming soon', cls: 'is-soon' };
@@ -322,12 +324,13 @@
     var name = catalog.displayName(channel, options.propertyClass);
     var description = catalog.displayDescription(channel, options.propertyClass);
     var badge = pieceBadge(channel, options);
-    var checked = !!options.selected && channel.copy !== false;
-    var box = channel.copy === false
-      ? '<span class="mkt-piece-lock">Not in this step</span>'
+    var selectable = channel.copy !== false && channel.selectable !== false;
+    var checked = !!options.selected && selectable;
+    var box = !selectable
+      ? ''
       : '<input type="checkbox" ' + (checked ? 'checked ' : '') + 'aria-label="' + esc(name) + '">';
-    var tag = channel.copy === false ? 'div' : 'label';
-    var action = channel.copy === false ? '' : ' data-action="toggle" data-id="' + esc(channel.id) + '"';
+    var tag = selectable ? 'label' : 'div';
+    var action = selectable ? ' data-action="toggle" data-id="' + esc(channel.id) + '"' : '';
     var inside = options.inside || '';
     return '<article class="mkt-piece-card' + (checked ? ' is-on' : '') + '">' +
       '<' + tag + ' class="mkt-piece-head"' + action + '>' +
@@ -359,7 +362,7 @@
   function menuCents(state, channelId, choiceId) {
     var menu = state.menu || {};
     var list = menu[channelId] || menu.signs || [];
-    if (channelId === 'bandit' || channelId === 'yard-sign') list = menu.signs || [];
+    if (channelId === 'bandit') return null;
     var found = null;
     list.forEach(function (row) {
       if (row.id === choiceId) found = row;
@@ -409,8 +412,10 @@
     return { spec: null, printed: printed, choiceId: option, hand: '', pack: pack };
   }
 
-  function stylePrice(state, channel, picked) {
-    if (!picked) return '';
+  function stylePrice(state, channel, picked, design) {
+    if (loadCatalog().priceMode(channel.id, design) === 'soon' || !picked) {
+      return '<p class="mkt-style-price mkt-price">Pricing coming soon</p>';
+    }
     if (picked.spec) {
       var each = menuCents(state, channel.id, picked.choiceId);
       return each == null ? '' : '<p class="mkt-style-price mkt-price">' + money(each) + ' each</p>';
@@ -430,55 +435,131 @@
     return '<p class="mkt-style-price mkt-price">' + money(unit) + ' each' + total + '</p>';
   }
 
-  function styleHelp(channel, picked) {
-    if (!picked) return '';
-    if (channel.id === 'postcard') return 'The preview matches the size you pick.';
-    if (channel.id === 'letter') return 'Shown in a #10 double-window envelope.';
+  function previewBrand(state) {
+    var brand = activeBrand(state) || {};
+    var colors = brand.colors || {};
+    var addr = brand.returnAddress || {};
+    var line = [addr.line1, addr.city, addr.state, addr.zip].filter(Boolean).join(', ');
+    return {
+      name: brand.businessName || (state.sender && state.sender.name) || '',
+      phone: brand.phone || (state.sender && state.sender.phone) || '',
+      primary: colors.primary || '',
+      accent: colors.accent || '',
+      address: line,
+    };
+  }
+
+  function styleHelp(channel, picked, design) {
+    var mode = loadCatalog().priceMode(channel.id, design);
+    if (channel.id === 'letter' && design && design.envelope === 'plain') return 'A plain envelope does not have a test price yet. This test mailing uses a window envelope.';
+    if (channel.id === 'yard-sign') return 'Preview only. 18 × 24 on a wire step-in stake. Not orderable yet.';
+    if (mode === 'soon') return 'Preview only. Not orderable yet.';
+    if (channel.id === 'postcard') return 'Template does not change this test price.';
+    if (channel.id === 'letter') return 'Window envelope. Template does not change this test price.';
     if (channel.id === 'handwritten') {
-      return picked.choiceId === 'notecard'
-        ? 'Ink: blue. A folded notecard uses a real stamp, a handwritten envelope, and realism mode.'
-        : 'Ink: blue. The message is handwritten on the postcard.';
+      var inkNote = 'Ink color does not change this test price.';
+      return picked && picked.choiceId === 'notecard'
+        ? inkNote + ' A folded notecard uses a real stamp and a handwritten envelope.'
+        : inkNote + ' The message is handwritten on the postcard.';
     }
-    if (channel.id === 'bandit' || channel.id === 'yard-sign') return '18 × 24, both sides, with H-stakes. Ships to you, not to a property.';
-    if (channel.id === 'door-hanger') return 'A 50-pack reference price. Not mailed to a property.';
+    if (channel.id === 'door-hanger') return 'Finish does not change this reference price. Not mailed to a property.';
     return '';
   }
 
-  function previewSvg(state, channel) {
+  function previewSvg(state, channel, templateId, swatch) {
+    var catalog = loadCatalog();
     var picked = styleChoice(state, channel);
-    if (!picked) return '';
-    var previewId = picked.spec ? picked.choiceId : (picked.choiceId || (picked.printed && picked.printed.options[0] ? picked.printed.options[0].id : ''));
-    return loadCatalog().stylePreview(channel.id, previewId, { hand: picked.hand });
+    var design = catalog.normalizeDesign(channel.id, (state.designs || {})[channel.id]);
+    if (templateId) design.template = templateId;
+    var previewId = picked ? (picked.spec ? picked.choiceId : (picked.choiceId || '')) : '';
+    return catalog.stylePreview(channel.id, previewId, {
+      hand: picked ? picked.hand : '',
+      design: design,
+      template: templateId || design.template,
+      swatch: !!swatch,
+      angle: state.angle,
+      brand: previewBrand(state),
+      propertyClass: state.propertyClass,
+    });
+  }
+
+  function designSelect(label, channelId, field, rows, selected, fieldClass) {
+    return styleSelect(label, 'data-design="' + esc(channelId) + '" data-design-field="' + esc(field) + '"', rows, selected, fieldClass);
+  }
+
+  function templateRow(state, channel, design, picked) {
+    var catalog = loadCatalog();
+    var templates = catalog.templatesFor(channel.id);
+    if (!templates.length) return '';
+    var previewId = picked ? (picked.spec ? picked.choiceId : (picked.choiceId || '')) : '';
+    return '<div class="mkt-templates">' + templates.map(function (tpl) {
+      var svg = catalog.stylePreview(channel.id, previewId, {
+        hand: picked ? picked.hand : '',
+        design: design,
+        template: tpl.id,
+        swatch: true,
+        angle: state.angle,
+        brand: previewBrand(state),
+        propertyClass: state.propertyClass,
+      });
+      return '<button type="button" class="mkt-template' + (tpl.id === design.template ? ' is-on' : '') + '" data-action="pick-template" data-id="' + esc(channel.id) + '" data-template="' + esc(tpl.id) + '" aria-label="' + esc(tpl.label) + ' template"><span class="mkt-template-art">' + svg + '</span><span>' + esc(tpl.label) + '</span></button>';
+    }).join('') + '</div>';
   }
 
   function styleBlock(state, channel) {
+    var catalog = loadCatalog();
+    var templates = catalog.templatesFor(channel.id);
     var picked = styleChoice(state, channel);
-    if (!picked) return '';
+    if (!picked && !templates.length) return '';
+    var design = catalog.normalizeDesign(channel.id, (state.designs || {})[channel.id]);
     var preview = previewSvg(state, channel);
     var thumb = '<button type="button" class="mkt-thumb" data-action="zoom-preview" data-id="' + esc(channel.id) + '" aria-label="Enlarge ' + esc(channel.name) + ' preview">' + preview + '</button>';
     var fields = '';
-    if (picked.spec) {
+    if (picked && picked.spec) {
       var fieldLabel = picked.spec.field === 'size' ? 'Size' : (picked.spec.field === 'finish' ? 'Print' : 'Style');
       fields += styleSelect(fieldLabel, 'data-style="' + esc(channel.id) + '" data-style-field="' + esc(picked.spec.field) + '"', picked.spec.choices, picked.choiceId);
       if (picked.spec.hands && picked.spec.hands.length) {
         fields += styleSelect('Handwriting', 'data-style="' + esc(channel.id) + '" data-style-field="hand"', picked.spec.hands, picked.hand);
       }
-    } else if (picked.printed) {
-      var live = picked.printed.comingSoon ? '' : 'data-print-option="' + esc(channel.id) + '"';
-      var packAttrs = picked.printed.comingSoon ? '' : 'data-print-pack="' + esc(channel.id) + '"';
-      if (picked.printed.options.length) fields += styleSelect('Size', live, picked.printed.options, picked.choiceId);
-      if (picked.printed.packs.length) {
-        fields += styleSelect('Pack', packAttrs, picked.printed.packs.map(function (qty) {
+      if (channel.id === 'letter') {
+        fields += designSelect('Envelope', channel.id, 'envelope', [
+          { id: 'window', label: 'Window' },
+          { id: 'plain', label: 'Plain' },
+        ], design.envelope);
+      }
+      if (channel.id === 'handwritten') {
+        fields += designSelect('Ink', channel.id, 'ink', [
+          { id: 'blue', label: 'Blue' },
+          { id: 'black', label: 'Black' },
+        ], design.ink, 'is-short');
+      }
+    } else if (channel.id === 'door-hanger') {
+      fields += designSelect('Size', channel.id, 'hangerSize', [
+        { id: '4.25x11', label: '4.25 × 11' },
+        { id: '3.5x8.5', label: '3.5 × 8.5' },
+        { id: '4.25x14', label: '4.25 × 14' },
+      ], design.hangerSize);
+      fields += designSelect('Finish', channel.id, 'hangerFinish', [
+        { id: 'standard', label: 'Standard' },
+        { id: 'uv', label: 'UV gloss' },
+      ], design.hangerFinish);
+      if (picked && picked.printed && picked.printed.packs.length) {
+        fields += styleSelect('Pack', '', picked.printed.packs.map(function (qty) {
           return { id: qty, label: String(qty) };
         }), picked.pack, 'is-short');
       }
+    } else if (channel.id === 'yellow-letter') {
+      fields += designSelect('Ink', channel.id, 'ink', [
+        { id: 'blue', label: 'Blue' },
+        { id: 'black', label: 'Black' },
+      ], design.ink, 'is-short');
     }
-    var help = styleHelp(channel, picked);
-    return '<div class="mkt-style">' + thumb +
+    var help = styleHelp(channel, picked, design);
+    return '<div class="mkt-options"><div class="mkt-style">' + thumb +
       '<div class="mkt-style-fields">' + fields + '</div>' +
-      stylePrice(state, channel, picked) +
+      stylePrice(state, channel, picked, design) +
       (help ? '<p class="mkt-style-help">' + esc(help) + '</p>' : '') +
-      '</div>';
+      '</div>' + templateRow(state, channel, design, picked) + '</div>';
   }
 
   function zoomMarkup(state) {
@@ -493,6 +574,15 @@
       '<div class="mkt-lightbox-card"><div class="mkt-lightbox-bar"><span>' + esc(name) + '</span>' +
       '<button type="button" class="mkt-lightbox-close" data-action="close-zoom">Close</button></div>' +
       svg + '</div></div>';
+  }
+
+  function angleRow(state) {
+    var catalog = loadCatalog();
+    var angles = catalog.anglesFor(state.propertyClass);
+    var current = catalog.angleById(state.angle, state.propertyClass) || angles[0];
+    return '<h2 class="mkt-ask">What should the message say?</h2><div class="mkt-angles">' + angles.map(function (angle) {
+      return '<button type="button" class="mkt-angle' + (current && angle.id === current.id ? ' is-on' : '') + '" data-action="pick-angle" data-angle="' + esc(angle.id) + '">' + esc(angle.label) + '</button>';
+    }).join('') + '</div>';
   }
 
   function renderPicker(state) {
@@ -517,7 +607,7 @@
           propertyClass: state.propertyClass,
           selected: !!state.selected[channel.id],
           handwrittenOrderable: !!(state.menu && state.menu.handwrittenOrderable),
-          inside: state.selected[channel.id] ? styleBlock(state, channel) : '',
+          inside: (state.selected[channel.id] || channel.selectable === false) ? styleBlock(state, channel) : '',
         });
       }).join('');
     };
@@ -528,6 +618,7 @@
       '<button type="button" class="mkt-who' + (state.propertyClass === 'commercial' ? ' is-on' : '') + '"' + commercialLock + ' data-action="class" data-class="commercial"><strong>Commercial</strong><span>Business and property owners</span>' + (state.empire ? '' : '<em>Empire</em>') + '</button>' +
       '</div>' +
       '<p class="mkt-legend">We mail it means one postcard or letter per property, in test mode. Ship to me means printed goods ship to you in a pack you choose. They are not sent to a property. Nothing is really printed yet. You send it means you send it yourself. FORGE does not send email or text.</p>' +
+      angleRow(state) +
       '<h2 class="mkt-ask">ARIS recommends</h2>' +
       '<p class="mkt-aris">' + esc(recommendLine(state.propertyClass)) + '</p>' +
       (state.message ? '<p class="mkt-message">' + esc(state.message) + '</p>' : '') +
@@ -606,6 +697,7 @@
   function printChoice(state, id) {
     var spec = loadCatalog().printSpec(id);
     if (!spec || spec.comingSoon) return null;
+    if (!loadCatalog().designOrderable(id, (state.designs || {})[id])) return null;
     var saved = (state.prints || {})[id] || {};
     var quantity = spec.packs.indexOf(Number(saved.quantity)) >= 0 ? Number(saved.quantity) : spec.packs[0];
     var option = spec.options.some(function (row) { return row.id === saved.option; }) ? saved.option : spec.options[0].id;
@@ -1073,8 +1165,25 @@
       var cls = button.getAttribute('data-class');
       if (cls === 'commercial' && !state.empire) return;
       state.propertyClass = cls === 'commercial' ? 'commercial' : 'residential';
+      if (!loadCatalog().angleById(state.angle, state.propertyClass)) state.angle = 'cash';
       state.previewId = '';
       state.recsFor = '';
+      paint(state);
+      return;
+    }
+    if (action === 'pick-angle') {
+      var nextAngle = button.getAttribute('data-angle') || 'cash';
+      if (loadCatalog().angleById(nextAngle, state.propertyClass)) state.angle = nextAngle;
+      paint(state);
+      return;
+    }
+    if (action === 'pick-template') {
+      var pieceId = button.getAttribute('data-id');
+      var nextTemplate = button.getAttribute('data-template');
+      if (!state.designs) state.designs = {};
+      var currentDesign = loadCatalog().normalizeDesign(pieceId, state.designs[pieceId]);
+      currentDesign.template = nextTemplate;
+      state.designs[pieceId] = currentDesign;
       paint(state);
       return;
     }
@@ -1181,6 +1290,16 @@
     }
     if (target && target.hasAttribute('data-upload')) {
       uploadFile(state, target.getAttribute('data-upload'), target.files && target.files[0]);
+      return;
+    }
+    if (target && target.hasAttribute('data-design')) {
+      var designId = target.getAttribute('data-design');
+      var designField = target.getAttribute('data-design-field');
+      if (!state.designs) state.designs = {};
+      var nextDesign = loadCatalog().normalizeDesign(designId, state.designs[designId]);
+      nextDesign[designField] = target.value;
+      state.designs[designId] = nextDesign;
+      paint(state);
       return;
     }
     if (target && target.hasAttribute('data-style')) {
@@ -1424,6 +1543,8 @@
       printKey: state.printKey,
       prints: state.prints,
       styles: state.styles,
+      designs: state.designs,
+      angle: state.angle,
       shipTo: state.shipTo,
       shipTouched: !!state.shipTouched,
       sender: state.sender,
@@ -1470,6 +1591,8 @@
     state.printKey = draft.printKey || '';
     state.prints = Object.assign({}, draft.prints || {});
     state.styles = Object.assign({}, draft.styles || {});
+    state.designs = Object.assign({}, draft.designs || {});
+    state.angle = draft.angle || state.angle || 'cash';
     state.shipTo = draft.shipTo || null;
     state.shipTouched = !!draft.shipTouched;
     state.sender = draft.sender || state.sender;
@@ -1692,7 +1815,7 @@
     var catalog = loadCatalog();
     var ids = selectedIds(state).filter(function (id) {
       var channel = catalog.channelById(id);
-      return channel && channel.copy !== false && catalog.channelsForClass(state.propertyClass).some(function (row) { return row.id === id; });
+      return channel && channel.copy !== false && channel.selectable !== false && catalog.channelsForClass(state.propertyClass).some(function (row) { return row.id === id; });
     });
     if (!ids.length) {
       state.message = 'Select at least one type ARIS can write. Printing and data services are coming soon.';
@@ -1711,6 +1834,7 @@
       brandId: state.brandId,
       leads: leads,
       sender: state.sender,
+      angle: state.angle,
     });
     if (!result.ok) {
       ids.forEach(function (id) {
@@ -1719,6 +1843,7 @@
           brand: activeBrand(state),
           sender: state.sender,
           leads: leads,
+          angle: state.angle,
           softTone: (leads || []).some(function (lead) {
             return (lead.playIds || []).indexOf('prefore') !== -1 || (lead.playIds || []).indexOf('inherited') !== -1;
           }),

@@ -24,7 +24,7 @@ test('style prices are vendor cost plus the approved markup', () => {
   assert.deepEqual(byId(menu.postcard), { '4x6': 109, '6x9': 124, '6x11': 155 });
   assert.deepEqual(byId(menu.letter), { bw: 128, color: 147 });
   assert.deepEqual(byId(menu.handwritten), { notecard: 365, '4x6': 142, '6x9': 198 });
-  assert.deepEqual(byId(menu.signs), { '50': 647, '100': 514 });
+  assert.deepEqual(menu.signs, []);
   const soon = byId(menu.comingSoon);
   assert.equal(soon['door-hanger'], 182);
   assert.equal(soon.flyer, undefined);
@@ -42,10 +42,8 @@ test('style prices are vendor cost plus the approved markup', () => {
   assert.equal(color.lines[0].styleLabel, 'Color');
   assert.equal(color.lines[0].vendorCostCents + color.lines[0].markupCents, color.chargedCents);
   const signs = pricing.quoteOrder(['bandit'], 12, {}, [{ channelId: 'bandit', quantity: 50, option: '18x24-hstake' }]);
-  assert.equal(signs.lines[0].quantity, 50);
-  assert.notEqual(signs.lines[0].quantity, 12);
-  assert.equal(signs.printChargedCents, 32350);
-  assert.equal(signs.lines[0].vendorCostCents + signs.lines[0].markupCents, signs.printChargedCents);
+  assert.equal(signs.lines.some(row => row.channelId === 'bandit'), false);
+  assert.equal(signs.printChargedCents, 0);
 });
 
 test('a handwritten order is refused while the note service is not connected', async () => {
@@ -123,10 +121,9 @@ test('a handwritten order is refused while the note service is not connected', a
   const letter = pieceCard(picker, 'Letter');
   assert.match(letter, /class="mkt-field"><span>Print<\/span>/);
   assert.match(letter, /\$1\.28 each/);
-  const sign = pieceCard(picker, 'Bandit sign');
-  assert.match(sign, /class="mkt-field is-short"><span>Pack<\/span>/);
-  assert.match(sign, /\$6\.47 each/);
-  assert.match(sign, /\$323\.50 for 50/);
+  assert.equal(picker.includes('Bandit sign'), false);
+  assert.equal(picker.includes('WE BUY HOUSES'), false);
+  assert.equal(picker.includes('We buy houses'), false);
   const closed = app.createState({
     step: 2,
     goal: 'sellers',
@@ -154,10 +151,31 @@ test('a handwritten order is refused while the note service is not connected', a
   const catalog = require('../assets/js/marketing-catalog');
   const postcard46 = catalog.stylePreview('postcard', '4x6');
   const postcard611 = catalog.stylePreview('postcard', '6x11');
-  assert.match(postcard46, /viewBox="0 0 160 110"/);
+  assert.match(postcard46, /data-face="front"/);
+  assert.match(postcard46, /data-face="back"/);
+  assert.match(postcard46, /Your Name/);
+  assert.match(postcard46, /PRSRT STD/);
+  assert.match(postcard46, /\(555\) 555-0100/);
+  assert.equal(/we buy houses/i.test(postcard46), false);
+  assert.equal(postcard46.includes('home in your'), true);
+  assert.equal(postcard46.includes('neighborhood'), true);
+  assert.match(postcard46, /\/assets\/marketing\/stock\/house-/);
+  assert.match(postcard46, /preserveAspectRatio="xMidYMid slice"/);
+  const commercialCard = catalog.stylePreview('postcard', '6x9', { propertyClass: 'commercial' });
+  assert.equal(commercialCard.includes('property in your'), true);
+  assert.match(commercialCard, /\/assets\/marketing\/stock\/apt-/);
+  const now = new Date();
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const today = months[now.getMonth()] + ' ' + now.getDate() + ', ' + now.getFullYear();
   assert.notEqual(postcard46, postcard611);
   assert.notEqual(postcard46, catalog.stylePreview('postcard', '6x9'));
-  assert.match(catalog.stylePreview('letter', 'color'), /#2f6f86/);
+  const colorLetter = catalog.stylePreview('letter', 'color');
+  assert.match(colorLetter, /#2f6f86/);
+  assert.match(colorLetter, /Dear Homeowner/);
+  assert.match(colorLetter, /P\.S\./);
+  assert.match(colorLetter, /data-face="letter"/);
+  assert.equal(colorLetter.includes(today), true);
+  assert.equal(colorLetter.includes('March 4, 2026'), false);
   assert.equal(catalog.stylePreview('letter', 'bw').includes('#2f6f86'), false);
   assert.match(catalog.stylePreview('handwritten', 'notecard', { hand: 'hi-clarice' }), /Great Vibes/);
   assert.match(catalog.stylePreview('handwritten', 'notecard', { hand: 'shopping-list' }), /Caveat/);
@@ -166,11 +184,7 @@ test('a handwritten order is refused while the note service is not connected', a
     catalog.stylePreview('handwritten', '4x6', { hand: 'hi-clarice' }),
     catalog.stylePreview('handwritten', '6x9', { hand: 'shopping-list' })
   );
-  const banditArt = catalog.stylePreview('bandit', '18x24-hstake');
-  assert.match(banditArt, /WE BUY/);
-  assert.match(banditArt, />HOUSES</);
-  assert.match(banditArt, /555-0100/);
-  assert.equal(banditArt.includes('FORGE'), false);
+  assert.equal(catalog.channelById('bandit'), null);
   assert.match(catalog.stylePreview('door-hanger', '4.25x11'), /fill-rule="evenodd"/);
   assert.match(picker, /Enlarge Postcard preview/);
   const zoomed = app.createState({
@@ -180,10 +194,10 @@ test('a handwritten order is refused while the note service is not connected', a
     empire: true,
     menu: pricing.publicMenu({}),
   });
-  zoomed.zoomChannel = 'bandit';
+  zoomed.zoomChannel = 'postcard';
   assert.match(app.renderPicker(zoomed), /class="mkt-lightbox"/);
-  assert.match(app.renderPicker(zoomed), /WE BUY/);
-  assert.match(app.renderPicker(zoomed), />HOUSES</);
+  assert.equal(app.renderPicker(zoomed).includes('WE BUY HOUSES'), false);
+  assert.equal(app.renderPicker(zoomed).includes('We buy houses'), false);
   const page = ['marketing.html', 'assets/js/marketing-app.js']
     .map(file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8')).join('\n');
   assert.equal(/thanks\.io|dirt cheap|wise pelican|\blob\b/i.test(page), false);

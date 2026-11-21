@@ -125,10 +125,11 @@ test('property class splits residential, commercial, and unknown', () => {
   assert.equal(split.unknown.length, 1);
 });
 
-test('commercial hides bandit signs, door hangers, and door-knock scripts', () => {
+test('commercial hides yard signs, door hangers, and door-knock scripts', () => {
   const residential = catalog.channelsForClass('residential').map(row => row.id);
   const commercial = catalog.channelsForClass('commercial').map(row => row.id);
-  assert.ok(residential.includes('bandit'));
+  assert.equal(residential.includes('bandit'), false);
+  assert.equal(catalog.channelById('bandit'), null);
   assert.ok(residential.includes('door-hanger'));
   assert.ok(residential.includes('door-knock'));
   assert.equal(commercial.includes('bandit'), false);
@@ -161,7 +162,8 @@ test('vendor names are stripped and never appear in starter copy or the prompt',
   assert.equal(catalog.containsVendorName(copyApi.systemPrompt('residential')), false);
   assert.equal(catalog.containsVendorName(copyApi.systemPrompt('commercial')), false);
   assert.match(copyApi.systemPrompt('residential'), /real estate deal/);
-  assert.match(copyApi.systemPrompt('commercial'), /Never recommend bandit signs, yard signs, or door hangers/);
+  assert.match(copyApi.systemPrompt('commercial'), /Never recommend yard signs or door hangers/);
+  assert.equal(copyApi.systemPrompt('commercial').includes('bandit'), false);
 });
 
 test('production flag stays on the admin allowlist and previews open', () => {
@@ -475,9 +477,12 @@ test('order lines keep vendor cost, markup, and student price without showing th
   assert.equal(letter.provider, pricing.MAIL_PROVIDER);
 
   const hanger = pricing.orderLine('door-hanger', 1000);
-  const sign = pricing.orderLine('bandit', 100);
+  const sign = pricing.orderLine('yard-sign', 100);
+  const bandit = pricing.orderLine('bandit', 100);
   assert.equal(hanger.markupRate, pricing.PRINT_MARKUP_RATE);
   assert.equal(sign.markupRate, pricing.PRINT_MARKUP_RATE);
+  assert.equal(bandit.priced, false);
+  assert.equal(bandit.studentPriceCents, null);
   assert.ok(pricing.PRINT_MARKUP_RATE >= 0.25 && pricing.PRINT_MARKUP_RATE <= pricing.PRINT_MARKUP_RATE_MAX);
   assert.equal(hanger.shippingCents, null);
   assert.equal(hanger.vendorCostCents + hanger.markupCents, hanger.studentPriceCents);

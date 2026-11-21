@@ -166,6 +166,11 @@ function createHandler(deps) {
       // Property count is ignored on purpose. Quantity comes only from packs.
       const printQuote = pricing.quoteOrder([], 0, env, body.prints);
       if (printQuote.printChargedCents <= 0) {
+        const asked = Array.isArray(body.prints) ? body.prints : [];
+        const askedBandit = asked.some(function (row) {
+          return String(row && (row.channelId || row.channel) || '') === 'bandit';
+        });
+        if (askedBandit) return json(400, { error: 'Bandit signs are not available.' });
         return json(400, { error: 'Choose a pack size before you ship printed goods.' });
       }
       const brandDoc = await readJson(store, 'brands/' + memberKey(gate.access.memberId) + '.json');
