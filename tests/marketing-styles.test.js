@@ -157,6 +157,16 @@ test('a handwritten order is refused while the note service is not connected', a
   assert.match(postcard46, /PRSRT STD/);
   assert.match(postcard46, /\(555\) 555-0100/);
   assert.equal(/we buy houses/i.test(postcard46), false);
+  assert.equal(postcard46.includes('home in your'), true);
+  assert.equal(postcard46.includes('neighborhood'), true);
+  assert.match(postcard46, /\/assets\/marketing\/stock\/house-/);
+  assert.match(postcard46, /preserveAspectRatio="xMidYMid slice"/);
+  const commercialCard = catalog.stylePreview('postcard', '6x9', { propertyClass: 'commercial' });
+  assert.equal(commercialCard.includes('property in your'), true);
+  assert.match(commercialCard, /\/assets\/marketing\/stock\/apt-/);
+  const now = new Date();
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const today = months[now.getMonth()] + ' ' + now.getDate() + ', ' + now.getFullYear();
   assert.notEqual(postcard46, postcard611);
   assert.notEqual(postcard46, catalog.stylePreview('postcard', '6x9'));
   const colorLetter = catalog.stylePreview('letter', 'color');
@@ -164,6 +174,8 @@ test('a handwritten order is refused while the note service is not connected', a
   assert.match(colorLetter, /Dear Homeowner/);
   assert.match(colorLetter, /P\.S\./);
   assert.match(colorLetter, /data-face="letter"/);
+  assert.equal(colorLetter.includes(today), true);
+  assert.equal(colorLetter.includes('March 4, 2026'), false);
   assert.equal(catalog.stylePreview('letter', 'bw').includes('#2f6f86'), false);
   assert.match(catalog.stylePreview('handwritten', 'notecard', { hand: 'hi-clarice' }), /Great Vibes/);
   assert.match(catalog.stylePreview('handwritten', 'notecard', { hand: 'shopping-list' }), /Caveat/);
