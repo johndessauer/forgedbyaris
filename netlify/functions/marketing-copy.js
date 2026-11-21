@@ -33,6 +33,8 @@ function systemPrompt(propertyClass, angleId) {
     '- The default disclosure, when a disclosure is provided, stays in the piece.',
     'Return only JSON with this shape: {"recommendation":"two sentences","copies":[{"channel":"postcard","variantA":"...","variantB":"..."}]}',
     'Write two variants for each requested channel. Keep postcards and signs short. Keep letters to one page of plain language.',
+    'An offer letter names the property address, invites a conversation about a non-binding offer, includes the words "not a binding offer", and closes with the student name and phone. Follow the selected angle. Do not promise a price.',
+    'A jumbo postcard is a 6 by 11 postcard. Keep it short, with one headline and the student phone.',
     angleInstruction(propertyClass, angleId),
   ].filter(Boolean).join('\n');
 }

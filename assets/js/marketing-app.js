@@ -454,6 +454,8 @@
     if (channel.id === 'letter' && design && design.envelope === 'plain') return 'A plain envelope does not have a test price yet. This test mailing uses a window envelope.';
     if (channel.id === 'yard-sign') return 'Preview only. 18 × 24 on a wire step-in stake. Not orderable yet.';
     if (mode === 'soon') return 'Preview only. Not orderable yet.';
+    if (channel.id === 'jumbo-postcard') return '6 × 11, one per property. Template does not change this test price.';
+    if (channel.id === 'offer-letter') return 'Color printing in a #10 envelope. This is not a binding offer. Template does not change this test price.';
     if (channel.id === 'postcard') return 'Template does not change this test price.';
     if (channel.id === 'letter') return 'Window envelope. Template does not change this test price.';
     if (channel.id === 'handwritten') {
@@ -851,7 +853,7 @@
   }
 
   function isMailable(id) {
-    return id === 'postcard' || id === 'letter' || id === 'handwritten';
+    return id === 'postcard' || id === 'letter' || id === 'jumbo-postcard' || id === 'offer-letter' || id === 'handwritten';
   }
 
   function approvedMailIds(state) {

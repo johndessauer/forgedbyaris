@@ -146,9 +146,11 @@ async function sendPieces(options) {
       const path = format === 'letter' ? '/v1/letters' : '/v1/postcards';
       const html = pieceHtml(brand, piece.variantA || '');
       const styles = options.styles || {};
-      const postcardSize = styles.postcard && styles.postcard.size;
+      const postcardSize = piece.channel === 'jumbo-postcard'
+        ? '6x11'
+        : (styles.postcard && styles.postcard.size);
       const size = postcardSize === '6x9' || postcardSize === '6x11' ? postcardSize : '4x6';
-      const color = !!(styles.letter && styles.letter.finish === 'color');
+      const color = piece.channel === 'offer-letter' || !!(styles.letter && styles.letter.finish === 'color');
       const payload = format === 'letter'
         ? { to: toAddress(lead), from: from, file: html, color: color, mail_type: 'usps_first_class', use_type: 'marketing', description: 'FORGE test letter' }
         : { to: toAddress(lead), from: from, front: html, back: html, size: size, mail_type: 'usps_first_class', use_type: 'marketing', description: 'FORGE test postcard' };
