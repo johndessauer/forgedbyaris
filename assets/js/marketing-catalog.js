@@ -132,225 +132,17 @@
     return PIECE_STYLES[String(id || '')] || null;
   }
 
-  function px(value) {
-    return Math.round(value * 10) / 10;
-  }
-
-  function xmlText(value) {
-    return String(value == null ? '' : value)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
-  }
-
-  // One frame for every piece. The artwork inside is drawn to the real
-  // proportion of the option the student picked.
-  function frameSvg(inner) {
-    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 110" width="160" height="110" focusable="false" aria-hidden="true">' +
-      '<rect width="160" height="110" fill="#f4f1ec"/>' + inner + '</svg>';
-  }
-
-  function paperShadow(x, y, w, h) {
-    return '<rect x="' + px(x + 1.1) + '" y="' + px(y + 1.6) + '" width="' + px(w) + '" height="' + px(h) + '" rx="2" fill="#1c2430" opacity="0.14"/>';
-  }
-
-  const HAND_FONT = {
-    'hi-clarice': 'Great Vibes, Segoe Script, cursive',
-    'shopping-list': 'Caveat, Segoe Print, cursive',
-    'normal-print': 'Patrick Hand, Segoe Print, sans-serif',
-  };
-
-  function handCopy(hand) {
-    if (hand === 'shopping-list') return ['Hi —', 'call me', 'today'];
-    if (hand === 'normal-print') return ['Hi,', 'as-is.', 'Call me.'];
-    return ['Hello,', 'call me'];
-  }
-
-  function writeLines(hand, lines, x, y, size, color) {
-    const font = HAND_FONT[hand] || HAND_FONT['hi-clarice'];
-    const script = !hand || hand === 'hi-clarice';
-    const fontSize = script ? size * 1.55 : size;
-    const leading = fontSize * (script ? 0.92 : 1.22);
-    const fill = color || '#1d4e89';
-    return lines.map(function (line, index) {
-      return '<text x="' + px(x) + '" y="' + px(y + index * leading) + '" fill="' + fill + '" font-family="' + font + '" font-size="' + px(fontSize) + '">' + xmlText(line) + '</text>';
-    }).join('');
-  }
-
-  function inkFill(ink) {
-    return ink === 'black' ? '#1c2430' : '#1d4e89';
-  }
-
-  function postageStamp(x, y, w, h) {
-    const width = w || 14;
-    const height = h || 16;
-    return '<rect x="' + px(x) + '" y="' + px(y) + '" width="' + px(width) + '" height="' + px(height) + '" rx="1" fill="#d4544a" stroke="#f6d2ce" stroke-width="0.7"/>' +
-      '<circle cx="' + px(x + width / 2) + '" cy="' + px(y + height / 2) + '" r="' + px(Math.min(width, height) * 0.28) + '" fill="none" stroke="#f8e6e3" stroke-width="0.7"/>';
-  }
-
-  function houseMark(cx, cy, scale) {
-    const half = scale * 0.46;
-    const roof = cy - scale * 0.42;
-    const eave = cy - scale * 0.05;
-    const bodyBottom = cy + scale * 0.48;
-    return '<path d="M' + px(cx) + ' ' + px(roof) + ' L' + px(cx + half + scale * 0.12) + ' ' + px(eave) + ' L' + px(cx - half - scale * 0.12) + ' ' + px(eave) + ' Z" fill="#f4f1ec"/>' +
-      '<rect x="' + px(cx - half) + '" y="' + px(eave) + '" width="' + px(half * 2) + '" height="' + px(bodyBottom - eave) + '" fill="#f4f1ec"/>' +
-      '<rect x="' + px(cx - half * 0.22) + '" y="' + px(eave + (bodyBottom - eave) * 0.42) + '" width="' + px(half * 0.44) + '" height="' + px((bodyBottom - eave) * 0.58) + '" fill="#243246"/>';
-  }
-
-  function postcardBox(sizeId) {
-    const inch = 132 / 11;
-    const table = { '4x6': [6, 4], '6x9': [9, 6], '6x11': [11, 6] };
-    const pair = table[sizeId] || table['4x6'];
-    const w = pair[0] * inch;
-    const h = pair[1] * inch;
-    return { x: (160 - w) / 2, y: (110 - h) / 2, w: w, h: h };
-  }
-
-  function postcardArt(sizeId) {
-    const box = postcardBox(sizeId);
-    const photo = box.w * 0.38;
-    const bar = Math.max(1.5, box.h * 0.055);
-    const textX = box.x + photo + box.w * 0.07;
-    const textW = box.w - photo - box.w * 0.12;
-    const top = box.y + box.h * 0.28;
-    const gap = box.h * 0.16;
-    return paperShadow(box.x, box.y, box.w, box.h) +
-      '<rect x="' + px(box.x) + '" y="' + px(box.y) + '" width="' + px(box.w) + '" height="' + px(box.h) + '" rx="2" fill="#fffdf8" stroke="#e3dcd0" stroke-width="0.7"/>' +
-      '<path d="M' + px(box.x + photo) + ' ' + px(box.y) + ' H' + px(box.x + 2) + ' Q' + px(box.x) + ' ' + px(box.y) + ' ' + px(box.x) + ' ' + px(box.y + 2) + ' V' + px(box.y + box.h - 2) + ' Q' + px(box.x) + ' ' + px(box.y + box.h) + ' ' + px(box.x + 2) + ' ' + px(box.y + box.h) + ' H' + px(box.x + photo) + ' Z" fill="#243246"/>' +
-      houseMark(box.x + photo * 0.5, box.y + box.h * 0.52, Math.min(photo, box.h) * 0.62) +
-      '<rect x="' + px(textX) + '" y="' + px(top) + '" width="' + px(textW) + '" height="' + px(bar) + '" rx="0.6" fill="#243246"/>' +
-      '<rect x="' + px(textX) + '" y="' + px(top + gap) + '" width="' + px(textW * 0.78) + '" height="' + px(bar * 0.7) + '" rx="0.5" fill="#8b97a3"/>' +
-      '<rect x="' + px(textX) + '" y="' + px(top + gap * 2) + '" width="' + px(textW * 0.62) + '" height="' + px(bar * 0.7) + '" rx="0.5" fill="#c5bfb4"/>' +
-      '<rect x="' + px(box.x + box.w - box.w * 0.1) + '" y="' + px(box.y + box.h - box.h * 0.22) + '" width="' + px(Math.max(4, box.w * 0.06)) + '" height="' + px(Math.max(4, box.h * 0.12)) + '" fill="#243246"/>';
-  }
-
-  function plainEnvelopeArt(finish) {
-    const w = 142;
-    const h = w * (4.125 / 9.5);
-    const x = (160 - w) / 2;
-    const y = (110 - h) / 2;
-    const color = finish === 'color';
-    return paperShadow(x, y, w, h) +
-      '<rect x="' + px(x) + '" y="' + px(y) + '" width="' + px(w) + '" height="' + px(h) + '" rx="2" fill="#f7f4ee" stroke="#ddd4c8" stroke-width="0.8"/>' +
-      (color ? '<rect x="' + px(x) + '" y="' + px(y) + '" width="' + px(w) + '" height="5" fill="#243246"/>' : '') +
-      '<rect x="' + px(x + w - 22) + '" y="' + px(y + 8) + '" width="12" height="14" rx="1" fill="#d4544a"/>' +
-      '<rect x="' + px(x + 14) + '" y="' + px(y + 28) + '" width="46" height="1.4" fill="#3e4a57"/>' +
-      '<rect x="' + px(x + 14) + '" y="' + px(y + 34) + '" width="38" height="1.4" fill="#3e4a57"/>' +
-      '<rect x="' + px(x + 14) + '" y="' + px(y + 40) + '" width="30" height="1.4" fill="#3e4a57"/>';
-  }
-
-  function letterArt(finish, envelope) {
-    if (envelope === 'plain') return plainEnvelopeArt(finish);
-    const w = 142;
-    const h = w * (4.125 / 9.5);
-    const x = (160 - w) / 2;
-    const y = (110 - h) / 2;
-    const color = finish === 'color';
-    const top = { x: x + 9, y: y + 13, w: 52, h: 14 };
-    const bottom = { x: x + 9, y: y + 32, w: 74, h: 22 };
-    function rule(rx, ry, rw, fill) {
-      return '<rect x="' + px(rx) + '" y="' + px(ry) + '" width="' + px(rw) + '" height="1.35" rx="0.4" fill="' + fill + '"/>';
-    }
-    const ink = '#3e4a57';
-    const topLines = color
-      ? '<rect x="' + px(top.x + 2) + '" y="' + px(top.y + 2) + '" width="' + px(top.w - 4) + '" height="6.2" rx="0.4" fill="#243246"/>' +
-        '<rect x="' + px(top.x + 2) + '" y="' + px(top.y + 9.4) + '" width="18" height="1.8" rx="0.3" fill="#2f6f86"/>'
-      : rule(top.x + 3, top.y + 4, 32, ink) + rule(top.x + 3, top.y + 8, 24, ink);
-    const body = color
-      ? '<rect x="' + px(bottom.x + 3) + '" y="' + px(bottom.y + 3) + '" width="16" height="12" rx="0.6" fill="#2a4564"/>' +
-        '<rect x="' + px(bottom.x + 5) + '" y="' + px(bottom.y + 5) + '" width="8" height="5" fill="#d5e6ee"/>' +
-        rule(bottom.x + 23, bottom.y + 5, 40, ink) +
-        rule(bottom.x + 23, bottom.y + 9.5, 34, '#2f6f86') +
-        rule(bottom.x + 23, bottom.y + 14, 26, ink)
-      : rule(bottom.x + 3, bottom.y + 5, 52, ink) +
-        rule(bottom.x + 3, bottom.y + 10, 46, ink) +
-        rule(bottom.x + 3, bottom.y + 15, 34, ink);
-    function windowPane(pane, inner) {
-      return '<rect x="' + px(pane.x) + '" y="' + px(pane.y) + '" width="' + px(pane.w) + '" height="' + px(pane.h) + '" rx="1.2" fill="#fbfcfe" stroke="#c3d0dc" stroke-width="0.7"/>' + inner;
-    }
-    return paperShadow(x, y, w, h) +
-      '<rect x="' + px(x) + '" y="' + px(y) + '" width="' + px(w) + '" height="' + px(h) + '" rx="2" fill="#f7f4ee" stroke="#ddd4c8" stroke-width="0.8"/>' +
-      '<path d="M' + px(x + 1) + ' ' + px(y + 1) + ' L' + px(x + w / 2) + ' ' + px(y + 7) + ' L' + px(x + w - 1) + ' ' + px(y + 1) + '" fill="none" stroke="#e7dfd4" stroke-width="0.7"/>' +
-      windowPane(top, topLines) +
-      windowPane(bottom, body);
-  }
-
-  function noteArt(hand, ink) {
-    const ex = 36;
-    const ey = 48;
-    const ew = 112;
-    const eh = 48;
-    const cx = 12;
-    const cy = 12;
-    const cw = 102;
-    const ch = 66;
-    const fold = cx + 40;
-    const script = !hand || hand === 'hi-clarice';
-    return paperShadow(ex, ey, ew, eh) +
-      '<rect x="' + px(ex) + '" y="' + px(ey) + '" width="' + px(ew) + '" height="' + px(eh) + '" rx="2" fill="#f3efe6" stroke="#ddd4c8" stroke-width="0.7"/>' +
-      postageStamp(ex + ew - 20, ey + 7, 13, 15) +
-      paperShadow(cx, cy, cw, ch) +
-      '<rect x="' + px(cx) + '" y="' + px(cy) + '" width="' + px(cw) + '" height="' + px(ch) + '" rx="2" fill="#fffdf8" stroke="#e4ddd2" stroke-width="0.7"/>' +
-      '<rect x="' + px(cx + 0.7) + '" y="' + px(cy + 0.7) + '" width="' + px(fold - cx - 0.7) + '" height="' + px(ch - 1.4) + '" fill="#f4f0e8"/>' +
-      '<line x1="' + px(fold) + '" y1="' + px(cy + 5) + '" x2="' + px(fold) + '" y2="' + px(cy + ch - 5) + '" stroke="#e3dacd" stroke-width="0.8"/>' +
-      writeLines(hand, handCopy(hand), fold + 6, cy + (script ? 30 : 22), script ? 8 : 9, inkFill(ink));
-  }
-
-  function handwrittenCardArt(sizeId, hand, ink) {
-    const box = postcardBox(sizeId === '6x9' ? '6x9' : '4x6');
-    const mid = box.x + box.w * 0.56;
-    const script = !hand || hand === 'hi-clarice';
-    const stampW = Math.max(10, box.w * 0.12);
-    const stampH = stampW * 1.15;
-    return paperShadow(box.x, box.y, box.w, box.h) +
-      '<rect x="' + px(box.x) + '" y="' + px(box.y) + '" width="' + px(box.w) + '" height="' + px(box.h) + '" rx="2" fill="#fffdf8" stroke="#e4ddd2" stroke-width="0.7"/>' +
-      '<line x1="' + px(mid) + '" y1="' + px(box.y + 5) + '" x2="' + px(mid) + '" y2="' + px(box.y + box.h - 5) + '" stroke="#eadfce" stroke-width="0.6"/>' +
-      writeLines(hand, handCopy(hand), box.x + box.w * 0.06, box.y + box.h * (script ? 0.42 : 0.32), Math.max(5.5, box.h * 0.15), inkFill(ink)) +
-      postageStamp(box.x + box.w - stampW - box.w * 0.05, box.y + box.h * 0.08, stampW, stampH) +
-      '<rect x="' + px(mid + box.w * 0.06) + '" y="' + px(box.y + box.h * 0.48) + '" width="' + px(box.w * 0.3) + '" height="1.2" rx="0.4" fill="#c9c0b4"/>' +
-      '<rect x="' + px(mid + box.w * 0.06) + '" y="' + px(box.y + box.h * 0.62) + '" width="' + px(box.w * 0.26) + '" height="1.2" rx="0.4" fill="#c9c0b4"/>' +
-      '<rect x="' + px(mid + box.w * 0.06) + '" y="' + px(box.y + box.h * 0.76) + '" width="' + px(box.w * 0.22) + '" height="1.2" rx="0.4" fill="#c9c0b4"/>';
-  }
-
-  function hangerArt() {
-    const x = 63;
-    const y = 8;
-    const w = 34;
-    const h = 94;
-    const cx = x + w / 2;
-    const shoulder = y + 26;
-    const d = 'M' + px(x + 7) + ' ' + px(shoulder) +
-      ' V' + px(y + 16) +
-      ' C' + px(x + 7) + ' ' + px(y + 4) + ' ' + px(x + w - 7) + ' ' + px(y + 4) + ' ' + px(x + w - 7) + ' ' + px(y + 16) +
-      ' V' + px(shoulder) +
-      ' H' + px(x + w) +
-      ' V' + px(y + h - 7) +
-      ' Q' + px(x + w) + ' ' + px(y + h) + ' ' + px(x + w - 7) + ' ' + px(y + h) +
-      ' H' + px(x + 7) +
-      ' Q' + px(x) + ' ' + px(y + h) + ' ' + px(x) + ' ' + px(y + h - 7) +
-      ' V' + px(shoulder) +
-      ' H' + px(x + 7) +
-      ' Z M' + px(cx - 4.2) + ' ' + px(y + 15) +
-      ' a4.2 4.2 0 1 0 8.4 0 a4.2 4.2 0 1 0 -8.4 0 Z';
-    return paperShadow(x + 1, y + 2, w, h) +
-      '<path d="' + d + '" fill="#fffdf8" stroke="#cfc6ba" stroke-width="1" fill-rule="evenodd"/>' +
-      '<rect x="' + px(x + 7) + '" y="' + px(shoulder + 12) + '" width="' + px(w - 14) + '" height="2" rx="0.6" fill="#d9d1c6"/>' +
-      '<rect x="' + px(x + 8) + '" y="' + px(shoulder + 18) + '" width="' + px(w - 16) + '" height="1.3" rx="0.5" fill="#e6dfd4"/>' +
-      '<rect x="' + px(x + 8) + '" y="' + px(shoulder + 23) + '" width="' + px(w - 18) + '" height="1.3" rx="0.5" fill="#e6dfd4"/>';
-  }
-
   const ANGLES = [
-    { id: 'cash', label: 'Cash Offer', residential: true, commercial: true, kicker: 'CASH OFFER', headline: ['CASH', 'OFFER'], card: 'Cash offer. As-is.', opener: 'A cash offer, as-is, with no repairs and no agent fees.', alt: 'A simple cash sale, with no repairs and no agent fees.', guard: 'Do not promise a price.' },
-    { id: 'prefore', label: 'Behind on Payments / Pre-foreclosure', residential: true, commercial: true, kicker: 'OPTIONS', headline: ['BEHIND?', 'OPTIONS'], card: 'A private option.', opener: 'If the payments have gotten hard, there may be a private option.', alt: 'I can talk through options. I will not pretend to know your file.', guard: 'Do not say you know they are behind or in foreclosure.' },
-    { id: 'probate', label: 'Inherited / Probate', residential: true, commercial: true, kicker: 'INHERITED', headline: ['INHERITED?', 'WE HELP'], card: 'A simple way to sell.', opener: 'If you inherited a property and want a simple way to sell, I can help.', alt: 'No clean-out required before a conversation.', guard: 'Do not say you know they inherited it.' },
-    { id: 'landlord', label: 'Tired Landlord', residential: true, commercial: true, kicker: 'TIRED?', headline: ['TIRED', 'LANDLORD'], card: 'Sell the rental as-is.', opener: 'If the rentals are more work than they are worth, I buy as-is.', alt: 'No showings and no repairs before we talk.', guard: 'Do not claim you know their rents.' },
-    { id: 'vacant', label: 'Vacant Property', residential: true, commercial: true, kicker: 'VACANT', headline: ['VACANT?', 'CASH'], card: 'A cash offer for an empty house.', opener: 'If the property is sitting empty, I can make a cash offer as-is.', alt: 'A direct buyer for a house that is not being used.', guard: 'Do not say you inspected the property.' },
-    { id: 'divorce', label: 'Divorce', residential: true, commercial: false, kicker: 'SIMPLE SALE', headline: ['SIMPLE', 'SALE'], card: 'A sale on your timeline.', opener: 'If you need a simple sale on your timeline, I buy as-is.', alt: 'One conversation. No listing and no repairs.', guard: 'Do not say you know about a divorce.' },
-    { id: 'repairs', label: 'Code Violations / Repairs', residential: true, commercial: true, kicker: 'NO REPAIRS', headline: ['NO', 'REPAIRS'], card: 'No repairs first.', opener: 'No repairs first. I can still make an as-is cash offer.', alt: 'Leave the repairs. I can still make an as-is offer.', guard: 'Do not say you know about a code case.' },
-    { id: 'expired', label: 'Expired Listing', residential: true, commercial: true, kicker: 'EXPIRED', headline: ['LISTING', 'EXPIRED?'], card: 'A direct buyer.', opener: 'If a listing already ran its course, I am a direct buyer.', alt: 'Skip another listing and talk to a buyer.', guard: 'Do not say you know their listing history.' },
-    { id: 'tax', label: 'Tax Delinquent', residential: true, commercial: true, kicker: 'TAXES', headline: ['BEHIND', 'ON TAXES?'], card: 'A private sale is one option.', opener: 'If the taxes are getting heavy, a private sale is one option.', alt: 'I buy as-is. This is a conversation, not a notice.', guard: 'Do not say you know they are tax delinquent.' },
-    { id: 'neighbor', label: "Neighbor: I'm buying in your area", residential: true, commercial: false, kicker: 'NEARBY', headline: ['BUYING', 'NEARBY'], card: 'I am buying in this area.', opener: 'I am buying houses in your area.', alt: 'Your neighbor can sell as-is, with no agent fees.', guard: 'Do not pretend to live there if the brand does not say so.' },
+    { id: 'cash', label: 'Cash Offer', residential: true, commercial: true, kicker: 'CASH OFFER', headline: ['CASH', 'OFFER'], card: 'Cash offer. As-is.', opener: 'A cash offer, as-is, with no repairs and no agent fees.', alt: 'A simple cash sale, with no repairs and no agent fees.', guard: 'Do not promise a price.', mailHeadline: 'A cash offer. As-is.', mailSub: 'No repairs. No agent fees. You choose the date.', bullets: ['Cash, as-is', 'No repairs first', 'You pick the date'], paragraphs: ['I buy houses in this area, and I can make the next step simple.', 'If you want a cash offer as-is, with no repairs and no agent fees, I am ready to talk.', 'I will not name a price in a letter. A short call is enough to see if a sale makes sense.', 'If now is not the time, set this aside. There is no cost to talk.'], ps: 'P.S. Call or text when you want a straightforward conversation.' },
+    { id: 'prefore', label: 'Behind on Payments / Pre-foreclosure', residential: true, commercial: true, kicker: 'OPTIONS', headline: ['BEHIND?', 'OPTIONS'], card: 'A private option.', opener: 'If the payments have gotten hard, there may be a private option.', alt: 'I can talk through options. I will not pretend to know your file.', guard: 'Do not say you know they are behind or in foreclosure.', mailHeadline: 'A private option.', mailSub: 'If the payments have gotten hard, there may be another path.', bullets: ['A private talk', 'As-is sale', 'No listing'], paragraphs: ['If the payments have gotten hard, there may be a private option.', 'I buy houses as-is. I will not pretend to know your file, and this is not a notice.', 'A conversation can cover a simple sale, with no repairs and no showings.', 'There is no cost to talk, and you can say no.'], ps: 'P.S. This is an invitation to talk, not a statement about your mortgage.' },
+    { id: 'probate', label: 'Inherited / Probate', residential: true, commercial: true, kicker: 'INHERITED', headline: ['INHERITED?', 'WE HELP'], card: 'A simple way to sell.', opener: 'If you inherited a property and want a simple way to sell, I can help.', alt: 'No clean-out required before a conversation.', guard: 'Do not say you know they inherited it.', mailHeadline: 'A simple way to sell.', mailSub: 'If you inherited a property, you do not have to handle it alone.', bullets: ['No clean-out first', 'As-is', 'Your timeline'], paragraphs: ['If you inherited a property and want a simple way to sell, I can help.', 'I buy as-is. No clean-out is required before a conversation.', 'I do not assume how the property came to you. If a sale would help, we can talk.', 'If you would rather keep it, that is fine too.'], ps: 'P.S. One call is enough to see whether a sale would help.' },
+    { id: 'landlord', label: 'Tired Landlord', residential: true, commercial: true, kicker: 'TIRED?', headline: ['TIRED', 'LANDLORD'], card: 'Sell the rental as-is.', opener: 'If the rentals are more work than they are worth, I buy as-is.', alt: 'No showings and no repairs before we talk.', guard: 'Do not claim you know their rents.', mailHeadline: 'Sell the rental as-is.', mailSub: 'If the rentals are more work than they are worth, there is a direct buyer.', bullets: ['No showings', 'No repairs', 'As-is'], paragraphs: ['If the rentals are more work than they are worth, I buy as-is.', 'No showings and no repairs are required before we talk.', 'I will not guess your rents. A direct conversation is enough.', 'You choose whether a sale makes sense.'], ps: 'P.S. I buy the property. I am not asking to manage it.' },
+    { id: 'vacant', label: 'Vacant Property', residential: true, commercial: true, kicker: 'VACANT', headline: ['VACANT?', 'CASH'], card: 'A cash offer for an empty house.', opener: 'If the property is sitting empty, I can make a cash offer as-is.', alt: 'A direct buyer for a house that is not being used.', guard: 'Do not say you inspected the property.', mailHeadline: 'A cash offer for an empty house.', mailSub: 'If the property is sitting empty, it does not have to stay that way.', bullets: ['Cash offer', 'As-is', 'No repairs'], paragraphs: ['If the property is sitting empty, I can make a cash offer as-is.', 'I have not inspected it, and I will not pretend that I have.', 'No repairs and no clean-out are required before a conversation.', 'If you want a direct buyer, call or text.'], ps: 'P.S. An empty house can still be a simple sale.' },
+    { id: 'divorce', label: 'Divorce', residential: true, commercial: false, kicker: 'SIMPLE SALE', headline: ['SIMPLE', 'SALE'], card: 'A sale on your timeline.', opener: 'If you need a simple sale on your timeline, I buy as-is.', alt: 'One conversation. No listing and no repairs.', guard: 'Do not say you know about a divorce.', mailHeadline: 'A sale on your timeline.', mailSub: 'A simple as-is sale, with no listing and no repairs.', bullets: ['Your timeline', 'No listing', 'No repairs'], paragraphs: ['If you need a simple sale on your timeline, I buy as-is.', 'One conversation. No listing and no repairs.', 'I will not assume anything about your situation. This is only an offer to talk.', 'You can say no, and that is the end of it.'], ps: 'P.S. You set the pace. A short call is enough.' },
+    { id: 'repairs', label: 'Code Violations / Repairs', residential: true, commercial: true, kicker: 'NO REPAIRS', headline: ['NO', 'REPAIRS'], card: 'No repairs first.', opener: 'No repairs first. I can still make an as-is cash offer.', alt: 'Leave the repairs. I can still make an as-is offer.', guard: 'Do not say you know about a code case.', mailHeadline: 'No repairs first.', mailSub: 'Leave the work. An as-is offer can still start with a call.', bullets: ['No repairs', 'As-is cash', 'No clean-out'], paragraphs: ['No repairs first. I can still make an as-is cash offer.', 'Leave the work where it is. I do not need a perfect house to start a conversation.', 'I will not claim to know about any code case. This letter is only an invitation.', 'If a simple sale would help, call or text.'], ps: 'P.S. You do not have to fix anything before we talk.' },
+    { id: 'expired', label: 'Expired Listing', residential: true, commercial: true, kicker: 'EXPIRED', headline: ['LISTING', 'EXPIRED?'], card: 'A direct buyer.', opener: 'If a listing already ran its course, I am a direct buyer.', alt: 'Skip another listing and talk to a buyer.', guard: 'Do not say you know their listing history.', mailHeadline: 'A direct buyer.', mailSub: 'If a listing already ran its course, you can talk to a buyer.', bullets: ['No new listing', 'As-is', 'Direct buyer'], paragraphs: ['If a listing already ran its course, I am a direct buyer.', 'You can skip another listing and talk to someone who buys the house.', 'I do not know your listing history, and I will not pretend to.', 'A short call is enough to see if an as-is sale fits.'], ps: 'P.S. This is a conversation with a buyer, not another listing pitch.' },
+    { id: 'tax', label: 'Tax Delinquent', residential: true, commercial: true, kicker: 'TAXES', headline: ['BEHIND', 'ON TAXES?'], card: 'A private sale is one option.', opener: 'If the taxes are getting heavy, a private sale is one option.', alt: 'I buy as-is. This is a conversation, not a notice.', guard: 'Do not say you know they are tax delinquent.', mailHeadline: 'A private sale is one option.', mailSub: 'If the taxes are getting heavy, you can talk through a sale.', bullets: ['Private sale', 'As-is', 'No notice'], paragraphs: ['If the taxes are getting heavy, a private sale is one option.', 'I buy as-is. This is a conversation, not a notice.', 'I will not say I know your tax situation. You can tell me only what you want to.', 'There is no cost to talk.'], ps: 'P.S. This is not a bill and not a government notice.' },
+    { id: 'neighbor', label: "Neighbor: I'm buying in your area", residential: true, commercial: false, kicker: 'NEARBY', headline: ['BUYING', 'NEARBY'], card: 'I am buying in this area.', opener: 'I am buying houses in your area.', alt: 'Your neighbor can sell as-is, with no agent fees.', guard: 'Do not pretend to live there if the brand does not say so.', mailHeadline: 'I am buying in this area.', mailSub: 'A neighbor can sell as-is, with no agent fees.', bullets: ['Buying nearby', 'As-is', 'No agent fees'], paragraphs: ['I am buying houses in your area.', 'Your neighbor can sell as-is, with no agent fees and no repairs first.', 'I will not pretend to live on the block unless that is actually true.', 'If you have thought about selling, a call or text is enough.'], ps: 'P.S. I am an independent buyer, reaching out to homeowners nearby.' },
   ];
 
   const MAIL_TEMPLATES = [
@@ -434,170 +226,30 @@
     return 'priced';
   }
 
-  function brandPhone(brand) {
-    const raw = String(brand && brand.phone || '').replace(/[^\d+().\-\s]/g, '').trim();
-    return raw || '555-0100';
-  }
-
-  function safeHex(value) {
-    return /^#[0-9a-fA-F]{6}$/.test(String(value || '')) ? String(value) : '';
-  }
-
-  function displayType(text, x, y, size, fill, anchor, family) {
-    return '<text x="' + px(x) + '" y="' + px(y) + '" text-anchor="' + (anchor || 'middle') + '" font-family="' + (family || 'Bebas Neue, Impact, sans-serif') + '" font-size="' + px(size) + '" fill="' + fill + '">' + xmlText(text) + '</text>';
-  }
-
-  function accentOf(template, brand) {
-    const branded = safeHex(brand && brand.primary);
-    if (template && template.layout === 'friendly') return branded || '#8c5a3c';
-    if (template && template.layout === 'bold') return branded || '#1c2430';
-    return branded || '#243246';
-  }
-
-  function cardFace(box, template, angle, brand, ink) {
-    const tpl = template || MAIL_TEMPLATES[0];
-    const chosen = angle || ANGLES[0];
-    const accent = accentOf(tpl, brand);
-    const phone = brandPhone(brand);
-    const name = String(brand && brand.name || '').trim();
-    const layout = tpl.layout || 'classic';
-    let body = paperShadow(box.x, box.y, box.w, box.h) +
-      '<rect x="' + px(box.x) + '" y="' + px(box.y) + '" width="' + px(box.w) + '" height="' + px(box.h) + '" rx="2" fill="' + (layout === 'bold' ? accent : '#fffdf8') + '" stroke="#e4ddd2" stroke-width="0.7"/>';
-    const textFill = layout === 'bold' ? '#f7f5f2' : '#1c2430';
-    const scriptFill = ink || '#1d4e89';
-    if (layout === 'photo') {
-      body += houseMark(box.x + box.w * 0.28, box.y + box.h * 0.55, Math.min(box.w, box.h) * 0.7);
+  function previewMailer() {
+    if (typeof module === 'object' && module.exports && typeof require === 'function') {
+      return require('./marketing-mailer');
     }
-    if (layout === 'script' || layout === 'friendly') {
-      body += writeLines('hi-clarice', [chosen.card], box.x + 8, box.y + box.h * 0.42, Math.max(6, box.h * 0.16), scriptFill);
-    } else if (layout === 'minimal') {
-      body += '<rect x="' + px(box.x + 8) + '" y="' + px(box.y + 10) + '" width="' + px(box.w * 0.4) + '" height="1.2" fill="' + accent + '"/>';
-      body += displayType(chosen.kicker, box.x + 8, box.y + box.h * 0.45, Math.max(8, box.h * 0.16), textFill, 'start', 'Inter, Arial, sans-serif');
-    } else {
-      body += displayType(chosen.kicker, box.x + box.w * 0.62, box.y + box.h * 0.38, Math.max(8, box.h * 0.16), textFill, 'middle');
-      body += displayType(phone, box.x + box.w * 0.62, box.y + box.h * 0.62, Math.max(7, box.h * 0.12), textFill, 'middle', 'Inter, Arial, sans-serif');
-    }
-    if (name && layout !== 'script') {
-      body += displayType(name.slice(0, 16), box.x + 8, box.y + box.h - 6, 6, textFill, 'start', 'Inter, Arial, sans-serif');
-    }
-    return body;
-  }
-
-  function yellowLetterArt(template, angle, brand, hand, ink) {
-    const box = { x: 46, y: 10, w: 68, h: 90 };
-    const chosen = angle || ANGLES[0];
-    return paperShadow(box.x, box.y, box.w, box.h) +
-      '<rect x="' + px(box.x) + '" y="' + px(box.y) + '" width="' + px(box.w) + '" height="' + px(box.h) + '" fill="#ffe56a" stroke="#e2c84a" stroke-width="0.8"/>' +
-      writeLines(hand || 'hi-clarice', [chosen.card, brandPhone(brand)], box.x + 6, box.y + 28, 8, inkFill(ink));
-  }
-
-  function offerArt(template, angle, brand) {
-    const box = { x: 18, y: 28, w: 124, h: 54 };
-    const chosen = angle || ANGLES[0];
-    const accent = accentOf(template, brand);
-    return paperShadow(box.x, box.y, box.w, box.h) +
-      '<rect x="' + px(box.x) + '" y="' + px(box.y) + '" width="' + px(box.w) + '" height="' + px(box.h) + '" rx="2" fill="#fbf8f1" stroke="' + accent + '" stroke-width="1"/>' +
-      '<rect x="' + px(box.x) + '" y="' + px(box.y) + '" width="28" height="' + px(box.h) + '" fill="' + accent + '"/>' +
-      displayType('OFFER', box.x + 14, box.y + 32, 11, '#f7f5f2', 'middle') +
-      displayType('PAY TO', box.x + 40, box.y + 16, 7, '#5c6b7a', 'start', 'Inter, Arial, sans-serif') +
-      '<rect x="' + px(box.x + 40) + '" y="' + px(box.y + 20) + '" width="72" height="1" fill="#c9c0b4"/>' +
-      displayType(chosen.kicker, box.x + 40, box.y + 36, 9, '#1c2430', 'start', 'Inter, Arial, sans-serif') +
-      displayType(brandPhone(brand), box.x + 40, box.y + 48, 8, '#1c2430', 'start', 'Inter, Arial, sans-serif');
-  }
-
-  function hangerLook(design, template, angle, brand) {
-    const tpl = template || MAIL_TEMPLATES[0];
-    const fill = tpl.layout === 'bold' ? accentOf(tpl, brand) : (tpl.layout === 'friendly' ? '#f6e7c1' : '#fffdf8');
-    const ink = tpl.layout === 'bold' ? '#f7f5f2' : '#1c2430';
-    const scale = design && design.hangerSize === '3.5x8.5' ? 0.84 : (design && design.hangerSize === '4.25x14' ? 1 : 0.94);
-    const x = 80 - 17 * scale;
-    const y = 8;
-    const w = 34 * scale;
-    const h = 94 * scale;
-    const shoulder = y + 26 * scale;
-    const d = 'M' + px(x + 7 * scale) + ' ' + px(shoulder) +
-      ' V' + px(y + 16 * scale) +
-      ' C' + px(x + 7 * scale) + ' ' + px(y + 4 * scale) + ' ' + px(x + w - 7 * scale) + ' ' + px(y + 4 * scale) + ' ' + px(x + w - 7 * scale) + ' ' + px(y + 16 * scale) +
-      ' V' + px(shoulder) +
-      ' H' + px(x + w) +
-      ' V' + px(y + h - 7 * scale) +
-      ' Q' + px(x + w) + ' ' + px(y + h) + ' ' + px(x + w - 7 * scale) + ' ' + px(y + h) +
-      ' H' + px(x + 7 * scale) +
-      ' Q' + px(x) + ' ' + px(y + h) + ' ' + px(x) + ' ' + px(y + h - 7 * scale) +
-      ' V' + px(shoulder) +
-      ' H' + px(x + 7 * scale) +
-      ' Z M' + px(x + w / 2 - 4 * scale) + ' ' + px(y + 15 * scale) +
-      ' a' + px(4 * scale) + ' ' + px(4 * scale) + ' 0 1 0 ' + px(8 * scale) + ' 0 a' + px(4 * scale) + ' ' + px(4 * scale) + ' 0 1 0 -' + px(8 * scale) + ' 0 Z';
-    const chosen = angle || ANGLES[0];
-    return paperShadow(x, y, w, h) +
-      '<path d="' + d + '" fill="' + fill + '" stroke="#cfc6ba" stroke-width="1" fill-rule="evenodd"/>' +
-      displayType(chosen.kicker, x + w / 2, y + h * 0.55, Math.max(6, 8 * scale), ink, 'middle', 'Inter, Arial, sans-serif');
-  }
-
-  function yardSignScene(design, template, angle, brand) {
-    const tpl = template || YARD_TEMPLATES[0];
-    const fill = tpl.fill;
-    const ink = tpl.ink;
-    const band = tpl.band || ink;
-    const signW = 70;
-    const signH = 78;
-    const x = (160 - signW) / 2;
-    const y = 8;
-    const cx = 80;
-    const phone = brandPhone(brand);
-    const font = tpl.layout === 'marker' ? 'Caveat, Segoe Print, cursive' : 'Bebas Neue, Impact, sans-serif';
-    const lines = (tpl.lines && tpl.lines.length) ? tpl.lines : ['CASH', 'OFFER'];
-    let face = '<rect x="' + px(x) + '" y="' + px(y) + '" width="' + px(signW) + '" height="8" fill="' + band + '"/>';
-    if (tpl.layout === 'sold') {
-      face += displayType('SOLD', cx, y + 48, 28, ink, 'middle', font);
-    } else if (tpl.layout === 'phone') {
-      face += displayType(lines[0] || 'CALL', cx, y + 26, 14, ink, 'middle', font);
-      face += displayType('555', cx, y + 48, 20, ink, 'middle', 'Bebas Neue, Impact, sans-serif');
-      face += displayType('0100', cx, y + 68, 20, ink, 'middle', 'Bebas Neue, Impact, sans-serif');
-    } else if (tpl.layout === 'marker') {
-      face += writeLines('shopping-list', lines, x + 10, y + 36, 9, ink);
-      face += displayType(phone, cx, y + signH - 12, 11, ink, 'middle', 'Caveat, Segoe Print, cursive');
-    } else {
-      face += displayType(lines[0], cx, y + 32, 16, ink, 'middle', font);
-      if (lines[1]) face += displayType(lines[1], cx, y + 50, 16, ink, 'middle', font);
-      face += displayType(phone, cx, y + signH - 10, 12, ink, 'middle', 'Bebas Neue, Impact, sans-serif');
-    }
-    return '<rect width="160" height="110" fill="#d5e4f0"/>' +
-      '<path d="M0 78 Q40 72 80 80 T160 76 V110 H0 Z" fill="#7eaa62"/>' +
-      '<line x1="' + cx + '" y1="' + px(y + signH) + '" x2="' + cx + '" y2="100" stroke="#5c5346" stroke-width="1.7"/>' +
-      '<path d="M' + cx + ' 100 l-9 8 M' + cx + ' 100 l9 8" stroke="#5c5346" stroke-width="1.7" data-stake="step-in"/>' +
-      paperShadow(x, y, signW, signH) +
-      '<rect x="' + px(x) + '" y="' + px(y) + '" width="' + px(signW) + '" height="' + px(signH) + '" rx="1" fill="' + fill + '" stroke="' + band + '" stroke-width="1.4"/>' +
-      face;
+    return globalThis.ForgeMarketingMailer;
   }
 
   function stylePreview(channelId, choiceId, extra) {
     const more = extra || {};
     const id = String(channelId || '');
-    const choice = String(choiceId || '');
     const design = normalizeDesign(id, more.design);
     if (more.template) design.template = more.template;
     if (more.swatch || (more.design && more.design.swatch)) design.swatch = true;
-    const hand = more.hand || 'hi-clarice';
     const angle = angleById(more.angle, more.propertyClass) || ANGLES[0];
-    const brand = more.brand || {};
-    const template = templateById(id, design.template);
-    const swatch = !!design.swatch;
-    let inner = '';
-    if (id === 'yard-sign') inner = yardSignScene(design, template, angle, brand);
-    else if (id === 'yellow-letter') inner = yellowLetterArt(template, angle, brand, hand, design.ink);
-    else if (id === 'jumbo-postcard') inner = cardFace({ x: 8, y: 14, w: 144, h: 82 }, template, angle, brand);
-    else if (id === 'offer-letter') inner = offerArt(template, angle, brand);
-    else if (id === 'door-hanger') inner = hangerLook(design, template, angle, brand);
-    else if (id === 'letter' && template && template.id !== 'classic') inner = cardFace({ x: 36, y: 12, w: 88, h: 86 }, template, angle, brand);
-    else if (id === 'letter') inner = letterArt(choice === 'color' ? 'color' : 'bw', design.envelope) + displayType(angle.kicker, 80, 104, 8, '#1c2430', 'middle', 'Inter, Arial, sans-serif');
-    else if (id === 'handwritten' && (choice === '4x6' || choice === '6x9') && (!template || template.id === 'classic')) inner = handwrittenCardArt(choice, hand, design.ink) + displayType(angle.kicker, 80, 104, 8, '#1c2430', 'middle', 'Inter, Arial, sans-serif');
-    else if (id === 'handwritten' && (choice === '4x6' || choice === '6x9')) inner = cardFace(postcardBox(choice), template, angle, brand, inkFill(design.ink));
-    else if (id === 'handwritten' && (!template || template.id === 'classic')) inner = noteArt(hand, design.ink) + displayType(angle.kicker, 80, 106, 8, '#1c2430', 'middle', 'Inter, Arial, sans-serif');
-    else if (id === 'handwritten') inner = cardFace({ x: 28, y: 16, w: 104, h: 78 }, template, angle, brand, inkFill(design.ink));
-    else if (template && template.id !== 'classic') inner = cardFace(postcardBox(choice || '4x6'), template, angle, brand);
-    else inner = postcardArt(choice || '4x6') + displayType(angle.kicker, 80, 104, 8, '#1c2430', 'middle', 'Inter, Arial, sans-serif');
-    return frameSvg(inner);
+    return previewMailer().render({
+      id: id,
+      choice: String(choiceId || ''),
+      design: design,
+      template: templateById(id, design.template),
+      swatch: !!design.swatch,
+      hand: more.hand || 'hi-clarice',
+      angle: angle,
+      brand: more.brand || {},
+    });
   }
 
   // Longest names first. The output filter is the second lock, after the prompt rule.

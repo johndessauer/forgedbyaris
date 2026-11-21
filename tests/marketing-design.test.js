@@ -19,6 +19,13 @@ test('each mail and print piece has at least four templates', () => {
     assert.ok(catalog.templatesFor(id).length >= 4, id);
   });
   assert.equal(catalog.templatesFor('bandit').length, 0);
+  const postcardLooks = catalog.templatesFor('postcard').map((tpl) => catalog.stylePreview('postcard', '6x9', { template: tpl.id }));
+  assert.equal(new Set(postcardLooks).size, postcardLooks.length);
+  postcardLooks.forEach((svg) => {
+    assert.equal(/we buy houses/i.test(svg), false);
+    assert.match(svg, /data-face="front"/);
+    assert.match(svg, /data-face="back"/);
+  });
   assert.equal(catalog.channelById('bandit'), null);
   assert.equal(catalog.templatesFor('call').length, 0);
   assert.equal(catalog.CHANNELS.some((row) => row.id === 'flyer' || row.id === 'business-card'), false);
