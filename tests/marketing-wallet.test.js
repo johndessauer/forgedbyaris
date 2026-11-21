@@ -440,7 +440,7 @@ test('a handwritten note and a yellow letter debit the wallet and stay in test m
     brandId: 'brand_1',
     channels: ['handwritten', 'yellow-letter'],
     leads: [Object.assign({ playIds: ['absentee'] }, LEAD, { address: '500 Mail St', city: 'Chicago', state: 'IL', zip: '60601' })],
-    styles: { handwritten: { product: 'notecard', hand: 'hi-clarice' }, 'yellow-letter': { hand: 'hi-clarice' } },
+    styles: { handwritten: { product: 'notecard', hand: 'shopping-list' }, 'yellow-letter': { hand: 'shopping-list' } },
     pieces: [
       { channel: 'handwritten', variantA: 'A short note', approved: true },
       { channel: 'yellow-letter', variantA: 'A yellow letter', approved: true },
@@ -461,7 +461,7 @@ test('a handwritten note and a yellow letter debit the wallet and stay in test m
   const note = JSON.parse(box.calls[0].init.body);
   assert.equal(note.recipients[0].address, '500 Mail St');
   assert.equal(note.recipients[0].city, 'Chicago');
-  assert.equal(note.handwriting_style_id, 1);
+  assert.equal(note.handwriting_style_id, 7);
   assert.equal(note.return_name, 'Sample Buys');
   assert.equal(JSON.parse(box.calls[2].init.body).front_image_url.endsWith('/assets/marketing/stock/yellow-lined-paper.jpg'), true);
   const report = await box.call(handler, null, 'GET', { queryStringParameters: { format: 'csv' } });

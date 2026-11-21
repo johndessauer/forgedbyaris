@@ -11,10 +11,14 @@
   const SCRIPT = 'Great Vibes, Segoe Script, cursive';
   const DISPLAY = 'Bebas Neue, Impact, sans-serif';
   const HAND = {
-    'hi-clarice': 'Great Vibes, Segoe Script, cursive',
     'shopping-list': 'Caveat, Segoe Print, cursive',
     'normal-print': 'Patrick Hand, Segoe Print, sans-serif',
+    'lazy-note': 'Kalam, Segoe Print, cursive',
+    'blurred-lines': 'Reenie Beanie, Segoe Print, cursive',
+    'that-dude': 'Nanum Pen Script, Segoe Print, cursive',
   };
+  const HAND_DEFAULT = 'shopping-list';
+  const BALLPOINT = '#23408a';
   const INCH = 48;
 
   function n(value) {
@@ -325,7 +329,7 @@
     } else if (layout === 'script') {
       const head = lines(copy.headline, pad, h * 0.24, w * 0.6, h * 0.08, look.ink, SCRIPT, 500, 2, 1.15);
       inner += head.svg;
-      const note = lines(copy.sub, pad, h * 0.24 + head.height + h * 0.06, w * 0.58, h * 0.042, look.accent, HAND['hi-clarice'], 400, 3, 1.35);
+      const note = lines(copy.sub, pad, h * 0.24 + head.height + h * 0.06, w * 0.58, h * 0.042, look.accent, HAND[HAND_DEFAULT], 400, 3, 1.35);
       inner += note.svg;
       inner += '<g transform="translate(' + n(w * 0.68) + ' ' + n(h * 0.18) + ')">' + house(w * 0.26, h * 0.42, look, id) + '</g>';
       inner += T(look.who.phone, pad, h * 0.86, h * 0.05, look.ink, SANS, 600);
@@ -445,24 +449,59 @@
     return { name: 'photo', label: label, w: w, h: h, inner: shadow(w, h, 3) + photoFill(src, w, h, label) };
   }
 
-  function yellowPage(look, copy, hand, ink) {
+  function firstWord(value, fallback) {
+    const word = String(value || '').trim().split(/\s+/)[0];
+    return word || fallback;
+  }
+
+  function handRows(copy, person, width, maxBody) {
+    const stiff = /i will not name a price in a letter\.?\s*/ig;
+    const source = (copy.paragraphs || []).join(' ').replace(stiff, ' ').replace(/\s+/g, ' ').trim();
+    const limit = maxBody || 6;
+    const sentences = source.match(/[^.!?]+[.!?]+/g) || [source];
+    let body = [];
+    sentences.forEach(function (sentence) {
+      const next = wrap(sentence.trim(), width);
+      if (next.length && body.length + next.length <= limit) body = body.concat(next);
+    });
+    if (!body.length) body = wrap(source, width).slice(0, limit);
+    return ['Hi Alex,'].concat(body).concat(['', firstWord(person.name, 'Sam'), person.phone]);
+  }
+
+  function inkColor(ink) {
+    return ink === 'black' ? '#1c2430' : BALLPOINT;
+  }
+
+  function handFont(hand) {
+    return HAND[hand] || HAND[HAND_DEFAULT];
+  }
+
+  // Each line gets a small rotation and a baseline nudge. On the yellow
+  // sheet, baselines land on the ruled lines and a line is skipped now
+  // and then so the spacing is not mechanical.
+  function inkLines(rows, x, start, step, size, color, family, ruled) {
+    let slot = 0;
+    return rows.map(function (row, index) {
+      const skip = ruled && row && index > 0 && index % 4 === 0;
+      if (skip) slot += 1;
+      const y = start + slot * step + ((index % 3) - 1) * 0.6;
+      const rot = ((index % 5) - 2) * 0.55;
+      const dx = (index % 2 === 0 ? -1 : 1) * ((index % 3) + 0.5);
+      slot += row ? 1 : 0.65;
+      if (!row) return '';
+      return '<g data-hand-line="' + index + '" transform="translate(' + n(x + dx) + ' ' + n(y) + ') rotate(' + n(rot) + ')">' +
+        T(row, 0, 0, size, color, family, 500) + '</g>';
+    }).join('');
+  }
+
+  function yellowPage(look, copy, hand) {
     const w = 8.5 * INCH;
     const h = 11 * INCH;
-    const font = look.layout === 'bold' ? HAND['shopping-list'] : (look.layout === 'minimal' ? HAND['normal-print'] : (HAND[hand] || HAND['hi-clarice']));
-    const color = ink === 'black' ? '#1c2430' : '#1d4e89';
-    const pad = w * 0.18;
-    let inner = shadow(w, h, 1) + photoFill(YELLOW_PAPER, w, h, 'yellow');
-    const head = lines(copy.headline, pad, 72, w - pad - 28, 22, color, font, 500, 2, 1.2);
-    inner += head.svg;
-    let y = 72 + head.height + 16;
-    copy.paragraphs.forEach(function (paragraph) {
-      if (y > h - 90) return;
-      const block = lines(paragraph, pad, y, w - pad - 28, 16, color, font, 400, 3, 1.45);
-      if (y + block.height > h - 70) return;
-      inner += block.svg;
-      y += block.height + 12;
-    });
-    if (y < h - 36) inner += T(look.who.phone, pad, Math.min(y + 28, h - 36), 20, color, font, 500);
+    const font = handFont(hand);
+    const color = BALLPOINT;
+    const pad = w * 0.16;
+    const inner = shadow(w, h, 1) + photoFill(YELLOW_PAPER, w, h, 'yellow') +
+      inkLines(handRows(copy, look.who, 24, 5), pad, h * 0.168, h * 0.0343, 16, color, font, true);
     return { name: 'letter', label: 'LETTER', w: w, h: h, inner: inner };
   }
 
@@ -494,38 +533,28 @@
     return { name: 'letter', label: 'OFFER', w: w, h: h, inner: inner };
   }
 
-  function noteCard(look, copy, hand, ink) {
+  function noteCard(look, copy, hand) {
     const w = 5.5 * INCH;
     const h = 4.25 * INCH;
-    const font = HAND[hand] || HAND['hi-clarice'];
-    const color = ink === 'black' ? '#1c2430' : '#1d4e89';
-    const pad = look.layout === 'minimal' ? 36 : 22;
-    let inner = shadow(w, h, 3) + sheet(w, h, look.layout === 'friendly' ? '#fff6ea' : '#fffdf8', '#e4ddd2', 3);
-    inner += '<rect width="' + n(w * 0.08) + '" height="' + n(h) + '" fill="' + look.soft + '"/>';
-    if (look.layout === 'photo') {
-      inner += '<g transform="translate(' + n(w - 120) + ' 16)">' + house(100, 70, look, 'note') + '</g>';
-    }
-    inner += T(copy.headline, pad + 8, 48, look.layout === 'bold' ? 26 : 22, color, font, 500);
-    const block = lines(copy.paragraphs[0], pad + 8, 84, w - pad * 2 - (look.layout === 'photo' ? 90 : 10), 16, color, font, 400, 4, 1.4);
-    inner += block.svg;
-    inner += T(look.who.phone, pad + 8, h - 28, 16, color, font, 500);
+    const font = handFont(hand);
+    const pad = 28;
+    const inner = shadow(w, h, 3) + sheet(w, h, '#fffdf8', '#e4ddd2', 3) +
+      '<rect width="' + n(w * 0.06) + '" height="' + n(h) + '" fill="' + look.soft + '"/>' +
+      inkLines(handRows(copy, look.who, 24, 4), pad, 32, 18, 15, BALLPOINT, font, false);
     return { name: 'front', label: 'NOTE', w: w, h: h, inner: inner };
   }
 
   function handPostcard(size, look, copy, hand, ink, id) {
     const w = size.w;
     const h = size.h;
-    const font = HAND[hand] || HAND['hi-clarice'];
-    const color = ink === 'black' ? '#1c2430' : '#1d4e89';
+    const font = handFont(hand);
+    const color = inkColor(ink);
     const pad = Math.max(16, w * 0.06);
     let inner = shadow(w, h, 3) + sheet(w, h, '#fffdf8', '#e4ddd2', 3);
     if (look.layout === 'photo' || look.layout === 'classic') {
       inner += '<g transform="translate(' + n(w * 0.62) + ' ' + n(h * 0.12) + ')">' + house(w * 0.3, h * 0.55, look, id) + '</g>';
     }
-    inner += T(copy.headline, pad, h * 0.22, h * 0.09, color, font, 500);
-    const block = lines(copy.paragraphs[0], pad, h * 0.38, w * (look.layout === 'photo' ? 0.55 : 0.72), h * 0.055, color, font, 400, 4, 1.35);
-    inner += block.svg;
-    inner += T(look.who.phone, pad, h * 0.88, h * 0.06, color, font, 500);
+    inner += inkLines(handRows(copy, look.who, look.layout === 'photo' ? 16 : 22, 3), pad, h * 0.2, h * 0.1, h * 0.055, color, font, false);
     return { name: 'front', label: 'FRONT', w: w, h: h, inner: inner };
   }
 

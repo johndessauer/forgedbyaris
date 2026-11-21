@@ -71,11 +71,11 @@ test('a handwritten order is refused while the note service is not connected', a
   const built = thanks.buildRequest(
     { channel: 'handwritten', variantA: 'Hello' },
     [{ owner: 'Pat', address: '210 King St', city: 'San Francisco', state: 'CA', zip: '94107' }],
-    { handwritten: { product: 'notecard', hand: 'hi-clarice' } }
+    { handwritten: { product: 'notecard', hand: 'shopping-list' } }
   );
   assert.equal(built.path, '/send/notecard');
   assert.equal(built.body.realism_mode, true);
-  assert.equal(built.body.handwriting_style_id, 1);
+  assert.equal(built.body.handwriting_style_id, 7);
   assert.equal(built.body.handwriting_color, 'blue');
   const calls = [];
   await assert.rejects(
@@ -118,7 +118,7 @@ test('a handwritten order is refused while the note service is not connected', a
     },
     pieces: [{ channel: 'handwritten', variantA: 'Hi' }],
     leads: [{ address: '210 King St', city: 'San Francisco', state: 'CA', zip: '94107' }],
-    styles: { handwritten: { product: 'notecard', hand: 'hi-clarice' } },
+    styles: { handwritten: { product: 'notecard', hand: 'lazy-note' } },
     brand: { businessName: 'Sample Buys', returnAddress: { line1: '1 Main St', city: 'Sampletown', state: 'ST', zip: '00000' } },
   });
   assert.deepEqual(live, ['POST https://api.thanks.io/api/v2/send/notecard']);
@@ -162,7 +162,12 @@ test('a handwritten order is refused while the note service is not connected', a
   }));
   assert.match(picker, /Coming soon/);
   assert.match(picker, /Folded notecard/);
-  assert.match(picker, /Hi Clarice/);
+  assert.match(picker, /Shopping List/);
+  assert.match(picker, /Normal Print/);
+  assert.match(picker, /Lazy Note/);
+  assert.match(picker, /Blurred Lines/);
+  assert.match(picker, /That Dude/);
+  assert.equal(picker.includes('Hi Clarice'), false);
   assert.match(picker, /\$3\.65 each/);
   assert.equal(picker.toLowerCase().includes('thanks'), false);
   assert.equal(picker.toLowerCase().includes('lob'), false);
@@ -234,18 +239,30 @@ test('a handwritten order is refused while the note service is not connected', a
   assert.equal(colorLetter.includes(today), true);
   assert.equal(colorLetter.includes('March 4, 2026'), false);
   assert.equal(catalog.stylePreview('letter', 'bw').includes('#2f6f86'), false);
-  const notePreview = catalog.stylePreview('handwritten', 'notecard', { hand: 'hi-clarice' });
-  assert.match(notePreview, /Great Vibes/);
+  const notePreview = catalog.stylePreview('handwritten', 'notecard', { hand: 'shopping-list', brand: { name: 'Sam Rivera', phone: '(555) 555-0100' } });
+  assert.match(notePreview, /Caveat/);
+  assert.match(notePreview, /Hi Alex,/);
+  assert.match(notePreview, />Sam</);
   assert.match(notePreview, /note-card-envelope\.webp/);
-  const yellowPreview = catalog.stylePreview('yellow-letter', 'lined', { hand: 'hi-clarice' });
+  assert.match(notePreview, /rotate\(/);
+  assert.equal(/will not name a price/i.test(notePreview), false);
+  const yellowPreview = catalog.stylePreview('yellow-letter', 'lined', { hand: 'shopping-list', brand: { name: 'Sam Rivera', phone: '(555) 555-0100' } });
   assert.match(yellowPreview, /yellow-lined-paper\.webp/);
-  assert.match(yellowPreview, /Great Vibes/);
+  assert.match(yellowPreview, /Caveat/);
+  assert.match(yellowPreview, /Hi Alex,/);
+  assert.match(yellowPreview, />Sam</);
+  assert.match(yellowPreview, /#23408a/);
   assert.match(yellowPreview, /data-face="letter"/);
   assert.equal(/we buy houses/i.test(notePreview + yellowPreview), false);
+  assert.equal(/will not name a price/i.test(yellowPreview), false);
+  assert.match(catalog.stylePreview('yellow-letter', 'lined', { hand: 'normal-print' }), /Patrick Hand/);
+  assert.match(catalog.stylePreview('yellow-letter', 'lined', { hand: 'lazy-note' }), /Kalam/);
+  assert.match(catalog.stylePreview('yellow-letter', 'lined', { hand: 'blurred-lines' }), /Reenie Beanie/);
+  assert.match(catalog.stylePreview('yellow-letter', 'lined', { hand: 'that-dude' }), /Nanum Pen Script/);
   assert.match(catalog.stylePreview('handwritten', 'notecard', { hand: 'shopping-list' }), /Caveat/);
   assert.match(catalog.stylePreview('handwritten', 'notecard', { hand: 'normal-print' }), /Patrick Hand/);
   assert.notEqual(
-    catalog.stylePreview('handwritten', '4x6', { hand: 'hi-clarice' }),
+    catalog.stylePreview('handwritten', '4x6', { hand: 'shopping-list' }),
     catalog.stylePreview('handwritten', '6x9', { hand: 'shopping-list' })
   );
   assert.equal(catalog.channelById('bandit'), null);

@@ -14,10 +14,15 @@ const YELLOW_PAPER_PATH = '/assets/marketing/stock/yellow-lined-paper.jpg';
 
 // Public handwriting styles from GET /handwriting-styles.
 // https://docs.thanks.io/api-reference/endpoint/handwriting-styles/list-styles
+// Everyday hands from the public sample images. Shopping List is the
+// default because it reads as casual cursive, not a formal script.
+// https://docs.thanks.io/api-reference/endpoint/handwriting-styles/list-styles
 const HANDS = Object.freeze({
-  'hi-clarice': 1,
   'shopping-list': 7,
   'normal-print': 6,
+  'lazy-note': 8,
+  'blurred-lines': 9,
+  'that-dude': 5,
 });
 
 function comingSoon(channel) {
@@ -68,7 +73,7 @@ function paperUrl(origin) {
 function buildRequest(piece, leads, styles, brand, origin) {
   const channel = piece && piece.channel === 'yellow-letter' ? 'yellow-letter' : 'handwritten';
   const style = styles && styles[channel] || {};
-  const hand = HANDS[style.hand] || HANDS['hi-clarice'];
+  const hand = HANDS[style.hand] || HANDS['shopping-list'];
   const yellow = channel === 'yellow-letter';
   const product = !yellow && (style.product === '4x6' || style.product === '6x9') ? style.product : (yellow ? 'windowlessletter' : 'notecard');
   const path = product === 'windowlessletter'
