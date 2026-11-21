@@ -40,8 +40,7 @@
     { id: 'letter', name: 'Letter', description: 'One page, First Class, in a #10 double-window envelope. Choose color or black and white.', group: 'fulfill', medium: 'mail', residential: true, commercial: true },
     { id: 'handwritten', name: 'Handwritten note', description: 'A folded notecard with a real stamp and a handwritten envelope, or a handwritten postcard. Pick the handwriting. Coming soon.', group: 'fulfill', medium: 'mail', residential: true, commercial: true },
     { id: 'door-hanger', name: 'Door hanger', description: 'Coming soon. A 50-pack reference price is shown. Not mailed to a property. Residential only.', group: 'fulfill', medium: 'print', residential: true, commercial: false },
-    { id: 'bandit', name: 'Bandit sign', description: '18 × 24 full-color, both sides, corrugated, with H-stakes. Packs of 50 or 100, shipped to you. Not sent to a property. Check local sign rules. Residential only.', group: 'fulfill', medium: 'print', residential: true, commercial: false },
-    { id: 'yard-sign', name: 'Yard sign', description: '18 × 24 on a wire step-in stake. We Buy or Sold. Coming soon. Not sent to a property. Residential only.', group: 'fulfill', medium: 'print', residential: true, commercial: false, comingSoon: true, selectable: false },
+    { id: 'yard-sign', name: 'Yard sign', description: '18 × 24 on a wire step-in stake. Cash offer, any condition, or sold. Coming soon. Not sent to a property. Residential only.', group: 'fulfill', medium: 'print', residential: true, commercial: false, comingSoon: true, selectable: false },
     { id: 'yellow-letter', name: 'Yellow letter', description: 'Letter size with a handwritten look on yellow paper. Coming soon. Not mailed yet.', group: 'fulfill', medium: 'mail', residential: true, commercial: true, comingSoon: true },
     { id: 'jumbo-postcard', name: 'Jumbo postcard', description: 'Oversized postcard, larger than 6 × 11. Coming soon. Not mailed yet.', group: 'fulfill', medium: 'mail', residential: true, commercial: true, comingSoon: true },
     { id: 'offer-letter', name: 'Offer letter', description: 'A check-style offer page. Coming soon. It is a marketing sample, not a real check, and it is not mailed yet.', group: 'fulfill', medium: 'mail', residential: true, commercial: true, comingSoon: true },
@@ -68,8 +67,7 @@
   // count is never a valid pack.
   const SIGN_OPTION = [['18x24-hstake', '18 × 24, both sides, with H-stakes']];
   const PRINT_SPECS = Object.freeze({
-    bandit: spec([50, 100], SIGN_OPTION, false),
-    'yard-sign': spec([50, 100], SIGN_OPTION, false),
+    'yard-sign': spec([50, 100], SIGN_OPTION, true),
     'door-hanger': spec([50], [['4.25x11', '4.25 × 11']], true),
   });
 
@@ -315,33 +313,6 @@
       '<rect x="' + px(mid + box.w * 0.06) + '" y="' + px(box.y + box.h * 0.76) + '" width="' + px(box.w * 0.22) + '" height="1.2" rx="0.4" fill="#c9c0b4"/>';
   }
 
-  function stake(cx, top) {
-    return '<line x1="' + px(cx) + '" y1="' + px(top) + '" x2="' + px(cx) + '" y2="104" stroke="#8d97a1" stroke-width="2.5" stroke-linecap="round"/>' +
-      '<line x1="' + px(cx - 16) + '" y1="104" x2="' + px(cx + 16) + '" y2="104" stroke="#8d97a1" stroke-width="2.5" stroke-linecap="round"/>';
-  }
-
-  function signFace(fill, ink, rule) {
-    const signH = 74;
-    const signW = signH * (18 / 24);
-    const x = (160 - signW) / 2;
-    const y = 6;
-    let ribs = '';
-    if (fill === '#f5d20a') {
-      for (let i = 0; i < 8; i += 1) {
-        const lx = x + 5 + i * ((signW - 10) / 7);
-        ribs += '<line x1="' + px(lx) + '" y1="' + px(y + 2) + '" x2="' + px(lx) + '" y2="' + px(y + signH - 2) + '" stroke="#e0b000" stroke-width="0.8" opacity="0.7"/>';
-      }
-    }
-    return stake(80, y + signH - 1) +
-      paperShadow(x, y, signW, signH) +
-      '<rect x="' + px(x) + '" y="' + px(y) + '" width="' + px(signW) + '" height="' + px(signH) + '" rx="1.4" fill="' + fill + '" stroke="' + ink + '" stroke-width="1.1"/>' +
-      ribs +
-      '<text x="80" y="' + px(y + 24) + '" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="8" font-weight="700" fill="' + ink + '">WE BUY</text>' +
-      '<text x="80" y="' + px(y + 35) + '" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="8" font-weight="700" fill="' + ink + '">HOUSES</text>' +
-      (rule ? '<rect x="' + px(x + 10) + '" y="' + px(y + 40) + '" width="' + px(signW - 20) + '" height="1" fill="' + rule + '"/>' : '') +
-      '<text x="80" y="' + px(y + 54) + '" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="6.2" font-weight="600" fill="' + ink + '">555-0100</text>';
-  }
-
   function hangerArt() {
     const x = 63;
     const y = 8;
@@ -370,13 +341,13 @@
   }
 
   const ANGLES = [
-    { id: 'cash', label: 'We Buy Houses / Cash Offer', residential: true, commercial: true, kicker: 'AS-IS CASH', headline: ['WE BUY', 'HOUSES'], card: 'We buy houses as-is.', opener: 'We buy houses as-is for cash.', alt: 'A simple cash sale, with no repairs and no agent fees.', guard: 'Do not promise a price.' },
+    { id: 'cash', label: 'Cash Offer', residential: true, commercial: true, kicker: 'CASH OFFER', headline: ['CASH', 'OFFER'], card: 'Cash offer. As-is.', opener: 'A cash offer, as-is, with no repairs and no agent fees.', alt: 'A simple cash sale, with no repairs and no agent fees.', guard: 'Do not promise a price.' },
     { id: 'prefore', label: 'Behind on Payments / Pre-foreclosure', residential: true, commercial: true, kicker: 'OPTIONS', headline: ['BEHIND?', 'OPTIONS'], card: 'A private option.', opener: 'If the payments have gotten hard, there may be a private option.', alt: 'I can talk through options. I will not pretend to know your file.', guard: 'Do not say you know they are behind or in foreclosure.' },
     { id: 'probate', label: 'Inherited / Probate', residential: true, commercial: true, kicker: 'INHERITED', headline: ['INHERITED?', 'WE HELP'], card: 'A simple way to sell.', opener: 'If you inherited a property and want a simple way to sell, I can help.', alt: 'No clean-out required before a conversation.', guard: 'Do not say you know they inherited it.' },
     { id: 'landlord', label: 'Tired Landlord', residential: true, commercial: true, kicker: 'TIRED?', headline: ['TIRED', 'LANDLORD'], card: 'Sell the rental as-is.', opener: 'If the rentals are more work than they are worth, I buy as-is.', alt: 'No showings and no repairs before we talk.', guard: 'Do not claim you know their rents.' },
-    { id: 'vacant', label: 'Vacant Property', residential: true, commercial: true, kicker: 'VACANT', headline: ['VACANT?', 'WE BUY'], card: 'I buy empty houses.', opener: 'If the property is sitting empty, I can buy it as-is.', alt: 'A direct buyer for a house that is not being used.', guard: 'Do not say you inspected the property.' },
+    { id: 'vacant', label: 'Vacant Property', residential: true, commercial: true, kicker: 'VACANT', headline: ['VACANT?', 'CASH'], card: 'A cash offer for an empty house.', opener: 'If the property is sitting empty, I can make a cash offer as-is.', alt: 'A direct buyer for a house that is not being used.', guard: 'Do not say you inspected the property.' },
     { id: 'divorce', label: 'Divorce', residential: true, commercial: false, kicker: 'SIMPLE SALE', headline: ['SIMPLE', 'SALE'], card: 'A sale on your timeline.', opener: 'If you need a simple sale on your timeline, I buy as-is.', alt: 'One conversation. No listing and no repairs.', guard: 'Do not say you know about a divorce.' },
-    { id: 'repairs', label: 'Code Violations / Repairs', residential: true, commercial: true, kicker: 'AS-IS', headline: ['NEED WORK?', 'WE BUY'], card: 'No repairs first.', opener: 'I buy houses that need work. No repairs first.', alt: 'Leave the repairs. I can still make an as-is offer.', guard: 'Do not say you know about a code case.' },
+    { id: 'repairs', label: 'Code Violations / Repairs', residential: true, commercial: true, kicker: 'NO REPAIRS', headline: ['NO', 'REPAIRS'], card: 'No repairs first.', opener: 'No repairs first. I can still make an as-is cash offer.', alt: 'Leave the repairs. I can still make an as-is offer.', guard: 'Do not say you know about a code case.' },
     { id: 'expired', label: 'Expired Listing', residential: true, commercial: true, kicker: 'EXPIRED', headline: ['LISTING', 'EXPIRED?'], card: 'A direct buyer.', opener: 'If a listing already ran its course, I am a direct buyer.', alt: 'Skip another listing and talk to a buyer.', guard: 'Do not say you know their listing history.' },
     { id: 'tax', label: 'Tax Delinquent', residential: true, commercial: true, kicker: 'TAXES', headline: ['BEHIND', 'ON TAXES?'], card: 'A private sale is one option.', opener: 'If the taxes are getting heavy, a private sale is one option.', alt: 'I buy as-is. This is a conversation, not a notice.', guard: 'Do not say you know they are tax delinquent.' },
     { id: 'neighbor', label: "Neighbor: I'm buying in your area", residential: true, commercial: false, kicker: 'NEARBY', headline: ['BUYING', 'NEARBY'], card: 'I am buying in this area.', opener: 'I am buying houses in your area.', alt: 'Your neighbor can sell as-is, with no agent fees.', guard: 'Do not pretend to live there if the brand does not say so.' },
@@ -392,21 +363,12 @@
   ];
 
   const YARD_TEMPLATES = [
-    { id: 'we-buy', label: 'We Buy', fill: '#f7f7f5', ink: '#1a1a1a', band: '#c1121f', layout: 'we-buy' },
-    { id: 'sold', label: 'Sold', fill: '#c1121f', ink: '#ffffff', band: '#8d0c16', layout: 'sold' },
-    { id: 'cash', label: 'Cash', fill: '#f4f7fb', ink: '#143d7a', band: '#143d7a', layout: 'cash' },
-    { id: 'clean', label: 'Clean', fill: '#fffdf8', ink: '#1c2430', band: '#1c2430', layout: 'we-buy' },
-    { id: 'marker', label: 'Marker', fill: '#fffdf8', ink: '#1a1a1a', band: '#c1121f', layout: 'marker' },
-    { id: 'big-phone', label: 'Big Phone', fill: '#f7f7f5', ink: '#1a1a1a', band: '#c1121f', layout: 'phone' },
-  ];
-
-  const BANDIT_TEMPLATES = [
-    { id: 'classic-yellow', label: 'Classic Yellow', fill: '#ffe14a', ink: '#161616', layout: 'classic' },
-    { id: 'red-urgent', label: 'Red Urgent', fill: '#e10600', ink: '#ffffff', layout: 'urgent' },
-    { id: 'white-blue', label: 'White / Blue', fill: '#f4f7fb', ink: '#143d7a', layout: 'classic' },
-    { id: 'marker', label: 'Marker', fill: '#fff3a1', ink: '#1a1a1a', layout: 'marker' },
-    { id: 'orange-cash', label: 'Orange Cash', fill: '#ff6a00', ink: '#1a1208', layout: 'cash' },
-    { id: 'big-phone', label: 'Big Phone', fill: '#ffe14a', ink: '#161616', layout: 'phone' },
+    { id: 'cash-offer', label: 'Cash Offer', fill: '#f7f7f5', ink: '#1a1a1a', band: '#c1121f', layout: 'cash-offer', lines: ['CASH', 'OFFER'] },
+    { id: 'any-condition', label: 'Any Condition', fill: '#f4f7fb', ink: '#143d7a', band: '#143d7a', layout: 'stack', lines: ['ANY', 'CONDITION'] },
+    { id: 'sell-fast', label: 'Sell Fast', fill: '#fffdf8', ink: '#1c2430', band: '#1c2430', layout: 'stack', lines: ['SELL', 'FAST'] },
+    { id: 'no-repairs', label: 'No Repairs', fill: '#fffdf8', ink: '#1a1a1a', band: '#c1121f', layout: 'marker', lines: ['No repairs', 'No fees'] },
+    { id: 'sold', label: 'Sold', fill: '#c1121f', ink: '#ffffff', band: '#8d0c16', layout: 'sold', lines: ['SOLD'] },
+    { id: 'call', label: 'Call', fill: '#f7f7f5', ink: '#1a1a1a', band: '#c1121f', layout: 'phone', lines: ['CALL'] },
   ];
 
   const SIGN_COLOR_FILLS = { yellow: '#ffe14a', white: '#f7f7f5', red: '#e10600', orange: '#ff6a00' };
@@ -425,7 +387,6 @@
 
   function templatesFor(id) {
     const key = String(id || '');
-    if (key === 'bandit') return BANDIT_TEMPLATES;
     if (key === 'yard-sign') return YARD_TEMPLATES;
     if (key === 'postcard' || key === 'letter' || key === 'handwritten' || key === 'door-hanger' || key === 'yellow-letter' || key === 'jumbo-postcard' || key === 'offer-letter') return MAIL_TEMPLATES;
     return [];
@@ -460,20 +421,15 @@
     };
   }
 
-  function designOrderable(id, design) {
-    const row = normalizeDesign(id, design);
-    if (id === 'yard-sign' || id === 'yellow-letter' || id === 'jumbo-postcard' || id === 'offer-letter') return false;
-    if (id === 'bandit') {
-      return row.signSize === '18x24' && row.sides === 'double' && row.stakes === 'h-stake';
-    }
+  function designOrderable(id) {
+    if (id === 'bandit' || id === 'yard-sign' || id === 'yellow-letter' || id === 'jumbo-postcard' || id === 'offer-letter') return false;
     return true;
   }
 
   function priceMode(id, design) {
     const row = normalizeDesign(id, design);
-    if (id === 'yard-sign' || id === 'yellow-letter' || id === 'jumbo-postcard' || id === 'offer-letter') return 'soon';
+    if (id === 'bandit' || id === 'yard-sign' || id === 'yellow-letter' || id === 'jumbo-postcard' || id === 'offer-letter') return 'soon';
     if (id === 'letter' && row.envelope === 'plain') return 'soon';
-    if (id === 'bandit') return designOrderable(id, row) ? 'priced' : 'soon';
     if (id === 'door-hanger') return row.hangerSize === '4.25x11' ? 'reference' : 'soon';
     return 'priced';
   }
@@ -489,67 +445,6 @@
 
   function displayType(text, x, y, size, fill, anchor, family) {
     return '<text x="' + px(x) + '" y="' + px(y) + '" text-anchor="' + (anchor || 'middle') + '" font-family="' + (family || 'Bebas Neue, Impact, sans-serif') + '" font-size="' + px(size) + '" fill="' + fill + '">' + xmlText(text) + '</text>';
-  }
-
-  function banditScene(channelId, design, template, angle, brand, swatch) {
-    const tpl = template || BANDIT_TEMPLATES[0];
-    const chosen = angle || ANGLES[0];
-    let fill = tpl.fill;
-    let ink = tpl.ink;
-    if (!swatch && design.signColor) fill = SIGN_COLOR_FILLS[design.signColor];
-    if (!swatch && design.lettering) ink = SIGN_INK_FILLS[design.lettering];
-    const landscape = !swatch && design.signSize === '24x18';
-    const noStake = !swatch && design.stakes === 'none';
-    const signW = landscape ? 96 : 62;
-    const signH = landscape ? 58 : 74;
-    const x = (160 - signW) / 2;
-    const y = landscape ? 14 : 8;
-    const lines = tpl.layout === 'cash' ? ['CASH FOR', 'HOUSES'] : (chosen.headline || ['WE BUY', 'HOUSES']);
-    const phone = brandPhone(brand);
-    const parts = phone.split('-');
-    const phoneTop = parts.length > 1 ? parts[0] : phone.slice(0, 3);
-    const phoneBottom = parts.length > 1 ? parts.slice(1).join('-') : phone.slice(3);
-    let ribs = '';
-    for (let i = 0; i < 7; i += 1) {
-      const lx = x + 4 + i * ((signW - 8) / 6);
-      ribs += '<line x1="' + px(lx) + '" y1="' + px(y + 2) + '" x2="' + px(lx) + '" y2="' + px(y + signH - 2) + '" stroke="' + ink + '" stroke-width="0.6" opacity="0.13"/>';
-    }
-    const cx = 80;
-    let stake = '';
-    if (!noStake) {
-      stake = '<line x1="' + cx + '" y1="' + px(y + signH - 1) + '" x2="' + cx + '" y2="100" stroke="#8d97a1" stroke-width="2.6" stroke-linecap="round"/>' +
-        '<line x1="' + (cx - 18) + '" y1="100" x2="' + (cx + 18) + '" y2="100" stroke="#8d97a1" stroke-width="2.6" stroke-linecap="round"/>';
-    }
-    const font = tpl.layout === 'marker' ? 'Caveat, Segoe Print, cursive' : 'Bebas Neue, Impact, sans-serif';
-    const headSize = landscape ? 15 : 13;
-    let face = ribs;
-    if (tpl.layout === 'phone') {
-      face += displayType(lines[0] + ' ' + lines[1], cx, y + 16, 9, ink, 'middle', font);
-      face += displayType(phoneTop, cx, y + signH * 0.48, landscape ? 22 : 20, ink, 'middle', 'Bebas Neue, Impact, sans-serif');
-      face += displayType(phoneBottom, cx, y + signH * 0.78, landscape ? 22 : 20, ink, 'middle', 'Bebas Neue, Impact, sans-serif');
-    } else if (tpl.layout === 'urgent') {
-      face += displayType('CALL / TEXT', cx, y + 12, 7, ink, 'middle', font);
-      face += displayType(lines[0], cx, y + 28, headSize, ink, 'middle', font);
-      face += displayType(lines[1], cx, y + 44, headSize, ink, 'middle', font);
-      face += displayType(phone, cx, y + signH - 9, landscape ? 20 : 16, ink, 'middle', 'Bebas Neue, Impact, sans-serif');
-    } else {
-      face += displayType(lines[0], cx, y + (landscape ? 18 : 22), headSize, ink, 'middle', font);
-      face += displayType(lines[1], cx, y + (landscape ? 34 : 36), headSize, ink, 'middle', font);
-      face += displayType(phone, cx, y + signH - 10, landscape ? 22 : 18, ink, 'middle', 'Bebas Neue, Impact, sans-serif');
-    }
-    const name = String(brand && brand.name || '').trim();
-    if (name && tpl.layout !== 'phone') {
-      face += displayType(name.slice(0, 18), cx, y + signH - 18, 6, ink, 'middle', 'Inter, Arial, sans-serif');
-    }
-    return '<rect width="160" height="110" fill="#d5e4f0"/>' +
-      '<path d="M0 76 Q40 70 80 78 T160 74 V110 H0 Z" fill="#6f9a55"/>' +
-      '<ellipse cx="80" cy="96" rx="28" ry="4" fill="#4f7340" opacity="0.35"/>' +
-      stake +
-      '<g transform="rotate(-2 80 46)">' +
-      paperShadow(x, y, signW, signH) +
-      '<rect x="' + px(x) + '" y="' + px(y) + '" width="' + px(signW) + '" height="' + px(signH) + '" rx="1.2" fill="' + fill + '" stroke="' + ink + '" stroke-width="1.2"/>' +
-      face +
-      '</g>';
   }
 
   function accentOf(template, brand) {
@@ -641,7 +536,6 @@
 
   function yardSignScene(design, template, angle, brand) {
     const tpl = template || YARD_TEMPLATES[0];
-    const chosen = angle || ANGLES[0];
     const fill = tpl.fill;
     const ink = tpl.ink;
     const band = tpl.band || ink;
@@ -652,25 +546,21 @@
     const cx = 80;
     const phone = brandPhone(brand);
     const font = tpl.layout === 'marker' ? 'Caveat, Segoe Print, cursive' : 'Bebas Neue, Impact, sans-serif';
+    const lines = (tpl.lines && tpl.lines.length) ? tpl.lines : ['CASH', 'OFFER'];
     let face = '<rect x="' + px(x) + '" y="' + px(y) + '" width="' + px(signW) + '" height="8" fill="' + band + '"/>';
     if (tpl.layout === 'sold') {
       face += displayType('SOLD', cx, y + 48, 28, ink, 'middle', font);
     } else if (tpl.layout === 'phone') {
-      face += displayType('WE BUY', cx, y + 24, 12, ink, 'middle', font);
-      face += displayType('555', cx, y + 46, 20, ink, 'middle', 'Bebas Neue, Impact, sans-serif');
-      face += displayType('0100', cx, y + 66, 20, ink, 'middle', 'Bebas Neue, Impact, sans-serif');
-    } else if (tpl.layout === 'cash') {
-      face += displayType('CASH', cx, y + 32, 18, ink, 'middle', font);
-      face += displayType('OFFER', cx, y + 50, 16, ink, 'middle', font);
-      face += displayType(phone, cx, y + signH - 10, 12, ink, 'middle', 'Bebas Neue, Impact, sans-serif');
+      face += displayType(lines[0] || 'CALL', cx, y + 26, 14, ink, 'middle', font);
+      face += displayType('555', cx, y + 48, 20, ink, 'middle', 'Bebas Neue, Impact, sans-serif');
+      face += displayType('0100', cx, y + 68, 20, ink, 'middle', 'Bebas Neue, Impact, sans-serif');
     } else if (tpl.layout === 'marker') {
-      face += writeLines('shopping-list', ['We buy', 'houses'], x + 10, y + 36, 9, ink);
+      face += writeLines('shopping-list', lines, x + 10, y + 36, 9, ink);
       face += displayType(phone, cx, y + signH - 12, 11, ink, 'middle', 'Caveat, Segoe Print, cursive');
     } else {
-      const lines = chosen.headline || ['WE BUY', 'HOUSES'];
-      face += displayType(lines[0], cx, y + 30, 15, ink, 'middle', font);
-      face += displayType(lines[1], cx, y + 46, 15, ink, 'middle', font);
-      face += displayType(phone, cx, y + signH - 10, 13, ink, 'middle', 'Bebas Neue, Impact, sans-serif');
+      face += displayType(lines[0], cx, y + 32, 16, ink, 'middle', font);
+      if (lines[1]) face += displayType(lines[1], cx, y + 50, 16, ink, 'middle', font);
+      face += displayType(phone, cx, y + signH - 10, 12, ink, 'middle', 'Bebas Neue, Impact, sans-serif');
     }
     return '<rect width="160" height="110" fill="#d5e4f0"/>' +
       '<path d="M0 78 Q40 72 80 80 T160 76 V110 H0 Z" fill="#7eaa62"/>' +
@@ -694,8 +584,7 @@
     const template = templateById(id, design.template);
     const swatch = !!design.swatch;
     let inner = '';
-    if (id === 'bandit') inner = banditScene(id, design, template, angle, brand, swatch);
-    else if (id === 'yard-sign') inner = yardSignScene(design, template, angle, brand);
+    if (id === 'yard-sign') inner = yardSignScene(design, template, angle, brand);
     else if (id === 'yellow-letter') inner = yellowLetterArt(template, angle, brand, hand, design.ink);
     else if (id === 'jumbo-postcard') inner = cardFace({ x: 8, y: 14, w: 144, h: 82 }, template, angle, brand);
     else if (id === 'offer-letter') inner = offerArt(template, angle, brand);
@@ -815,7 +704,7 @@
     const goal = String(opts.goal || 'sellers');
     const ids = commercial
       ? ['letter', 'call', 'networking', 'social']
-      : ['postcard', 'handwritten', 'door-knock', 'bandit', 'letter'];
+      : ['postcard', 'handwritten', 'door-knock', 'letter'];
     if (goal === 'buyers') ids.push('email', 'seller-page');
     if (goal === 'followup') ids.push('email');
     const allowed = {};
@@ -830,7 +719,7 @@
 
   function recommendationText(propertyClass) {
     if (propertyClass === 'commercial') {
-      return 'For a commercial list I would start with a formal letter, a call script for the decision maker, and networking. Bandit signs and door hangers are not offered on commercial marketing. Cadence stays slower, with more value in each touch.';
+      return 'For a commercial list I would start with a formal letter, a call script for the decision maker, and networking. Yard signs and door hangers are not offered on commercial marketing. Cadence stays slower, with more value in each touch.';
     }
     return 'For a residential list I would start with a postcard, a handwritten-style note, and a door-knock script, then a letter. You run the calls, texts, and door knocking yourself. Mail from FORGE is in test mode, so nothing is really printed yet.';
   }
@@ -921,9 +810,9 @@
     } else if (channel.id === 'door-knock') {
       a = 'Hi, I am ' + name + ', a local investor. I am not an agent. I am working in the neighborhood and wanted to ask, person to person, if you have thought about selling ' + where + ' as-is. If this is a bad time I will leave. My phone is ' + phone + '.\nSafety: go in daylight, stay on the walk, leave when asked, and do not step inside.';
       b = 'Short version: "I buy houses as-is, no repairs and no agent fees. If ' + where + ' is more work than you want, here is my number, ' + phone + '. If you would rather I not stop by again, tell me and I will not."';
-    } else if (channel.id === 'bandit' || channel.id === 'yard-sign') {
-      a = 'WE BUY HOUSES\nAS-IS · CASH · FAST\n' + phone;
-      b = name.toUpperCase() + '\nLOCAL HOME BUYER\n' + phone;
+    } else if (channel.id === 'yard-sign') {
+      a = 'CASH OFFER\nANY CONDITION\n' + phone;
+      b = 'SELL FAST\nNO REPAIRS · NO FEES\n' + phone;
     } else if (channel.id === 'social') {
       a = commercial
         ? 'I buy commercial property in this market, including buildings that need an operator who can look at vacancy, deferred maintenance, or a 1031. If you own one and want a direct conversation, message me. ' + name + ' · ' + phone
@@ -967,7 +856,6 @@
       letter: '<rect x="48" y="12" width="64" height="72" rx="2" fill="#F7F5F2" stroke="#C89B3C"/><path d="M48 12 l32 26 l32 -26" stroke="#C89B3C"/><rect x="60" y="48" width="40" height="3" fill="#8AA0B4"/><rect x="60" y="56" width="32" height="3" fill="#8AA0B4"/>',
       handwritten: '<rect x="36" y="18" width="88" height="60" rx="3" fill="#F6E7A8" stroke="#C89B3C" transform="rotate(-4 80 48)"/><path d="M52 40 q20 8 36 -2" stroke="#1F3348" stroke-width="1.4"/><path d="M52 52 q24 10 40 0" stroke="#1F3348" stroke-width="1.4"/>',
       'door-hanger': '<path d="M70 10 h20 a10 10 0 0 1 0 20 h-20 a10 10 0 0 1 0 -20 z" fill="#F4EFE4" stroke="#C89B3C"/><rect x="68" y="28" width="24" height="58" rx="3" fill="#F4EFE4" stroke="#C89B3C"/><circle cx="80" cy="20" r="4" fill="#0D1B2A"/>',
-      bandit: '<rect x="28" y="22" width="104" height="52" rx="2" fill="#F5D90A" stroke="#1F3348"/><rect x="40" y="34" width="80" height="6" fill="#1F3348"/><rect x="48" y="48" width="64" height="5" fill="#1F3348"/><path d="M80 74 v14" stroke="#8AA0B4" stroke-width="3"/>',
       'yard-sign': '<rect x="36" y="16" width="88" height="48" rx="2" fill="#F4EFE4" stroke="#C89B3C"/><path d="M80 64 v20 M68 84 h24" stroke="#8AA0B4" stroke-width="3"/>',
       'skip-trace': '<circle cx="70" cy="40" r="18" stroke="#C89B3C" stroke-width="3"/><path d="M84 54 l16 16" stroke="#C89B3C" stroke-width="3"/>',
       'phone-scrub': '<rect x="62" y="16" width="36" height="64" rx="6" stroke="#8AA0B4" stroke-width="2"/><path d="M70 34 h20 M70 44 h14" stroke="#22c55e"/>',

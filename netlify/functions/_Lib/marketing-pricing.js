@@ -17,7 +17,7 @@ const catalog = require('../../../assets/js/marketing-catalog.js');
 const { readRuntimeEnv } = require('./runtime-env');
 
 // TODO: No print vendor is connected. Do not call a print API from this
-// file. The name below is the assumed vendor for bandit signs, yard signs,
+// file. The name below is the assumed vendor for yard signs and
 // door hangers, because that name is already
 // the print stand-in in the student-facing vendor filter. Unit costs are
 // stubs, not a published rate card. Swap this when John connects the vendor
@@ -86,7 +86,6 @@ const BASIS = Object.freeze({
   letter: line('mail', letterDefault.vendorCostCents, MAIL_MARKUP_RATE, MAIL_PROVIDER),
   handwritten: line('mail', HANDWRITTEN_VENDOR_CENTS.notecard, MAIL_MARKUP_RATE, THANKS_PROVIDER),
   'door-hanger': line('print', SOON_VENDOR_CENTS['door-hanger'], PRINT_MARKUP_RATE, PRINT_VENDOR),
-  bandit: line('print', SIGN_PACK_VENDOR_CENTS[100] / 100, PRINT_MARKUP_RATE, PRINT_VENDOR),
   'yard-sign': line('print', SIGN_PACK_VENDOR_CENTS[100] / 100, PRINT_MARKUP_RATE, PRINT_VENDOR),
   'skip-trace': unpriced('data', 20),
   'phone-scrub': unpriced('data', 2),
@@ -209,7 +208,7 @@ function normalizePrints(prints) {
   const seen = {};
   (prints || []).forEach(function (row) {
     const id = String(row && (row.channelId || row.channel) || '');
-    if (!id || seen[id]) return;
+    if (!id || id === 'bandit' || seen[id]) return;
     const spec = catalog.printSpec(id);
     const basis = BASIS[id];
     if (!spec || spec.comingSoon || !basis || basis.medium !== 'print') return;
@@ -237,7 +236,7 @@ function quoteOrder(channels, quantity, env, prints, styles) {
   const seen = {};
   function add(id) {
     const key = String(id || '');
-    if (!key || seen[key]) return;
+    if (!key || key === 'bandit' || seen[key]) return;
     seen[key] = true;
     const basis = BASIS[key];
     if (!basis || !basis.priced) return;
@@ -365,9 +364,7 @@ function publicMenu(env) {
     postcard: rowsFromUsd(POSTCARD_COSTS_USD, { '4x6': '4 × 6', '6x9': '6 × 9', '6x11': '6 × 11' }),
     letter: rowsFromUsd(LETTER_COSTS_USD, { bw: 'Black and white', color: 'Color' }),
     handwritten: rowsFromCents(HANDWRITTEN_VENDOR_CENTS, { notecard: 'Folded notecard', '4x6': '4 × 6 postcard', '6x9': '6 × 9 postcard' }),
-    signs: [50, 100].map(function (pack) {
-      return { id: String(pack), label: String(pack), studentPriceCents: signUnit(pack, printRate).unitStudentPriceCents };
-    }),
+    signs: [],
     comingSoon: soonIds.map(function (id) {
       const cents = SOON_VENDOR_CENTS[id] || HANDWRITTEN_VENDOR_CENTS.notecard;
       const rate = id === 'handwritten' ? MAIL_MARKUP_RATE : printRate;

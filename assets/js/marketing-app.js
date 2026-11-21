@@ -362,7 +362,7 @@
   function menuCents(state, channelId, choiceId) {
     var menu = state.menu || {};
     var list = menu[channelId] || menu.signs || [];
-    if (channelId === 'bandit' || channelId === 'yard-sign') list = menu.signs || [];
+    if (channelId === 'bandit') return null;
     var found = null;
     list.forEach(function (row) {
       if (row.id === choiceId) found = row;
@@ -453,7 +453,6 @@
     var mode = loadCatalog().priceMode(channel.id, design);
     if (channel.id === 'letter' && design && design.envelope === 'plain') return 'A plain envelope does not have a test price yet. This test mailing uses a window envelope.';
     if (channel.id === 'yard-sign') return 'Preview only. 18 × 24 on a wire step-in stake. Not orderable yet.';
-    if (mode === 'soon' && channel.id === 'bandit') return 'This size, side, or stake is not in the test price. The priced sign is 18 × 24, both sides, with H-stakes.';
     if (mode === 'soon') return 'Preview only. Not orderable yet.';
     if (channel.id === 'postcard') return 'Template does not change this test price.';
     if (channel.id === 'letter') return 'Window envelope. Template does not change this test price.';
@@ -463,7 +462,6 @@
         ? inkNote + ' A folded notecard uses a real stamp and a handwritten envelope.'
         : inkNote + ' The message is handwritten on the postcard.';
     }
-    if (channel.id === 'bandit') return 'Background and lettering do not change this test price. Corrugated plastic, 4mm.';
     if (channel.id === 'door-hanger') return 'Finish does not change this reference price. Not mailed to a property.';
     return '';
   }
@@ -534,43 +532,6 @@
           { id: 'blue', label: 'Blue' },
           { id: 'black', label: 'Black' },
         ], design.ink, 'is-short');
-      }
-    } else if (channel.id === 'yard-sign') {
-      fields += '';
-    } else if (channel.id === 'bandit') {
-      fields += designSelect('Size', channel.id, 'signSize', [
-        { id: '18x24', label: '18 × 24' },
-        { id: '24x18', label: '24 × 18' },
-      ], design.signSize);
-      fields += designSelect('Color', channel.id, 'signColor', [
-        { id: '', label: 'Template' },
-        { id: 'yellow', label: 'Yellow' },
-        { id: 'white', label: 'White' },
-        { id: 'red', label: 'Red' },
-        { id: 'orange', label: 'Orange' },
-      ], design.signColor);
-      fields += designSelect('Lettering', channel.id, 'lettering', [
-        { id: '', label: 'Template' },
-        { id: 'black', label: 'Black' },
-        { id: 'red', label: 'Red' },
-        { id: 'blue', label: 'Blue' },
-      ], design.lettering);
-      fields += designSelect('Sides', channel.id, 'sides', [
-        { id: 'double', label: 'Double' },
-        { id: 'single', label: 'Single' },
-      ], design.sides, 'is-short');
-      fields += designSelect('Material', channel.id, 'material', [
-        { id: 'corrugated-4mm', label: 'Corrugated 4mm' },
-      ], design.material);
-      fields += designSelect('Stakes', channel.id, 'stakes', [
-        { id: 'h-stake', label: 'H-stakes' },
-        { id: 'none', label: 'No stake' },
-      ], design.stakes);
-      if (picked && picked.printed && picked.printed.packs.length) {
-        var packAttrs = picked.printed.comingSoon ? '' : 'data-print-pack="' + esc(channel.id) + '"';
-        fields += styleSelect('Pack', packAttrs, picked.printed.packs.map(function (qty) {
-          return { id: qty, label: String(qty) };
-        }), picked.pack, 'is-short');
       }
     } else if (channel.id === 'door-hanger') {
       fields += designSelect('Size', channel.id, 'hangerSize', [

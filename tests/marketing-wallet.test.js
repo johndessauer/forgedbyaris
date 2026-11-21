@@ -100,9 +100,10 @@ test('mail is vendor cost times 1.20 and print defaults to 30 percent inside 25 
   assert.equal(pricing.printMarkupRate({ MARKETING_PRINT_MARKUP: '0.25' }), 0.25);
   assert.equal(pricing.printMarkupRate({ MARKETING_PRINT_MARKUP: '0.99' }), 0.35);
   assert.equal(pricing.printMarkupRate({ MARKETING_PRINT_MARKUP: '0.10' }), 0.25);
-  const clamped = pricing.quoteOrder(['bandit'], 4, { MARKETING_PRINT_MARKUP: '0.99' });
-  assert.equal(clamped.lines[0].unitStudentPriceCents, Math.round((24900 / 50) * 1.35));
+  const clamped = pricing.quoteOrder(['door-hanger'], 4, { MARKETING_PRINT_MARKUP: '0.99' });
+  assert.equal(clamped.lines[0].unitStudentPriceCents, Math.round(140 * 1.35));
   assert.equal(clamped.chargedCents, 0);
+  assert.equal(pricing.quoteOrder(['bandit'], 4, {}).lines.some(row => row.channelId === 'bandit'), false);
   assert.equal(one.testMode, true);
 });
 
@@ -263,7 +264,7 @@ test('confirm debits the wallet, sends a test postcard, and returns the credits 
   assert.equal(formatted.body.lines[0].quantity, 2);
   assert.equal(formatted.body.lines[0].studentPriceCents, 218);
   assert.equal(JSON.stringify(quote.body).toLowerCase().includes('lob'), false);
-  assert.equal(quote.body.lines.some(row => row.channelId === 'bandit' && row.mailed === false), true);
+  assert.equal(quote.body.lines.some(row => row.channelId === 'bandit'), false);
 
   const sent = await box.call(handler, {
     action: 'confirm',
@@ -403,7 +404,7 @@ test('the markup report is allowlist-only and lists Lob cost, price, and markup'
       shortfallCents: 109,
       lines: [
         { channelId: 'postcard', mailed: true, quantity: 1, unitStudentPriceCents: 109, studentPriceCents: 109 },
-        { channelId: 'bandit', mailed: false, quantity: 0, unitStudentPriceCents: 514, studentPriceCents: 0 },
+        { channelId: 'door-hanger', mailed: false, quantity: 0, unitStudentPriceCents: 182, studentPriceCents: 0 },
       ],
     },
   }));
@@ -435,7 +436,7 @@ test('printed goods ship in a pack and never use the property count', async () =
     { channelId: 'bandit', quantity: 40, option: '18x24-stake' },
   ]);
   assert.equal(ignored.lines.find(row => row.channelId === 'postcard').quantity, 40);
-  assert.equal(ignored.lines.find(row => row.channelId === 'bandit').quantity, 0);
+  assert.equal(ignored.lines.some(row => row.channelId === 'bandit'), false);
   assert.equal(ignored.printChargedCents, 0);
   assert.equal(ignored.mailChargedCents, 40 * 109);
 
@@ -443,21 +444,13 @@ test('printed goods ship in a pack and never use the property count', async () =
     { channelId: 'bandit', quantity: 50, option: '18x24-hstake' },
     { channelId: 'yard-sign', quantity: 100, option: '18x24-hstake' },
   ]);
-  const sign = packed.lines.find(row => row.channelId === 'bandit');
-  const yard = packed.lines.find(row => row.channelId === 'yard-sign');
-  assert.equal(sign.quantity, 50);
-  assert.notEqual(sign.quantity, 40);
-  assert.equal(sign.unitStudentPriceCents, 647);
-  assert.equal(sign.studentPriceCents, 32350);
-  assert.equal(sign.vendorCostCents, 24900);
-  assert.equal(yard.quantity, 100);
-  assert.equal(yard.unitStudentPriceCents, 514);
+  assert.equal(packed.lines.some(row => row.channelId === 'bandit'), false);
+  assert.equal(packed.lines.some(row => row.channelId === 'yard-sign'), false);
   assert.equal(packed.lines.some(row => row.channelId === 'business-card' || row.channelId === 'flyer'), false);
   assert.equal(packed.lines.find(row => row.channelId === 'postcard').quantity, 40);
   assert.equal(packed.mailChargedCents, 40 * 109);
-  assert.equal(packed.printChargedCents, sign.studentPriceCents + yard.studentPriceCents);
+  assert.equal(packed.printChargedCents, 0);
   assert.equal(packed.chargedCents, packed.mailChargedCents + packed.printChargedCents);
-  assert.equal(packed.vendorCostCents + packed.markupCents, packed.chargedCents);
 
   const box = rig();
   await box.blob.setJSON('brands/mem_john.json', { brands: [BRAND] });
@@ -472,7 +465,8 @@ test('printed goods ship in a pack and never use the property count', async () =
   });
   assert.equal(quote.status, 200);
   assert.equal(quote.body.lines.find(row => row.channelId === 'postcard').quantity, 40);
-  assert.equal(quote.body.lines.find(row => row.channelId === 'bandit').quantity, 50);
+  assert.equal(quote.body.lines.some(row => row.channelId === 'bandit'), false);
+  assert.equal(quote.body.printChargedCents, 0);
   assert.equal(quote.body.printMarkupRate, 0.3);
   assert.equal(JSON.stringify(quote.body).toLowerCase().includes('dirt'), false);
   assert.equal(JSON.stringify(quote.body).toLowerCase().includes('lob'), false);
@@ -484,6 +478,7 @@ test('printed goods ship in a pack and never use the property count', async () =
     leads: leads,
   });
   assert.equal(rejected.status, 400);
+  assert.equal(rejected.body.error, 'Bandit signs are not available.');
 
   const recorded = await box.call(handler, {
     action: 'confirm-print',
@@ -493,61 +488,25 @@ test('printed goods ship in a pack and never use the property count', async () =
     prints: [{ channelId: 'bandit', quantity: 50, option: '18x24-hstake' }],
     shipTo: { line1: '500 Mail St', city: 'Crown Point', state: 'in', zip: '46307' },
   });
-  assert.equal(recorded.status, 200);
-  assert.equal(recorded.body.vendorStatus, 'stub');
-  assert.equal(recorded.body.testMode, true);
-  assert.equal(recorded.body.chargedCents, 32350);
+  assert.equal(recorded.status, 400);
+  assert.equal(recorded.body.error, 'Bandit signs are not available.');
+  assert.equal((await wallet.readWallet(box.blob, 'mem_john')).balanceCents, 40000);
   assert.equal(JSON.stringify(recorded.body).toLowerCase().includes('dirt'), false);
-  assert.equal(box.calls.length, 0);
-  const order = JSON.parse(await box.blob.get('orders/' + recorded.body.orderId + '.json'));
-  assert.equal(order.kind, 'print');
-  assert.equal(order.leadCount, 0);
-  assert.equal(order.pieces[0].quantity, 50);
-  assert.equal(order.pieces[0].option, '18x24-hstake');
-  assert.equal(order.vendorCostCents + order.markupCents, order.chargedCents);
-  assert.equal(order.provider, pricing.PRINT_VENDOR);
-  assert.equal(order.vendorStatus, 'stub');
-  assert.equal(order.shipTo.line1, '500 Mail St');
-  assert.equal(order.shipTo.state, 'IN');
-  assert.equal((await wallet.readWallet(box.blob, 'mem_john')).balanceCents, 40000 - order.chargedCents);
-  const again = await box.call(handler, {
-    action: 'confirm-print',
-    idempotencyKey: 'prn_once',
-    brandId: 'brand_1',
-    prints: [{ channelId: 'bandit', quantity: 50, option: '18x24-hstake' }],
-  });
-  assert.equal(again.body.duplicate, true);
-  assert.equal((await wallet.readWallet(box.blob, 'mem_john')).balanceCents, 40000 - order.chargedCents);
-
-  const report = await box.call(handler, null, 'GET', { queryStringParameters: { format: 'csv' } });
-  assert.match(report.raw, /kind,vendor_cost,markup_rate,vendor/);
-  assert.match(report.raw, /bandit x50 18x24-hstake/);
-  assert.match(report.raw, /dirt-cheap-signs/);
-  assert.match(report.raw, /249\.00/);
 
   const screen = app.createState({
     propertyClass: 'residential',
-    selected: { bandit: true, postcard: true },
-    approved: { 'residential:bandit': true, 'residential:postcard': true },
-    copies: { residential: { bandit: { variantA: 'WE BUY HOUSES', variantB: 'B' }, postcard: { variantA: 'A', variantB: 'B' } }, commercial: {} },
-    prints: { bandit: { quantity: 50, option: '18x24-hstake' } },
+    empire: true,
+    selected: { postcard: true },
+    approved: { 'residential:postcard': true },
+    copies: { residential: { postcard: { variantA: 'A', variantB: 'B' } }, commercial: {} },
     brands: [{ id: 'b', returnAddress: { line1: '9 Oak Ave', city: 'Crown Point', state: 'IN', zip: '46307' } }],
     brandId: 'b',
     leads: leads,
     quote: quote.body,
   });
-  quote.body.balanceCents = 20000;
-  quote.body.shortfallCents = 0;
   const cost = app.renderCost(screen);
-  assert.match(cost, /Ship to me/);
-  assert.match(cost, /9 Oak Ave/);
-  assert.match(cost, /Print markup 30%/);
-  assert.equal(cost.includes('value="10"'), false);
-  assert.equal(cost.includes('value="25"'), false);
-  assert.match(cost, /value="50"/);
-  assert.match(cost, /value="100"/);
-  assert.equal(cost.includes('value="40"'), false);
-  assert.match(app.renderConfirm(screen), /Place test print order/);
-  assert.match(app.renderPiece({ id: 'bandit', name: 'Bandit sign', medium: 'print', copy: true, group: 'fulfill' }, { selected: true }), /Ship to me/);
+  assert.equal(cost.includes('Bandit sign'), false);
+  assert.equal(cost.includes('data-print-pack="bandit"'), false);
   assert.match(app.renderApprove(screen), /Continue to cost/);
+  assert.equal(app.renderPicker(app.createState({ empire: true, propertyClass: 'residential' })).includes('Bandit sign'), false);
 });
