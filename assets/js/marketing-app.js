@@ -60,6 +60,7 @@
       prints: Object.assign({}, input.prints || {}),
       shipTo: input.shipTo || null,
       shipTouched: !!input.shipTouched,
+      zoomChannel: '',
     };
   }
 
@@ -371,13 +372,13 @@
     return found ? found.studentPriceCents : null;
   }
 
-  function styleSelect(label, attrs, rows, selected) {
+  function styleSelect(label, attrs, rows, selected, fieldClass) {
     var options = rows.map(function (row) {
       var id = row.id != null ? row.id : row;
       var text = row.label != null ? row.label : row;
       return '<option value="' + esc(id) + '"' + (String(id) === String(selected) ? ' selected' : '') + '>' + esc(text) + '</option>';
     }).join('');
-    return '<label class="mkt-field"><span>' + esc(label) + '</span><select' + (attrs ? ' ' + attrs : '') + '>' + options + '</select></label>';
+    return '<label class="mkt-field' + (fieldClass ? ' ' + fieldClass : '') + '"><span>' + esc(label) + '</span><select' + (attrs ? ' ' + attrs : '') + '>' + options + '</select></label>';
   }
 
   function styleChoice(state, channel) {
@@ -443,13 +444,18 @@
     return '';
   }
 
-  function styleBlock(state, channel) {
-    var catalog = loadCatalog();
+  function previewSvg(state, channel) {
     var picked = styleChoice(state, channel);
     if (!picked) return '';
     var previewId = picked.spec ? picked.choiceId : (picked.choiceId || (picked.printed && picked.printed.options[0] ? picked.printed.options[0].id : ''));
-    var preview = catalog.stylePreview(channel.id, previewId, { hand: picked.hand });
-    var thumb = '<div class="mkt-thumb">' + preview + '</div>';
+    return loadCatalog().stylePreview(channel.id, previewId, { hand: picked.hand });
+  }
+
+  function styleBlock(state, channel) {
+    var picked = styleChoice(state, channel);
+    if (!picked) return '';
+    var preview = previewSvg(state, channel);
+    var thumb = '<button type="button" class="mkt-thumb" data-action="zoom-preview" data-id="' + esc(channel.id) + '" aria-label="Enlarge ' + esc(channel.name) + ' preview">' + preview + '</button>';
     var fields = '';
     if (picked.spec) {
       var fieldLabel = picked.spec.field === 'size' ? 'Size' : (picked.spec.field === 'finish' ? 'Print' : 'Style');
@@ -464,7 +470,7 @@
       if (picked.printed.packs.length) {
         fields += styleSelect('Pack', packAttrs, picked.printed.packs.map(function (qty) {
           return { id: qty, label: String(qty) };
-        }), picked.pack);
+        }), picked.pack, 'is-short');
       }
     }
     var help = styleHelp(channel, picked);
@@ -473,6 +479,20 @@
       stylePrice(state, channel, picked) +
       (help ? '<p class="mkt-style-help">' + esc(help) + '</p>' : '') +
       '</div>';
+  }
+
+  function zoomMarkup(state) {
+    if (!state || !state.zoomChannel) return '';
+    var channel = loadCatalog().channelById(state.zoomChannel);
+    if (!channel) return '';
+    var svg = previewSvg(state, channel);
+    if (!svg) return '';
+    var name = loadCatalog().displayName(channel, state.propertyClass);
+    return '<div class="mkt-lightbox" role="dialog" aria-modal="true" aria-label="' + esc(name) + ' preview">' +
+      '<button type="button" class="mkt-lightbox-backdrop" data-action="close-zoom" aria-label="Close preview"></button>' +
+      '<div class="mkt-lightbox-card"><div class="mkt-lightbox-bar"><span>' + esc(name) + '</span>' +
+      '<button type="button" class="mkt-lightbox-close" data-action="close-zoom">Close</button></div>' +
+      svg + '</div></div>';
   }
 
   function renderPicker(state) {
@@ -513,7 +533,8 @@
       (state.message ? '<p class="mkt-message">' + esc(state.message) + '</p>' : '') +
       '<div class="mkt-pick-list">' + cards(picked) + '</div>' +
       '<details class="mkt-more"><summary>More options</summary><div class="mkt-pick-list">' + cards(more) + '</div></details>' +
-      '<div class="mkt-row"><button type="button" data-action="generate">Write copy with ARIS</button></div>';
+      '<div class="mkt-row"><button type="button" data-action="generate">Write copy with ARIS</button></div>' +
+      zoomMarkup(state);
   }
 
   function money(cents) {
@@ -1057,11 +1078,22 @@
       paint(state);
       return;
     }
+    if (action === 'zoom-preview') {
+      state.zoomChannel = button.getAttribute('data-id') || '';
+      paint(state);
+      return;
+    }
+    if (action === 'close-zoom') {
+      state.zoomChannel = '';
+      paint(state);
+      return;
+    }
     if (action === 'toggle') {
       var id = button.getAttribute('data-id');
       state.selected[id] = !state.selected[id];
       state.recsFor = selectionKey(state);
       state.previewId = id;
+      state.zoomChannel = '';
       paint(state);
       return;
     }
@@ -1812,6 +1844,14 @@
         app.hidden = false;
         app.addEventListener('click', function (event) { onClick(state, event); });
         app.addEventListener('change', function (event) { onChange(state, event); });
+      }
+      if (typeof document.addEventListener === 'function') {
+        document.addEventListener('keydown', function (event) {
+          if ((event.key === 'Escape' || event.key === 'Esc') && state.zoomChannel) {
+            state.zoomChannel = '';
+            paint(state);
+          }
+        });
       }
       await ensureLogo(state);
       var walletReturn = null;

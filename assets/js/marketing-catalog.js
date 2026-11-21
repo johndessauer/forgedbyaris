@@ -131,22 +131,234 @@
     return PIECE_STYLES[String(id || '')] || null;
   }
 
-  function stylePreview(channelId, choiceId) {
-    const common = 'xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 72" fill="none"';
-    const frames = {
-      '4x6': '<rect x="28" y="16" width="64" height="42" rx="2" fill="#F4EFE4" stroke="#8AA0B4"/>',
-      '6x9': '<rect x="18" y="14" width="84" height="48" rx="2" fill="#F4EFE4" stroke="#8AA0B4"/>',
-      '6x11': '<rect x="10" y="12" width="100" height="50" rx="2" fill="#F4EFE4" stroke="#8AA0B4"/>',
-      bw: '<rect x="40" y="8" width="40" height="56" rx="1" fill="#F7F5F2" stroke="#8AA0B4"/><path d="M48 22 h24 M48 30 h24 M48 38 h16" stroke="#1F3348"/>',
-      color: '<rect x="40" y="8" width="40" height="56" rx="1" fill="#F7F5F2" stroke="#C89B3C"/><rect x="48" y="16" width="24" height="12" fill="#1F3348"/><path d="M48 36 h24 M48 44 h16" stroke="#8AA0B4"/>',
-      notecard: '<rect x="22" y="14" width="76" height="46" rx="2" fill="#F6E7A8" stroke="#C89B3C"/><path d="M34 32 q16 8 28 -2" stroke="#1D4E89" stroke-width="1.4"/>',
-      'hi-clarice': '<path d="M16 40 q20 -16 28 0 q10 18 24 -2 q12 -16 28 4" stroke="#1D4E89" stroke-width="1.6" fill="none"/>',
-      'shopping-list': '<path d="M18 24 h70 M18 36 h54 M18 48 h62" stroke="#1D4E89" stroke-width="1.4"/>',
-      'normal-print': '<path d="M20 44 h12 M36 28 v20 M52 44 h16 M74 28 v20" stroke="#1D4E89" stroke-width="1.6"/>',
-      '18x24-hstake': '<rect x="16" y="12" width="88" height="40" rx="2" fill="#F5D90A" stroke="#1F3348"/><path d="M60 52 v12 M48 64 h24" stroke="#8AA0B4" stroke-width="3"/>',
-    };
-    const body = frames[choiceId] || frames['4x6'];
-    return '<svg ' + common + '>' + body + '</svg>';
+  function px(value) {
+    return Math.round(value * 10) / 10;
+  }
+
+  function xmlText(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  // One frame for every piece. The artwork inside is drawn to the real
+  // proportion of the option the student picked.
+  function frameSvg(inner) {
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 110" width="160" height="110" focusable="false" aria-hidden="true">' +
+      '<rect width="160" height="110" fill="#f4f1ec"/>' + inner + '</svg>';
+  }
+
+  function paperShadow(x, y, w, h) {
+    return '<rect x="' + px(x + 1.1) + '" y="' + px(y + 1.6) + '" width="' + px(w) + '" height="' + px(h) + '" rx="2" fill="#1c2430" opacity="0.14"/>';
+  }
+
+  const HAND_FONT = {
+    'hi-clarice': 'Great Vibes, Segoe Script, cursive',
+    'shopping-list': 'Caveat, Segoe Print, cursive',
+    'normal-print': 'Patrick Hand, Segoe Print, sans-serif',
+  };
+
+  function handCopy(hand) {
+    if (hand === 'shopping-list') return ['Hi —', 'call me', 'today'];
+    if (hand === 'normal-print') return ['Hi,', 'as-is.', 'Call me.'];
+    return ['Hello,', 'call me'];
+  }
+
+  function writeLines(hand, lines, x, y, size) {
+    const font = HAND_FONT[hand] || HAND_FONT['hi-clarice'];
+    const script = !hand || hand === 'hi-clarice';
+    const fontSize = script ? size * 1.55 : size;
+    const leading = fontSize * (script ? 0.92 : 1.22);
+    return lines.map(function (line, index) {
+      return '<text x="' + px(x) + '" y="' + px(y + index * leading) + '" fill="#1d4e89" font-family="' + font + '" font-size="' + px(fontSize) + '">' + xmlText(line) + '</text>';
+    }).join('');
+  }
+
+  function postageStamp(x, y, w, h) {
+    const width = w || 14;
+    const height = h || 16;
+    return '<rect x="' + px(x) + '" y="' + px(y) + '" width="' + px(width) + '" height="' + px(height) + '" rx="1" fill="#d4544a" stroke="#f6d2ce" stroke-width="0.7"/>' +
+      '<circle cx="' + px(x + width / 2) + '" cy="' + px(y + height / 2) + '" r="' + px(Math.min(width, height) * 0.28) + '" fill="none" stroke="#f8e6e3" stroke-width="0.7"/>';
+  }
+
+  function houseMark(cx, cy, scale) {
+    const half = scale * 0.46;
+    const roof = cy - scale * 0.42;
+    const eave = cy - scale * 0.05;
+    const bodyBottom = cy + scale * 0.48;
+    return '<path d="M' + px(cx) + ' ' + px(roof) + ' L' + px(cx + half + scale * 0.12) + ' ' + px(eave) + ' L' + px(cx - half - scale * 0.12) + ' ' + px(eave) + ' Z" fill="#f4f1ec"/>' +
+      '<rect x="' + px(cx - half) + '" y="' + px(eave) + '" width="' + px(half * 2) + '" height="' + px(bodyBottom - eave) + '" fill="#f4f1ec"/>' +
+      '<rect x="' + px(cx - half * 0.22) + '" y="' + px(eave + (bodyBottom - eave) * 0.42) + '" width="' + px(half * 0.44) + '" height="' + px((bodyBottom - eave) * 0.58) + '" fill="#243246"/>';
+  }
+
+  function postcardBox(sizeId) {
+    const inch = 132 / 11;
+    const table = { '4x6': [6, 4], '6x9': [9, 6], '6x11': [11, 6] };
+    const pair = table[sizeId] || table['4x6'];
+    const w = pair[0] * inch;
+    const h = pair[1] * inch;
+    return { x: (160 - w) / 2, y: (110 - h) / 2, w: w, h: h };
+  }
+
+  function postcardArt(sizeId) {
+    const box = postcardBox(sizeId);
+    const photo = box.w * 0.38;
+    const bar = Math.max(1.5, box.h * 0.055);
+    const textX = box.x + photo + box.w * 0.07;
+    const textW = box.w - photo - box.w * 0.12;
+    const top = box.y + box.h * 0.28;
+    const gap = box.h * 0.16;
+    return paperShadow(box.x, box.y, box.w, box.h) +
+      '<rect x="' + px(box.x) + '" y="' + px(box.y) + '" width="' + px(box.w) + '" height="' + px(box.h) + '" rx="2" fill="#fffdf8" stroke="#e3dcd0" stroke-width="0.7"/>' +
+      '<path d="M' + px(box.x + photo) + ' ' + px(box.y) + ' H' + px(box.x + 2) + ' Q' + px(box.x) + ' ' + px(box.y) + ' ' + px(box.x) + ' ' + px(box.y + 2) + ' V' + px(box.y + box.h - 2) + ' Q' + px(box.x) + ' ' + px(box.y + box.h) + ' ' + px(box.x + 2) + ' ' + px(box.y + box.h) + ' H' + px(box.x + photo) + ' Z" fill="#243246"/>' +
+      houseMark(box.x + photo * 0.5, box.y + box.h * 0.52, Math.min(photo, box.h) * 0.62) +
+      '<rect x="' + px(textX) + '" y="' + px(top) + '" width="' + px(textW) + '" height="' + px(bar) + '" rx="0.6" fill="#243246"/>' +
+      '<rect x="' + px(textX) + '" y="' + px(top + gap) + '" width="' + px(textW * 0.78) + '" height="' + px(bar * 0.7) + '" rx="0.5" fill="#8b97a3"/>' +
+      '<rect x="' + px(textX) + '" y="' + px(top + gap * 2) + '" width="' + px(textW * 0.62) + '" height="' + px(bar * 0.7) + '" rx="0.5" fill="#c5bfb4"/>' +
+      '<rect x="' + px(box.x + box.w - box.w * 0.1) + '" y="' + px(box.y + box.h - box.h * 0.22) + '" width="' + px(Math.max(4, box.w * 0.06)) + '" height="' + px(Math.max(4, box.h * 0.12)) + '" fill="#243246"/>';
+  }
+
+  function letterArt(finish) {
+    const w = 142;
+    const h = w * (4.125 / 9.5);
+    const x = (160 - w) / 2;
+    const y = (110 - h) / 2;
+    const color = finish === 'color';
+    const top = { x: x + 9, y: y + 13, w: 52, h: 14 };
+    const bottom = { x: x + 9, y: y + 32, w: 74, h: 22 };
+    function rule(rx, ry, rw, fill) {
+      return '<rect x="' + px(rx) + '" y="' + px(ry) + '" width="' + px(rw) + '" height="1.35" rx="0.4" fill="' + fill + '"/>';
+    }
+    const ink = '#3e4a57';
+    const topLines = color
+      ? '<rect x="' + px(top.x + 2) + '" y="' + px(top.y + 2) + '" width="' + px(top.w - 4) + '" height="6.2" rx="0.4" fill="#243246"/>' +
+        '<rect x="' + px(top.x + 2) + '" y="' + px(top.y + 9.4) + '" width="18" height="1.8" rx="0.3" fill="#2f6f86"/>'
+      : rule(top.x + 3, top.y + 4, 32, ink) + rule(top.x + 3, top.y + 8, 24, ink);
+    const body = color
+      ? '<rect x="' + px(bottom.x + 3) + '" y="' + px(bottom.y + 3) + '" width="16" height="12" rx="0.6" fill="#2a4564"/>' +
+        '<rect x="' + px(bottom.x + 5) + '" y="' + px(bottom.y + 5) + '" width="8" height="5" fill="#d5e6ee"/>' +
+        rule(bottom.x + 23, bottom.y + 5, 40, ink) +
+        rule(bottom.x + 23, bottom.y + 9.5, 34, '#2f6f86') +
+        rule(bottom.x + 23, bottom.y + 14, 26, ink)
+      : rule(bottom.x + 3, bottom.y + 5, 52, ink) +
+        rule(bottom.x + 3, bottom.y + 10, 46, ink) +
+        rule(bottom.x + 3, bottom.y + 15, 34, ink);
+    function windowPane(pane, inner) {
+      return '<rect x="' + px(pane.x) + '" y="' + px(pane.y) + '" width="' + px(pane.w) + '" height="' + px(pane.h) + '" rx="1.2" fill="#fbfcfe" stroke="#c3d0dc" stroke-width="0.7"/>' + inner;
+    }
+    return paperShadow(x, y, w, h) +
+      '<rect x="' + px(x) + '" y="' + px(y) + '" width="' + px(w) + '" height="' + px(h) + '" rx="2" fill="#f7f4ee" stroke="#ddd4c8" stroke-width="0.8"/>' +
+      '<path d="M' + px(x + 1) + ' ' + px(y + 1) + ' L' + px(x + w / 2) + ' ' + px(y + 7) + ' L' + px(x + w - 1) + ' ' + px(y + 1) + '" fill="none" stroke="#e7dfd4" stroke-width="0.7"/>' +
+      windowPane(top, topLines) +
+      windowPane(bottom, body);
+  }
+
+  function noteArt(hand) {
+    const ex = 36;
+    const ey = 48;
+    const ew = 112;
+    const eh = 48;
+    const cx = 12;
+    const cy = 12;
+    const cw = 102;
+    const ch = 66;
+    const fold = cx + 40;
+    const script = !hand || hand === 'hi-clarice';
+    return paperShadow(ex, ey, ew, eh) +
+      '<rect x="' + px(ex) + '" y="' + px(ey) + '" width="' + px(ew) + '" height="' + px(eh) + '" rx="2" fill="#f3efe6" stroke="#ddd4c8" stroke-width="0.7"/>' +
+      postageStamp(ex + ew - 20, ey + 7, 13, 15) +
+      paperShadow(cx, cy, cw, ch) +
+      '<rect x="' + px(cx) + '" y="' + px(cy) + '" width="' + px(cw) + '" height="' + px(ch) + '" rx="2" fill="#fffdf8" stroke="#e4ddd2" stroke-width="0.7"/>' +
+      '<rect x="' + px(cx + 0.7) + '" y="' + px(cy + 0.7) + '" width="' + px(fold - cx - 0.7) + '" height="' + px(ch - 1.4) + '" fill="#f4f0e8"/>' +
+      '<line x1="' + px(fold) + '" y1="' + px(cy + 5) + '" x2="' + px(fold) + '" y2="' + px(cy + ch - 5) + '" stroke="#e3dacd" stroke-width="0.8"/>' +
+      writeLines(hand, handCopy(hand), fold + 6, cy + (script ? 30 : 22), script ? 8 : 9);
+  }
+
+  function handwrittenCardArt(sizeId, hand) {
+    const box = postcardBox(sizeId === '6x9' ? '6x9' : '4x6');
+    const mid = box.x + box.w * 0.56;
+    const script = !hand || hand === 'hi-clarice';
+    const stampW = Math.max(10, box.w * 0.12);
+    const stampH = stampW * 1.15;
+    return paperShadow(box.x, box.y, box.w, box.h) +
+      '<rect x="' + px(box.x) + '" y="' + px(box.y) + '" width="' + px(box.w) + '" height="' + px(box.h) + '" rx="2" fill="#fffdf8" stroke="#e4ddd2" stroke-width="0.7"/>' +
+      '<line x1="' + px(mid) + '" y1="' + px(box.y + 5) + '" x2="' + px(mid) + '" y2="' + px(box.y + box.h - 5) + '" stroke="#eadfce" stroke-width="0.6"/>' +
+      writeLines(hand, handCopy(hand), box.x + box.w * 0.06, box.y + box.h * (script ? 0.42 : 0.32), Math.max(5.5, box.h * 0.15)) +
+      postageStamp(box.x + box.w - stampW - box.w * 0.05, box.y + box.h * 0.08, stampW, stampH) +
+      '<rect x="' + px(mid + box.w * 0.06) + '" y="' + px(box.y + box.h * 0.48) + '" width="' + px(box.w * 0.3) + '" height="1.2" rx="0.4" fill="#c9c0b4"/>' +
+      '<rect x="' + px(mid + box.w * 0.06) + '" y="' + px(box.y + box.h * 0.62) + '" width="' + px(box.w * 0.26) + '" height="1.2" rx="0.4" fill="#c9c0b4"/>' +
+      '<rect x="' + px(mid + box.w * 0.06) + '" y="' + px(box.y + box.h * 0.76) + '" width="' + px(box.w * 0.22) + '" height="1.2" rx="0.4" fill="#c9c0b4"/>';
+  }
+
+  function stake(cx, top) {
+    return '<line x1="' + px(cx) + '" y1="' + px(top) + '" x2="' + px(cx) + '" y2="104" stroke="#8d97a1" stroke-width="2.5" stroke-linecap="round"/>' +
+      '<line x1="' + px(cx - 16) + '" y1="104" x2="' + px(cx + 16) + '" y2="104" stroke="#8d97a1" stroke-width="2.5" stroke-linecap="round"/>';
+  }
+
+  function signFace(fill, ink, rule) {
+    const signH = 74;
+    const signW = signH * (18 / 24);
+    const x = (160 - signW) / 2;
+    const y = 6;
+    let ribs = '';
+    if (fill === '#f5d20a') {
+      for (let i = 0; i < 8; i += 1) {
+        const lx = x + 5 + i * ((signW - 10) / 7);
+        ribs += '<line x1="' + px(lx) + '" y1="' + px(y + 2) + '" x2="' + px(lx) + '" y2="' + px(y + signH - 2) + '" stroke="#e0b000" stroke-width="0.8" opacity="0.7"/>';
+      }
+    }
+    return stake(80, y + signH - 1) +
+      paperShadow(x, y, signW, signH) +
+      '<rect x="' + px(x) + '" y="' + px(y) + '" width="' + px(signW) + '" height="' + px(signH) + '" rx="1.4" fill="' + fill + '" stroke="' + ink + '" stroke-width="1.1"/>' +
+      ribs +
+      '<text x="80" y="' + px(y + 24) + '" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="8" font-weight="700" fill="' + ink + '">WE BUY</text>' +
+      '<text x="80" y="' + px(y + 35) + '" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="8" font-weight="700" fill="' + ink + '">HOUSES</text>' +
+      (rule ? '<rect x="' + px(x + 10) + '" y="' + px(y + 40) + '" width="' + px(signW - 20) + '" height="1" fill="' + rule + '"/>' : '') +
+      '<text x="80" y="' + px(y + 54) + '" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="6.2" font-weight="600" fill="' + ink + '">555-0100</text>';
+  }
+
+  function hangerArt() {
+    const x = 63;
+    const y = 8;
+    const w = 34;
+    const h = 94;
+    const cx = x + w / 2;
+    const shoulder = y + 26;
+    const d = 'M' + px(x + 7) + ' ' + px(shoulder) +
+      ' V' + px(y + 16) +
+      ' C' + px(x + 7) + ' ' + px(y + 4) + ' ' + px(x + w - 7) + ' ' + px(y + 4) + ' ' + px(x + w - 7) + ' ' + px(y + 16) +
+      ' V' + px(shoulder) +
+      ' H' + px(x + w) +
+      ' V' + px(y + h - 7) +
+      ' Q' + px(x + w) + ' ' + px(y + h) + ' ' + px(x + w - 7) + ' ' + px(y + h) +
+      ' H' + px(x + 7) +
+      ' Q' + px(x) + ' ' + px(y + h) + ' ' + px(x) + ' ' + px(y + h - 7) +
+      ' V' + px(shoulder) +
+      ' H' + px(x + 7) +
+      ' Z M' + px(cx - 4.2) + ' ' + px(y + 15) +
+      ' a4.2 4.2 0 1 0 8.4 0 a4.2 4.2 0 1 0 -8.4 0 Z';
+    return paperShadow(x + 1, y + 2, w, h) +
+      '<path d="' + d + '" fill="#fffdf8" stroke="#cfc6ba" stroke-width="1" fill-rule="evenodd"/>' +
+      '<rect x="' + px(x + 7) + '" y="' + px(shoulder + 12) + '" width="' + px(w - 14) + '" height="2" rx="0.6" fill="#d9d1c6"/>' +
+      '<rect x="' + px(x + 8) + '" y="' + px(shoulder + 18) + '" width="' + px(w - 16) + '" height="1.3" rx="0.5" fill="#e6dfd4"/>' +
+      '<rect x="' + px(x + 8) + '" y="' + px(shoulder + 23) + '" width="' + px(w - 18) + '" height="1.3" rx="0.5" fill="#e6dfd4"/>';
+  }
+
+  function stylePreview(channelId, choiceId, extra) {
+    const more = extra || {};
+    const id = String(channelId || '');
+    const choice = String(choiceId || '');
+    const hand = more.hand || 'hi-clarice';
+    let inner = '';
+    if (id === 'letter') inner = letterArt(choice === 'color' ? 'color' : 'bw');
+    else if (id === 'handwritten' && (choice === '4x6' || choice === '6x9')) inner = handwrittenCardArt(choice, hand);
+    else if (id === 'handwritten') inner = noteArt(hand);
+    else if (id === 'bandit') inner = signFace('#f5d20a', '#1a1a1a', '');
+    else if (id === 'yard-sign') inner = signFace('#f7f5f0', '#243246', '#243246');
+    else if (id === 'door-hanger') inner = hangerArt();
+    else inner = postcardArt(choice || '4x6');
+    return frameSvg(inner);
   }
 
   // Longest names first. The output filter is the second lock, after the prompt rule.

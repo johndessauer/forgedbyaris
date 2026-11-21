@@ -124,7 +124,7 @@ test('a handwritten order is refused while the note service is not connected', a
   assert.match(letter, /class="mkt-field"><span>Print<\/span>/);
   assert.match(letter, /\$1\.28 each/);
   const sign = pieceCard(picker, 'Bandit sign');
-  assert.match(sign, /class="mkt-field"><span>Pack<\/span>/);
+  assert.match(sign, /class="mkt-field is-short"><span>Pack<\/span>/);
   assert.match(sign, /\$6\.47 each/);
   assert.match(sign, /\$323\.50 for 50/);
   const closed = app.createState({
@@ -151,6 +151,39 @@ test('a handwritten order is refused while the note service is not connected', a
   assert.equal((hanger.match(/mkt-pill is-soon/g) || []).length, 1);
   assert.match(hanger, /\$1\.82 each/);
   assert.match(hanger, /\$91\.00 for 50/);
+  const catalog = require('../assets/js/marketing-catalog');
+  const postcard46 = catalog.stylePreview('postcard', '4x6');
+  const postcard611 = catalog.stylePreview('postcard', '6x11');
+  assert.match(postcard46, /viewBox="0 0 160 110"/);
+  assert.notEqual(postcard46, postcard611);
+  assert.notEqual(postcard46, catalog.stylePreview('postcard', '6x9'));
+  assert.match(catalog.stylePreview('letter', 'color'), /#2f6f86/);
+  assert.equal(catalog.stylePreview('letter', 'bw').includes('#2f6f86'), false);
+  assert.match(catalog.stylePreview('handwritten', 'notecard', { hand: 'hi-clarice' }), /Great Vibes/);
+  assert.match(catalog.stylePreview('handwritten', 'notecard', { hand: 'shopping-list' }), /Caveat/);
+  assert.match(catalog.stylePreview('handwritten', 'notecard', { hand: 'normal-print' }), /Patrick Hand/);
+  assert.notEqual(
+    catalog.stylePreview('handwritten', '4x6', { hand: 'hi-clarice' }),
+    catalog.stylePreview('handwritten', '6x9', { hand: 'shopping-list' })
+  );
+  const banditArt = catalog.stylePreview('bandit', '18x24-hstake');
+  assert.match(banditArt, /WE BUY/);
+  assert.match(banditArt, />HOUSES</);
+  assert.match(banditArt, /555-0100/);
+  assert.equal(banditArt.includes('FORGE'), false);
+  assert.match(catalog.stylePreview('door-hanger', '4.25x11'), /fill-rule="evenodd"/);
+  assert.match(picker, /Enlarge Postcard preview/);
+  const zoomed = app.createState({
+    step: 2,
+    goal: 'sellers',
+    propertyClass: 'residential',
+    empire: true,
+    menu: pricing.publicMenu({}),
+  });
+  zoomed.zoomChannel = 'bandit';
+  assert.match(app.renderPicker(zoomed), /class="mkt-lightbox"/);
+  assert.match(app.renderPicker(zoomed), /WE BUY/);
+  assert.match(app.renderPicker(zoomed), />HOUSES</);
   const page = ['marketing.html', 'assets/js/marketing-app.js']
     .map(file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8')).join('\n');
   assert.equal(/thanks\.io|dirt cheap|wise pelican|\blob\b/i.test(page), false);
