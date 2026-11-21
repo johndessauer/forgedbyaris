@@ -21,11 +21,26 @@ function idempotencyKey(memberId, raw) {
   return 'orders/idem/' + memberKey(memberId) + '/' + clean + '.json';
 }
 
+function noteStyles(body) {
+  const styles = Object.assign({}, body && body.styles || {});
+  const designs = body && body.designs || {};
+  ['handwritten', 'yellow-letter'].forEach(function (id) {
+    const ink = designs[id] && designs[id].ink;
+    if (ink !== 'black' && ink !== 'blue') return;
+    styles[id] = Object.assign({}, styles[id] || {}, { ink: ink });
+  });
+  return styles;
+}
+
+function mailChannel(channel) {
+  return !!pricing.mailFormat(channel) || channel === 'handwritten' || channel === 'yellow-letter';
+}
+
 function approvedMail(body) {
   const wanted = {};
   (body.channels || []).forEach(function (id) { wanted[String(id)] = true; });
   return (body.pieces || []).filter(function (piece) {
-    return piece && piece.approved === true && wanted[piece.channel] && !!pricing.mailFormat(piece.channel);
+    return piece && piece.approved === true && wanted[piece.channel] && mailChannel(piece.channel);
   }).map(function (piece) {
     return { channel: piece.channel, variantA: String(piece.variantA || '').slice(0, 4000) };
   });
@@ -58,7 +73,8 @@ function csv(orders) {
     const kind = order.kind || 'mail';
     const pieces = (order.pieces || []).map(function (piece) {
       const option = piece.option ? ' ' + piece.option : '';
-      return (piece.channelId || piece.channel) + ' x' + piece.quantity + option;
+      const hand = piece.handLabel ? ' ' + piece.handLabel : '';
+      return (piece.channelId || piece.channel) + ' x' + piece.quantity + option + hand;
     }).join('; ');
     const rate = kind === 'print' && order.printMarkupRate != null
       ? Number(order.printMarkupRate).toFixed(2)
@@ -143,6 +159,8 @@ function createHandler(deps) {
             option: row.option || '',
             styleId: row.styleId || '',
             styleLabel: row.styleLabel || '',
+            handStyle: row.handStyle || '',
+            handLabel: row.handLabel || '',
             orderable: !!row.orderable,
             comingSoon: !!row.comingSoon,
             unitStudentPriceCents: row.unitStudentPriceCents,
@@ -285,10 +303,15 @@ function createHandler(deps) {
     if (body.action !== 'confirm') return json(400, { error: 'Unknown order action.' });
 
     const noteWanted = (body.pieces || []).some(function (piece) {
-      return piece && piece.approved === true && piece.channel === 'handwritten';
-    }) && (channels.indexOf('handwritten') !== -1);
+      return piece && piece.approved === true && (piece.channel === 'handwritten' || piece.channel === 'yellow-letter') && channels.indexOf(piece.channel) !== -1;
+    });
     if (noteWanted && !pricing.handwrittenReady(env)) {
-      return json(400, { error: thanks.COMING_SOON });
+      const wantsNote = channels.indexOf('handwritten') !== -1;
+      const wantsYellow = channels.indexOf('yellow-letter') !== -1;
+      const message = wantsNote && wantsYellow
+        ? 'Handwritten notes and yellow letters are coming soon.'
+        : (wantsYellow ? thanks.YELLOW_COMING_SOON : thanks.COMING_SOON);
+      return json(400, { error: message });
     }
     const mailQuote = pricing.quoteOrder(channels, leads.length, env, null, body.styles);
     const brandDoc = await readJson(store, 'brands/' + memberKey(gate.access.memberId) + '.json');
@@ -299,12 +322,20 @@ function createHandler(deps) {
       return json(400, { error: 'Add your name, return address, and phone to the Brand Kit before mail. Missing: ' + ready.missing.join(', ') + '.' });
     }
     const pieces = approvedMail(body);
+    const lobPieces = pieces.filter(function (piece) { return !!pricing.mailFormat(piece.channel); });
+    const notePieces = pieces.filter(function (piece) { return piece.channel === 'handwritten' || piece.channel === 'yellow-letter'; });
     if (!pieces.length) return json(400, { error: 'Approve a postcard or a letter before you confirm.' });
     if (!leads.length) return json(400, { error: 'Add a street, city, state, and ZIP for each property you want mailed.' });
     if (mailQuote.chargedCents <= 0) return json(400, { error: 'There is nothing to mail.' });
 
-    try { lob.assertMailKey(env); }
-    catch (err) { return json(err.statusCode || 403, { error: err.message }); }
+    if (lobPieces.length) {
+      try { lob.assertMailKey(env); }
+      catch (err) { return json(err.statusCode || 403, { error: err.message }); }
+    }
+    if (notePieces.length) {
+      const ready = thanks.readiness(env);
+      if (!ready.ok) return json(ready.error.statusCode || 400, { error: ready.error.message });
+    }
 
     if (balance.balanceCents < mailQuote.chargedCents) {
       return json(402, {
@@ -353,16 +384,30 @@ function createHandler(deps) {
       });
     }
 
-    let sent;
+    let lobSent = null;
+    let noteSent = null;
     try {
-      sent = await lob.sendPieces({
-        env: env,
-        fetch: options.fetch,
-        brand: brand,
-        leads: leads,
-        pieces: pieces,
-        styles: body.styles || {},
-      });
+      if (notePieces.length) {
+        noteSent = await thanks.sendNotes({
+          env: env,
+          fetch: options.fetch,
+          brand: brand,
+          leads: leads,
+          pieces: notePieces,
+          styles: noteStyles(body),
+          origin: env.DEPLOY_PRIME_URL || env.URL || '',
+        });
+      }
+      if (lobPieces.length) {
+        lobSent = await lob.sendPieces({
+          env: env,
+          fetch: options.fetch,
+          brand: brand,
+          leads: leads,
+          pieces: lobPieces,
+          styles: body.styles || {},
+        });
+      }
     } catch (err) {
       await wallet.credit(store, {
         memberId: gate.access.memberId,
@@ -381,31 +426,31 @@ function createHandler(deps) {
       at: new Date().toISOString(),
       status: 'sent',
       kind: 'mail',
-      testMode: sent.testMode,
-      provider: pricing.MAIL_PROVIDER,
+      testMode: [noteSent, lobSent].filter(Boolean).every(function (row) { return row.testMode; }),
+      provider: [noteSent ? pricing.THANKS_PROVIDER : '', lobSent ? pricing.MAIL_PROVIDER : ''].filter(Boolean).join('+'),
       pieces: mailQuote.lines.filter(function (row) { return row.mailed; }).map(pricing.publicQuote),
       vendorCostCents: mailQuote.vendorCostCents,
       chargedCents: mailQuote.chargedCents,
       markupCents: mailQuote.markupCents,
-      mailIds: sent.ids,
-      leadCount: sent.leadCount,
+      mailIds: [].concat(noteSent ? noteSent.ids : [], lobSent ? lobSent.ids : []),
+      leadCount: (noteSent && noteSent.leadCount) || (lobSent && lobSent.leadCount) || leads.length,
     };
     await saveOrder(store, order);
     if (idem) {
       await store.setJSON(idem, {
         status: 'sent',
         orderId: id,
-        testMode: sent.testMode,
+        testMode: order.testMode,
         chargedCents: mailQuote.chargedCents,
-        mailed: sent.ids.length,
+        mailed: order.mailIds.length,
       });
     }
     return json(200, {
       orderId: id,
-      testMode: sent.testMode,
+      testMode: order.testMode,
       chargedCents: mailQuote.chargedCents,
       balanceCents: debit.balanceCents,
-      mailed: sent.ids.length,
+      mailed: order.mailIds.length,
     });
   };
 }

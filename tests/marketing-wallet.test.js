@@ -430,6 +430,60 @@ test('handwritten notes stay unorderable until the note service is connected', (
   assert.equal(waiting.includes('nothing to mail'), false);
 });
 
+test('a handwritten note and a yellow letter debit the wallet and stay in test mode', async () => {
+  const box = rig({ env: { LOB_API_KEY: '', THANKSIO_API_KEY: 'tio_test_key' } });
+  await box.blob.setJSON('brands/mem_john.json', { brands: [BRAND] });
+  await wallet.credit(box.blob, { memberId: 'mem_john', amountCents: 5000, stripeSessionId: 'cs_note' });
+  const handler = orderApi.createHandler(box.deps);
+  const sent = await box.call(handler, {
+    action: 'confirm',
+    brandId: 'brand_1',
+    channels: ['handwritten', 'yellow-letter'],
+    leads: [Object.assign({ playIds: ['absentee'] }, LEAD, { address: '500 Mail St', city: 'Chicago', state: 'IL', zip: '60601' })],
+    styles: { handwritten: { product: 'notecard', hand: 'shopping-list' }, 'yellow-letter': { hand: 'that-dude' } },
+    pieces: [
+      { channel: 'handwritten', variantA: 'A short note', approved: true },
+      { channel: 'yellow-letter', variantA: 'A yellow letter', approved: true },
+    ],
+  });
+  assert.equal(sent.status, 200, JSON.stringify(sent.body));
+  assert.equal(sent.body.testMode, true);
+  assert.equal(sent.body.chargedCents, 365 + 307);
+  assert.equal(sent.body.mailed, 2);
+  assert.equal((await wallet.readWallet(box.blob, 'mem_john')).balanceCents, 5000 - 672);
+  const urls = box.calls.map(row => row.init.method + ' ' + row.url);
+  assert.deepEqual(urls, [
+    'POST https://api.thanks.io/api/v2/send/notecard',
+    'PUT https://api.thanks.io/api/v2/orders/psc_test_1/cancel',
+    'POST https://api.thanks.io/api/v2/send/windowlessletter',
+    'PUT https://api.thanks.io/api/v2/orders/psc_test_1/cancel',
+  ]);
+  const note = JSON.parse(box.calls[0].init.body);
+  assert.equal(note.recipients[0].address, '500 Mail St');
+  assert.equal(note.recipients[0].city, 'Chicago');
+  assert.equal(note.handwriting_style_id, 7);
+  assert.equal(note.return_name, 'Sample Buys');
+  assert.equal(JSON.parse(box.calls[2].init.body).front_image_url.endsWith('/assets/marketing/stock/yellow-lined-paper.jpg'), true);
+  assert.equal(JSON.parse(box.calls[2].init.body).handwriting_style_id, 5);
+  const saved = JSON.parse(await box.blob.get('orders/' + sent.body.orderId + '.json'));
+  const yellowPiece = saved.pieces.find(function (row) { return row.channelId === 'yellow-letter'; });
+  const notePiece = saved.pieces.find(function (row) { return row.channelId === 'handwritten'; });
+  assert.equal(yellowPiece.handStyle, 'that-dude');
+  assert.equal(yellowPiece.handLabel, 'That Dude');
+  assert.equal(notePiece.handStyle, 'shopping-list');
+  assert.equal(notePiece.handLabel, 'Shopping List');
+  assert.equal(JSON.stringify(yellowPiece).toLowerCase().includes('thanks'), false);
+  const report = await box.call(handler, null, 'GET', { queryStringParameters: { format: 'csv' } });
+  assert.match(report.raw, /5\.60,6\.72,1\.12/);
+  assert.match(report.raw, /thanks-io/);
+  assert.equal(/we buy houses/i.test(report.raw), false);
+  const closed = pricing.quoteOrder(['handwritten', 'yellow-letter', 'door-hanger'], 1, {});
+  assert.equal(closed.lines.find(row => row.channelId === 'handwritten').comingSoon, true);
+  assert.equal(closed.lines.find(row => row.channelId === 'yellow-letter').comingSoon, true);
+  assert.equal(closed.lines.find(row => row.channelId === 'door-hanger').comingSoon, true);
+  assert.equal(closed.chargedCents, 0);
+});
+
 test('the markup report is allowlist-only and lists Lob cost, price, and markup', async () => {
   const box = rig();
   await box.blob.setJSON('brands/mem_john.json', { brands: [BRAND] });

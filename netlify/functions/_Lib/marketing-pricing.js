@@ -34,7 +34,8 @@ function mailFormat(channelId) {
 }
 
 function handwrittenReady(env) {
-  return !!readRuntimeEnv(env, 'THANKSIO_API_KEY') && readRuntimeEnv(env, 'MARKETING_LIVE_MAIL') === 'true';
+  const key = readRuntimeEnv(env, 'THANKSIO_API_KEY');
+  return typeof key === 'string' && key.indexOf('tio_') === 0;
 }
 const TOP_UPS_CENTS = Object.freeze([2500, 5000, 10000, 25000]);
 
@@ -77,7 +78,12 @@ const POSTCARD_4X6_FIRST_CLASS_USD = POSTCARD_COSTS_USD['4x6'];
 const LETTER_BW_FIRST_CLASS_USD = LETTER_COSTS_USD.bw;
 const LETTER_COLOR_FIRST_CLASS_USD = LETTER_COSTS_USD.color;
 // Integer cents chosen so cost × 1.20 rounds to the approved student prices.
+// Notecard, 4x6, and 6x9 are the pay-as-you-go rates (postage included).
+// The yellow letter is the pay-as-you-go windowless letter, also postage included.
+// Source, "Pricing last updated November 5, 2026":
+// https://thanks.io/pricing
 const HANDWRITTEN_VENDOR_CENTS = Object.freeze({ notecard: 304, '4x6': 118, '6x9': 165 });
+const YELLOW_LETTER_USD = 2.56;
 // Pack cost in cents. Per-sign vendor cost is the pack divided by the count.
 const SIGN_PACK_VENDOR_CENTS = Object.freeze({ 50: 24900, 100: 39500 });
 const SOON_VENDOR_CENTS = Object.freeze({ 'door-hanger': 140 });
@@ -89,6 +95,7 @@ const BASIS = Object.freeze({
   postcard: line('mail', postcardDefault.vendorCostCents, MAIL_MARKUP_RATE, MAIL_PROVIDER),
   letter: line('mail', letterDefault.vendorCostCents, MAIL_MARKUP_RATE, MAIL_PROVIDER),
   handwritten: line('mail', HANDWRITTEN_VENDOR_CENTS.notecard, MAIL_MARKUP_RATE, THANKS_PROVIDER),
+  'yellow-letter': line('mail', mailPrice(YELLOW_LETTER_USD).vendorCostCents, MAIL_MARKUP_RATE, THANKS_PROVIDER),
   'jumbo-postcard': line('mail', mailPrice(JUMBO_POSTCARD_6X11_USD).vendorCostCents, MAIL_MARKUP_RATE, MAIL_PROVIDER),
   'offer-letter': line('mail', mailPrice(OFFER_LETTER_COLOR_USD).vendorCostCents, MAIL_MARKUP_RATE, MAIL_PROVIDER),
   'door-hanger': line('print', SOON_VENDOR_CENTS['door-hanger'], PRINT_MARKUP_RATE, PRINT_VENDOR),
@@ -192,7 +199,8 @@ function stylePick(channelId, styles) {
   const chosen = spec.choices.some(function (row) { return row.id === raw[spec.field]; }) ? raw[spec.field] : spec.default;
   const choice = spec.choices.filter(function (row) { return row.id === chosen; })[0] || spec.choices[0];
   const hand = spec.hands && spec.hands.some(function (row) { return row.id === raw.hand; }) ? raw.hand : (spec.handDefault || '');
-  return { id: choice.id, label: choice.label, hand: hand, spec: spec };
+  const handRow = spec.hands && spec.hands.filter(function (row) { return row.id === hand; })[0];
+  return { id: choice.id, label: choice.label, hand: hand, handLabel: handRow ? handRow.label : '', spec: spec };
 }
 
 function signUnit(pack, printRate) {
@@ -251,7 +259,7 @@ function quoteOrder(channels, quantity, env, prints, styles) {
     const print = basis.medium === 'print';
     const printed = catalog.printSpec(key);
     const soonPrint = !!(printed && printed.comingSoon);
-    const note = key === 'handwritten';
+    const note = key === 'handwritten' || key === 'yellow-letter';
     let unitVendor = basis.vendorCostCents;
     let unitStudent = Math.round(unitVendor * (1 + (print ? printRate : MAIL_MARKUP_RATE)));
     let count = 0;
@@ -286,8 +294,14 @@ function quoteOrder(channels, quantity, env, prints, styles) {
       orderable = true;
       kind = 'mail';
     } else if (note) {
-      unitVendor = HANDWRITTEN_VENDOR_CENTS[picked.id];
-      unitStudent = Math.round(unitVendor * (1 + MAIL_MARKUP_RATE));
+      if (key === 'yellow-letter') {
+        const price = mailPrice(YELLOW_LETTER_USD);
+        unitVendor = price.vendorCostCents;
+        unitStudent = price.studentPriceCents;
+      } else {
+        unitVendor = HANDWRITTEN_VENDOR_CENTS[picked.id] || HANDWRITTEN_VENDOR_CENTS.notecard;
+        unitStudent = Math.round(unitVendor * (1 + MAIL_MARKUP_RATE));
+      }
       orderable = handwrittenReady(env);
       count = orderable ? leadCount : 0;
       kind = 'mail';
@@ -322,6 +336,7 @@ function quoteOrder(channels, quantity, env, prints, styles) {
       styleId: picked.id,
       styleLabel: picked.label,
       handStyle: picked.hand,
+      handLabel: picked.handLabel || '',
       unitVendorCostCents: unitVendor,
       unitStudentPriceCents: unitStudent,
       vendorCostCents: vendorCost,
@@ -359,6 +374,8 @@ function publicQuote(line) {
     priced: row.priced,
     styleId: row.styleId || '',
     styleLabel: row.styleLabel || '',
+    handStyle: row.handStyle || '',
+    handLabel: row.handLabel || '',
     vendorCostCents: row.vendorCostCents,
     markupCents: row.markupCents,
     markupRate: row.markupRate,
@@ -379,21 +396,26 @@ function publicMenu(env) {
       return { id: id, label: labels[id], studentPriceCents: Math.round(table[id] * (1 + MAIL_MARKUP_RATE)) };
     });
   }
+  const ready = handwrittenReady(env);
   const soonIds = ['door-hanger'];
-  if (!handwrittenReady(env)) soonIds.push('handwritten');
+  if (!ready) soonIds.push('handwritten', 'yellow-letter');
+  const yellowPrice = mailPrice(YELLOW_LETTER_USD).studentPriceCents;
   return {
     postcard: rowsFromUsd(POSTCARD_COSTS_USD, { '4x6': '4 × 6', '6x9': '6 × 9', '6x11': '6 × 11' }),
     letter: rowsFromUsd(LETTER_COSTS_USD, { bw: 'Black and white', color: 'Color' }),
     'jumbo-postcard': [{ id: '6x11', label: '6 × 11', studentPriceCents: mailPrice(JUMBO_POSTCARD_6X11_USD).studentPriceCents }],
     'offer-letter': [{ id: 'color', label: 'Color', studentPriceCents: mailPrice(OFFER_LETTER_COLOR_USD).studentPriceCents }],
     handwritten: rowsFromCents(HANDWRITTEN_VENDOR_CENTS, { notecard: 'Folded notecard', '4x6': '4 × 6 postcard', '6x9': '6 × 9 postcard' }),
+    'yellow-letter': [{ id: 'lined', label: 'Yellow lined', studentPriceCents: yellowPrice }],
     signs: [],
     comingSoon: soonIds.map(function (id) {
+      if (id === 'yellow-letter') return { id: id, studentPriceCents: yellowPrice, pack: 0 };
       const cents = SOON_VENDOR_CENTS[id] || HANDWRITTEN_VENDOR_CENTS.notecard;
       const rate = id === 'handwritten' ? MAIL_MARKUP_RATE : printRate;
       return { id: id, studentPriceCents: Math.round(cents * (1 + rate)), pack: id === 'handwritten' ? 0 : 50 };
     }),
-    handwrittenOrderable: handwrittenReady(env),
+    handwrittenOrderable: ready,
+    yellowLetterOrderable: ready,
   };
 }
 
@@ -413,6 +435,7 @@ module.exports = {
   JUMBO_POSTCARD_6X11_USD: JUMBO_POSTCARD_6X11_USD,
   OFFER_LETTER_COLOR_USD: OFFER_LETTER_COLOR_USD,
   HANDWRITTEN_VENDOR_CENTS: HANDWRITTEN_VENDOR_CENTS,
+  YELLOW_LETTER_USD: YELLOW_LETTER_USD,
   SIGN_PACK_VENDOR_CENTS: SIGN_PACK_VENDOR_CENTS,
   publishedCents: publishedCents,
   mailPrice: mailPrice,

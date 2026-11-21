@@ -38,10 +38,10 @@
   const CHANNELS = [
     { id: 'postcard', name: 'Postcard', description: 'Mailed First Class. Choose 4 × 6, 6 × 9, or 6 × 11. A QR code tracks scans.', group: 'fulfill', medium: 'mail', residential: true, commercial: true },
     { id: 'letter', name: 'Letter', description: 'One page, First Class, in a #10 double-window envelope. Choose color or black and white.', group: 'fulfill', medium: 'mail', residential: true, commercial: true },
-    { id: 'handwritten', name: 'Handwritten note', description: 'A folded notecard with a real stamp and a handwritten envelope, or a handwritten postcard. Pick the handwriting. Coming soon.', group: 'fulfill', medium: 'mail', residential: true, commercial: true },
+    { id: 'handwritten', name: 'Handwritten note', description: 'A folded notecard with a real stamp and a handwritten envelope. Pick the handwriting.', group: 'fulfill', medium: 'mail', residential: true, commercial: true },
     { id: 'door-hanger', name: 'Door hanger', description: 'Coming soon. A 50-pack reference price is shown. Not mailed to a property. Residential only.', group: 'fulfill', medium: 'print', residential: true, commercial: false },
     { id: 'yard-sign', name: 'Yard sign', description: '18 × 24 on a wire step-in stake. Cash offer, any condition, or sold. Coming soon. Not sent to a property. Residential only.', group: 'fulfill', medium: 'print', residential: true, commercial: false, comingSoon: true, selectable: false },
-    { id: 'yellow-letter', name: 'Yellow letter', description: 'Letter size with a handwritten look on yellow paper. Coming soon. Not mailed yet.', group: 'fulfill', medium: 'mail', residential: true, commercial: true, comingSoon: true },
+    { id: 'yellow-letter', name: 'Yellow letter', description: 'A handwritten letter on yellow lined paper, mailed in an envelope. Pick the handwriting.', group: 'fulfill', medium: 'mail', residential: true, commercial: true },
     { id: 'jumbo-postcard', name: 'Jumbo postcard', description: 'A 6 × 11 postcard, mailed First Class. One per property.', group: 'fulfill', medium: 'mail', residential: true, commercial: true },
     { id: 'offer-letter', name: 'Offer letter', description: 'A one-page offer in a #10 envelope, printed in color and mailed First Class. It invites a conversation. It is not a binding offer.', group: 'fulfill', medium: 'mail', residential: true, commercial: true },
     { id: 'skip-trace', name: 'Skip trace', description: 'Adds phones and emails to a list. Not available in this step.', group: 'fulfill', medium: 'data', price: '$0.20 per contact', residential: true, commercial: true, copy: false },
@@ -71,6 +71,16 @@
     'door-hanger': spec([50], [['4.25x11', '4.25 × 11']], true),
   });
 
+  // Everyday Thanks.io hands, chosen from the public sample images.
+  // Shopping List is the default: casual cursive, not a formal script.
+  const HAND_CHOICES = [
+    ['shopping-list', 'Shopping List'],
+    ['normal-print', 'Normal Print'],
+    ['lazy-note', 'Lazy Note'],
+    ['blurred-lines', 'Blurred Lines'],
+    ['that-dude', 'That Dude'],
+  ];
+
   const PIECE_STYLES = Object.freeze({
     postcard: styleSpec('size', '4x6', [
       ['4x6', '4 × 6'],
@@ -92,13 +102,15 @@
       ['4x6', '4 × 6 postcard'],
       ['6x9', '6 × 9 postcard'],
     ], {
-      comingSoon: true,
-      hands: [
-        ['hi-clarice', 'Hi Clarice'],
-        ['shopping-list', 'Shopping List'],
-        ['normal-print', 'Normal Print'],
-      ],
-      handDefault: 'hi-clarice',
+      hands: HAND_CHOICES,
+      handDefault: 'shopping-list',
+      ink: 'blue',
+    }),
+    'yellow-letter': styleSpec('paper', 'lined', [
+      ['lined', 'Yellow lined'],
+    ], {
+      hands: HAND_CHOICES,
+      handDefault: 'shopping-list',
       ink: 'blue',
     }),
   });
@@ -139,7 +151,7 @@
   }
 
   const ANGLES = [
-    { id: 'cash', label: 'Cash Offer', residential: true, commercial: true, kicker: 'CASH OFFER', headline: ['CASH', 'OFFER'], card: 'Cash offer. As-is.', opener: 'A cash offer, as-is, with no repairs and no agent fees.', alt: 'A simple cash sale, with no repairs and no agent fees.', guard: 'Do not promise a price.', mailHeadline: 'A cash offer. As-is.', mailSub: 'No repairs. No agent fees. You choose the date.', bullets: ['Cash, as-is', 'No repairs first', 'You pick the date'], paragraphs: ["I'm looking to buy a home in your neighborhood, and I can make the next step simple.", 'If you want a cash offer as-is, with no repairs and no agent fees, I am ready to talk.', 'I will not name a price in a letter. A short call is enough to see if a sale makes sense.', 'If now is not the time, set this aside. There is no cost to talk.'], ps: 'P.S. Call or text when you want a straightforward conversation.' },
+    { id: 'cash', label: 'Cash Offer', residential: true, commercial: true, kicker: 'CASH OFFER', headline: ['CASH', 'OFFER'], card: 'Cash offer. As-is.', opener: 'A cash offer, as-is, with no repairs and no agent fees.', alt: 'A simple cash sale, with no repairs and no agent fees.', guard: 'Do not promise a price.', mailHeadline: 'A cash offer. As-is.', mailSub: 'No repairs. No agent fees. You choose the date.', bullets: ['Cash, as-is', 'No repairs first', 'You pick the date'], paragraphs: ["I'm looking to buy a home in your neighborhood, and I can make the next step simple.", 'If you want a cash offer as-is, with no repairs and no agent fees, I am ready to talk.', 'A short call is enough to see if a sale makes sense.', 'If now is not the time, set this aside. There is no cost to talk.'], ps: 'P.S. Call or text when you want a straightforward conversation.' },
     { id: 'prefore', label: 'Behind on Payments / Pre-foreclosure', residential: true, commercial: true, kicker: 'OPTIONS', headline: ['BEHIND?', 'OPTIONS'], card: 'A private option.', opener: 'If the payments have gotten hard, there may be a private option.', alt: 'I can talk through options. I will not pretend to know your file.', guard: 'Do not say you know they are behind or in foreclosure.', mailHeadline: 'A private option.', mailSub: 'If the payments have gotten hard, there may be another path.', bullets: ['A private talk', 'As-is sale', 'No listing'], paragraphs: ['If the payments have gotten hard, there may be a private option.', 'I buy houses as-is. I will not pretend to know your file, and this is not a notice.', 'A conversation can cover a simple sale, with no repairs and no showings.', 'There is no cost to talk, and you can say no.'], ps: 'P.S. This is an invitation to talk, not a statement about your mortgage.' },
     { id: 'probate', label: 'Inherited / Probate', residential: true, commercial: true, kicker: 'INHERITED', headline: ['INHERITED?', 'WE HELP'], card: 'A simple way to sell.', opener: 'If you inherited a property and want a simple way to sell, I can help.', alt: 'No clean-out required before a conversation.', guard: 'Do not say you know they inherited it.', mailHeadline: 'A simple way to sell.', mailSub: 'If you inherited a property, you do not have to handle it alone.', bullets: ['No clean-out first', 'As-is', 'Your timeline'], paragraphs: ['If you inherited a property and want a simple way to sell, I can help.', 'I buy as-is. No clean-out is required before a conversation.', 'I do not assume how the property came to you. If a sale would help, we can talk.', 'If you would rather keep it, that is fine too.'], ps: 'P.S. One call is enough to see whether a sale would help.' },
     { id: 'landlord', label: 'Tired Landlord', residential: true, commercial: true, kicker: 'TIRED?', headline: ['TIRED', 'LANDLORD'], card: 'Sell the rental as-is.', opener: 'If the rentals are more work than they are worth, I buy as-is.', alt: 'No showings and no repairs before we talk.', guard: 'Do not claim you know their rents.', mailHeadline: 'Sell the rental as-is.', mailSub: 'If the rentals are more work than they are worth, there is a direct buyer.', bullets: ['No showings', 'No repairs', 'As-is'], paragraphs: ['If the rentals are more work than they are worth, I buy as-is.', 'No showings and no repairs are required before we talk.', 'I will not guess your rents. A direct conversation is enough.', 'You choose whether a sale makes sense.'], ps: 'P.S. I buy the property. I am not asking to manage it.' },
@@ -220,13 +232,13 @@
   }
 
   function designOrderable(id) {
-    if (id === 'bandit' || id === 'yard-sign' || id === 'yellow-letter') return false;
+    if (id === 'bandit' || id === 'yard-sign') return false;
     return true;
   }
 
   function priceMode(id, design) {
     const row = normalizeDesign(id, design);
-    if (id === 'bandit' || id === 'yard-sign' || id === 'yellow-letter') return 'soon';
+    if (id === 'bandit' || id === 'yard-sign') return 'soon';
     if (id === 'letter' && row.envelope === 'plain') return 'soon';
     if (id === 'door-hanger') return row.hangerSize === '4.25x11' ? 'reference' : 'soon';
     return 'priced';
@@ -252,7 +264,7 @@
       design: design,
       template: templateById(id, design.template),
       swatch: !!design.swatch,
-      hand: more.hand || 'hi-clarice',
+      hand: more.hand || 'shopping-list',
       angle: angle,
       brand: more.brand || {},
       commercial: more.propertyClass === 'commercial',
@@ -472,6 +484,14 @@
     } else if (channel.id === 'offer-letter') {
       a = 'Property: ' + where + '\n\nDear ' + owner + ',\n\nI would like to talk about a simple as-is sale of ' + where + '. This is an invitation to discuss, and it is not a binding offer. There is no cost to talk.\n\n' + name + '\n' + phone;
       b = 'Property: ' + where + '\n\nDear ' + owner + ',\n\nIf you want to hear what a sale of ' + where + ' could look like, I am glad to talk. This is not a binding offer, and you can say no.\n\n' + name + '\n' + phone;
+    } else if (channel.id === 'handwritten' || channel.id === 'yellow-letter') {
+      const ownerFirst = String(owner || 'there').trim().split(/\s+/)[0] || 'there';
+      const mine = String(name || 'Sam').trim().split(/\s+/)[0] || 'Sam';
+      const talk = commercial
+        ? "I'm looking at a property in your area."
+        : "I'm looking to buy a home in your neighborhood.";
+      a = 'Hi ' + ownerFirst + ',\n\n' + talk + '\nNo repairs and no agent fees.\nA short call is enough.\n\n' + mine + '\n' + phone;
+      b = 'Hi ' + ownerFirst + ',\n\nIf ' + where + ' is more than you want to keep, I can keep this simple.\nAs-is. Your timeline.\n\n' + mine + '\n' + phone;
     } else if (channel.id === 'yard-sign') {
       a = 'CASH OFFER\nANY CONDITION\n' + phone;
       b = 'SELL FAST\nNO REPAIRS · NO FEES\n' + phone;
@@ -499,7 +519,7 @@
       b = 'Hi ' + owner + ', I am ' + name + '. ' + (commercial ? "I'm looking to buy a property in your area" : "I'm looking to buy a home in your neighborhood") + ' and I can make the sale of ' + where + ' simple: as-is, no showings, and a closing date you choose. If you would rather not sell, no problem. ' + phone + '.';
     }
     const angle = angleById(context.angle, commercial ? 'commercial' : 'residential');
-    if (angle) {
+    if (angle && channel.id !== 'handwritten' && channel.id !== 'yellow-letter') {
       a = angle.opener + '\n' + a;
       b = angle.alt + '\n' + b;
     }

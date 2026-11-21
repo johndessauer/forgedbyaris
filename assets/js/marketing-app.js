@@ -311,7 +311,7 @@
     var options = opts || {};
     if (!channel || channel.copy === false || channel.comingSoon) return { text: 'Coming soon', cls: 'is-soon' };
     var printed = loadCatalog().printSpec(channel.id);
-    var noteSoon = channel.id === 'handwritten' && !options.handwrittenOrderable;
+    var noteSoon = (channel.id === 'handwritten' || channel.id === 'yellow-letter') && !options.handwrittenOrderable;
     if (noteSoon || (printed && printed.comingSoon)) return { text: 'Coming soon', cls: 'is-soon' };
     if (channel.medium === 'print') return { text: 'Ship to me', cls: 'is-ship' };
     if (channel.group === 'fulfill') return { text: 'We mail it', cls: 'is-mail' };
@@ -464,6 +464,7 @@
         ? inkNote + ' A folded notecard uses a real stamp and a handwritten envelope.'
         : inkNote + ' The message is handwritten on the postcard.';
     }
+    if (channel.id === 'yellow-letter') return 'Handwriting does not change this test price. The letter is on yellow lined paper, in an envelope.';
     if (channel.id === 'door-hanger') return 'Finish does not change this reference price. Not mailed to a property.';
     return '';
   }
@@ -518,8 +519,10 @@
     var thumb = '<button type="button" class="mkt-thumb" data-action="zoom-preview" data-id="' + esc(channel.id) + '" aria-label="Enlarge ' + esc(channel.name) + ' preview">' + preview + '</button>';
     var fields = '';
     if (picked && picked.spec) {
-      var fieldLabel = picked.spec.field === 'size' ? 'Size' : (picked.spec.field === 'finish' ? 'Print' : 'Style');
-      fields += styleSelect(fieldLabel, 'data-style="' + esc(channel.id) + '" data-style-field="' + esc(picked.spec.field) + '"', picked.spec.choices, picked.choiceId);
+      var fieldLabel = picked.spec.field === 'size' ? 'Size' : (picked.spec.field === 'finish' ? 'Print' : (picked.spec.field === 'paper' ? 'Paper' : 'Style'));
+      if (picked.spec.choices.length > 1) {
+        fields += styleSelect(fieldLabel, 'data-style="' + esc(channel.id) + '" data-style-field="' + esc(picked.spec.field) + '"', picked.spec.choices, picked.choiceId);
+      }
       if (picked.spec.hands && picked.spec.hands.length) {
         fields += styleSelect('Handwriting', 'data-style="' + esc(channel.id) + '" data-style-field="hand"', picked.spec.hands, picked.hand);
       }
@@ -529,7 +532,7 @@
           { id: 'plain', label: 'Plain' },
         ], design.envelope);
       }
-      if (channel.id === 'handwritten') {
+      if (channel.id === 'handwritten' || channel.id === 'yellow-letter') {
         fields += designSelect('Ink', channel.id, 'ink', [
           { id: 'blue', label: 'Blue' },
           { id: 'black', label: 'Black' },
@@ -608,7 +611,7 @@
         return renderPiece(channel, {
           propertyClass: state.propertyClass,
           selected: !!state.selected[channel.id],
-          handwrittenOrderable: !!(state.menu && state.menu.handwrittenOrderable),
+          handwrittenOrderable: !!(state.menu && (state.menu.handwrittenOrderable || state.menu.yellowLetterOrderable)),
           inside: (state.selected[channel.id] || channel.selectable === false) ? styleBlock(state, channel) : '',
         });
       }).join('');
@@ -653,6 +656,7 @@
       var channel = catalog.channelById(line.channelId);
       var name = catalog.displayName(channel, state.propertyClass) || line.channelId;
       if (line.styleLabel) name += ' · ' + line.styleLabel;
+      if (line.handLabel) name += ' · ' + line.handLabel;
       var charged = kind === 'print' ? line.quantity > 0 : !!line.mailed;
       var total = line.comingSoon ? 'Coming soon' : (charged ? money(line.studentPriceCents) : 'Not charged in this test');
       var count = charged ? line.quantity : '—';
@@ -853,7 +857,7 @@
   }
 
   function isMailable(id) {
-    return id === 'postcard' || id === 'letter' || id === 'jumbo-postcard' || id === 'offer-letter' || id === 'handwritten';
+    return id === 'postcard' || id === 'letter' || id === 'jumbo-postcard' || id === 'offer-letter' || id === 'handwritten' || id === 'yellow-letter';
   }
 
   function approvedMailIds(state) {
@@ -956,6 +960,22 @@
     var body = withoutDisclosure(piece ? piece.variantA : '', disclosure);
     var sample = !state.leads.length || lead.sample;
     var name = catalog.displayName(channel, state.propertyClass);
+    if (channel.id === 'handwritten' || channel.id === 'yellow-letter') {
+      var pickedHand = styleChoice(state, channel);
+      var handName = '';
+      if (pickedHand && pickedHand.spec && pickedHand.spec.hands) {
+        pickedHand.spec.hands.forEach(function (row) {
+          if (row.id === pickedHand.hand) handName = row.label;
+        });
+      }
+      return '<div class="mkt-preview">' +
+        '<div class="mkt-kicker">Preview</div>' +
+        '<h2>' + esc(name) + '</h2>' +
+        (handName ? '<p class="mkt-note">Handwriting: ' + esc(handName) + '</p>' : '') +
+        previewSvg(state, channel) +
+        '<small>' + esc(disclosure) + '</small>' +
+        '</div>';
+    }
     var logoUrl = state.logoUrls && brand.id ? state.logoUrls[brand.id] : '';
     var showLogo = channel.id !== 'handwritten' && (logoUrl || brand.logo);
     var logoHtml = '';
@@ -1311,6 +1331,7 @@
       var current = styleValue(state, styleId);
       current[field] = target.value;
       state.styles[styleId] = current;
+      if (field === 'hand') state.previewId = styleId;
       if (state.step >= 5) loadCost(state).then(function () { paint(state); });
       else paint(state);
       return;
@@ -1746,13 +1767,19 @@
         approved: !!state.approved[state.propertyClass + ':' + id],
       };
     });
+    var notesReady = !!(state.menu && state.menu.handwrittenOrderable);
     var mailIds = approvedMailIds(state).filter(function (id) {
-      return id !== 'handwritten' || (state.menu && state.menu.handwrittenOrderable);
+      return (id !== 'handwritten' && id !== 'yellow-letter') || notesReady;
     });
     if (!mailIds.length) {
-      state.message = approvedMailIds(state).indexOf('handwritten') !== -1
-        ? 'Handwritten notes are coming soon.'
-        : 'Approve a postcard or a letter before you confirm.';
+      var approved = approvedMailIds(state);
+      state.message = approved.indexOf('yellow-letter') !== -1 && approved.indexOf('handwritten') !== -1
+        ? 'Handwritten notes and yellow letters are coming soon.'
+        : (approved.indexOf('yellow-letter') !== -1
+          ? 'Yellow letters are coming soon.'
+          : (approved.indexOf('handwritten') !== -1
+            ? 'Handwritten notes are coming soon.'
+            : 'Approve a postcard or a letter before you confirm.'));
       paint(state);
       return;
     }
@@ -1763,6 +1790,7 @@
       pieces: pieces.filter(function (piece) { return mailIds.indexOf(piece.channel) !== -1; }),
       leads: state.leads || [],
       styles: state.styles || {},
+      designs: state.designs || {},
       brandId: state.brandId,
       idempotencyKey: state.confirmKey,
     });

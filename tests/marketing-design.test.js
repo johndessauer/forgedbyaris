@@ -82,7 +82,7 @@ test('unpriced sign choices are not given a made-up price and are not orderable'
   assert.equal(wide.includes('WE BUY HOUSES'), false);
   assert.equal(wide.includes('We buy houses'), false);
   assert.match(pieceCard(wide, 'Letter'), /Pricing coming soon/);
-  assert.match(pieceCard(wide, 'Yellow letter'), /Pricing coming soon/);
+  assert.match(pieceCard(wide, 'Yellow letter'), /\$3\.07 each/);
   assert.equal((pieceCard(wide, 'Yellow letter').match(/mkt-pill is-soon/g) || []).length, 1);
   assert.match(pieceCard(wide, 'Yellow letter'), /mkt-template/);
   assert.equal(wide.includes('Flyer'), false);
@@ -151,7 +151,8 @@ test('unpriced sign choices are not given a made-up price and are not orderable'
   const chosen = app.renderPicker(preview);
   const yellow = pieceCard(chosen, 'Yellow letter');
   assert.equal((yellow.match(/mkt-pill is-soon/g) || []).length, 1);
-  assert.match(yellow, /Pricing coming soon/);
+  assert.match(yellow, /\$3\.07 each/);
+  assert.match(yellow, /yellow-lined-paper\.webp/);
   const jumbo = pieceCard(chosen, 'Jumbo postcard');
   const offer = pieceCard(chosen, 'Offer letter');
   assert.match(jumbo, /We mail it/);

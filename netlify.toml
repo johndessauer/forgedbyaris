@@ -431,6 +431,12 @@
   status = 404
   force = true
 
+[[redirects]]
+  from = "/assets/marketing/stock/LICENSES.md"
+  to = "/404.html"
+  status = 404
+  force = true
+
 # /book is a 302 from netlify/edge-functions/book.js. A static redirect
 # cannot add utm_source, utm_content, and utm_medium without dropping or
 # overwriting the query string GHL needs for attribution.
