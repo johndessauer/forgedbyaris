@@ -30,7 +30,25 @@ test('style prices are vendor cost plus the approved markup', () => {
   assert.equal(soon.flyer, undefined);
   assert.equal(soon['business-card'], undefined);
   assert.equal(soon.handwritten, 365);
+  assert.equal(soon['yellow-letter'], 307);
   assert.equal(menu.handwrittenOrderable, false);
+  assert.equal(menu.yellowLetterOrderable, false);
+  const connected = pricing.publicMenu({ THANKSIO_API_KEY: 'tio_test_key' });
+  assert.equal(connected.handwrittenOrderable, true);
+  assert.equal(connected.yellowLetterOrderable, true);
+  assert.equal(connected.comingSoon.some(row => row.id === 'handwritten' || row.id === 'yellow-letter'), false);
+  assert.equal(connected['yellow-letter'][0].studentPriceCents, 307);
+  assert.equal(connected.comingSoon.some(row => row.id === 'door-hanger'), true);
+  const yellowQuote = pricing.quoteOrder(['yellow-letter', 'yard-sign'], 2, { THANKSIO_API_KEY: 'tio_test_key' });
+  const yellowLine = yellowQuote.lines.find(row => row.channelId === 'yellow-letter');
+  const yardLine = yellowQuote.lines.find(row => row.channelId === 'yard-sign');
+  assert.equal(yellowLine.unitVendorCostCents, 256);
+  assert.equal(yellowLine.unitStudentPriceCents, 307);
+  assert.equal(yellowLine.orderable, true);
+  assert.equal(yellowLine.quantity, 2);
+  assert.equal(yellowLine.vendorCostCents + yellowLine.markupCents, yellowLine.studentPriceCents);
+  assert.equal(yardLine.comingSoon, true);
+  assert.equal(yardLine.orderable, false);
   const body = JSON.stringify(menu).toLowerCase();
   assert.equal(body.includes('lob'), false);
   assert.equal(body.includes('thanks'), false);
@@ -57,14 +75,53 @@ test('a handwritten order is refused while the note service is not connected', a
   );
   assert.equal(built.path, '/send/notecard');
   assert.equal(built.body.realism_mode, true);
-  assert.equal(built.body.handwriting_style, 'Hi Clarice');
-  assert.equal(built.body.ink_color, 'blue');
+  assert.equal(built.body.handwriting_style_id, 1);
+  assert.equal(built.body.handwriting_color, 'blue');
   const calls = [];
   await assert.rejects(
-    () => thanks.sendNotes({ env: { THANKSIO_API_KEY: 'secret', MARKETING_LIVE_MAIL: 'true' }, fetch: async (url) => { calls.push(url); return { ok: false, json: async () => ({}) }; }, pieces: [{ channel: 'handwritten', variantA: 'Hi' }], leads: [], styles: {} }),
+    () => thanks.sendNotes({ env: { THANKSIO_API_KEY: 'secret' }, fetch: async (url) => { calls.push(url); return { ok: false, json: async () => ({}) }; }, pieces: [{ channel: 'handwritten', variantA: 'Hi' }], leads: [{ address: '210 King St', city: 'San Francisco', state: 'CA', zip: '94107' }], styles: {} }),
     /Handwritten notes are coming soon/
   );
-  assert.equal(calls[0], 'https://api.thanks.io/api/v2/send/notecard');
+  assert.equal(calls.length, 0);
+  const sent = [];
+  const mailed = await thanks.sendNotes({
+    env: { THANKSIO_API_KEY: 'tio_test_key' },
+    fetch: async (url, init) => {
+      sent.push({ url: url, method: init.method, body: init.body ? JSON.parse(init.body) : null });
+      return { ok: true, json: async () => ({ id: sent.length, order: { status: 'cancelled' } }) };
+    },
+    pieces: [{ channel: 'handwritten', variantA: 'Hi from the note' }, { channel: 'yellow-letter', variantA: 'Hi from the letter' }],
+    leads: [{ owner: 'Pat', address: '500 Mail St', city: 'Chicago', state: 'IL', zip: '60601' }],
+    styles: { handwritten: { product: 'notecard', hand: 'shopping-list' }, 'yellow-letter': { hand: 'normal-print', ink: 'black' } },
+    brand: { businessName: 'Sample Buys', phone: '555-0100', returnAddress: { line1: '1 Main St', city: 'Sampletown', state: 'ST', zip: '00000' } },
+    origin: 'https://forgedbyaris.com',
+  });
+  assert.equal(mailed.testMode, true);
+  assert.deepEqual(sent.map(row => row.method + ' ' + row.url), [
+    'POST https://api.thanks.io/api/v2/send/notecard',
+    'PUT https://api.thanks.io/api/v2/orders/1/cancel',
+    'POST https://api.thanks.io/api/v2/send/windowlessletter',
+    'PUT https://api.thanks.io/api/v2/orders/3/cancel',
+  ]);
+  assert.equal(sent[0].body.handwriting_style_id, 7);
+  assert.equal(sent[0].body.recipients[0].address, '500 Mail St');
+  assert.equal(sent[2].body.handwriting_style_id, 6);
+  assert.equal(sent[2].body.handwriting_color, 'black');
+  assert.equal(sent[2].body.front_image_url, 'https://forgedbyaris.com/assets/marketing/stock/yellow-lined-paper.jpg');
+  assert.equal(sent[2].body.return_name, 'Sample Buys');
+  const live = [];
+  await thanks.sendNotes({
+    env: { THANKSIO_API_KEY: 'tio_live_key', MARKETING_LIVE_MAIL: 'true' },
+    fetch: async (url, init) => {
+      live.push(init.method + ' ' + url);
+      return { ok: true, json: async () => ({ id: 9 }) };
+    },
+    pieces: [{ channel: 'handwritten', variantA: 'Hi' }],
+    leads: [{ address: '210 King St', city: 'San Francisco', state: 'CA', zip: '94107' }],
+    styles: { handwritten: { product: 'notecard', hand: 'hi-clarice' } },
+    brand: { businessName: 'Sample Buys', returnAddress: { line1: '1 Main St', city: 'Sampletown', state: 'ST', zip: '00000' } },
+  });
+  assert.deepEqual(live, ['POST https://api.thanks.io/api/v2/send/notecard']);
 
   const blob = storeLib.createMemoryBlobStore();
   await blob.setJSON('brands/mem_john.json', { brands: [{ id: 'brand_1', businessName: 'Sample Buys', phone: '555-0100', returnAddress: { line1: '1 Main St', city: 'Sampletown', state: 'ST', zip: '00000' } }] });
@@ -177,7 +234,14 @@ test('a handwritten order is refused while the note service is not connected', a
   assert.equal(colorLetter.includes(today), true);
   assert.equal(colorLetter.includes('March 4, 2026'), false);
   assert.equal(catalog.stylePreview('letter', 'bw').includes('#2f6f86'), false);
-  assert.match(catalog.stylePreview('handwritten', 'notecard', { hand: 'hi-clarice' }), /Great Vibes/);
+  const notePreview = catalog.stylePreview('handwritten', 'notecard', { hand: 'hi-clarice' });
+  assert.match(notePreview, /Great Vibes/);
+  assert.match(notePreview, /note-card-envelope\.webp/);
+  const yellowPreview = catalog.stylePreview('yellow-letter', 'lined', { hand: 'hi-clarice' });
+  assert.match(yellowPreview, /yellow-lined-paper\.webp/);
+  assert.match(yellowPreview, /Great Vibes/);
+  assert.match(yellowPreview, /data-face="letter"/);
+  assert.equal(/we buy houses/i.test(notePreview + yellowPreview), false);
   assert.match(catalog.stylePreview('handwritten', 'notecard', { hand: 'shopping-list' }), /Caveat/);
   assert.match(catalog.stylePreview('handwritten', 'notecard', { hand: 'normal-print' }), /Patrick Hand/);
   assert.notEqual(

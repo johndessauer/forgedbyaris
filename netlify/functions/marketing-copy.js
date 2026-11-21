@@ -32,7 +32,7 @@ function systemPrompt(propertyClass, angleId) {
     '- Do not put FORGE branding on the piece. Use only the student name, phone, and Brand Kit fields you are given.',
     '- The default disclosure, when a disclosure is provided, stays in the piece.',
     'Return only JSON with this shape: {"recommendation":"two sentences","copies":[{"channel":"postcard","variantA":"...","variantB":"..."}]}',
-    'Write two variants for each requested channel. Keep postcards and signs short. Keep letters to one page of plain language.',
+    'Write two variants for each requested channel. Keep postcards and signs short. Keep letters to one page of plain language. A handwritten note is a short folded notecard. A yellow letter is a one-page letter in the same voice as a letter, meant to be written by hand on yellow lined paper. Never write "We Buy Houses".',
     'An offer letter names the property address, invites a conversation about a non-binding offer, includes the words "not a binding offer", and closes with the student name and phone. Follow the selected angle. Do not promise a price.',
     'A jumbo postcard is a 6 by 11 postcard. Keep it short, with one headline and the student phone.',
     angleInstruction(propertyClass, angleId),

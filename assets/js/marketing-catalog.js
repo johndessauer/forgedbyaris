@@ -38,10 +38,10 @@
   const CHANNELS = [
     { id: 'postcard', name: 'Postcard', description: 'Mailed First Class. Choose 4 × 6, 6 × 9, or 6 × 11. A QR code tracks scans.', group: 'fulfill', medium: 'mail', residential: true, commercial: true },
     { id: 'letter', name: 'Letter', description: 'One page, First Class, in a #10 double-window envelope. Choose color or black and white.', group: 'fulfill', medium: 'mail', residential: true, commercial: true },
-    { id: 'handwritten', name: 'Handwritten note', description: 'A folded notecard with a real stamp and a handwritten envelope, or a handwritten postcard. Pick the handwriting. Coming soon.', group: 'fulfill', medium: 'mail', residential: true, commercial: true },
+    { id: 'handwritten', name: 'Handwritten note', description: 'A folded notecard with a real stamp and a handwritten envelope. Pick the handwriting.', group: 'fulfill', medium: 'mail', residential: true, commercial: true },
     { id: 'door-hanger', name: 'Door hanger', description: 'Coming soon. A 50-pack reference price is shown. Not mailed to a property. Residential only.', group: 'fulfill', medium: 'print', residential: true, commercial: false },
     { id: 'yard-sign', name: 'Yard sign', description: '18 × 24 on a wire step-in stake. Cash offer, any condition, or sold. Coming soon. Not sent to a property. Residential only.', group: 'fulfill', medium: 'print', residential: true, commercial: false, comingSoon: true, selectable: false },
-    { id: 'yellow-letter', name: 'Yellow letter', description: 'Letter size with a handwritten look on yellow paper. Coming soon. Not mailed yet.', group: 'fulfill', medium: 'mail', residential: true, commercial: true, comingSoon: true },
+    { id: 'yellow-letter', name: 'Yellow letter', description: 'A handwritten letter on yellow lined paper, mailed in an envelope. Pick the handwriting.', group: 'fulfill', medium: 'mail', residential: true, commercial: true },
     { id: 'jumbo-postcard', name: 'Jumbo postcard', description: 'A 6 × 11 postcard, mailed First Class. One per property.', group: 'fulfill', medium: 'mail', residential: true, commercial: true },
     { id: 'offer-letter', name: 'Offer letter', description: 'A one-page offer in a #10 envelope, printed in color and mailed First Class. It invites a conversation. It is not a binding offer.', group: 'fulfill', medium: 'mail', residential: true, commercial: true },
     { id: 'skip-trace', name: 'Skip trace', description: 'Adds phones and emails to a list. Not available in this step.', group: 'fulfill', medium: 'data', price: '$0.20 per contact', residential: true, commercial: true, copy: false },
@@ -92,7 +92,17 @@
       ['4x6', '4 × 6 postcard'],
       ['6x9', '6 × 9 postcard'],
     ], {
-      comingSoon: true,
+      hands: [
+        ['hi-clarice', 'Hi Clarice'],
+        ['shopping-list', 'Shopping List'],
+        ['normal-print', 'Normal Print'],
+      ],
+      handDefault: 'hi-clarice',
+      ink: 'blue',
+    }),
+    'yellow-letter': styleSpec('paper', 'lined', [
+      ['lined', 'Yellow lined'],
+    ], {
       hands: [
         ['hi-clarice', 'Hi Clarice'],
         ['shopping-list', 'Shopping List'],
@@ -220,13 +230,13 @@
   }
 
   function designOrderable(id) {
-    if (id === 'bandit' || id === 'yard-sign' || id === 'yellow-letter') return false;
+    if (id === 'bandit' || id === 'yard-sign') return false;
     return true;
   }
 
   function priceMode(id, design) {
     const row = normalizeDesign(id, design);
-    if (id === 'bandit' || id === 'yard-sign' || id === 'yellow-letter') return 'soon';
+    if (id === 'bandit' || id === 'yard-sign') return 'soon';
     if (id === 'letter' && row.envelope === 'plain') return 'soon';
     if (id === 'door-hanger') return row.hangerSize === '4.25x11' ? 'reference' : 'soon';
     return 'priced';

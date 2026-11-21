@@ -166,6 +166,8 @@
     return svgWrap(x - gap + pad, pad + labelH + maxH + pad, '<rect width="100%" height="100%" fill="#e7e1d6"/>' + body);
   }
 
+  const NOTE_PHOTO = '/assets/marketing/stock/note-card-envelope.webp';
+  const YELLOW_PAPER = '/assets/marketing/stock/yellow-lined-paper.webp';
   const HOUSE_PHOTOS = [
     '/assets/marketing/stock/house-two-story.webp',
     '/assets/marketing/stock/house-bungalow.webp',
@@ -431,31 +433,36 @@
     return { name: 'letter', label: 'LETTER', w: w, h: h, inner: inner };
   }
 
+  function photoFill(src, w, h, id) {
+    const clip = 'stock-' + id;
+    return '<defs><clipPath id="' + clip + '"><rect width="' + n(w) + '" height="' + n(h) + '" rx="2"/></clipPath></defs>' +
+      '<g clip-path="url(#' + clip + ')">' +
+      '<image href="' + esc(src) + '" x="0" y="0" width="' + n(w) + '" height="' + n(h) + '" preserveAspectRatio="xMidYMid slice"/>' +
+      '</g>';
+  }
+
+  function photoPanel(src, label, w, h) {
+    return { name: 'photo', label: label, w: w, h: h, inner: shadow(w, h, 3) + photoFill(src, w, h, label) };
+  }
+
   function yellowPage(look, copy, hand, ink) {
     const w = 8.5 * INCH;
     const h = 11 * INCH;
     const font = look.layout === 'bold' ? HAND['shopping-list'] : (look.layout === 'minimal' ? HAND['normal-print'] : (HAND[hand] || HAND['hi-clarice']));
-    const color = ink === 'black' ? '#1c2430' : (look.layout === 'bold' ? '#1a1a1a' : '#1d4e89');
-    const pad = look.layout === 'minimal' ? 72 : 42;
-    const paper = look.layout === 'friendly' ? '#ffe9a8' : '#ffe56a';
-    let inner = shadow(w, h, 1) + sheet(w, h, paper, '#e2c84a', 1);
-    if (look.layout === 'bold') inner += '<rect width="' + n(w) + '" height="28" fill="#1a1a1a"/>' + T(copy.kicker, w / 2, 20, 14, '#ffe56a', SANS, 800, 'middle', '1.4');
-    if (look.layout === 'friendly') inner += '<rect x="18" y="18" width="' + n(w - 36) + '" height="' + n(h - 36) + '" fill="none" stroke="#c4784a" stroke-width="1.4" rx="10"/>';
-    if (look.layout === 'photo') {
-      inner += '<g transform="translate(' + n(pad) + ' 36)">' + house(160, 100, look, 'yellow') + '</g>';
-    }
-    const headSize = look.layout === 'bold' ? 28 : (look.layout === 'minimal' ? 20 : 22);
-    const head = lines(copy.headline, pad, look.layout === 'photo' ? 160 : 78, w - pad * 2, headSize, color, font, 500, 2, 1.2);
+    const color = ink === 'black' ? '#1c2430' : '#1d4e89';
+    const pad = w * 0.18;
+    let inner = shadow(w, h, 1) + photoFill(YELLOW_PAPER, w, h, 'yellow');
+    const head = lines(copy.headline, pad, 72, w - pad - 28, 22, color, font, 500, 2, 1.2);
     inner += head.svg;
-    let y = (look.layout === 'photo' ? 160 : 78) + head.height + 18;
+    let y = 72 + head.height + 16;
     copy.paragraphs.forEach(function (paragraph) {
       if (y > h - 90) return;
-      const block = lines(paragraph, pad, y, w - pad * 2, 16, color, font, 400, 3, 1.4);
+      const block = lines(paragraph, pad, y, w - pad - 28, 16, color, font, 400, 3, 1.45);
       if (y + block.height > h - 70) return;
       inner += block.svg;
-      y += block.height + 14;
+      y += block.height + 12;
     });
-    if (y < h - 36) inner += T(look.who.phone, pad, y + 28, 22, color, font, 500);
+    if (y < h - 36) inner += T(look.who.phone, pad, Math.min(y + 28, h - 36), 20, color, font, 500);
     return { name: 'letter', label: 'LETTER', w: w, h: h, inner: inner };
   }
 
@@ -647,6 +654,7 @@
     if (id === 'handwritten' && input.choice !== '4x6' && input.choice !== '6x9') {
       return compose([
         noteCard(look, copy, input.hand, design.ink),
+        photoPanel(NOTE_PHOTO, 'NOTE', 5.5 * INCH, 4.25 * INCH),
         noteEnvelope(look),
       ], swatch);
     }
