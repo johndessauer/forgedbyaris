@@ -48,7 +48,7 @@
     { id: 'phone-scrub', name: 'Phone scrub', description: 'List-cleaning flags only. You still decide who to call, and you stay responsible.', group: 'fulfill', medium: 'data', price: '$0.02 per number', residential: true, commercial: true, copy: false },
     { id: 'list-pull', name: 'List pull', description: 'Pulls a list such as absentee or pre-foreclosure. Not available in this step.', group: 'fulfill', medium: 'data', price: '$0.05 per record', residential: true, commercial: true, copy: false },
     { id: 'call', name: 'Call script', description: 'ARIS writes your opening, voicemail, and objection answers. You dial from your own phone.', group: 'copy', medium: 'copy', price: 'Included, no charge', residential: true, commercial: true, attest: true },
-    { id: 'door-knock', name: 'Door-knock script', description: 'A short script plus safety and etiquette tips. Residential only. You knock yourself.', group: 'copy', medium: 'copy', price: 'Included, no charge', residential: true, commercial: false },
+    { id: 'door-knock', name: 'Door-knock script', description: 'A short script plus safety and etiquette tips. You knock yourself.', commercialName: 'Door-knock script', commercialDescription: 'A short in-person script for the property manager, not the owner. You knock yourself.', group: 'copy', medium: 'copy', price: 'Included, no charge', residential: true, commercial: true },
     { id: 'email', name: 'Email sequence', description: 'A 3-email follow-up written for you. You send it from your own email platform.', group: 'copy', medium: 'copy', price: 'Included, no charge', residential: true, commercial: true },
     { id: 'text', name: 'Text message', description: 'Short messages for contacts who opted in or responded. No cold-text templates.', group: 'copy', medium: 'copy', price: 'Included, no charge', residential: true, commercial: true, attest: true },
     { id: 'social', name: 'Social post', description: 'Posts, local seller notes, and replies you post under your own account.', group: 'copy', medium: 'copy', price: 'Included, no charge', residential: true, commercial: true },
@@ -374,7 +374,7 @@
     const commercial = opts.propertyClass === 'commercial';
     const goal = String(opts.goal || 'sellers');
     const ids = commercial
-      ? ['letter', 'call', 'networking', 'social']
+      ? ['letter', 'call', 'door-knock', 'networking', 'social']
       : ['postcard', 'handwritten', 'door-knock', 'letter'];
     if (goal === 'buyers') ids.push('email', 'seller-page');
     if (goal === 'followup') ids.push('email');
@@ -390,7 +390,7 @@
 
   function recommendationText(propertyClass, testMode) {
     if (propertyClass === 'commercial') {
-      return 'For a commercial list I would start with a formal letter, a call script for the decision maker, and networking. Yard signs and door hangers are not offered on commercial marketing. Cadence stays slower, with more value in each touch.';
+      return 'For a commercial list I would start with a formal letter, a call script for the decision maker, a door-knock script for the property manager, and networking. Yard signs and door hangers are not offered on commercial marketing. Cadence stays slower, with more value in each touch.';
     }
     const mailLine = testMode === false
       ? ' Mail from FORGE is printed and sent.'
@@ -482,8 +482,13 @@
         : 'Opening: Hi, this is ' + name + '. I buy houses in the area and I am calling about ' + where + '. If a simple as-is sale would help, I can walk through it. There is no cost to talk. ' + phone + '.\nVoicemail: Same introduction, one ask, and the phone number twice.\nObjection: If they say they are not selling, thank them and ask if you may check back later.';
       b = 'Opening: Hi ' + owner + ', ' + name + ' here. I am a local investor. Would it be useful to hear what an as-is sale of ' + where + ' could look like, with no repairs and no agent fees? If now is a bad time, I can call back. ' + phone + '.';
     } else if (channel.id === 'door-knock') {
-      a = 'Hi, I am ' + name + ', a local investor. I am not an agent. I am working in the neighborhood and wanted to ask, person to person, if you have thought about selling ' + where + ' as-is. If this is a bad time I will leave. My phone is ' + phone + '.\nSafety: go in daylight, stay on the walk, leave when asked, and do not step inside.';
-      b = 'Short version: "I buy houses as-is, no repairs and no agent fees. If ' + where + ' is more work than you want, here is my number, ' + phone + '. If you would rather I not stop by again, tell me and I will not."';
+      if (commercial) {
+        a = 'Hi, I am ' + name + '. I work with a company that buys properties.\n\nOur company buys properties like the ones you manage. Do you have any clients, the owners, who may be interested in selling?\n\nI am not asking you to hand me a client list. If an owner wants a simple conversation, you can keep the management relationship when that is what they want. If a referral is allowed where you work, that is between you and your company. I am not offering a fee.\n\nIf you are not interested, or you cannot share client information, I understand. Would you pass my name and phone to an owner who wants to talk? I would like to leave a card.\n\n' + name + '\n' + phone + '\n\nEtiquette: go in daylight, stay in the public area, leave when asked, and do not step into a unit.';
+        b = 'Short version: "Our company buys properties like the ones you manage. Do any of your clients want to sell? You can keep managing the property. I will not ask for a client list, and I am not offering a fee. If you cannot share owner information, would you pass along my card? I am ' + name + ', ' + phone + '."\nIf they say they are not interested: "I appreciate the time. I will leave a card in case an owner asks later, and I will not stop by again unless you invite me."';
+      } else {
+        a = 'Hi, I am ' + name + ', a local investor. I am not an agent. I am working in the neighborhood and wanted to ask, person to person, if you have thought about selling ' + where + ' as-is. If this is a bad time I will leave. My phone is ' + phone + '.\nSafety: go in daylight, stay on the walk, leave when asked, and do not step inside.';
+        b = 'Short version: "I buy houses as-is, no repairs and no agent fees. If ' + where + ' is more work than you want, here is my number, ' + phone + '. If you would rather I not stop by again, tell me and I will not."';
+      }
     } else if (channel.id === 'offer-letter') {
       a = 'Property: ' + where + '\n\nDear ' + owner + ',\n\nI would like to talk about a simple as-is sale of ' + where + '. This is an invitation to discuss, and it is not a binding offer. There is no cost to talk.\n\n' + name + '\n' + phone;
       b = 'Property: ' + where + '\n\nDear ' + owner + ',\n\nIf you want to hear what a sale of ' + where + ' could look like, I am glad to talk. This is not a binding offer, and you can say no.\n\n' + name + '\n' + phone;
@@ -522,7 +527,7 @@
       b = 'Hi ' + owner + ', I am ' + name + '. ' + (commercial ? "I'm looking to buy a property in your area" : "I'm looking to buy a home in your neighborhood") + ' and I can make the sale of ' + where + ' simple: as-is, no showings, and a closing date you choose. If you would rather not sell, no problem. ' + phone + '.';
     }
     const angle = angleById(context.angle, commercial ? 'commercial' : 'residential');
-    if (angle && channel.id !== 'handwritten' && channel.id !== 'yellow-letter') {
+    if (angle && channel.id !== 'handwritten' && channel.id !== 'yellow-letter' && !(channel.id === 'door-knock' && commercial)) {
       a = angle.opener + '\n' + a;
       b = angle.alt + '\n' + b;
     }
