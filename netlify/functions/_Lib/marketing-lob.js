@@ -168,7 +168,7 @@ async function sendPieces(options) {
       });
       const data = await response.json();
       if (!response.ok) {
-        const err = new Error('The test mailing was not accepted.');
+        const err = new Error(liveMail ? 'The mailing was not accepted.' : 'The test mailing was not accepted.');
         err.statusCode = 502;
         const message = data && data.error && data.error.message;
         if (message) err.detail = String(message).slice(0, 300);

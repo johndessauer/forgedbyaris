@@ -45,10 +45,10 @@ function createHandler(deps) {
         successUrl: origin + '/marketing.html?wallet=success&session_id={CHECKOUT_SESSION_ID}',
         cancelUrl: origin + '/marketing.html?wallet=cancel',
       });
-      return json(200, { url: session.url, testMode: true });
+      return json(200, { url: session.url, testMode: mode !== 'live' });
     } catch (err) {
       const status = err && err.statusCode ? err.statusCode : 502;
-      const body = { error: err.message || 'Test checkout could not be started.' };
+      const body = { error: err.message || (mode === 'live' ? 'Checkout could not be started.' : 'Test checkout could not be started.') };
       if (err && err.reason) body.reason = err.reason;
       return json(status, body);
     }

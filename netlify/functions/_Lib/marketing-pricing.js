@@ -416,6 +416,7 @@ function publicMenu(env) {
     }),
     handwrittenOrderable: ready,
     yellowLetterOrderable: ready,
+    testMode: String(env && env.MARKETING_LIVE_MAIL || '') !== 'true',
   };
 }
 

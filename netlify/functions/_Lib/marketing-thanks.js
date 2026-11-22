@@ -132,7 +132,7 @@ async function sendNotes(options) {
       });
       const data = await readJson(response);
       if (!response.ok || !data || data.id == null) {
-        const err = new Error('The test mailing was not accepted.');
+        const err = new Error(ready.testMode ? 'The test mailing was not accepted.' : 'The mailing was not accepted.');
         err.statusCode = 502;
         throw err;
       }

@@ -535,6 +535,16 @@ test('the markup report is allowlist-only and lists Lob cost, price, and markup'
   assert.match(fs.readFileSync(path.join(__dirname, '../assets/css/marketing.css'), 'utf8'), /\.mkt-next \{ margin-top: 24px; \}/);
   assert.match(confirm, /Confirm test mail/);
   assert.match(confirm, /Nothing is really printed/);
+  const liveConfirm = app.renderConfirm(app.createState({
+    menu: { testMode: false },
+    quote: { chargedCents: 109, mailChargedCents: 109, printChargedCents: 80, balanceCents: 2500, shortfallCents: 0 },
+  }));
+  assert.match(liveConfirm, />Confirm mail</);
+  assert.match(liveConfirm, />Place print order</);
+  assert.equal(liveConfirm.includes('Confirm test mail'), false);
+  assert.equal(liveConfirm.includes('in test credits'), false);
+  assert.equal(liveConfirm.includes('test mail service'), false);
+  assert.equal(liveConfirm.toLowerCase().includes('lob'), false);
   assert.equal((empty + confirm).toLowerCase().includes('lob'), false);
   const zero = app.renderCost(app.createState({
     quote: {
@@ -666,6 +676,9 @@ test('live mail spends the live wallet and drops the test banner', async () => {
     pieces: [{ channel: 'letter', variantA: 'A short letter', approved: true }],
   });
   assert.equal(refused.status, 402);
+  assert.equal(refused.body.error, 'Add credits to send this mailing.');
+  assert.equal(pricing.publicMenu({ MARKETING_LIVE_MAIL: 'true' }).testMode, false);
+  assert.equal(pricing.publicMenu({}).testMode, true);
   assert.equal((await wallet.readWallet(store, 'mem_john')).balanceCents, 5000);
   assert.equal((await wallet.readWallet(store, 'mem_john', 'live')).balanceCents, 50);
 

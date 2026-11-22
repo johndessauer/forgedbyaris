@@ -318,7 +318,7 @@ async function generateCopy(store, gate, body, fetchImpl, env) {
     }
   });
   const recommendation = catalog.filterVendorNames(
-    (parsed && parsed.recommendation) || catalog.recommendationText(propertyClass)
+    (parsed && parsed.recommendation) || catalog.recommendationText(propertyClass, String(env && env.MARKETING_LIVE_MAIL || '') !== 'true')
   );
   await commitUsage(store, gate.access.memberId, usage);
   return json(200, {

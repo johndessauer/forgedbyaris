@@ -388,11 +388,14 @@
     });
   }
 
-  function recommendationText(propertyClass) {
+  function recommendationText(propertyClass, testMode) {
     if (propertyClass === 'commercial') {
       return 'For a commercial list I would start with a formal letter, a call script for the decision maker, and networking. Yard signs and door hangers are not offered on commercial marketing. Cadence stays slower, with more value in each touch.';
     }
-    return 'For a residential list I would start with a postcard, a handwritten-style note, and a door-knock script, then a letter. You run the calls, texts, and door knocking yourself. Mail from FORGE is in test mode, so nothing is really printed yet.';
+    const mailLine = testMode === false
+      ? ' Mail from FORGE is printed and sent.'
+      : ' Mail from FORGE is in test mode, so nothing is really printed yet.';
+    return 'For a residential list I would start with a postcard, a handwritten-style note, and a door-knock script, then a letter. You run the calls, texts, and door knocking yourself.' + mailLine;
   }
 
   function displayName(channel, propertyClass) {
