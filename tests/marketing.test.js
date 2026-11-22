@@ -125,7 +125,7 @@ test('property class splits residential, commercial, and unknown', () => {
   assert.equal(split.unknown.length, 1);
 });
 
-test('commercial hides yard signs, door hangers, and door-knock scripts', () => {
+test('commercial hides yard signs and door hangers, and shows a property-manager door-knock script', () => {
   const residential = catalog.channelsForClass('residential').map(row => row.id);
   const commercial = catalog.channelsForClass('commercial').map(row => row.id);
   assert.equal(residential.includes('bandit'), false);
@@ -135,7 +135,7 @@ test('commercial hides yard signs, door hangers, and door-knock scripts', () => 
   assert.equal(commercial.includes('bandit'), false);
   assert.equal(commercial.includes('yard-sign'), false);
   assert.equal(commercial.includes('door-hanger'), false);
-  assert.equal(commercial.includes('door-knock'), false);
+  assert.ok(commercial.includes('door-knock'));
   assert.equal(residential.includes('flyer'), false);
   assert.equal(residential.includes('business-card'), false);
   assert.equal(commercial.includes('flyer'), false);
@@ -143,9 +143,31 @@ test('commercial hides yard signs, door hangers, and door-knock scripts', () => 
   assert.ok(commercial.includes('letter'));
   const recommended = catalog.recommendChannelIds({ propertyClass: 'commercial', goal: 'sellers' });
   assert.equal(recommended.includes('bandit'), false);
-  assert.equal(recommended.includes('door-knock'), false);
+  assert.ok(recommended.includes('door-knock'));
   assert.ok(recommended.includes('letter'));
   assert.ok(catalog.recommendChannelIds({ propertyClass: 'residential', goal: 'sellers' }).includes('postcard'));
+  const brand = { businessName: 'Northline Buys', phone: '(219) 555-0148' };
+  const lead = { address: '500 Market St', city: 'Crown Point', state: 'IN', zip: '46307', owner: 'Harbor Management' };
+  const home = catalog.starterPiece('door-knock', { propertyClass: 'residential', brand: brand, leads: [lead] });
+  const office = catalog.starterPiece('door-knock', { propertyClass: 'commercial', brand: brand, leads: [lead] });
+  assert.match(home.variantA, /working in the neighborhood/);
+  assert.match(home.variantB, /I buy houses as-is/);
+  assert.equal(home.variantA.includes('property manager'), false);
+  assert.match(office.variantA, /properties like the ones you manage/);
+  assert.match(office.variantA, /clients, the owners/);
+  assert.match(office.variantA, /keep the management relationship/);
+  assert.match(office.variantA, /I am not offering a fee/);
+  assert.match(office.variantA, /cannot share client information/);
+  assert.match(office.variantA, /pass my name and phone/);
+  assert.match(office.variantA, /leave a card/);
+  assert.match(office.variantB, /pass along my card/);
+  assert.match(office.variantB, /not interested/);
+  assert.equal(/we buy houses/i.test(office.variantA + office.variantB), false);
+  assert.equal(catalog.containsVendorName(office.variantA + office.variantB), false);
+  assert.match(catalog.displayDescription(catalog.channelById('door-knock'), 'commercial'), /property manager, not the owner/);
+  const picker = app.renderPicker(app.createState({ empire: true, propertyClass: 'commercial' }));
+  assert.match(picker, /Door-knock script/);
+  assert.match(picker, /property manager, not the owner/);
 });
 
 test('vendor names are stripped and never appear in starter copy or the prompt', () => {
@@ -163,6 +185,8 @@ test('vendor names are stripped and never appear in starter copy or the prompt',
   assert.equal(catalog.containsVendorName(copyApi.systemPrompt('commercial')), false);
   assert.match(copyApi.systemPrompt('residential'), /real estate deal/);
   assert.match(copyApi.systemPrompt('commercial'), /Never recommend yard signs or door hangers/);
+  assert.match(copyApi.systemPrompt('commercial'), /property manager, not the owner/);
+  assert.equal(copyApi.systemPrompt('residential').includes('property manager'), false);
   assert.equal(copyApi.systemPrompt('commercial').includes('bandit'), false);
 });
 
@@ -411,8 +435,9 @@ test('ARIS copy uses the existing model, filters vendors, and will not export ma
   const log = JSON.parse(await rig.blob.get('attestations/mem_john.json'));
   assert.equal(log[0].wordingVersion, catalog.ATTESTATION_VERSION);
   assert.equal(log[0].text, catalog.ATTESTATION_TEXT);
-  const dropped = copyApi.allowedChannels('commercial', ['bandit', 'door-knock', 'letter'], true);
+  const dropped = copyApi.allowedChannels('commercial', ['bandit', 'door-hanger', 'letter'], true);
   assert.deepEqual(dropped, ['letter']);
+  assert.deepEqual(copyApi.allowedChannels('commercial', ['door-knock', 'letter'], true), ['door-knock', 'letter']);
 });
 
 test('the home card stays Coming soon and the flagged surfaces are wired', () => {
@@ -462,7 +487,8 @@ test('the home card stays Coming soon and the flagged surfaces are wired', () =>
   const commercial = app.renderPicker(commercialState);
   assert.equal(commercial.includes('Bandit sign'), false);
   assert.equal(commercial.includes('Door hanger'), false);
-  assert.equal(commercial.includes('Door-knock script'), false);
+  assert.match(commercial, /Door-knock script/);
+  assert.match(commercial, /property manager, not the owner/);
   assert.equal(commercial.includes('Flyer'), false);
   assert.equal(commercial.includes('Business card'), false);
   assert.equal(commercialState.selected.letter, true);

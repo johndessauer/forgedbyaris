@@ -142,7 +142,7 @@ test('a fresh Market handoff opens step 2 and replaces a saved campaign', () => 
   const search = fs.readFileSync(path.join(__dirname, '../property-search.html'), 'utf8');
   assert.match(search, /marketing\.html\?from=property-search/);
   assert.equal(search.split('openMarketing(').length, 6);
-  assert.match(fs.readFileSync(path.join(__dirname, '../marketing.html'), 'utf8'), /marketing-app\.js\?v=20261122-copy/);
+  assert.match(fs.readFileSync(path.join(__dirname, '../marketing.html'), 'utf8'), /marketing-app\.js\?v=20261122-knock/);
   const prefore = entry.leadForMarketing(ps.mapRadarRecord(radar('prefore', false), 0, ['prefore']));
   const stored = { source: 'property-search', leadTypes: ['prefore'], leads: [prefore] };
   assert.equal(app.isFreshMarketHandoff('?from=property-search', stored), true);

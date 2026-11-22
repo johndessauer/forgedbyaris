@@ -342,7 +342,7 @@
 
   function recommendLine(propertyClass) {
     if (propertyClass === 'commercial') {
-      return 'ARIS would start with a formal letter, a call script, and networking.';
+      return 'ARIS would start with a formal letter, a call script, a door-knock script for the property manager, and networking.';
     }
     return 'ARIS would start with a postcard, a handwritten-style note, a door-knock script, and a letter.';
   }
