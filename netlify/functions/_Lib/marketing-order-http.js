@@ -123,6 +123,11 @@ function createHandler(deps) {
     try { store = options.getStore ? options.getStore() : openBlobStore(event); }
     catch (err) { return json(503, { error: 'Marketing credits are not available.' }); }
     const mode = wallet.walletMode(env);
+    const liveCopy = mode === 'live';
+    const needMailCredits = liveCopy ? 'Add credits to send this mailing.' : 'Add credits before this test mailing.';
+    const needPrintCredits = liveCopy ? 'Add credits to place this print order.' : 'Add credits before this test print order.';
+    const mailReturned = liveCopy ? 'The mailing was not accepted. The credits were returned.' : 'The test mailing was not accepted. The credits were returned.';
+    const printReturned = liveCopy ? 'The print order was not recorded. The credits were returned.' : 'The test print order was not recorded. The credits were returned.';
 
     if (event.httpMethod === 'GET') {
       if (!gate.flag.reviewer) return json(403, { error: 'Only an allowlisted admin can read the markup report.' });
@@ -204,7 +209,7 @@ function createHandler(deps) {
           const again = await wallet.readWallet(store, gate.access.memberId, mode);
           return json(200, {
             orderId: prior.orderId,
-            testMode: true,
+            testMode: !liveCopy,
             kind: 'print',
             vendorStatus: 'stub',
             chargedCents: prior.chargedCents,
@@ -219,7 +224,7 @@ function createHandler(deps) {
       const balanceNow = await wallet.readWallet(store, gate.access.memberId, mode);
       if (balanceNow.balanceCents < printQuote.printChargedCents) {
         return json(402, {
-          error: 'Add credits before this test print order.',
+          error: needPrintCredits,
           balanceCents: balanceNow.balanceCents,
           shortfallCents: printQuote.printChargedCents - balanceNow.balanceCents,
           chargedCents: printQuote.printChargedCents,
@@ -238,7 +243,7 @@ function createHandler(deps) {
       if (!debit.debited) {
         if (idem) await store.delete(idem);
         return json(402, {
-          error: 'Add credits before this test print order.',
+          error: needPrintCredits,
           balanceCents: debit.balanceCents,
           shortfallCents: debit.shortfallCents,
           topUpsCents: pricing.TOP_UPS_CENTS,
@@ -251,7 +256,7 @@ function createHandler(deps) {
         at: new Date().toISOString(),
         status: 'recorded',
         kind: 'print',
-        testMode: true,
+        testMode: !liveCopy,
         // TODO: replace vendorStatus stub when a print vendor API exists.
         // Nothing in this handler may call that API in test mode.
         vendorStatus: 'stub',
@@ -285,7 +290,7 @@ function createHandler(deps) {
           mode: mode,
         });
         if (idem) await store.delete(idem);
-        return json(502, { error: 'The test print order was not recorded. The credits were returned.' });
+        return json(502, { error: printReturned });
       }
       if (idem) {
         await store.setJSON(idem, {
@@ -296,7 +301,7 @@ function createHandler(deps) {
       }
       return json(200, {
         orderId: id,
-        testMode: true,
+        testMode: !liveCopy,
         kind: 'print',
         vendorStatus: 'stub',
         chargedCents: printQuote.printChargedCents,
@@ -342,7 +347,7 @@ function createHandler(deps) {
 
     if (balance.balanceCents < mailQuote.chargedCents) {
       return json(402, {
-        error: 'Add credits before this test mailing.',
+        error: needMailCredits,
         balanceCents: balance.balanceCents,
         shortfallCents: mailQuote.chargedCents - balance.balanceCents,
         chargedCents: mailQuote.chargedCents,
@@ -381,7 +386,7 @@ function createHandler(deps) {
     if (!debit.debited) {
       if (idem) await store.delete(idem);
       return json(402, {
-        error: 'Add credits before this test mailing.',
+        error: needMailCredits,
         balanceCents: debit.balanceCents,
         shortfallCents: debit.shortfallCents,
         topUpsCents: pricing.TOP_UPS_CENTS,
@@ -421,7 +426,7 @@ function createHandler(deps) {
         mode: mode,
       });
       if (idem) await store.delete(idem);
-      return json(err.statusCode || 502, { error: 'The test mailing was not accepted. The credits were returned.' });
+      return json(err.statusCode || 502, { error: mailReturned });
     }
 
     const order = {

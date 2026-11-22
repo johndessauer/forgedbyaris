@@ -133,7 +133,7 @@
     var mailNote = mailMissing.length
       ? '<p class="mkt-note">Before any mail copy can be exported, the Brand Kit needs your ' + esc(mailMissing.join(', ')) + '. Logo, colors, and headshot stay optional.</p>'
       : '';
-    return offer + summary + addressBook(state) + (unknown ? '<h3>Assign property types ARIS will not guess</h3><ul class="mkt-assign">' + unknown + '</ul>' : '') + commercialLock + '<h3>What do you want this campaign to do?</h3>' + goalNoteHtml(state) + '<div class="mkt-choices">' + goals + '</div>' + '<p class="mkt-aris">' + esc(catalog.recommendationText(state.propertyClass)) + '</p>' + mailNote + (state.message ? '<p class="mkt-message">' + esc(state.message) + '</p>' : '') + '<div class="mkt-row"><button type="button" data-action="continue-goal">Continue</button></div>';
+    return offer + summary + addressBook(state) + (unknown ? '<h3>Assign property types ARIS will not guess</h3><ul class="mkt-assign">' + unknown + '</ul>' : '') + commercialLock + '<h3>What do you want this campaign to do?</h3>' + goalNoteHtml(state) + '<div class="mkt-choices">' + goals + '</div>' + '<p class="mkt-aris">' + esc(catalog.recommendationText(state.propertyClass, mailIsTest(state))) + '</p>' + mailNote + (state.message ? '<p class="mkt-message">' + esc(state.message) + '</p>' : '') + '<div class="mkt-row"><button type="button" data-action="continue-goal">Continue</button></div>';
   }
 
   function goalNoteHtml(state) {
@@ -449,22 +449,33 @@
     };
   }
 
-  function styleHelp(channel, picked, design) {
+  function mailIsTest(state) {
+    if (state && state.menu && typeof state.menu.testMode === 'boolean') return state.menu.testMode;
+    if (state && typeof state.testMode === 'boolean') return state.testMode;
+    return true;
+  }
+
+  function styleHelp(channel, picked, design, testMode) {
+    var price = testMode === false ? 'price' : 'test price';
     var mode = loadCatalog().priceMode(channel.id, design);
-    if (channel.id === 'letter' && design && design.envelope === 'plain') return 'A plain envelope does not have a test price yet. This test mailing uses a window envelope.';
+    if (channel.id === 'letter' && design && design.envelope === 'plain') {
+      return testMode === false
+        ? 'A plain envelope does not have a price yet. This mailing uses a window envelope.'
+        : 'A plain envelope does not have a test price yet. This test mailing uses a window envelope.';
+    }
     if (channel.id === 'yard-sign') return 'Preview only. 18 × 24 on a wire step-in stake. Not orderable yet.';
     if (mode === 'soon') return 'Preview only. Not orderable yet.';
-    if (channel.id === 'jumbo-postcard') return '6 × 11, one per property. Template does not change this test price.';
-    if (channel.id === 'offer-letter') return 'Color printing in a #10 envelope. This is not a binding offer. Template does not change this test price.';
-    if (channel.id === 'postcard') return 'Template does not change this test price.';
-    if (channel.id === 'letter') return 'Window envelope. Template does not change this test price.';
+    if (channel.id === 'jumbo-postcard') return '6 × 11, one per property. Template does not change this ' + price + '.';
+    if (channel.id === 'offer-letter') return 'Color printing in a #10 envelope. This is not a binding offer. Template does not change this ' + price + '.';
+    if (channel.id === 'postcard') return 'Template does not change this ' + price + '.';
+    if (channel.id === 'letter') return 'Window envelope. Template does not change this ' + price + '.';
     if (channel.id === 'handwritten') {
-      var inkNote = 'Ink color does not change this test price.';
+      var inkNote = 'Ink color does not change this ' + price + '.';
       return picked && picked.choiceId === 'notecard'
         ? inkNote + ' A folded notecard uses a real stamp and a handwritten envelope.'
         : inkNote + ' The message is handwritten on the postcard.';
     }
-    if (channel.id === 'yellow-letter') return 'Handwriting does not change this test price. The letter is on yellow lined paper, in an envelope.';
+    if (channel.id === 'yellow-letter') return 'Handwriting does not change this ' + price + '. The letter is on yellow lined paper, in an envelope.';
     if (channel.id === 'door-hanger') return 'Finish does not change this reference price. Not mailed to a property.';
     return '';
   }
@@ -559,7 +570,7 @@
         { id: 'black', label: 'Black' },
       ], design.ink, 'is-short');
     }
-    var help = styleHelp(channel, picked, design);
+    var help = styleHelp(channel, picked, design, mailIsTest(state));
     return '<div class="mkt-options"><div class="mkt-style">' + thumb +
       '<div class="mkt-style-fields">' + fields + '</div>' +
       stylePrice(state, channel, picked, design) +
@@ -622,7 +633,9 @@
       '<button type="button" class="mkt-who' + (state.propertyClass === 'residential' ? ' is-on' : '') + '" data-action="class" data-class="residential"><strong>Residential</strong><span>Homeowners</span></button>' +
       '<button type="button" class="mkt-who' + (state.propertyClass === 'commercial' ? ' is-on' : '') + '"' + commercialLock + ' data-action="class" data-class="commercial"><strong>Commercial</strong><span>Business and property owners</span>' + (state.empire ? '' : '<em>Empire</em>') + '</button>' +
       '</div>' +
-      '<p class="mkt-legend">We mail it means one postcard or letter per property, in test mode. Ship to me means printed goods ship to you in a pack you choose. They are not sent to a property. Nothing is really printed yet. You send it means you send it yourself. FORGE does not send email or text.</p>' +
+      '<p class="mkt-legend">' + (mailIsTest(state)
+        ? 'We mail it means one postcard or letter per property, in test mode. Ship to me means printed goods ship to you in a pack you choose. They are not sent to a property. Nothing is really printed yet. You send it means you send it yourself. FORGE does not send email or text.'
+        : 'We mail it means one postcard or letter per property. Mail is printed and sent. Ship to me means printed goods ship to you in a pack you choose. They are not sent to a property. You send it means you send it yourself. FORGE does not send email or text.') + '</p>' +
       angleRow(state) +
       '<h2 class="mkt-ask">ARIS recommends</h2>' +
       '<p class="mkt-aris">' + esc(recommendLine(state.propertyClass)) + '</p>' +
@@ -658,7 +671,7 @@
       if (line.styleLabel) name += ' · ' + line.styleLabel;
       if (line.handLabel) name += ' · ' + line.handLabel;
       var charged = kind === 'print' ? line.quantity > 0 : !!line.mailed;
-      var total = line.comingSoon ? 'Coming soon' : (charged ? money(line.studentPriceCents) : 'Not charged in this test');
+      var total = line.comingSoon ? 'Coming soon' : (charged ? money(line.studentPriceCents) : (mailIsTest(state) ? 'Not charged in this test' : 'Not charged'));
       var count = charged ? line.quantity : '—';
       return '<tr><td>' + esc(name) + '</td><td>' + money(line.unitStudentPriceCents) + '</td><td>' + esc(count) + '</td><td>' + esc(total) + '</td></tr>';
     }).join('');
@@ -680,7 +693,8 @@
     var hasPrint = (quote.lines || []).some(function (line) { return line.kind === 'print'; });
     if (!hasPrint) return '';
     var pct = Math.round(Number(quote.printMarkupRate) * 100);
-    return '<p class="mkt-note">Print markup ' + pct + '%. Configured between 25% and 35%. Shipping is not included in this test price.</p>';
+    var price = quote.testMode === false ? 'price' : 'test price';
+    return '<p class="mkt-note">Print markup ' + pct + '%. Configured between 25% and 35%. Shipping is not included in this ' + price + '.</p>';
   }
 
   function shipDraft(state) {
@@ -765,12 +779,14 @@
           ? '<table class="mkt-cost"><thead><tr><th>Piece</th><th>Each</th><th>Pack</th><th>Total</th></tr></thead><tbody>' + costRows(state, 'print') + '</tbody></table>'
           : '') +
         markupNote(quote) +
-        '<p class="mkt-total"><strong>Test mail total</strong> ' + money(mailDue) + '</p>' +
+        '<p class="mkt-total"><strong>' + (mailIsTest(state) ? 'Test mail total' : 'Mail total') + '</strong> ' + money(mailDue) + '</p>' +
         (printDue || costRows(state, 'print') ? '<p class="mkt-total"><strong>Ship to me total</strong> ' + money(printDue) + '</p>' : '') +
         '<p>Credit balance ' + money(quote.balanceCents) + (quote.shortfallCents ? '. Add ' + money(quote.shortfallCents) + ' before you confirm.' : '.') + '</p>'
-      : '<p class="mkt-note">The test price loads when you open this step.</p>';
+      : '<p class="mkt-note">' + (mailIsTest(state) ? 'The test price loads when you open this step.' : 'The price loads when you open this step.') + '</p>';
     return '<h2 class="mkt-ask">Cost</h2>' +
-      '<p class="mkt-note">Test mode. Nothing is really printed. Mail is one piece per property. Printed goods ship to you in the pack you pick. FORGE does not send email or text.</p>' +
+      '<p class="mkt-note">' + (mailIsTest(state)
+        ? 'Test mode. Nothing is really printed. Mail is one piece per property. Printed goods ship to you in the pack you pick. FORGE does not send email or text.'
+        : 'Mail is printed and sent for real. Mail is one piece per property. Printed goods ship to you in the pack you pick. FORGE does not send email or text.') + '</p>' +
       table + topUpButtons() +
       statusLine(state) +
       '<div class="mkt-row mkt-next"><button type="button" data-action="step" data-step="6">Continue to confirm</button></div>';
@@ -781,15 +797,18 @@
     var short = quote.shortfallCents > 0;
     var mailDue = quote.mailChargedCents != null ? quote.mailChargedCents : quote.chargedCents;
     var printDue = quote.printChargedCents || 0;
+    var testing = mailIsTest(state);
     var button = short
-      ? '<p class="mkt-message">Add ' + money(quote.shortfallCents) + ' in test credits before this order.</p>' + topUpButtons()
+      ? '<p class="mkt-message">Add ' + money(quote.shortfallCents) + (testing ? ' in test credits' : ' in credits') + ' before this order.</p>' + topUpButtons()
       : '<div class="mkt-row">' +
-        (mailDue ? '<button type="button" data-action="confirm-mail">Confirm test mail</button>' : '') +
-        (printDue ? '<button type="button" data-action="confirm-print">Place test print order</button>' : '') +
+        (mailDue ? '<button type="button" data-action="confirm-mail">' + (testing ? 'Confirm test mail' : 'Confirm mail') + '</button>' : '') +
+        (printDue ? '<button type="button" data-action="confirm-print">' + (testing ? 'Place test print order' : 'Place print order') + '</button>' : '') +
         '</div>';
     return '<h2 class="mkt-ask">Confirm</h2>' +
-      '<p class="mkt-note">Test mode. Confirming mail debits test credits and hands postcards and letters to the test mail service. A print order debits test credits and is only recorded. Nothing is really printed. FORGE does not send email or text.</p>' +
-      '<p class="mkt-total"><strong>Test mail total</strong> ' + money(mailDue || 0) + '</p>' +
+      '<p class="mkt-note">' + (testing
+        ? 'Test mode. Confirming mail debits test credits and hands postcards and letters to the test mail service. A print order debits test credits and is only recorded. Nothing is really printed. FORGE does not send email or text.'
+        : 'Confirming mail debits credits and sends postcards and letters. A print order debits credits and is recorded. FORGE does not send email or text.') + '</p>' +
+      '<p class="mkt-total"><strong>' + (testing ? 'Test mail total' : 'Mail total') + '</strong> ' + money(mailDue || 0) + '</p>' +
       (printDue ? '<p class="mkt-total"><strong>Ship to me total</strong> ' + money(printDue) + '</p>' + shipForm(state) : '') +
       '<p>Credit balance ' + money(quote.balanceCents) + '</p>' +
       confirmAddresses(state) +
@@ -1014,7 +1033,24 @@
     return '<div class="module-card coming" aria-disabled="true"><div class="module-icon">📣</div><div class="module-name">Marketing</div><div class="module-desc">Send mail and outreach campaigns to your leads, right from FORGE.</div><div class="module-status soon">Coming soon!</div></div><p class="mkt-note"><a href="dashboard.html">Back to the dashboard</a></p>';
   }
 
+  function applyMailMode(state) {
+    var testing = mailIsTest(state);
+    var lead = document.getElementById('mkt-lead');
+    if (lead) {
+      lead.textContent = testing
+        ? 'Pick how you want to reach these owners. ARIS marks the best fit for your list. Mail runs in test mode, so nothing is really printed yet.'
+        : 'Pick how you want to reach these owners. ARIS marks the best fit for your list.';
+    }
+    var banner = document.getElementById('mkt-banner');
+    if (banner) {
+      banner.textContent = testing
+        ? 'Test mode. Mail is not really printed or delivered. FORGE does not send email or text. You are responsible for what you send from your own phone and platforms.'
+        : 'Mail is printed and sent for real. FORGE does not send email or text. You are responsible for what you send from your own phone and platforms.';
+    }
+  }
+
   function paint(state) {
+    applyMailMode(state);
     var steps = document.getElementById('mkt-steps');
     var main = document.getElementById('mkt-main');
     var preview = document.getElementById('mkt-preview');
@@ -1156,7 +1192,7 @@
         state.message = '';
         state.reason = '';
         if (next === 5 || next === 6) {
-          state.message = 'Loading the test price…';
+          state.message = mailIsTest(state) ? 'Loading the test price…' : 'Loading the price…';
           paint(state);
           await loadCost(state);
         }
@@ -1501,7 +1537,7 @@
       brandId: state.brandId,
     });
     if (!result.ok) {
-      state.message = result.error || 'The test price could not be loaded.';
+      state.message = result.error || (mailIsTest(state) ? 'The test price could not be loaded.' : 'The price could not be loaded.');
       return;
     }
     state.quote = result;
@@ -1670,6 +1706,10 @@
         });
         if (response.ok) {
           var data = await response.json();
+          if (typeof data.testMode === 'boolean') {
+            state.testMode = data.testMode;
+            if (state.menu) state.menu.testMode = data.testMode;
+          }
           if (!state.quote) state.quote = { lines: [], chargedCents: 0, shortfallCents: 0, balanceCents: 0 };
           state.quote.balanceCents = data.balanceCents;
           if (state.quote.chargedCents) state.quote.shortfallCents = Math.max(0, state.quote.chargedCents - data.balanceCents);
@@ -1689,7 +1729,7 @@
       window.location.href = result.url;
       return;
     }
-    state.message = result.error || 'Test checkout is not configured.';
+    state.message = result.error || (mailIsTest(state) ? 'Test checkout is not configured.' : 'Checkout could not be started.');
     state.reason = result.reason || (result.error ? 'client_status_' + (result.status || 0) : 'client_non_json');
     paint(state);
   }
@@ -1796,14 +1836,14 @@
     });
     if (!result.ok) {
       if (result.status !== 409) state.confirmKey = '';
-      state.message = result.error || 'The test mailing was not accepted.';
+      state.message = result.error || (mailIsTest(state) ? 'The test mailing was not accepted.' : 'The mailing was not accepted.');
       if (result.shortfallCents && state.quote) state.quote.shortfallCents = result.shortfallCents;
       paint(state);
       return;
     }
     if (state.quote) state.quote.balanceCents = result.balanceCents;
     state.confirmKey = '';
-    state.message = 'Test mail accepted. Nothing was really printed.';
+    state.message = mailIsTest(state) ? 'Test mail accepted. Nothing was really printed.' : 'Mail accepted.';
     paint(state);
   }
 
@@ -1830,14 +1870,16 @@
     });
     if (!result.ok) {
       if (result.status !== 409) state.printKey = '';
-      state.message = result.error || 'The test print order was not recorded.';
+      state.message = result.error || (mailIsTest(state) ? 'The test print order was not recorded.' : 'The print order was not recorded.');
       if (result.shortfallCents && state.quote) state.quote.shortfallCents = result.shortfallCents;
       paint(state);
       return;
     }
     if (state.quote) state.quote.balanceCents = result.balanceCents;
     state.printKey = '';
-    state.message = 'Test print order recorded. Nothing was sent to a printer. Test credits were debited.';
+    state.message = mailIsTest(state)
+      ? 'Test print order recorded. Nothing was sent to a printer. Test credits were debited.'
+      : 'Print order recorded. Credits were debited.';
     paint(state);
   }
 
@@ -1879,7 +1921,7 @@
           }),
         });
       });
-      state.recommendation = catalog.recommendationText(state.propertyClass);
+      state.recommendation = catalog.recommendationText(state.propertyClass, mailIsTest(state));
       state.message = result.error || 'ARIS is unavailable, so these are starting drafts.';
     } else {
       (result.copies || []).forEach(function (piece) {
