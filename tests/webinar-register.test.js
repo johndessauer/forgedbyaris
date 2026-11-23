@@ -144,10 +144,12 @@ test('registration pages show the approved next session instead of coming soon',
   const schedule = require('../assets/js/webinar-schedule');
   const label = schedule.sessionLabel(new Date('2026-11-06T16:00:00Z'));
   assert.equal(label, 'Tuesday, November 17, 2026 at 8:00 PM CT');
+  const placeholder = 'Monday, November 30, 2026 at 8:00 PM CT';
   for (const f of ['register.html', 'registered.html']) {
     const html = fs.readFileSync(path.join(__dirname, '..', 'webinar', f), 'utf8');
     assert.equal(html.includes('coming up soon'), false, f);
-    assert.equal(html.includes(label), true, f);
+    assert.equal(html.includes('data-session-label>' + placeholder), true, f);
+    assert.equal(html.includes('November 17, 2026'), false, f);
     assert.match(html, /\/assets\/js\/webinar-schedule\.js/, f);
     assert.equal(/meet\.google/i.test(html), false, f);
   }
