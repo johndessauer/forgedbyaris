@@ -23,7 +23,7 @@
   var DIRECTED_IRA_URL = 'https://directedira32a69.referralrock.com/l/JOHNDESSAU79/';
 
   // Order in this array is the order a member sees earned cards.
-  // The Directed IRA consultation is the first Rookie unlock.
+  // Directed IRA options are the first Rookie unlock. The lesson is optional.
   var UNLOCKS = [
     {
       id: 'directed-ira-consult',
@@ -32,13 +32,28 @@
       optional: true,
       blocksProgress: false,
       eyebrow: 'Rookie unlock · Optional',
-      title: 'Free Directed IRA consultation',
-      body: 'Book a free consultation about using a self-directed IRA, 401(k), or Solo 401(k) to invest in real estate. This does not change your lessons or your level.',
+      title: 'Directed IRA options',
+      body: 'Explore your options for using a self-directed IRA, 401(k), or Solo 401(k) to invest in real estate. This does not change your lessons or your level.',
       disclosure: 'Directed IRA is an independent company. FORGE may receive a referral fee.',
-      cta: 'Book a free consultation',
+      cta: 'Explore your options with Directed IRA',
       dismiss: 'Not now',
       href: DIRECTED_IRA_URL,
       external: true,
+    },
+    {
+      id: 'rookie-ira-lesson',
+      level: 'rookie',
+      kind: 'link',
+      optional: true,
+      blocksProgress: false,
+      eyebrow: 'Rookie unlock · Optional',
+      title: 'Investing in Real Estate with Your IRA, 401(k), or Solo 401(k)',
+      body: 'Watch a short ARIS lesson on using a self-directed IRA, 401(k), or Solo 401(k) to invest in real estate, 2026 rules, and questions to ask first. This does not change your lessons or your level.',
+      disclosure: 'Educational overview only. Consult your own CPA or attorney.',
+      cta: 'Watch the lesson',
+      dismiss: 'Not now',
+      href: '/unlocks/rookie#ira-lesson',
+      external: false,
     },
     {
       id: 'real-estate-h2o',

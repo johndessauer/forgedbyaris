@@ -53,14 +53,23 @@ function findUnlock(id) {
 
 test('Directed IRA is the first Rookie unlock and stays optional', () => {
   const rookie = unlocks.UNLOCKS.filter((item) => item.level === 'rookie');
-  assert.deepEqual(rookie.map((item) => item.id), ['directed-ira-consult', 'real-estate-h2o']);
+  assert.deepEqual(rookie.map((item) => item.id), ['directed-ira-consult', 'rookie-ira-lesson', 'real-estate-h2o']);
   const ira = rookie[0];
   assert.equal(ira.optional, true);
   assert.equal(ira.blocksProgress, false);
+  assert.equal(ira.title, 'Directed IRA options');
   assert.equal(ira.href, 'https://directedira32a69.referralrock.com/l/JOHNDESSAU79/');
   assert.equal(ira.disclosure, 'Directed IRA is an independent company. FORGE may receive a referral fee.');
   assert.equal(ira.dismiss, 'Not now');
-  assert.equal(ira.body, 'Book a free consultation about using a self-directed IRA, 401(k), or Solo 401(k) to invest in real estate. This does not change your lessons or your level.');
+  assert.equal(ira.cta, 'Explore your options with Directed IRA');
+  assert.equal(ira.body, 'Explore your options for using a self-directed IRA, 401(k), or Solo 401(k) to invest in real estate. This does not change your lessons or your level.');
+  const lesson = findUnlock('rookie-ira-lesson');
+  assert.equal(lesson.optional, true);
+  assert.equal(lesson.blocksProgress, false);
+  assert.equal(lesson.external, false);
+  assert.equal(lesson.href, '/unlocks/rookie#ira-lesson');
+  assert.equal(lesson.cta, 'Watch the lesson');
+  assert.equal(lesson.dismiss, 'Not now');
 
   const html = unlocks.cardMarkup(ira);
   assert.match(html, /href="https:\/\/directedira32a69\.referralrock\.com\/l\/JOHNDESSAU79\/"/);
@@ -77,23 +86,30 @@ test('the consultation is hidden until Rookie and Not now does not change the ba
   assert.equal(unlocks.markupFor({ rookie: false }, storage), '');
   const shown = unlocks.markupFor(badges, storage);
   assert.match(shown, /data-unlock-id="directed-ira-consult"/);
+  assert.match(shown, /data-unlock-id="rookie-ira-lesson"/);
   assert.match(shown, /data-unlock-id="real-estate-h2o"/);
   assert.doesNotMatch(shown, /apartment-confidential/);
 
   unlocks.dismiss('directed-ira-consult', storage);
   const after = unlocks.markupFor(badges, storage);
   assert.doesNotMatch(after, /directed-ira-consult/);
+  assert.match(after, /data-unlock-id="rookie-ira-lesson"/);
   assert.match(after, /data-unlock-id="real-estate-h2o"/);
+  unlocks.dismiss('rookie-ira-lesson', storage);
+  const afterLesson = unlocks.markupFor(badges, storage);
+  assert.doesNotMatch(afterLesson, /rookie-ira-lesson/);
+  assert.match(afterLesson, /data-unlock-id="real-estate-h2o"/);
   assert.deepEqual(badges, { rookie: true, investor: false, mogul: false });
-  assert.deepEqual(unlocks.readDismissed(storage), ['directed-ira-consult']);
+  assert.deepEqual(unlocks.readDismissed(storage), ['directed-ira-consult', 'rookie-ira-lesson']);
 });
 
 test('Investor counts as Rookie on the unlock cards', () => {
   const html = unlocks.markupFor({ investor: true }, memoryStorage());
   const iraAt = html.indexOf('data-unlock-id="directed-ira-consult"');
+  const lessonAt = html.indexOf('data-unlock-id="rookie-ira-lesson"');
   const bookAt = html.indexOf('data-unlock-id="real-estate-h2o"');
   const investorAt = html.indexOf('data-unlock-id="apartment-confidential"');
-  assert.ok(iraAt >= 0 && iraAt < bookAt && bookAt < investorAt);
+  assert.ok(iraAt >= 0 && iraAt < lessonAt && lessonAt < bookAt && bookAt < investorAt);
 });
 
 test('render writes the cards into the member page and hides the box when nothing is earned', () => {
@@ -106,9 +122,10 @@ test('render writes the cards into the member page and hides the box when nothin
   unlocks.render(earned, { rookie: true, investor: true }, memoryStorage());
   assert.equal(earned.hidden, false);
   const iraAt = earned.innerHTML.indexOf('data-unlock-id="directed-ira-consult"');
+  const lessonAt = earned.innerHTML.indexOf('data-unlock-id="rookie-ira-lesson"');
   const bookAt = earned.innerHTML.indexOf('data-unlock-id="real-estate-h2o"');
   const investorAt = earned.innerHTML.indexOf('data-unlock-id="apartment-confidential"');
-  assert.ok(iraAt >= 0 && iraAt < bookAt && bookAt < investorAt);
+  assert.ok(iraAt >= 0 && iraAt < lessonAt && lessonAt < bookAt && bookAt < investorAt);
 });
 
 test('book cards open the member unlock pages and do not use the public PDF', () => {

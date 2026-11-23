@@ -2010,7 +2010,7 @@ function renderVideoList() {
 
 function playVideo(youtubeId, title) {
   document.getElementById('video-lightbox-frame-wrap').innerHTML =
-    `<iframe src="https://www.youtube.com/embed/${youtubeId}?autoplay=1" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>`;
+    `<iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(youtubeId)}?autoplay=1&rel=0&cc_load_policy=0" allow="autoplay; encrypted-media; picture-in-picture; web-share" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>`;
   document.getElementById('video-lightbox-title').textContent = title;
   document.getElementById('video-lightbox-overlay').classList.add('open');
 }

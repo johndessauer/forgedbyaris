@@ -194,8 +194,12 @@ test('the coaching link stays out of public pages and public scripts', () => {
   assert.match(rookie, /data-level="rookie"/);
   assert.equal(rookie.includes('Placeholder'), false);
   assert.match(rookie, /Download Real Estate H2O/);
-  assert.match(rookie, /Book a Directed IRA consult \(optional\)/);
+  assert.match(rookie, /Explore your options with Directed IRA/);
+  assert.doesNotMatch(rookie, /Book a Directed IRA consult/);
   assert.match(rookie, /Directed IRA is an independent company\. FORGE may receive a referral fee\./);
+  assert.match(rookie, /youtube-nocookie\.com\/embed\/KXjb95o4oJg\?rel=0&amp;cc_load_policy=0/);
+  assert.equal(rookie.includes('cc_load_policy=1'), false);
+  assert.match(rookie, /id="ira-lesson"/);
   assert.equal(rookie.includes('coaching-book-btn'), false);
 
   const edge = read('netlify/edge-functions/member-page.js');
