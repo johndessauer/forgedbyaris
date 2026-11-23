@@ -212,6 +212,10 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 .module-card-status { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; display: flex; align-items: center; gap: 6px; }
 .module-card-status.done { color: #22c55e; }
 .module-card-status.todo { color: var(--grey); }
+.module-card.coming { cursor: default; opacity: 0.55; filter: grayscale(1); pointer-events: none; }
+.module-card.coming:hover { border-color: var(--border-sub); transform: none; }
+.module-card-tier { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--grey-light); }
+.module-card-tier.empire { color: var(--gold); }
 
 .reader-back { background: none; border: none; color: var(--gold); font-size: 12px; cursor: pointer; margin-bottom: 16px; padding: 0; }
 .reader-title { font-family: 'Bebas Neue', sans-serif; font-size: 30px; letter-spacing: 1px; color: var(--white); margin-bottom: 4px; }
@@ -643,6 +647,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
           <div class="coaching-intro">Eight lessons on loan assumption for real estate deals, coached by ARIS. VA loans are assumable. Residential lessons are included with Foundation. The commercial lesson is part of FORGE Empire. Education only, not legal advice. This is not a loan-assumption approval, and not a promise about what any lender or servicer will do. Use your own real estate attorney and, on a specific loan, the servicer's written answer.</div>
           <div id="assumption-path-container"></div>
         </div>
+        <div id="library-coming-soon" class="library-section"></div>
         <div class="library-section">
           <div class="library-section-head">🎬 More Video Lessons &amp; Recorded Calls</div>
           <div class="coaching-intro">Extra lessons and recorded calls from the FORGE team. Filter by type below.</div>
@@ -1900,8 +1905,83 @@ const PATH_LESSONS = h2oPath.lessons; // kept for any older references
 function renderCoachingLessons() {
   h2oPath.render(); empirePath.render(); wholesalingPath.render();
   leaseOptionPath.render(); subjectToPath.render(); assumptionPath.render();
+  renderLibraryModules();
   empirePath.scrollIntoViewIfDeepLinked(); wholesalingPath.scrollIntoViewIfDeepLinked();
   leaseOptionPath.scrollIntoViewIfDeepLinked(); subjectToPath.scrollIntoViewIfDeepLinked(); assumptionPath.scrollIntoViewIfDeepLinked();
+}
+
+// Video Lesson Library paths that are not open yet. Flip status to 'live'
+// when a path is ready. Coming soon cards stay visible to every tier.
+const LIBRARY_MODULES = [
+  {
+    id: 'fix-flip',
+    title: 'Fix & Flip',
+    lessons: 18,
+    tier: 'foundation',
+    empireLessonCount: 1,
+    status: 'coming-soon',
+    releaseLabel: 'December 2026',
+    description: 'Buy, rehab and sell flips with the 70% rule and a real cost stack.',
+  },
+  {
+    id: 'mobile-home-parks',
+    title: 'Mobile Home Parks',
+    lessons: 18,
+    tier: 'empire',
+    status: 'coming-soon',
+    releaseLabel: 'January 2027',
+    description: 'Underwrite, fund and run your first park.',
+  },
+  {
+    id: 'storage-units',
+    title: 'Storage Units',
+    lessons: 18,
+    tier: 'empire',
+    status: 'coming-soon',
+    releaseLabel: 'February 2027',
+    description: 'Buy and run self-storage with the live Self-Storage analyzer.',
+  },
+  {
+    id: 'rv-parks',
+    title: 'RV Parks',
+    lessons: 18,
+    tier: 'empire',
+    status: 'coming-soon',
+    releaseLabel: 'March 2027',
+    description: 'Seasonality, hookups and stay-mix underwriting for RV parks.',
+  },
+];
+
+function libraryModuleCard(mod) {
+  const soon = mod.status === 'coming-soon';
+  const tier = mod.tier === 'empire'
+    ? '<span class="module-card-tier empire">Empire</span>'
+    : '<span class="module-card-tier">Foundation</span>';
+  const empireNote = mod.empireLessonCount
+    ? '<div class="module-card-status">' + mod.empireLessonCount + ' Empire lesson' + (mod.empireLessonCount === 1 ? '' : 's') + '</div>'
+    : '';
+  const coming = soon ? '<span class="coaching-pill">Coming soon</span>' : '';
+  const release = soon && mod.releaseLabel
+    ? '<div class="module-card-status todo">' + escapeHtml(mod.releaseLabel) + '</div>'
+    : '';
+  return '<div class="module-card' + (soon ? ' coming' : '') + '"' + (soon ? ' aria-disabled="true"' : '') + '>' +
+    '<div class="module-card-top"><div class="module-card-category">' + mod.lessons + ' lessons</div>' + tier + '</div>' +
+    '<div class="module-card-title">' + escapeHtml(mod.title) + '</div>' +
+    '<div class="module-card-desc">' + escapeHtml(mod.description || '') + '</div>' +
+    empireNote +
+    '<div class="module-card-top">' + coming + release + '</div>' +
+    '</div>';
+}
+
+function renderLibraryModules() {
+  const root = document.getElementById('library-coming-soon');
+  if (!root) return;
+  if (!LIBRARY_MODULES.length) { root.innerHTML = ''; return; }
+  const soon = LIBRARY_MODULES.some(function (mod) { return mod.status === 'coming-soon'; });
+  const band = soon
+    ? '<div class="section-band" role="heading" aria-level="2"><span class="section-band-label">Coming soon</span></div>'
+    : '';
+  root.innerHTML = band + '<div class="module-grid">' + LIBRARY_MODULES.map(libraryModuleCard).join('') + '</div>';
 }
 
 function switchEduSection(section) {
