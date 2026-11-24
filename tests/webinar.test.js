@@ -57,7 +57,7 @@ const DEFAULTS = {
 
 test('each webinar price is $97/month plus its setup fee, and there is no Launch or Accelerator', () => {
   assert.equal(webinar.MONTHLY_CENTS, 9700);
-  assert.deepEqual(Object.keys(webinar.PACKAGES).sort(), ['1797', '2997-rich', '997', '997-foundation']);
+  assert.deepEqual(Object.keys(webinar.PACKAGES).sort(), ['1797', '2997-rich', '997', '997-3pay', '997-foundation']);
   for (const slug of Object.keys(DEFAULTS)) {
     const pkg = webinar.PACKAGES[slug];
     const expected = DEFAULTS[slug];
@@ -123,6 +123,128 @@ test('Memberstack checkout is one price, with src and ref metadata, and no trial
   assert.equal(serialized.includes('one_time'), false);
   assert.equal(serialized.includes('trial_period_days'), false);
   assert.equal(serialized.includes('trial_end'), false);
+});
+
+test('997 3-pay shows three installments, then $97, and stays card-only', async () => {
+  assert.equal(webinar.THREE_PAY_MONTHLY_START, 'after_third');
+  const offer = webinar.threePayOffer('after_third');
+  assert.equal(offer.installments.map((row) => row.cents).join(','), '33233,33233,33234');
+  assert.equal(offer.installments.reduce((sum, row) => sum + row.cents, 0), 99700);
+  assert.equal(offer.monthlyCents, 9700);
+  assert.equal(offer.monthlyStarts, 'the month after the third payment');
+  const atSignup = webinar.threePayOffer('at_signup');
+  assert.equal(atSignup.installments.map((row) => row.cents).join(','), '39700,39700,39700');
+  assert.equal(webinar.threePayMode({}), 'after_third');
+  assert.equal(webinar.threePayMode({ WEBINAR_997_3PAY_MONTHLY_START: 'at_signup' }), 'at_signup');
+
+  const pkg = webinar.PACKAGES['997-3pay'];
+  assert.equal(pkg.defaultPlanId, 'pln_forge-webinar-997-lw00b81');
+  assert.equal(pkg.path, '/webinar/997-3pay');
+  const blocked = await webinar.checkoutHandler({
+    httpMethod: 'POST',
+    body: JSON.stringify({ package: '997-3pay', email: 'ada@example.com', name: 'Ada Investor', src: 'rep', ref: '023k-ian' }),
+  }, { env: {}, origin: 'https://forgedbyaris.com' });
+  assert.equal(blocked.statusCode, 503);
+  const fwn = await webinar.checkoutHandler({
+    httpMethod: 'POST',
+    body: JSON.stringify({ package: '997-3pay', email: 'ada@example.com', name: 'Ada Investor', src: 'fwn-virtual', ref: '023k-ian' }),
+  }, {
+    env: {
+      MEMBERSTACK_PRICE_WEBINAR_997_3PAY: 'prc_3pay_test',
+      STRIPE_PRICE_WEBINAR_997_MONTHLY: 'price_monthly97',
+      STRIPE_PRICE_WEBINAR_997_3PAY_LAST: 'price_last33234',
+    },
+    origin: 'https://forgedbyaris.com',
+  });
+  assert.equal(fwn.statusCode, 400);
+
+  const res = await webinar.checkoutHandler({
+    httpMethod: 'POST',
+    body: JSON.stringify({
+      package: '997-3pay',
+      email: 'ada@example.com',
+      name: 'Ada Investor',
+      src: 'rep',
+      ref: '023K-Ian',
+      cancelPath: '/webinar/997-3pay?src=rep&ref=023k-ian',
+    }),
+  }, {
+    env: {
+      MEMBERSTACK_PRICE_WEBINAR_997_3PAY: 'prc_3pay_test',
+      STRIPE_PRICE_WEBINAR_997_MONTHLY: 'price_monthly97',
+      STRIPE_PRICE_WEBINAR_997_3PAY_LAST: 'price_last33234',
+    },
+    origin: 'https://forgedbyaris.com',
+  });
+  assert.equal(res.statusCode, 200);
+  const body = JSON.parse(res.body);
+  assert.equal(body.planId, 'pln_forge-webinar-997-lw00b81');
+  assert.equal(body.priceId, 'prc_3pay_test');
+  assert.equal(body.cardOnly, true);
+  assert.equal(body.checkout.metadataForCheckout.package, 'webinar-997-3pay');
+  assert.equal(body.checkout.metadataForCheckout.lead_source, 'rep');
+  assert.equal(body.checkout.metadataForCheckout.ref, '023k-ian');
+  assert.equal(body.checkout.metadataForCheckout.installment_number, '1');
+  assert.equal(body.checkout.metadataForCheckout.installment_of, '3');
+  assert.equal(JSON.stringify(body).toLowerCase().includes('klarna'), false);
+  assert.equal(body.checkout.line_items, undefined);
+
+  const phases = webinar.threePaySchedulePhases({
+    mode: 'after_third',
+    currentPriceId: 'price_33233',
+    lastInstallmentPriceId: 'price_last33234',
+    monthlyPriceId: 'price_monthly97',
+    lead_source: 'rep',
+    sold_by: 'rep',
+    rep: '023k-ian',
+    ref: '023k-ian',
+  });
+  assert.equal(phases.length, 4);
+  assert.equal(phases[0].iterations, 1);
+  assert.equal(phases[1].items[0].price, 'price_33233');
+  assert.equal(phases[2].items[0].price, 'price_last33234');
+  assert.equal(phases[2].metadata.installment_number, '3');
+  assert.equal(phases[2].metadata.installment_of, '3');
+  assert.equal(phases[3].items[0].price, 'price_monthly97');
+  assert.equal(phases[3].iterations, undefined);
+  assert.equal(phases[3].metadata.installment_number, undefined);
+  const encoded = webinar.encodeSchedulePhases(phases, 1760000000);
+  assert.equal(encoded['phases[2][items][0][price]'], 'price_last33234');
+  assert.equal(encoded['phases[2][metadata][installment_number]'], '3');
+  assert.equal(encoded['phases[0][start_date]'], '1760000000');
+  assert.equal(encoded.end_behavior, 'release');
+
+  const calls = [];
+  const applied = await webinar.applyThreePaySchedule({
+    subscription: 'sub_123',
+    metadata: { package: 'webinar-997-3pay', lead_source: 'rep', sold_by: 'rep', rep: '023k-ian', ref: '023k-ian' },
+  }, {
+    STRIPE_SECRET_KEY: 'sk_test_123',
+    STRIPE_PRICE_WEBINAR_997_MONTHLY: 'price_monthly97',
+    STRIPE_PRICE_WEBINAR_997_3PAY_LAST: 'price_last33234',
+  }, async (secret, method, path, form) => {
+    calls.push({ secret, method, path, form });
+    if (path === '/v1/subscription_schedules') {
+      return { id: 'sub_sched_1', phases: [{ start_date: 1760000000, items: [{ price: 'price_33233' }] }] };
+    }
+    return { id: 'sub_sched_1' };
+  });
+  assert.equal(applied.status, 'scheduled');
+  assert.equal(calls[0].secret, 'sk_test_123');
+  assert.match(calls[0].form, /from_subscription=sub_123/);
+  assert.match(calls[1].path, /subscription_schedules\/sub_sched_1/);
+  assert.match(calls[1].form, /phases%5B2%5D%5Bmetadata%5D%5Binstallment_number%5D=3/);
+  assert.equal(calls[1].form.includes('klarna'), false);
+
+  const page = read('webinar/997-3pay.html');
+  assert.match(page, /3 payments of \$332\.33/);
+  assert.match(page, /The last payment is \$332\.34/);
+  assert.match(page, /the month after the third payment/);
+  assert.match(page, /Klarna is not offered/);
+  assert.match(page, /data-webinar-package="997-3pay"/);
+  assert.match(page, /name="robots" content="noindex, nofollow"/);
+  assert.equal(page.includes('fwn-checkout'), false);
+  assert.equal(/meet\.google|zoom\.us/i.test(page), false);
 });
 
 test('safe cancel path stays on a webinar page', () => {
