@@ -125,7 +125,8 @@ const PACKAGES = Object.freeze({
     planEnv: 'MEMBERSTACK_PLAN_WEBINAR_997_3PAY',
     priceEnv: 'MEMBERSTACK_PRICE_WEBINAR_997_3PAY',
     defaultPlanId: 'pln_forge-webinar-997-lw00b81',
-    defaultPriceId: '',
+    defaultPriceId: 'prc_forge-webinar-997-3-pay-n6005fa',
+    stripePriceId: 'price_1UfT4tK4zh6RSWCrKNWjj2Po',
     threePay: true,
   },
 });
@@ -285,12 +286,26 @@ function isStripePriceId(id) {
   return typeof id === 'string' && /^price_[A-Za-z0-9]+$/.test(id);
 }
 
+function threePayStripePrice(env) {
+  return configuredId(env, 'STRIPE_PRICE_WEBINAR_997_3PAY', PACKAGES['997-3pay'].stripePriceId);
+}
+
 function threePayPriceIds(env, mode) {
-  const monthly = configuredId(env, 'STRIPE_PRICE_WEBINAR_997_MONTHLY', '');
-  const last = configuredId(env, 'STRIPE_PRICE_WEBINAR_997_3PAY_LAST', '');
-  if (!isStripePriceId(monthly)) return null;
+  const monthly = configuredId(env, 'STRIPE_PRICE_WEBINAR_997_MONTHLY', 'price_1UVHvYK4zh6RSWCrkRo8EsHE');
+  const last = configuredId(env, 'STRIPE_PRICE_WEBINAR_997_3PAY_LAST', 'price_1UfT4vK4zh6RSWCroLs1Fwb2');
+  const first = threePayStripePrice(env);
+  if (!isStripePriceId(monthly) || !isStripePriceId(first)) return null;
   if (mode !== 'at_signup' && !isStripePriceId(last)) return null;
-  return { monthly: monthly, last: last };
+  return { monthly: monthly, last: last, first: first };
+}
+
+function subscriptionItemPriceId(subscription) {
+  const items = subscription && subscription.items && subscription.items.data;
+  const item = items && items[0];
+  if (!item) return '';
+  const price = item.price;
+  if (typeof price === 'string') return price;
+  return price && price.id || '';
 }
 
 function threePaySchedulePhases(input) {
@@ -496,18 +511,27 @@ function formBody(fields) {
 
 async function applyThreePaySchedule(session, env, stripe) {
   const md = (session && session.metadata) || {};
-  if (String(md.package || '') !== 'webinar-997-3pay') return { status: 'skipped' };
+  if (String(md.package || '') !== 'webinar-997-3pay') return { status: 'skipped', reason: 'package' };
   const mode = threePayMode(env);
   const prices = threePayPriceIds(env, mode);
   if (!prices) throw new WebinarError(503, PUBLIC_UNAVAILABLE, '3-pay Stripe prices are not configured');
   const sub = session.subscription;
   const subId = typeof sub === 'string' ? sub : (sub && sub.id) || '';
   if (!subId) throw new WebinarError(500, PUBLIC_UNAVAILABLE, '3-pay checkout has no subscription');
+  const subscription = await stripe(env.STRIPE_SECRET_KEY, 'GET', '/v1/subscriptions/' + encodeURIComponent(subId));
+  const priceId = subscriptionItemPriceId(subscription);
+  const memberstackPrice = configuredId(env, 'MEMBERSTACK_PRICE_WEBINAR_997_3PAY', PACKAGES['997-3pay'].defaultPriceId);
+  const sessionPrice = String(md.price_id || md.ms_price_id || md.memberstack_price || '');
+  if (priceId !== prices.first || (sessionPrice && sessionPrice !== memberstackPrice)) {
+    return { status: 'skipped', reason: 'not_3pay_price' };
+  }
+  if (subscription && subscription.schedule) return { status: 'skipped', reason: 'already_scheduled' };
   const created = await stripe(env.STRIPE_SECRET_KEY, 'POST', '/v1/subscription_schedules', formBody({ from_subscription: subId }));
   const current = created && created.phases && created.phases[0];
   const currentPrice = current && current.items && current.items[0] && (current.items[0].price && current.items[0].price.id || current.items[0].price);
   const start = current && current.start_date;
-  if (!currentPrice || !start) throw new WebinarError(500, PUBLIC_UNAVAILABLE, '3-pay schedule is missing the current phase');
+  if (currentPrice !== prices.first) return { status: 'skipped', reason: 'not_3pay_price' };
+  if (!start) throw new WebinarError(500, PUBLIC_UNAVAILABLE, '3-pay schedule is missing the current phase');
   const phases = threePaySchedulePhases({
     mode: mode,
     currentPriceId: currentPrice,
@@ -525,6 +549,8 @@ async function applyThreePaySchedule(session, env, stripe) {
 module.exports = {
   THREE_PAY_MONTHLY_START,
   threePayMode,
+  threePayPriceIds,
+  threePayStripePrice,
   threePayOffer,
   threePaySchedulePhases,
   encodeSchedulePhases,

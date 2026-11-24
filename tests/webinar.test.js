@@ -139,12 +139,21 @@ test('997 3-pay shows three installments, then $97, and stays card-only', async 
 
   const pkg = webinar.PACKAGES['997-3pay'];
   assert.equal(pkg.defaultPlanId, 'pln_forge-webinar-997-lw00b81');
+  assert.equal(pkg.defaultPriceId, 'prc_forge-webinar-997-3-pay-n6005fa');
+  assert.equal(pkg.stripePriceId, 'price_1UfT4tK4zh6RSWCrKNWjj2Po');
   assert.equal(pkg.path, '/webinar/997-3pay');
-  const blocked = await webinar.checkoutHandler({
+  assert.equal(webinar.resolvePriceId(pkg, {}), 'prc_forge-webinar-997-3-pay-n6005fa');
+  assert.deepEqual(webinar.threePayPriceIds({}, 'after_third'), {
+    monthly: 'price_1UVHvYK4zh6RSWCrkRo8EsHE',
+    last: 'price_1UfT4vK4zh6RSWCroLs1Fwb2',
+    first: 'price_1UfT4tK4zh6RSWCrKNWjj2Po',
+  });
+  const defaults = await webinar.checkoutHandler({
     httpMethod: 'POST',
     body: JSON.stringify({ package: '997-3pay', email: 'ada@example.com', name: 'Ada Investor', src: 'rep', ref: '023k-ian' }),
   }, { env: {}, origin: 'https://forgedbyaris.com' });
-  assert.equal(blocked.statusCode, 503);
+  assert.equal(defaults.statusCode, 200);
+  assert.equal(JSON.parse(defaults.body).priceId, 'prc_forge-webinar-997-3-pay-n6005fa');
   const fwn = await webinar.checkoutHandler({
     httpMethod: 'POST',
     body: JSON.stringify({ package: '997-3pay', email: 'ada@example.com', name: 'Ada Investor', src: 'fwn-virtual', ref: '023k-ian' }),
@@ -215,26 +224,48 @@ test('997 3-pay shows three installments, then $97, and stays card-only', async 
   assert.equal(encoded.end_behavior, 'release');
 
   const calls = [];
+  const stripeEnv = {
+    STRIPE_SECRET_KEY: 'sk_test_123',
+    STRIPE_PRICE_WEBINAR_997_3PAY: 'price_33233',
+    STRIPE_PRICE_WEBINAR_997_MONTHLY: 'price_monthly97',
+    STRIPE_PRICE_WEBINAR_997_3PAY_LAST: 'price_last33234',
+  };
   const applied = await webinar.applyThreePaySchedule({
     subscription: 'sub_123',
     metadata: { package: 'webinar-997-3pay', lead_source: 'rep', sold_by: 'rep', rep: '023k-ian', ref: '023k-ian' },
-  }, {
-    STRIPE_SECRET_KEY: 'sk_test_123',
-    STRIPE_PRICE_WEBINAR_997_MONTHLY: 'price_monthly97',
-    STRIPE_PRICE_WEBINAR_997_3PAY_LAST: 'price_last33234',
-  }, async (secret, method, path, form) => {
+  }, stripeEnv, async (secret, method, path, form) => {
     calls.push({ secret, method, path, form });
+    if (method === 'GET') {
+      return { id: 'sub_123', items: { data: [{ price: { id: 'price_33233' } }] } };
+    }
     if (path === '/v1/subscription_schedules') {
       return { id: 'sub_sched_1', phases: [{ start_date: 1760000000, items: [{ price: 'price_33233' }] }] };
     }
     return { id: 'sub_sched_1' };
   });
   assert.equal(applied.status, 'scheduled');
-  assert.equal(calls[0].secret, 'sk_test_123');
-  assert.match(calls[0].form, /from_subscription=sub_123/);
-  assert.match(calls[1].path, /subscription_schedules\/sub_sched_1/);
-  assert.match(calls[1].form, /phases%5B2%5D%5Bmetadata%5D%5Binstallment_number%5D=3/);
-  assert.equal(calls[1].form.includes('klarna'), false);
+  assert.equal(calls[0].method, 'GET');
+  assert.equal(calls[1].secret, 'sk_test_123');
+  assert.match(calls[1].form, /from_subscription=sub_123/);
+  assert.match(calls[2].path, /subscription_schedules\/sub_sched_1/);
+  assert.match(calls[2].form, /phases%5B2%5D%5Bmetadata%5D%5Binstallment_number%5D=3/);
+  assert.equal(calls[2].form.includes('klarna'), false);
+  const untouched = [];
+  const skipped = await webinar.applyThreePaySchedule({
+    subscription: 'sub_997',
+    metadata: { package: 'webinar-997-3pay', price_id: 'prc_forge-webinar-997-97-ui20bdr' },
+  }, stripeEnv, async (secret, method, path) => {
+    untouched.push(method + ' ' + path);
+    return { id: 'sub_997', items: { data: [{ price: 'price_monthly97' }] } };
+  });
+  assert.equal(skipped.status, 'skipped');
+  assert.equal(skipped.reason, 'not_3pay_price');
+  assert.deepEqual(untouched, ['GET /v1/subscriptions/sub_997']);
+  const again = await webinar.applyThreePaySchedule({
+    subscription: 'sub_123',
+    metadata: { package: 'webinar-997-3pay' },
+  }, stripeEnv, async () => ({ id: 'sub_123', schedule: 'sub_sched_1', items: { data: [{ price: 'price_33233' }] } }));
+  assert.equal(again.reason, 'already_scheduled');
 
   const page = read('webinar/997-3pay.html');
   assert.match(page, /3 payments of \$332\.33/);
