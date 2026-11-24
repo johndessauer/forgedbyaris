@@ -271,7 +271,8 @@ test('997 3-pay shows three installments, then $97, and stays card-only', async 
   assert.match(page, /3 payments of \$332\.33/);
   assert.match(page, /The last payment is \$332\.34/);
   assert.match(page, /the month after the third payment/);
-  assert.match(page, /Klarna is not offered/);
+  assert.match(page, /No Klarna or pay-later options\./);
+  assert.equal(page.includes('Card only'), false);
   assert.match(page, /data-webinar-package="997-3pay"/);
   assert.match(page, /name="robots" content="noindex, nofollow"/);
   assert.equal(page.includes('fwn-checkout'), false);
