@@ -108,26 +108,42 @@
       autoRedirect: false
     };
     if (checkout.metadataForCheckout) params.metadataForCheckout = checkout.metadataForCheckout;
+    if (data.cardOnly) params.paymentMethodTypes = ['card'];
     if (window.ForgeRef && window.ForgeRef.withCheckout) params = window.ForgeRef.withCheckout(params, window);
+    async function purchase() {
+      var purchased = await memberstack.purchasePlansWithCheckout(params);
+      if (purchased && purchased.error) throw purchased.error;
+      return purchased;
+    }
     var result;
     try {
-      result = await memberstack.purchasePlansWithCheckout(params);
+      result = await purchase();
     } catch (err) {
-      if (!params.metadataForCheckout) throw err;
-      var refOnly = params.metadataForCheckout.ref;
-      console.error('Webinar checkout: retrying with ref only:', err);
-      if (refOnly) params.metadataForCheckout = { ref: refOnly };
-      else delete params.metadataForCheckout;
-      try {
-        result = await memberstack.purchasePlansWithCheckout(params);
-      } catch (err2) {
-        if (!params.metadataForCheckout) throw err2;
-        console.error('Webinar checkout: retrying without checkout metadata:', err2);
-        delete params.metadataForCheckout;
-        result = await memberstack.purchasePlansWithCheckout(params);
+      if (params.paymentMethodTypes) {
+        console.error('Webinar checkout: retrying without a card-only hint:', err);
+        delete params.paymentMethodTypes;
+        try {
+          result = await purchase();
+        } catch (errCard) {
+          err = errCard;
+        }
+      }
+      if (!result) {
+        if (!params.metadataForCheckout) throw err;
+        var refOnly = params.metadataForCheckout.ref;
+        console.error('Webinar checkout: retrying with ref only:', err);
+        if (refOnly) params.metadataForCheckout = { ref: refOnly };
+        else delete params.metadataForCheckout;
+        try {
+          result = await purchase();
+        } catch (err2) {
+          if (!params.metadataForCheckout) throw err2;
+          console.error('Webinar checkout: retrying without checkout metadata:', err2);
+          delete params.metadataForCheckout;
+          result = await purchase();
+        }
       }
     }
-    if (result && result.error) throw result.error;
     var url = checkoutUrl(result);
     if (!url) throw new Error('Checkout did not return a payment link.');
     window.location.href = url;

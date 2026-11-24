@@ -597,7 +597,20 @@ async function webhookHandler(event, deps) {
     fwn: outcome.process || webinar,
     ref: ref,
   });
-  return json(200, { received: true, charged: false, metadata: copied.copied ? 'copied' : copied.reason, ref: !!ref });
+  let schedule = '';
+  const packageName = paid.session.metadata && paid.session.metadata.package;
+  if (packageName === 'webinar-997-3pay') {
+    try {
+      const applied = await require('./webinar').applyThreePaySchedule(paid.session, env, options.stripeRequest || stripeRequest);
+      schedule = applied.status;
+    } catch (err) {
+      console.error('3-pay schedule failed:', err.message || err);
+      return json(500, { received: true, charged: false, schedule: 'failed' });
+    }
+  }
+  const body = { received: true, charged: false, metadata: copied.copied ? 'copied' : copied.reason, ref: !!ref };
+  if (schedule) body.schedule = schedule;
+  return json(200, body);
 }
 
 function paidCheckoutSession(stripeEvent) {
