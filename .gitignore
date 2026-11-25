@@ -3,6 +3,7 @@
 
 # CommonJS bundle check writes these next to the repo and deletes them.
 .skip-trace-bundle-*/
+.loan-records-bundle-*/
 
 # Publish output from scripts/publish-site.js. Netlify builds this on deploy.
 /public/

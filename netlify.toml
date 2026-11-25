@@ -210,6 +210,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/loan-records"
+  to = "/.netlify/functions/loan-records"
+  status = 200
+
+[[redirects]]
   from = "/api/skip-trace-credits"
   to = "/.netlify/functions/skip-trace-credits"
   status = 200
