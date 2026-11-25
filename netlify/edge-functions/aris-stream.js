@@ -26,6 +26,13 @@
 
 import { analysisCurrencyInstruction } from './lib/speech-text.js';
 import { requireEdgeMembership } from './lib/membership.js';
+import {
+  trimMessagesToBudget,
+  buildMemoryBlock,
+  whyFromProfileRow,
+  hasWhyContent,
+  isUuid,
+} from './lib/aris-memory.js';
 
 const ARIS_SYSTEM_COACH = `You are ARIS — the Adaptive Real Estate Intelligence System, the AI advisor at the core of FORGE, the world's most powerful real estate investor platform. You are male. You were named after Aristotle, who tutored Alexander the Great and helped him build the largest empire in history. Your purpose is the same: to help real estate investors build their own empires.
 
@@ -388,6 +395,53 @@ function buildWhyBlock(memberWhy) {
   return `\n\nMEMBER'S WHY — This member shared their deeper motivation. Reference it periodically when it adds real impact — when they need a push, are hesitating, or celebrate a win. Never force it into every message:\n${lines.join('\n')}`;
 }
 
+// Loads durable coach memory for the signed-in member. A missing table,
+// a missing key, or a slow database leaves the prompt unchanged so chat
+// still streams. The service-role key stays on this request and is never
+// written to the response or the logs.
+async function supabaseGet(path) {
+  const url = (Netlify.env.get('SUPABASE_URL') || '').trim().replace(/\/$/, '');
+  const key = (Netlify.env.get('SUPABASE_SERVICE_ROLE_KEY') || '').trim();
+  if (!url || !key) return null;
+  const res = await fetch(url + '/rest/v1/' + path, {
+    headers: { apikey: key, Authorization: 'Bearer ' + key, Accept: 'application/json' },
+    signal: AbortSignal.timeout(2500),
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  return Array.isArray(data) ? data : null;
+}
+
+async function loadCoachContext(memberId, conversationId) {
+  const empty = { block: '', why: null };
+  try {
+    const member = encodeURIComponent(memberId);
+    const [factsRows, conversationRows, profileRows] = await Promise.all([
+      supabaseGet('aris_member_facts?memberstack_id=eq.' + member + '&select=facts'),
+      supabaseGet('aris_conversations?memberstack_id=eq.' + member + '&select=id,title,rolling_summary,updated_at&order=updated_at.desc&limit=6'),
+      supabaseGet('member_profiles?memberstack_id=eq.' + member + '&select=why_q1,why_q2,why_q3,experience_level,primary_strategy,biggest_obstacle'),
+    ]);
+    if (!factsRows && !conversationRows && !profileRows) return empty;
+    let conversations = conversationRows || [];
+    if (conversationId && !conversations.some((row) => row && row.id === conversationId)) {
+      const extra = await supabaseGet(
+        'aris_conversations?id=eq.' + encodeURIComponent(conversationId) + '&memberstack_id=eq.' + member + '&select=id,title,rolling_summary,updated_at'
+      );
+      if (extra && extra[0]) conversations = [extra[0], ...conversations];
+    }
+    return {
+      block: buildMemoryBlock({
+        facts: factsRows && factsRows[0] ? factsRows[0].facts : null,
+        conversations,
+        currentConversationId: conversationId,
+      }),
+      why: whyFromProfileRow(profileRows && profileRows[0]),
+    };
+  } catch (e) {
+    return empty;
+  }
+}
+
 export default async (request, context) => {
   const CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*',
@@ -435,6 +489,7 @@ export default async (request, context) => {
 
   // The public homepage widget uses promptKey "sales" with no member session.
   // Coach and Deal Analyzer are member features and require a live plan.
+  let memberId = '';
   if (body.promptKey !== 'sales') {
     const access = await requireEdgeMembership(request, { origin: new URL(request.url).origin, need: 'member' });
     if (!access.ok) {
@@ -443,13 +498,26 @@ export default async (request, context) => {
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
       });
     }
+    memberId = access.memberId || '';
   }
-  const resolvedSystem = basePrompt + (body.promptKey === 'sales' ? '' : FORGE_DATA_BLOCK) + compsBlock(body.promptKey) + (body.promptKey === 'coach' ? buildWhyBlock(body.memberWhy) : '') + weeklyNoteBlock(await getWeeklyNote(), body.promptKey) + '\n\n' + analysisCurrencyInstruction({ messages: body.messages });
+
+  // Coach memory is loaded here, not trusted from the browser. The model
+  // only sees the last ~20 turns plus the rolling summary. Currency still
+  // looks at the full thread so an earlier currency mention is not dropped.
+  let memberWhy = body.memberWhy;
+  let memoryBlock = '';
+  if (body.promptKey === 'coach' && memberId) {
+    const loaded = await loadCoachContext(memberId, isUuid(body.conversationId) ? body.conversationId : '');
+    memoryBlock = loaded.block;
+    if (!hasWhyContent(memberWhy) && hasWhyContent(loaded.why)) memberWhy = loaded.why;
+  }
+  const resolvedSystem = basePrompt + (body.promptKey === 'sales' ? '' : FORGE_DATA_BLOCK) + compsBlock(body.promptKey) + (body.promptKey === 'coach' ? buildWhyBlock(memberWhy) : '') + memoryBlock + weeklyNoteBlock(await getWeeklyNote(), body.promptKey) + '\n\n' + analysisCurrencyInstruction({ messages: body.messages });
+  const modelMessages = Array.isArray(body.messages) ? trimMessagesToBudget(body.messages) : body.messages;
 
   const requestBody = {
     model: body.model || 'claude-sonnet-4-6',
     max_tokens: body.max_tokens || 2200,
-    messages: body.messages,
+    messages: modelMessages,
     system: resolvedSystem,
     stream: true
   };
