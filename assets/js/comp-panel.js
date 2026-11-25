@@ -1349,7 +1349,16 @@
       toast('Building the comp report PDF…');
       const { dataUri } = await buildPdf();
       const title = `FORGE Comp Report — ${streetOnly(subjectAddress())}`;
-      const d = await apiAuth('/api/deal-documents', { method: 'POST', body: JSON.stringify({ action: 'create', deal_id: dealId, source_tool: 'comp_report', title, file_data: dataUri }) });
+      const payload = { action: 'create', deal_id: dealId, source_tool: 'comp_report', title };
+      if (window.ForgeUpload) {
+        const uploaded = await window.ForgeUpload.uploadDataUrl(dataUri, 'comp-report.pdf', { purpose: 'document', token: ctx.getToken() });
+        payload.storage_path = uploaded.path;
+      } else if (String(dataUri || '').length <= 5 * 1024 * 1024) {
+        payload.file_data = dataUri;
+      } else {
+        throw new Error('Could not upload this report. Refresh and try again.');
+      }
+      const d = await apiAuth('/api/deal-documents', { method: 'POST', body: JSON.stringify(payload) });
       if (!d.ok) throw new Error(d.body && d.body.error === 'Invalid source_tool' ? 'The CRM does not accept comp reports yet — see the setup note.' : 'Could not attach the PDF to the deal.');
       const n = await apiAuth('/api/crm-notes', { method: 'POST', body: JSON.stringify({ deal_id: dealId, body: crmNote(), created_by: 'aris' }) });
       if (!n.ok) console.warn('Comp note was not saved', n.status);

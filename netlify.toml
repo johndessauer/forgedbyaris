@@ -15,6 +15,11 @@
 [functions.aris-quote]
   timeout = 26
 
+# Signed uploads are small, but reading a large PDF or spreadsheet back
+# for analysis can take most of the function window.
+[functions.storage-upload]
+  timeout = 26
+
 # Summary and fact calls run after a chat is saved. 26s matches the
 # other ARIS functions so a slow model response can finish.
 [functions.aris-memory]
@@ -142,6 +147,11 @@
 [[redirects]]
   from = "/api/deal-documents"
   to = "/.netlify/functions/deal-documents"
+  status = 200
+
+[[redirects]]
+  from = "/api/storage-upload"
+  to = "/.netlify/functions/storage-upload"
   status = 200
 
 [[redirects]]

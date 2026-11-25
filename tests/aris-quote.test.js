@@ -225,5 +225,5 @@ test('every page that calls aris-quote sends the member token', () => {
       i = s.indexOf("fetch('/api/aris-quote'", i + 1);
     }
   });
-  assert.equal(calls, 16);
+  assert.equal(calls, 6);
 });

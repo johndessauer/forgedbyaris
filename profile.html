@@ -495,6 +495,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 </style>
 <script src="https://static.memberstack.com/scripts/v1/memberstack.js" data-memberstack-app="app_cmr41qq5500q80tsx94pj61rc" defer></script>
 <script src="/assets/js/ref-capture.js"></script>
+<script src="/assets/js/direct-upload.js"></script>
 <script src="/assets/js/member-preferences.js"></script>
 <script src="/assets/js/skip-trace-shared.js"></script>
 <script src="/assets/js/skip-trace-ui.js"></script>
@@ -525,7 +526,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
       <a class="nav-item" href="real-estate-lab.html"><span class="nav-icon">🎭</span>Real Estate Lab</a>
     </div>
     <div class="sidebar-footer">
-      <input type="file" id="avatar-input" accept="image/*" onchange="handleAvatarUpload(event)" />
+      <input type="file" id="avatar-input" accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,image/*,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif" onchange="handleAvatarUpload(event)" />
       <div class="profile-chip">
         <div class="avatar-wrap">
           <div class="user-avatar" id="sidebar-avatar"><span id="sidebar-initials">JD</span></div>
@@ -563,7 +564,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
       <!-- AVATAR -->
       <div class="profile-card">
         <div class="profile-card-label">Avatar</div>
-        <input type="file" id="avatar-input" accept="image/*" onchange="handleAvatarUpload(event)" />
+        <input type="file" id="avatar-input" accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,image/*,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif" onchange="handleAvatarUpload(event)" />
         <div class="avatar-section">
           <div class="avatar-big-wrap">
             <div class="avatar-big" id="profile-avatar"><span id="profile-initials">JD</span></div>
@@ -1409,41 +1410,36 @@ async function handlePasswordSubmit(e) {
 }
 
 // ── AVATAR ──
-function handleAvatarUpload(e) {
+async function handleAvatarUpload(e) {
   const file = e.target.files[0];
+  e.target.value = '';
   if (!file) return;
 
-  if (file.size > 4 * 1024 * 1024) {
-    showToast('Image too large — please choose a file under 4MB.');
-    e.target.value = '';
+  if (file.size > 25 * 1024 * 1024) {
+    showToast('Image too large — please choose a file under 25MB.');
     return;
   }
 
-  const reader = new FileReader();
-  reader.onload = async (ev) => {
-    const dataUrl = ev.target.result;
-    applyAvatar(dataUrl); // optimistic preview
-    localStorage.setItem('forge-avatar', dataUrl); // offline fallback copy
-
-    const base64 = dataUrl.split(',')[1];
-    try {
-      const res = await fetch('/api/profile-data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${memberToken}` },
-        body: JSON.stringify({ action: 'upload_avatar', imageData: base64, contentType: file.type }),
-      });
-      if (!res.ok) throw new Error('Upload failed');
-      const { profile } = await res.json();
-      currentProfile = profile;
-      applyAvatar(profile.avatar_url);
-      showToast('Profile photo updated');
-    } catch (err) {
-      console.error('avatar upload failed:', err);
-      showToast('Photo saved locally, but upload failed — will retry next visit.');
-    }
-  };
-  reader.readAsDataURL(file);
-  e.target.value = '';
+  const preview = URL.createObjectURL(file);
+  applyAvatar(preview);
+  try {
+    if (!window.ForgeUpload) throw new Error('Refresh the page and try that upload again.');
+    const uploaded = await window.ForgeUpload.uploadFile(file, { purpose: 'avatar', token: memberToken });
+    const res = await fetch('/api/profile-data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${memberToken}` },
+      body: JSON.stringify({ action: 'upload_avatar', storagePath: uploaded.path, contentType: uploaded.contentType }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || 'Upload failed');
+    currentProfile = body.profile;
+    applyAvatar(body.profile.avatar_url);
+    localStorage.setItem('forge-avatar', body.profile.avatar_url);
+    showToast('Profile photo updated');
+  } catch (err) {
+    console.error('avatar upload failed:', err);
+    showToast(err.message || 'Could not update the photo. Try again.');
+  }
 }
 
 function applyAvatar(src) {

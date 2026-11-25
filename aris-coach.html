@@ -755,6 +755,7 @@
 <script src="/assets/js/member-preferences.js"></script>
 <script src="/assets/js/contact-types.js"></script>
 <script src="/assets/js/aris-memory-client.js"></script>
+<script src="/assets/js/direct-upload.js"></script>
 </head>
 <body>
 
@@ -862,9 +863,9 @@
 
     <!-- INPUT -->
     <div class="input-bar">
-      <input type="file" id="file-input" accept=".pdf,image/*" onchange="handleFileUpload(event)" />
+      <input type="file" id="file-input" accept="application/pdf,.pdf,text/csv,.csv,application/vnd.ms-excel,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.xlsx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx,image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,image/*,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif" onchange="handleFileUpload(event)" />
       <div class="input-wrap">
-        <button class="upload-btn" onclick="document.getElementById('file-input').click()" title="Upload document or image">
+        <button class="upload-btn" onclick="document.getElementById('file-input').click()" title="Upload a PDF, Excel, Word, CSV, or photo up to 25MB">
           <svg viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66L9.41 17.41a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
         </button>
         <button class="mic-btn" id="mic-btn" onclick="toggleVoiceInput()" title="Speak to ARIS">
@@ -883,7 +884,7 @@
           <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
         </button>
       </div>
-      <div class="input-hint" id="input-hint">Press Enter to send &nbsp;·&nbsp; Shift+Enter for new line &nbsp;·&nbsp; 📎 Upload PDF or image &nbsp;·&nbsp; 🎤 Click to speak to ARIS</div>
+      <div class="input-hint" id="input-hint">Press Enter to send &nbsp;·&nbsp; Shift+Enter for new line &nbsp;·&nbsp; 📎 PDF, Excel, Word, CSV, or photo up to 25MB &nbsp;·&nbsp; Or paste a Google Sheets or Docs link shared so anyone with the link can view &nbsp;·&nbsp; 🎤 Click to speak to ARIS</div>
     </div>
 
     <div style="text-align:center; padding: 16px 28px 12px; border-top: 1px solid rgba(200,155,60,0.15);">
@@ -1376,55 +1377,60 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
   }
 
   // ── FILE UPLOAD ──
-  function handleFileUpload(event) {
+  async function handleFileUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
     event.target.value = ''; // reset so same file can be re-uploaded
 
-    const isPDF   = file.type === 'application/pdf';
-    const isImage = file.type.startsWith('image/');
-    if (!isPDF && !isImage) {
-      appendMessage('aris', '**Unsupported file type.** Upload a PDF or an image (JPG, PNG, WEBP) and I can analyze it.');
+    if (!window.ForgeUpload) {
+      appendMessage('aris', 'Refresh the page and try that upload again.');
+      return;
+    }
+    const mediaType = window.ForgeUpload.normalizeContentType(file.type, file.name);
+    if (!window.ForgeUpload.isAllowed('coach', mediaType)) {
+      appendMessage('aris', '**Unsupported file type.** Upload a PDF, Excel workbook, Word document (.docx), CSV, or a photo (JPG, PNG, WEBP, HEIC) and I can analyze it.');
+      return;
+    }
+    if (file.size > window.ForgeUpload.MAX_BYTES) {
+      appendMessage('aris', 'That file is over 25MB. Choose a smaller one.');
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const base64 = e.target.result.split(',')[1];
-      const mediaType = file.type;
-      const sizeKB = (file.size / 1024).toFixed(0);
-      const sizeLabel = file.size > 1024 * 1024
-        ? (file.size / (1024 * 1024)).toFixed(1) + ' MB'
-        : sizeKB + ' KB';
-
+    const isPDF = mediaType === 'application/pdf';
+    const isImage = mediaType.indexOf('image/') === 0;
+    const sizeLabel = window.ForgeUpload.formatSize(file.size);
+    const kindLabel = isPDF ? 'PDF' : (isImage ? 'Image' : 'File');
+    try {
+      const uploaded = await window.ForgeUpload.uploadFile(file, { purpose: 'coach', token: currentMemberToken });
       pendingDocument = {
-        type: isPDF ? 'document' : 'image',
-        mediaType,
-        data: base64,
+        type: isPDF ? 'document' : (isImage ? 'image' : 'file'),
+        mediaType: uploaded.contentType,
+        path: uploaded.path,
         name: file.name,
         size: sizeLabel
       };
-
       hideSuggestions();
-      renderDocCard(file.name, sizeLabel, isPDF);
-      renderARISDocPrompt(isPDF);
-    };
-    reader.readAsDataURL(file);
+      renderDocCard(file.name, sizeLabel, kindLabel);
+      renderARISDocPrompt(!isImage);
+    } catch (err) {
+      appendMessage('aris', err.message || 'Could not upload that file. Try again.');
+    }
   }
 
-  function renderDocCard(name, size, isPDF) {
+  function renderDocCard(name, size, kindLabel) {
     const messages = document.getElementById('messages');
     const row = document.createElement('div');
     row.className = 'msg-row user';
+    const isImage = kindLabel === 'Image';
     row.innerHTML = `
       <div class="msg-avatar">${currentMemberInitials}</div>
       <div class="msg-content">
         <div class="msg-meta">You &nbsp;·&nbsp; ${getTime()}</div>
         <div class="doc-card">
-          <div class="doc-icon">${isPDF ? '📄' : '🖼️'}</div>
+          <div class="doc-icon">${isImage ? '🖼️' : '📄'}</div>
           <div class="doc-info">
             <div class="doc-name">${name}</div>
-            <div class="doc-meta">${isPDF ? 'PDF Document' : 'Image'} &nbsp;·&nbsp; ${size}</div>
+            <div class="doc-meta">${kindLabel || 'File'} &nbsp;·&nbsp; ${size}</div>
           </div>
         </div>
       </div>
@@ -1993,7 +1999,15 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
     if (!res.ok) {
       let rawText = '', errData = {};
       try { rawText = await res.text(); errData = JSON.parse(rawText); } catch (e) {}
-      const detail = errData.error?.message || errData.error || (rawText ? rawText.slice(0, 300) : 'no response body');
+      if (errData.code === 'private_link' || errData.error === 'private_link') {
+        appendMessage('aris', errData.message || 'That file is private. Set sharing to Anyone with the link and try again.');
+        return;
+      }
+      if (errData.message && (errData.code === 'bad_link' || errData.code === 'too_large' || errData.code === 'scan' || errData.code === 'bad_type' || errData.code === 'heic' || errData.code === 'image_too_large' || errData.code === 'inline_too_large')) {
+        appendMessage('aris', errData.message);
+        return;
+      }
+      const detail = errData.error?.message || errData.message || errData.error || (rawText ? rawText.slice(0, 300) : 'no response body');
       appendMessage('aris', `ARIS hit a snag (HTTP ${res.status}): ${detail}`);
       return;
     }
@@ -2131,14 +2145,19 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
     input.value = '';
     autoResize(input);
 
-    // Build the user message — attach document if pending
+    // Build the user message — attach a stored file or a Docs/Sheets link.
+    // The bytes stay in storage. This request only carries the path or the link.
     let userMessageContent;
-    if (pendingDocument) {
-      const docBlock = pendingDocument.type === 'document'
-        ? { type: 'document', source: { type: 'base64', media_type: pendingDocument.mediaType, data: pendingDocument.data } }
-        : { type: 'image',    source: { type: 'base64', media_type: pendingDocument.mediaType, data: pendingDocument.data } };
-      userMessageContent = [ docBlock, { type: 'text', text } ];
+    const blocks = [];
+    if (pendingDocument && pendingDocument.path) {
+      blocks.push({ type: 'forge_file', path: pendingDocument.path, mediaType: pendingDocument.mediaType, name: pendingDocument.name });
       pendingDocument = null;
+    }
+    const pastedLink = window.ForgeUpload && window.ForgeUpload.findGoogleLink(text);
+    if (pastedLink) blocks.push({ type: 'forge_link', url: pastedLink });
+    if (blocks.length) {
+      blocks.push({ type: 'text', text });
+      userMessageContent = blocks;
     } else {
       userMessageContent = text;
     }

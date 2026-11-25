@@ -19,6 +19,7 @@ const { enforceMembership } = require('./_Lib/membership');
 const { applyPreferencePatch } = require('./_Lib/member-preferences');
 const { supabase } = require('./_Lib/supabase-client');
 const { json, preflight } = require('./_Lib/http');
+const uploads = require('./_Lib/member-uploads');
 
 exports.handler = async function (event, context) {
   if (event.httpMethod === 'OPTIONS') return preflight();
@@ -99,30 +100,58 @@ exports.handler = async function (event, context) {
       const { action } = payload;
 
       if (action === 'upload_avatar') {
-        const { imageData, contentType } = payload;
-        if (!imageData || !contentType) {
-          return json(400, { error: 'imageData and contentType are required' });
-        }
-        if (!contentType.startsWith('image/')) {
-          return json(400, { error: 'contentType must be an image type' });
+        const { imageData, contentType, storagePath } = payload;
+        let buffer;
+        let type = contentType || '';
+        let path = '';
+
+        if (storagePath) {
+          try {
+            path = uploads.assertMemberPath(memberId, storagePath);
+          } catch (err) {
+            return json(err.statusCode || 400, { error: err.message || 'That photo path is not valid.' });
+          }
+          if (!/\/avatar\.(jpg|jpeg|png|webp|gif|heic|heif)$/i.test(path)) {
+            return json(400, { error: 'That photo path is not valid.' });
+          }
+          const { data, error: downloadError } = await supabase.storage.from('avatars').download(path);
+          if (downloadError || !data) return json(400, { error: 'Upload it again. The photo did not arrive.' });
+          buffer = Buffer.from(await data.arrayBuffer());
+          type = data.type || contentType || '';
+        } else {
+          if (!imageData || !contentType) {
+            return json(400, { error: 'imageData and contentType are required' });
+          }
+          if (!String(contentType).startsWith('image/')) {
+            return json(400, { error: 'contentType must be an image type' });
+          }
+          buffer = Buffer.from(imageData, 'base64');
+          // Older pages still send the photo inline. Keep that working under 4MB.
+          if (buffer.length > uploads.LEGACY_INLINE_MAX_BYTES) {
+            return json(400, { error: 'Image too large (max 4MB)' });
+          }
+          const ext = (String(contentType).split('/')[1] || 'jpg').replace(/[^a-z0-9]/gi, '');
+          path = `${memberId}/avatar.${ext}`;
         }
 
-        const buffer = Buffer.from(imageData, 'base64');
-        const MAX_BYTES = 4 * 1024 * 1024; // 4MB, matches the site's existing upload limit elsewhere
-        if (buffer.length > MAX_BYTES) {
-          return json(400, { error: 'Image too large (max 4MB)' });
+        let prepared;
+        try {
+          prepared = await uploads.prepareAvatar(buffer, type, path);
+        } catch (err) {
+          return json(err.statusCode || 400, { error: err.message || 'Could not use that photo.' });
         }
 
-        const ext = (contentType.split('/')[1] || 'jpg').replace(/[^a-z0-9]/gi, '');
-        const path = `${memberId}/avatar.${ext}`;
-
+        let finalPath = path;
+        if (prepared.mime === 'image/jpeg' && !/\.jpe?g$/i.test(path)) {
+          finalPath = path.replace(/\/avatar\.[a-z0-9]+$/i, '/avatar.jpg');
+        }
         const { error: uploadError } = await supabase.storage
           .from('avatars')
-          .upload(path, buffer, { contentType, upsert: true });
+          .upload(finalPath, prepared.buffer, { contentType: prepared.mime, upsert: true });
 
         if (uploadError) throw uploadError;
 
-        const { data: publicUrlData } = supabase.storage.from('avatars').getPublicUrl(path);
+        const { data: publicUrlData } = supabase.storage.from('avatars').getPublicUrl(finalPath);
         const avatarUrl = `${publicUrlData.publicUrl}?v=${Date.now()}`; // cache-bust on re-upload
 
         const { data, error } = await supabase

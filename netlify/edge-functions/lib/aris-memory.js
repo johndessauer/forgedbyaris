@@ -56,8 +56,8 @@ export function messagePlainText(message) {
   content.forEach((block) => {
     if (!block || typeof block !== 'object') return;
     if (block.type === 'text' && typeof block.text === 'string') parts.push(block.text);
-    else if (block.type === 'image') parts.push('[Member uploaded an image]');
-    else if (block.type === 'document') parts.push('[Member uploaded a document]');
+    else if (block.type === 'image' || (block.type === 'forge_file' && String(block.mediaType || '').indexOf('image/') === 0)) parts.push('[Member uploaded an image]');
+    else if (block.type === 'document' || block.type === 'forge_file' || block.type === 'forge_link') parts.push('[Member uploaded a document]');
   });
   return parts.join('\n');
 }
