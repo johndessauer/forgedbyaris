@@ -1,11 +1,11 @@
 // Current Netlify function format so secret env values are available.
-import { createRequire } from 'module';
+// Import the CJS libs directly, the same way marketing-wallet.js does.
+// createRequire(import.meta.url) throws after Netlify bundles this file as
+// CommonJS, because import.meta.url is undefined in that bundle.
 import { createHandler } from './_Lib/skip-trace-http.js';
 import { fromRequest, toResponse } from './_Lib/function-adapter.js';
-
-const require = createRequire(import.meta.url);
-const { supabase } = require('./_Lib/supabase-client');
-const { createSupabaseStore } = require('./_Lib/skip-trace-store');
+import { supabase } from './_Lib/supabase-client.js';
+import { createSupabaseStore } from './_Lib/skip-trace-store.js';
 
 const handler = createHandler({
   fetch: (url, init) => fetch(url, init),

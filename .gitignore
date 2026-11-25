@@ -1,6 +1,9 @@
 # Local Netlify folder
 .netlify
 
+# CommonJS bundle check writes these next to the repo and deletes them.
+.skip-trace-bundle-*/
+
 # Publish output from scripts/publish-site.js. Netlify builds this on deploy.
 /public/
 
