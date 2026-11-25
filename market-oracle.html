@@ -1354,6 +1354,12 @@ window.addEventListener('load', async () => {
         console.error('Could not load default market:', err);
       }
     }
+    const presetMarket = new URLSearchParams(location.search).get('q');
+    const searchBox = document.getElementById('searchInput');
+    if (presetMarket && searchBox) {
+      searchBox.value = presetMarket;
+      if (typeof runSearch === 'function') runSearch();
+    }
   } catch(e) {}
 });
 

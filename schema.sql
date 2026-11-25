@@ -19,7 +19,9 @@ create extension if not exists "pgcrypto"; -- for gen_random_uuid()
 -- the extra roles still satisfy the check.
 --
 -- create table if not exists does not change a database that already has
--- this table. Those projects need sql/migrations/add-crm-contact-types.sql.
+-- this table. Those projects need sql/migrations/add-crm-contact-types.sql
+-- and sql/migrations/add-skip-trace.sql (address, phones, emails, flags,
+-- outreach_status).
 -- ---------------------------------------------------------------------
 create table if not exists contacts (
   id uuid primary key default gen_random_uuid(),
@@ -29,6 +31,11 @@ create table if not exists contacts (
   type_label text,
   phone text,
   email text,
+  address text,
+  phones jsonb not null default '[]'::jsonb,
+  emails jsonb not null default '[]'::jsonb,
+  flags jsonb not null default '{}'::jsonb,
+  outreach_status text,
   created_at timestamptz not null default now(),
   constraint contacts_type_check check (type in (
     'seller',
@@ -58,6 +65,10 @@ create table if not exists contacts (
       type <> 'other'
       and type_label is null
     )
+  ),
+  constraint contacts_outreach_status_check check (
+    outreach_status is null
+    or outreach_status in ('new', 'called', 'texted', 'emailed', 'do_not_contact')
   )
 );
 

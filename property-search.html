@@ -478,7 +478,8 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 .ps-pic-link { font-size:12px; color:var(--gold); text-decoration:none; }
 .ps-pic-link:hover { text-decoration:underline; }
 .ps-lead-card .actions { display:flex; gap:8px; margin-top:12px; }
-.ps-lead-card .btn-save { flex:1; background:transparent; border:1px solid var(--gold); color:var(--gold); border-radius:6px; padding:8px; font-size:12px; font-weight:600; cursor:pointer; }
+.ps-lead-card .btn-save, .ps-saved-lead-card .st-btn, .ps-lead-card .st-btn { flex:1; background:transparent; border:1px solid var(--gold); color:var(--gold); border-radius:6px; padding:8px; font-size:12px; font-weight:600; cursor:pointer; font-family:Inter,sans-serif; }
+.st-btn.locked { border-color:rgba(255,255,255,0.16); color:#9CA3AF; }
 .ps-lead-card .btn-save:hover { background:rgba(200,155,60,0.12); }
 .ps-lead-card .btn-save.saved { background:var(--gold); color:var(--black); cursor:default; }
 .ps-empty-state { background:var(--navy-card); border:1px dashed var(--border); border-radius:12px; padding:48px 24px; text-align:center; color:var(--light-grey); font-size:13px; }
@@ -524,6 +525,9 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 <script src="/assets/js/lead-filters.js"></script>
 <script src="/assets/js/marketing-catalog.js?v=20261122-knock"></script>
 <script src="/assets/js/marketing-entry.js?v=20261122-knock"></script>
+<script src="/assets/js/skip-trace-shared.js"></script>
+<script src="/assets/js/skip-trace-ui.js"></script>
+<script src="/assets/js/property-command.js"></script>
 </head>
 <body>
 <div class="app">
@@ -841,6 +845,26 @@ window.onload = async () => {
         console.error('Could not load default market:', err);
       }
     }
+    window.__forgeEmpireAccess = hasEmpireAccess;
+    if (window.ForgePropertyCommand) {
+      window.ForgePropertyCommand.init({
+        getToken: () => memberToken,
+        empire: () => hasEmpireAccess,
+        canMarket: () => marketingUi,
+        labelPlay: playTagLabel,
+        onUpgrade: async () => {
+          const memberstack = window.$memberstackDom;
+          const empireArgs = { priceId: EMPIRE_PRICE_ID };
+          try {
+            await (window.ForgeRef && window.ForgeRef.purchase
+              ? window.ForgeRef.purchase(memberstack, empireArgs, window)
+              : memberstack.purchasePlansWithCheckout(empireArgs));
+          } catch (err) {
+            console.error('Empire checkout failed', err);
+          }
+        },
+      });
+    }
   } catch(e) {
     // If Memberstack not loaded yet, allow page to render
   }
@@ -1039,12 +1063,69 @@ function cityStateZip(details) {
   return [d.city, tail].filter(Boolean).join(', ');
 }
 
+function commandFromResult(r) {
+  const details = r.details || {};
+  return {
+    source: 'result',
+    id: r.id,
+    compKind: 'result',
+    compId: r.id,
+    address: r.address,
+    owner: r.owner,
+    ownerFirstName: r.ownerFirstName || details.ownerFirstName,
+    ownerLastName: r.ownerLastName || details.ownerLastName,
+    equity: r.equity,
+    playIds: r.playIds || [],
+    lat: r.lat,
+    lng: r.lng,
+    details: details,
+    mapUrl: r.mapUrl,
+    zillowUrl: r.zillowUrl,
+  };
+}
+
+function commandFromSaved(lead) {
+  const details = lead.details || {};
+  return {
+    source: 'saved',
+    id: lead.lead_id || lead.id,
+    savedId: lead.id,
+    crmDealId: lead.crm_deal_id,
+    compKind: 'saved',
+    compId: lead.id,
+    address: lead.address,
+    owner: lead.owner,
+    ownerFirstName: details.ownerFirstName,
+    ownerLastName: details.ownerLastName,
+    equity: lead.equity,
+    playIds: String(lead.play_id || '').split(',').filter(Boolean),
+    lat: lead.lat,
+    lng: lead.lng,
+    details: details,
+    mapUrl: details.mapUrl,
+    zillowUrl: details.zillowUrl,
+  };
+}
+
+function openCommand(kind, id, andLookup) {
+  if (!window.ForgePropertyCommand) return;
+  const record = kind === 'saved'
+    ? commandFromSaved(savedLeadsCache.find(lead => String(lead.id) === String(id)) || {})
+    : commandFromResult(lastResults.find(lead => String(lead.id) === String(id)) || {});
+  if (!record.address) return;
+  window.ForgePropertyCommand.open(record);
+  if (andLookup) {
+    const contact = document.querySelector('#pcc-panel [data-owner-contact]');
+    if (contact) contact.click();
+  }
+}
+
 function leadCardHtml(r) {
   const metas = playMetas(r.playIds);
   const tags = metas.map(m => `<span class="tag" style="background:${m.color}22; color:${m.color}">${m.label}</span>`).join('');
   return `
     <div class="ps-lead-card" id="ps-card-${r.id}">
-      <div class="addr"${marketingUi ? ` data-market-detail="${escHtml(r.id)}"` : ''}>${escHtml(r.address)}</div>
+      <div class="addr"><button type="button" class="ps-open-addr" data-open-command="result" data-open-id="${escHtml(r.id)}">${escHtml(r.address)}</button></div>
       ${cityStateZip(r.details) ? `<div class="addr-city">${escHtml(cityStateZip(r.details))}</div>` : ''}
       <div>${tags}</div>
       <div class="meta">Owner: <strong>${escHtml(r.owner || 'Unknown')}</strong></div>
@@ -1054,6 +1135,8 @@ function leadCardHtml(r) {
       <div class="actions">
         ${marketingUi ? `<label class="ps-market-check"><input type="checkbox" data-market-check="${escHtml(r.id)}"${marketSelected.has(String(r.id)) ? ' checked' : ''}> Select</label>
         <button type="button" class="btn-market" data-market-one="${escHtml(r.id)}">Market to this property</button>` : ''}
+        <button type="button" class="btn-save" data-open-command="result" data-open-id="${escHtml(r.id)}">Open</button>
+        ${window.ForgeSkipTrace ? window.ForgeSkipTrace.buttonHtml(window.__forgeEmpireAccess ? '' : 'locked') : ''}
         <button class="btn-save" id="ps-save-${r.id}" onclick="saveLead('${r.id}', this)">Save Lead</button>
         ${window.ForgeComps ? window.ForgeComps.buttonFor('result', r.id) : ''}
       </div>
@@ -1239,6 +1322,8 @@ async function saveLead(id, btn) {
         lat: lead.lat,
         lng: lead.lng,
         owner: lead.owner,
+        ownerFirstName: lead.ownerFirstName || (lead.details && lead.details.ownerFirstName) || null,
+        ownerLastName: lead.ownerLastName || (lead.details && lead.details.ownerLastName) || null,
         equity: lead.equity,
         // Characteristics + map/Zillow links bundled into one JSON blob so
         // they survive into the CRM note on send_to_crm.
@@ -1304,6 +1389,13 @@ function bindMarketingUi() {
   if (grid && !grid.dataset.marketBound) {
     grid.dataset.marketBound = '1';
     grid.addEventListener('click', (event) => {
+      const opener = event.target.closest('[data-open-command], [data-owner-contact]');
+      if (opener) {
+        const card = opener.closest('.ps-lead-card');
+        const id = opener.getAttribute('data-open-id') || (card && card.id.replace('ps-card-', ''));
+        if (id) openCommand('result', id, opener.hasAttribute('data-owner-contact'));
+        return;
+      }
       const one = event.target.closest('[data-market-one]');
       if (one) {
         const lead = lastResults.find(r => String(r.id) === one.getAttribute('data-market-one'));
@@ -1388,6 +1480,16 @@ function playTagLabel(id) {
 }
 
 function openSavedDrawer() {
+  const drawerBody = document.getElementById('ps-drawer-body');
+  if (drawerBody && !drawerBody.dataset.commandBound) {
+    drawerBody.dataset.commandBound = '1';
+    drawerBody.addEventListener('click', (event) => {
+      const opener = event.target.closest('[data-open-command], [data-owner-contact]');
+      if (!opener) return;
+      const id = opener.getAttribute('data-open-id') || (opener.closest('.ps-saved-lead-card') && opener.closest('.ps-saved-lead-card').id.replace('ps-saved-', ''));
+      if (id) openCommand('saved', id, opener.hasAttribute('data-owner-contact'));
+    });
+  }
   document.getElementById('ps-drawer-overlay').classList.add('open');
   document.getElementById('ps-drawer').classList.add('open');
   renderSavedDrawer();
@@ -1430,7 +1532,7 @@ async function renderSavedDrawer() {
     const details = lead.details || {};
     return `
       <div class="ps-saved-lead-card" id="ps-saved-${lead.id}">
-        <div class="addr">${escHtml(lead.address || 'Unknown address')}</div>
+        <div class="addr"><button type="button" class="ps-open-addr" data-open-command="saved" data-open-id="${escHtml(lead.id)}">${escHtml(lead.address || 'Unknown address')}</button></div>
         ${cityStateZip(details) ? `<div class="addr-city">${escHtml(cityStateZip(details))}</div>` : ''}
         ${tags ? `<div class="tags">${tags}</div>` : ''}
         <div class="meta">Owner: <strong>${escHtml(lead.owner || 'Unknown')}</strong></div>
@@ -1439,6 +1541,8 @@ async function renderSavedDrawer() {
         ${propertyLinksLine(details.mapUrl, details.zillowUrl)}
         <div class="meta">Saved ${new Date(lead.created_at).toLocaleDateString()}</div>
         <div class="actions">
+          <button type="button" class="ps-lead-action-btn" data-open-command="saved" data-open-id="${escHtml(lead.id)}">Open</button>
+          ${window.ForgeSkipTrace ? window.ForgeSkipTrace.buttonHtml(window.__forgeEmpireAccess ? '' : 'locked') : ''}
           ${crmBtn}
           ${window.ForgeComps ? window.ForgeComps.buttonFor('saved', lead.id) : ''}
           <button class="ps-lead-action-btn del" onclick="deleteSavedLead('${lead.id}')">Delete</button>

@@ -496,6 +496,8 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 <script src="https://static.memberstack.com/scripts/v1/memberstack.js" data-memberstack-app="app_cmr41qq5500q80tsx94pj61rc" defer></script>
 <script src="/assets/js/ref-capture.js"></script>
 <script src="/assets/js/member-preferences.js"></script>
+<script src="/assets/js/skip-trace-shared.js"></script>
+<script src="/assets/js/skip-trace-ui.js"></script>
 </head>
 <body>
 <div class="app">
@@ -642,6 +644,11 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
             <a class="pw-forgot" id="pw-forgot" href="login.html" title="On the sign-in page, enter your email and click &quot;Forgot password?&quot;">Forgot your current password?</a>
           </div>
         </form>
+      </div>
+
+      <div class="profile-card" id="skip-trace-credits">
+        <div class="profile-card-label">Skip-trace Credits</div>
+        <div id="skip-trace-credits-body"></div>
       </div>
 
       <!-- EMPIRE UPGRADE / STATUS -->
@@ -992,6 +999,17 @@ async function initProfilePage() {
     document.getElementById('sidebar-name').textContent = fullName;
     document.getElementById('sidebar-tier').textContent = planName;
     renderEmpireSection(hasEmpireAccess, EMPIRE_PRICE_ID);
+    if (window.ForgeSkipTrace) {
+      window.ForgeSkipTrace.mountProfile({
+        root: document.getElementById('skip-trace-credits-body'),
+        getToken: () => memberToken,
+        empire: () => hasEmpireAccess,
+        onUpgrade: () => {
+          const btn = document.querySelector('#empire-section button');
+          if (btn) btn.click();
+        },
+      });
+    }
     setupPasswordSection(member);
 
     await loadProfileData();

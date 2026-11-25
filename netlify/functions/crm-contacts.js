@@ -17,6 +17,7 @@ const { enforceMembership } = require('./_Lib/membership');
 const { supabase } = require('./_Lib/supabase-client');
 const { json, preflight } = require('./_Lib/http');
 const { VALID_TYPES, resolveContactType } = require('../../assets/js/contact-types');
+const { normalizeExtras } = require('./_Lib/contact-fields');
 
 exports.handler = async function (event, context) {
   if (event.httpMethod === 'OPTIONS') return preflight();
@@ -88,16 +89,18 @@ exports.handler = async function (event, context) {
         const resolved = resolveContactType(type, payload.type_label);
         if (resolved.error) return json(400, { error: resolved.error });
 
+        const extras = normalizeExtras(payload);
+        if (extras.error) return json(400, { error: extras.error });
         const { data, error } = await supabase
           .from('contacts')
-          .insert({
+          .insert(Object.assign({
             memberstack_id: memberId,
             name,
             type: resolved.type,
             type_label: resolved.type_label,
             phone: phone || null,
             email: email || null,
-          })
+          }, extras.fields))
           .select()
           .single();
 
@@ -109,7 +112,7 @@ exports.handler = async function (event, context) {
         const { id, ...fields } = payload;
         if (!id) return json(400, { error: 'id is required' });
 
-        const allowed = ['name', 'type', 'type_label', 'phone', 'email'];
+        const allowed = ['name', 'type', 'type_label', 'phone', 'email', 'address', 'phones', 'emails', 'flags', 'outreach_status'];
         const updates = {};
         for (const key of allowed) {
           if (Object.prototype.hasOwnProperty.call(fields, key)) updates[key] = fields[key];
@@ -118,6 +121,9 @@ exports.handler = async function (event, context) {
           return json(400, { error: 'No valid fields to update' });
         }
 
+        const extras = normalizeExtras(updates);
+        if (extras.error) return json(400, { error: extras.error });
+        Object.assign(updates, extras.fields);
         const typeResult = await normalizeTypeUpdate(updates, id, memberId);
         if (!typeResult.ok) return json(typeResult.status, { error: typeResult.error });
 
