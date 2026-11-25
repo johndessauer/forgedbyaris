@@ -42,6 +42,7 @@ const { supabase } = require('./_Lib/supabase-client');
 const { json, preflight } = require('./_Lib/http');
 const { compileSearch, labelFor, LEAD_CRITERIA } = require('./_Lib/lead-criteria');
 const spend = require('./_Lib/property-search-spend');
+const loanRecords = require('./_Lib/loan-records');
 
 // Fields requested from PropertyRadar on every live search. Names confirmed
 // against PropertyRadar's Properties response schema (Sept 2026).
@@ -58,7 +59,13 @@ const PROPERTYRADAR_FIELDS = [
   // search after this ships as the verification step, same as before.
   'PType', 'Beds', 'Baths', 'SqFt', 'YearBuilt', 'LotSizeAcres', 'Stories',
   'Pool', 'GarageSize',
-];
+  // Loan and lien scalars. Same Purchase=1 export, same per-property
+  // charge: one field or fifty is still one export. Transactions is not
+  // here — that history is a separate pay-per-record endpoint billed per
+  // transaction, and the docs do not keep it inside this one export.
+  // Do not backfill these with GET /properties/{RadarID}. That purchases
+  // the RadarID again. Older saved leads simply have no loans object.
+].concat(loanRecords.LOAN_EXPORT_FIELDS);
 
 const PROPERTYRADAR_API_BASE = 'https://api.propertyradar.com/v1'; // Confirmed correct: PropertyRadar's endpoint reference documents POST /v1/properties off base https://api.propertyradar.com
 
@@ -143,6 +150,8 @@ function mapRadarRecord(r, i, playIds) {
       stories: r.Stories ?? null,
       pool: r.Pool === true || r.Pool === 1 ? true : (r.Pool === false || r.Pool === 0 ? false : null),
       garageSize: r.GarageSize ?? null,
+      sample: false,
+      loans: loanRecords.loansFromRadar(r),
     },
     mapUrl: buildMapUrl(lat, lng),
     zillowUrl: buildZillowUrl(addressFull),
@@ -164,6 +173,8 @@ function buildDemoResults(playIds) {
       ownerLastName: p.ownerLastName || null,
       equity: p.equity,
       details: Object.assign({
+        sample: true,
+        loans: null,
         ownerFirstName: p.ownerFirstName || null,
         ownerLastName: p.ownerLastName || null,
       }, p.mail ? {
@@ -399,6 +410,14 @@ exports.handler = async function (event, context) {
         const savedDetails = Object.assign({}, details || {});
         if (payload.ownerFirstName) savedDetails.ownerFirstName = payload.ownerFirstName;
         if (payload.ownerLastName) savedDetails.ownerLastName = payload.ownerLastName;
+        // Loan facts stay in the existing details JSON. Drop anything that
+        // is not one of the mapped scalars (no transaction dump, no vendor URL).
+        if (Object.prototype.hasOwnProperty.call(savedDetails, 'loans')) {
+          savedDetails.loans = loanRecords.loansFromStored(savedDetails.loans);
+        }
+        if (Object.prototype.hasOwnProperty.call(savedDetails, 'sample')) {
+          savedDetails.sample = savedDetails.sample === true;
+        }
 
         // play_id is a single text column (see add-property-search-saves-table.sql)
         // but a lead can now carry more than one matching tag — flatten to a

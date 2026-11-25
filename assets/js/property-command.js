@@ -43,6 +43,8 @@
       '.pcc-actions .st-btn,.pcc-actions .ps-lead-action-btn,.pcc-actions button,.pcc-actions a.pcc-link{width:100%;text-align:center;text-decoration:none;}',
       '.pcc button.pcc-link,.pcc a.pcc-link{display:block;width:100%;box-sizing:border-box;background:#13283f;border:1px solid rgba(255,255,255,0.18);color:#fff;border-radius:6px;padding:10px;font-size:12px;font-weight:600;font-family:Inter,sans-serif;cursor:pointer;text-align:center;}',
       '.pcc-note{font-size:12px;line-height:1.45;color:#F8D48A;margin:8px 0 0;}',
+      '.pcc-loan-empty{font-size:13px;line-height:1.45;color:#D1D5DB;margin:8px 0 0;}',
+      '.pcc-records{color:#F8D48A;font-size:12px;font-weight:600;}',
       '.pcc .st-btn{display:block;background:transparent;border:1px solid #C89B3C;color:#C89B3C;border-radius:6px;padding:8px 10px;font-size:12px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;}',
       '.pcc .st-btn.locked{border-color:rgba(255,255,255,0.16);color:#9CA3AF;}',
       '.pcc .st-compliance{font-size:11px;color:#9CA3AF;line-height:1.45;margin:8px 0 0;}',
@@ -137,6 +139,7 @@
       fact('Mailing address', mailing(record)) +
       '</div>' +
       (entity ? '<p class="pcc-note">' + esc(entity) + '</p>' : '') +
+      (root.ForgeLoanRecords ? root.ForgeLoanRecords.sectionHtml(record) : '') +
       '<section class="pcc-section"><div class="pcc-kicker">Comps and market</div>' +
       '<div class="pcc-actions" style="margin-top:8px;">' + comp +
       '<a class="pcc-link" href="market-oracle.html?q=' + encodeURIComponent(marketQuery) + '">Open Market Oracle</a></div>' +
@@ -161,6 +164,13 @@
     if (!ctx.empire()) {
       var locked = document.querySelector('#pcc-panel [data-owner-contact]');
       if (locked) locked.classList.add('locked');
+    }
+    if (root.ForgeLoanRecords) {
+      root.ForgeLoanRecords.mount(document.getElementById('pcc-panel'), record, {
+        getToken: ctx.getToken,
+        empire: ctx.empire,
+        onUpgrade: ctx.onUpgrade,
+      });
     }
   }
 
