@@ -267,6 +267,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 </style>
 <script src="https://static.memberstack.com/scripts/v1/memberstack.js" data-memberstack-app="app_cmr41qq5500q80tsx94pj61rc" defer></script>
 <script src="/assets/js/ref-capture.js"></script>
+<script src="/assets/js/direct-upload.js"></script>
 <script src="/assets/js/member-preferences.js"></script>
 </head>
 <body>
@@ -1495,10 +1496,19 @@ async function selectFdocDeal(dealId) {
     fdocToast('Generating PDF...');
     const title = typeof getTitle === 'function' ? getTitle() : 'FORGE Report';
     const fileData = await fdocGeneratePdf(elementId, title);
+    const payload = { action: 'create', deal_id: dealId, source_tool: sourceTool, title };
+    if (window.ForgeUpload) {
+      const uploaded = await window.ForgeUpload.uploadDataUrl(fileData, 'report.pdf', { purpose: 'document', token: memberToken });
+      payload.storage_path = uploaded.path;
+    } else if (fileData.length <= 5 * 1024 * 1024) {
+      payload.file_data = fileData;
+    } else {
+      throw new Error('Could not upload this report. Refresh and try again.');
+    }
     const res = await fetch('/api/deal-documents', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${memberToken}` },
-      body: JSON.stringify({ action: 'create', deal_id: dealId, source_tool: sourceTool, title, file_data: fileData }),
+      body: JSON.stringify(payload),
     });
     if (!res.ok) throw new Error('Save failed');
     closeSaveToDealModal();

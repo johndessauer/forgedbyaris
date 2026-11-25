@@ -190,6 +190,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 </style>
 <script src="https://static.memberstack.com/scripts/v1/memberstack.js" data-memberstack-app="app_cmr41qq5500q80tsx94pj61rc" defer></script>
 <script src="/assets/js/ref-capture.js"></script>
+<script src="/assets/js/direct-upload.js"></script>
 <script src="/assets/js/contact-types.js"></script>
 </head>
 <body>
@@ -377,7 +378,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
           <label class="form-label">Documents</label>
           <div style="font-size:11px;color:var(--grey);margin-bottom:8px;">PDF reports saved here from Deal Analyzer, Market Oracle, and Capital Radar via their "Save to Deal" button, plus anything you upload directly or attach from the Document Vault.</div>
           <div class="doc-upload-row">
-            <input type="file" id="manual-doc-input" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" style="display:none;" onchange="handleManualDocSelected(event)">
+            <input type="file" id="manual-doc-input" accept="application/pdf,.pdf,text/csv,.csv,application/vnd.ms-excel,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.xlsx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx,application/msword,.doc,image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,image/*,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif" style="display:none;" onchange="handleManualDocSelected(event)">
             <button class="btn-secondary" style="flex:1;" onclick="document.getElementById('manual-doc-input').click()">⬆ Upload Document</button>
             <button class="btn-secondary" style="flex:1;" onclick="openVaultPicker()">📂 Attach from Vault</button>
           </div>
@@ -1099,7 +1100,7 @@ const DOC_SOURCE_ICONS = {
   manual_upload: '⬆️',
   document_vault: '📂',
 };
-const MANUAL_UPLOAD_MAX_BYTES = 4 * 1024 * 1024; // 4MB raw file size (base64 inflates ~33%, keeps well under Netlify's function payload limit)
+const MANUAL_UPLOAD_MAX_BYTES = 25 * 1024 * 1024;
 
 async function loadDealDocuments(dealId) {
   const list = document.getElementById('deal-documents-list');
@@ -1125,8 +1126,12 @@ function renderDealDocuments(docs) {
     row.className = 'doc-item';
     // Reports/uploads are stored as base64 (file_data); Vault attachments store
     // a pointer to the existing template file instead (file_url).
-    let href, downloadName;
-    if (d.file_data) {
+    let href, downloadName, external = false;
+    if (d.download_url) {
+      href = d.download_url;
+      external = true;
+      downloadName = '';
+    } else if (d.file_data) {
       href = d.file_data;
       downloadName = escapeHtml(d.title) + '.pdf';
     } else {
@@ -1140,7 +1145,7 @@ function renderDealDocuments(docs) {
         <div class="doc-item-meta"><span class="doc-source-badge">${DOC_SOURCE_LABELS[d.source_tool] || d.source_tool}</span>${when}</div>
       </div>
       <div class="doc-item-actions">
-        <a class="doc-action-link" href="${href}" ${downloadName ? `download="${downloadName}"` : 'target="_blank" rel="noopener"'}>Download</a>
+        <a class="doc-action-link" href="${escapeHtml(href)}" ${external || !downloadName ? 'target="_blank" rel="noopener"' : `download="${downloadName}"`}>Download</a>
         <button class="doc-action-del" onclick="deleteDealDocument('${d.id}')">Remove</button>
       </div>
     `;
@@ -1167,15 +1172,16 @@ function handleManualDocSelected(event) {
   event.target.value = ''; // allow re-selecting the same file later
   if (!file || !activeDealId) return;
   if (file.size > MANUAL_UPLOAD_MAX_BYTES) {
-    showToast('File is too large — max 4MB', true);
+    showToast('File is too large — max 25MB', true);
     return;
   }
   const defaultTitle = file.name.replace(/\.[^/.]+$/, '');
   const title = prompt('Title for this document:', defaultTitle);
   if (title === null) return; // cancelled
-  const reader = new FileReader();
-  reader.onload = async () => {
+  (async () => {
     try {
+      if (!window.ForgeUpload) throw new Error('Refresh the page and try that upload again.');
+      const uploaded = await window.ForgeUpload.uploadFile(file, { purpose: 'document', token: currentMemberToken });
       await apiCall('deal-documents', {
         method: 'POST',
         body: JSON.stringify({
@@ -1183,7 +1189,7 @@ function handleManualDocSelected(event) {
           deal_id: activeDealId,
           source_tool: 'manual_upload',
           title: title.trim() || defaultTitle,
-          file_data: reader.result,
+          storage_path: uploaded.path,
         }),
       });
       showToast('Document uploaded');
@@ -1191,9 +1197,7 @@ function handleManualDocSelected(event) {
     } catch (e) {
       showToast('Could not upload document: ' + e.message, true);
     }
-  };
-  reader.onerror = () => showToast('Could not read file', true);
-  reader.readAsDataURL(file);
+  })();
 }
 
 // ─────────────────────────────────────────────────────────

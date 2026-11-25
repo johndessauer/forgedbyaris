@@ -222,6 +222,15 @@ test('summary refreshes when the thread passes 20, then waits; facts run once', 
   });
   assert.equal(JSON.stringify(stored).includes('AAAA'), false);
   assert.match(JSON.stringify(stored), /uploaded a document/);
+  const kept = client.sanitizeMessageForStorage({
+    role: 'user',
+    content: [
+      { type: 'forge_file', path: 'mem_abc/coach/contract.pdf', mediaType: 'application/pdf', name: 'contract.pdf', data: 'SHOULD_NOT_STORE' },
+      { type: 'text', text: 'Read this' },
+    ],
+  });
+  assert.equal(JSON.stringify(kept).includes('SHOULD_NOT_STORE'), false);
+  assert.match(JSON.stringify(kept), /mem_abc\/coach\/contract\.pdf/);
   assert.equal(client.titleFromMessages([assistant('hi'), user('  Wholesale on Zillow  ')]), 'Wholesale on an outside data site');
   const parsed = client.parseFacts('```json\n{"markets":["South Bend"],"goals":["go"]}\n```');
   assert.equal(parsed.markets[0], 'South Bend');

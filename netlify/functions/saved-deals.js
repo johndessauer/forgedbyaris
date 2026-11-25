@@ -17,6 +17,7 @@
 const { enforceMembership, requiresEmpireAnalyzer } = require('./_Lib/membership');
 const { supabase } = require('./_Lib/supabase-client');
 const { json, preflight } = require('./_Lib/http');
+const uploads = require('./_Lib/member-uploads');
 
 // Deal Analyzer has more tabs than the CRM's deal_type enum supports —
 // the CRM was built around the original 6 core strategies, and the
@@ -41,6 +42,67 @@ const TAB_TO_CRM_DEAL_TYPE = {
   assumption: 'lt_rental',
 };
 
+function normalizeAttachments(memberId, items, kind, cap) {
+  const list = Array.isArray(items) ? items : [];
+  if (list.length > cap) {
+    throw new uploads.UploadError(kind === 'photo' ? 'You can attach up to 5 photos.' : 'You can attach up to 3 documents.', 400, 'too_many');
+  }
+  return list.map((item) => uploads.storedAttachment(memberId, item, kind));
+}
+
+async function confirmStored(items) {
+  const api = supabase.storage.from(uploads.PRIVATE_BUCKET);
+  for (const item of items) {
+    if (!item.path) continue;
+    let size = NaN;
+    let contentType = '';
+    if (typeof api.info === 'function') {
+      const { data, error } = await api.info(item.path);
+      if (!error && data) {
+        const meta = data.metadata || {};
+        size = Number(data.size != null ? data.size : meta.size);
+        contentType = data.contentType || meta.mimetype || '';
+      }
+    }
+    if (!Number.isFinite(size)) {
+      const { data, error } = await api.download(item.path);
+      if (error || !data) throw new uploads.UploadError('Upload it again. The file did not arrive.', 400, 'missing');
+      const buffer = Buffer.from(await data.arrayBuffer());
+      size = buffer.length;
+      contentType = data.type || contentType;
+    }
+    if (size > uploads.MAX_BYTES) throw new uploads.UploadError('File is too large — max 25MB.', 400, 'too_large');
+    const mime = uploads.normalizeContentType(contentType || item.contentType, item.name);
+    if (mime && !uploads.isAllowed('deal-file', mime)) throw new uploads.UploadError('That file type is not supported.', 400, 'bad_type');
+  }
+}
+
+async function withSignedUrls(items) {
+  const out = [];
+  for (const item of items || []) {
+    if (!item || item.dataUrl || !item.path) {
+      out.push(item);
+      continue;
+    }
+    try {
+      const signed = await supabase.storage.from(uploads.PRIVATE_BUCKET).createSignedUrl(item.path, 60 * 60);
+      const url = signed && signed.data ? (signed.data.signedUrl || signed.data.signedURL || '') : '';
+      out.push(url ? Object.assign({}, item, { dataUrl: url }) : item);
+    } catch (e) {
+      out.push(item);
+    }
+  }
+  return out;
+}
+
+async function presentDeal(deal) {
+  if (!deal) return deal;
+  return Object.assign({}, deal, {
+    photos: await withSignedUrls(deal.photos),
+    docs: await withSignedUrls(deal.docs),
+  });
+}
+
 exports.handler = async function (event, context) {
   if (event.httpMethod === 'OPTIONS') return preflight();
 
@@ -60,7 +122,9 @@ exports.handler = async function (event, context) {
           .eq('memberstack_id', memberId)
           .order('created_at', { ascending: false });
         if (error) throw error;
-        return json(200, { deals: data || [] });
+        const deals = [];
+        for (const deal of data || []) deals.push(await presentDeal(deal));
+        return json(200, { deals });
       }
 
       return json(400, { error: 'Unknown action' });
@@ -79,6 +143,16 @@ exports.handler = async function (event, context) {
           return json(403, { error: 'Empire membership required' });
         }
 
+        let photosOut = [];
+        let docsOut = [];
+        try {
+          photosOut = normalizeAttachments(memberId, photos, 'photo', 5);
+          docsOut = normalizeAttachments(memberId, docs, 'doc', 3);
+          await confirmStored(photosOut.concat(docsOut));
+        } catch (err) {
+          return json(err.statusCode || 400, { error: err.message || 'Could not save those files.' });
+        }
+
         const { data, error } = await supabase
           .from('saved_deal_analyses')
           .insert({
@@ -94,14 +168,14 @@ exports.handler = async function (event, context) {
             verdict: verdict || null,
             verdict_text: verdictText || null,
             deal_data: dealData || null,
-            photos: photos || [],
-            docs: docs || [],
+            photos: photosOut,
+            docs: docsOut,
             chat_history: chatHistory || [],
           })
           .select()
           .single();
         if (error) throw error;
-        return json(201, { deal: data });
+        return json(201, { deal: await presentDeal(data) });
       }
 
       if (payload.action === 'delete') {

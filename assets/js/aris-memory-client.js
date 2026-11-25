@@ -60,8 +60,8 @@
     content.forEach(function (block) {
       if (!block || typeof block !== 'object') return;
       if (block.type === 'text' && typeof block.text === 'string') parts.push(block.text);
-      else if (block.type === 'image') parts.push('[Member uploaded an image]');
-      else if (block.type === 'document') parts.push('[Member uploaded a document]');
+      else if (block.type === 'image' || block.type === 'forge_file' && String(block.mediaType || '').indexOf('image/') === 0) parts.push('[Member uploaded an image]');
+      else if (block.type === 'document' || block.type === 'forge_file' || block.type === 'forge_link') parts.push('[Member uploaded a document]');
     });
     return parts.join('\n');
   }
@@ -120,6 +120,15 @@
         blocks.push({ type: 'text', text: '[Member uploaded an image]' });
       } else if (block.type === 'document') {
         blocks.push({ type: 'text', text: '[Member uploaded a document]' });
+      } else if (block.type === 'forge_file') {
+        blocks.push({
+          type: 'forge_file',
+          path: String(block.path || '').slice(0, 500),
+          mediaType: String(block.mediaType || '').slice(0, 160),
+          name: String(block.name || '').slice(0, 200),
+        });
+      } else if (block.type === 'forge_link') {
+        blocks.push({ type: 'forge_link', url: String(block.url || '').slice(0, 500) });
       }
     });
     return { role: message.role, content: blocks };

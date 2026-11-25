@@ -281,6 +281,7 @@ test('member content functions call the shared gate', () => {
     'education-data.js', 'video-library.js', 'lab-scenarios.js', 'property-search.js',
     'crm-contacts.js', 'crm-deals.js', 'crm-notes.js', 'saved-deals.js',
     'deal-documents.js', 'profile-data.js', 'member-stats.js', 'membership-check.js',
+    'storage-upload.js',
     'calendar-feed.js',
   ];
   for (const name of files) {
@@ -406,6 +407,8 @@ async function loadEdge(name) {
   if (fs.existsSync(speech)) fs.copyFileSync(speech, path.join(dir, 'lib', 'speech-text.js'));
   const memoryLib = path.join(edge, 'lib', 'aris-memory.js');
   if (fs.existsSync(memoryLib)) fs.copyFileSync(memoryLib, path.join(dir, 'lib', 'aris-memory.js'));
+  const resolveLib = path.join(edge, 'lib', 'resolve-uploads.js');
+  if (fs.existsSync(resolveLib)) fs.copyFileSync(resolveLib, path.join(dir, 'lib', 'resolve-uploads.js'));
   return import(pathToFileURL(path.join(dir, name.replace(/\.js$/, '.mjs'))).href + '?t=' + Math.random());
 }
 

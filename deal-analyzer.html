@@ -335,6 +335,10 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 }
 .upload-drop-btn:hover { background: var(--gold-dim); border-color: var(--gold); }
 .upload-hint { font-size: 10px; color: var(--grey); }
+.upload-link-row { display: flex; gap: 8px; align-items: center; margin: 0 0 8px; }
+.upload-link-row input { flex: 1; min-width: 0; background: var(--navy-light); border: 1px solid var(--border); color: var(--grey-light); border-radius: 6px; padding: 7px 10px; font-size: 12px; font-family: 'Inter', sans-serif; }
+.upload-link-btn { font-size: 11px; font-weight: 600; color: var(--gold); background: transparent; border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px; cursor: pointer; white-space: nowrap; font-family: 'Inter', sans-serif; }
+.upload-link-btn:hover { border-color: var(--gold); }
 
 /* photo previews */
 .photo-preview-row { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -605,14 +609,15 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 
             <div class="form-section" style="border:1px dashed var(--gold); border-radius:6px; padding:12px 14px; margin-bottom:14px; background:rgba(200,155,60,0.04);">
               <div class="form-section-label" style="margin-bottom:6px;">Auto-Fill from Document</div>
-              <div style="font-size:10px;color:var(--grey-light);margin-bottom:10px;">Upload a purchase contract, appraisal, or comps report and ARIS will read it and pre-fill the fields below. Always review the numbers before running your analysis.</div>
+              <div style="font-size:10px;color:var(--grey-light);margin-bottom:10px;">Upload a purchase contract, appraisal, or comps report (PDF, Excel, Word, or CSV, up to 25MB) and ARIS will read it and pre-fill the fields below. A photo of the page works too. Or paste a Google Sheets or Docs link shared so anyone with the link can view it. Always review the numbers before running your analysis.</div>
               <div class="upload-drop-row">
                 <label class="upload-drop-btn" for="w-pdf-input">
-                  📄 Upload PDF
-                  <input type="file" id="w-pdf-input" accept=".pdf" style="display:none" onchange="handleWholesalePDF(event)" />
+                  📄 Upload file
+                  <input type="file" id="w-pdf-input" accept="application/pdf,.pdf,text/csv,.csv,application/vnd.ms-excel,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.xlsx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx,image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif" style="display:none" onchange="handleWholesalePDF(event)" />
                 </label>
-                <span class="upload-hint">Max 4MB · One file</span>
+                <span class="upload-hint">PDF, Excel, Word, CSV, or photo · Max 25MB</span>
               </div>
+              <div class="upload-link-row"><input type="url" id="w-doc-link" placeholder="Or paste a Google Sheets or Docs link" autocomplete="off" inputmode="url" enterkeyhint="go" /><button type="button" class="upload-link-btn" onclick="readDealLink('w')">Read link</button></div>
               <div id="w-pdf-status" style="font-size:11px;margin-top:8px;"></div>
             </div>
             <div class="form-section">
@@ -648,11 +653,12 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
               <div style="font-size:10px;color:var(--grey-light);margin-bottom:10px;">Upload a purchase contract, appraisal, or scope of work and ARIS will read it and pre-fill the fields below. Always review the numbers before running your analysis.</div>
               <div class="upload-drop-row">
                 <label class="upload-drop-btn" for="f-pdf-input">
-                  📄 Upload PDF
-                  <input type="file" id="f-pdf-input" accept=".pdf" style="display:none" onchange="handleFlipPDF(event)" />
+                  📄 Upload file
+                  <input type="file" id="f-pdf-input" accept="application/pdf,.pdf,text/csv,.csv,application/vnd.ms-excel,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.xlsx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx,image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif" style="display:none" onchange="handleFlipPDF(event)" />
                 </label>
-                <span class="upload-hint">Max 4MB · One file</span>
+                <span class="upload-hint">PDF, Excel, Word, CSV, or photo · Max 25MB</span>
               </div>
+              <div class="upload-link-row"><input type="url" id="f-doc-link" placeholder="Or paste a Google Sheets or Docs link" autocomplete="off" inputmode="url" enterkeyhint="go" /><button type="button" class="upload-link-btn" onclick="readDealLink('f')">Read link</button></div>
               <div id="f-pdf-status" style="font-size:11px;margin-top:8px;"></div>
             </div>
             <div class="form-section">
@@ -702,11 +708,12 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
               <div style="font-size:10px;color:var(--grey-light);margin-bottom:10px;">Upload a lease, rent roll, or appraisal and ARIS will read it and pre-fill the fields below. Always review the numbers before running your analysis.</div>
               <div class="upload-drop-row">
                 <label class="upload-drop-btn" for="r-pdf-input">
-                  📄 Upload PDF
-                  <input type="file" id="r-pdf-input" accept=".pdf" style="display:none" onchange="handleRentalPDF(event)" />
+                  📄 Upload file
+                  <input type="file" id="r-pdf-input" accept="application/pdf,.pdf,text/csv,.csv,application/vnd.ms-excel,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.xlsx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx,image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif" style="display:none" onchange="handleRentalPDF(event)" />
                 </label>
-                <span class="upload-hint">Max 4MB · One file</span>
+                <span class="upload-hint">PDF, Excel, Word, CSV, or photo · Max 25MB</span>
               </div>
+              <div class="upload-link-row"><input type="url" id="r-doc-link" placeholder="Or paste a Google Sheets or Docs link" autocomplete="off" inputmode="url" enterkeyhint="go" /><button type="button" class="upload-link-btn" onclick="readDealLink('r')">Read link</button></div>
               <div id="r-pdf-status" style="font-size:11px;margin-top:8px;"></div>
             </div>
             <div class="form-section">
@@ -753,11 +760,12 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
               <div style="font-size:10px;color:var(--grey-light);margin-bottom:10px;">Upload a listing sheet, comps report, or Airbnb/host performance report and ARIS will read it and pre-fill the fields below. Always review the numbers before running your analysis.</div>
               <div class="upload-drop-row">
                 <label class="upload-drop-btn" for="str-pdf-input">
-                  📄 Upload PDF
-                  <input type="file" id="str-pdf-input" accept=".pdf" style="display:none" onchange="handleSTRPDF(event)" />
+                  📄 Upload file
+                  <input type="file" id="str-pdf-input" accept="application/pdf,.pdf,text/csv,.csv,application/vnd.ms-excel,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.xlsx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx,image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif" style="display:none" onchange="handleSTRPDF(event)" />
                 </label>
-                <span class="upload-hint">Max 4MB · One file</span>
+                <span class="upload-hint">PDF, Excel, Word, CSV, or photo · Max 25MB</span>
               </div>
+              <div class="upload-link-row"><input type="url" id="str-doc-link" placeholder="Or paste a Google Sheets or Docs link" autocomplete="off" inputmode="url" enterkeyhint="go" /><button type="button" class="upload-link-btn" onclick="readDealLink('str')">Read link</button></div>
               <div id="str-pdf-status" style="font-size:11px;margin-top:8px;"></div>
             </div>
             <div class="form-section">
@@ -820,11 +828,12 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
               <div style="font-size:10px;color:var(--grey-light);margin-bottom:10px;">Upload an appraisal, comps report, or rent roll and ARIS will read it and pre-fill the fields below. Always review the numbers before running your analysis.</div>
               <div class="upload-drop-row">
                 <label class="upload-drop-btn" for="multi-pdf-input">
-                  📄 Upload PDF
-                  <input type="file" id="multi-pdf-input" accept=".pdf" style="display:none" onchange="handleMultiPDF(event)" />
+                  📄 Upload file
+                  <input type="file" id="multi-pdf-input" accept="application/pdf,.pdf,text/csv,.csv,application/vnd.ms-excel,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.xlsx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx,image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif" style="display:none" onchange="handleMultiPDF(event)" />
                 </label>
-                <span class="upload-hint">Max 4MB · One file</span>
+                <span class="upload-hint">PDF, Excel, Word, CSV, or photo · Max 25MB</span>
               </div>
+              <div class="upload-link-row"><input type="url" id="multi-doc-link" placeholder="Or paste a Google Sheets or Docs link" autocomplete="off" inputmode="url" enterkeyhint="go" /><button type="button" class="upload-link-btn" onclick="readDealLink('multi')">Read link</button></div>
               <div id="multi-pdf-status" style="font-size:11px;margin-top:8px;"></div>
             </div>
             <div class="form-section">
@@ -881,11 +890,12 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
               <div style="font-size:10px;color:var(--grey-light);margin-bottom:10px;">Upload a T-12, rent roll, or offering memorandum and ARIS will read it and pre-fill the fields below. Just the pages with the numbers — you don't need the whole package. Skip the marketing pages, photos, and cover sheet; the financial pages (T-12, rent roll, or the numbers section of the OM) are all ARIS needs. Always review the numbers before running your analysis.</div>
               <div class="upload-drop-row">
                 <label class="upload-drop-btn" for="c-pdf-input">
-                  📄 Upload PDF
-                  <input type="file" id="c-pdf-input" accept=".pdf" style="display:none" onchange="handleCommercialPDF(event)" />
+                  📄 Upload file
+                  <input type="file" id="c-pdf-input" accept="application/pdf,.pdf,text/csv,.csv,application/vnd.ms-excel,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.xlsx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx,image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif" style="display:none" onchange="handleCommercialPDF(event)" />
                 </label>
-                <span class="upload-hint">Max 4MB · One file</span>
+                <span class="upload-hint">PDF, Excel, Word, CSV, or photo · Max 25MB</span>
               </div>
+              <div class="upload-link-row"><input type="url" id="c-doc-link" placeholder="Or paste a Google Sheets or Docs link" autocomplete="off" inputmode="url" enterkeyhint="go" /><button type="button" class="upload-link-btn" onclick="readDealLink('c')">Read link</button></div>
               <div id="c-pdf-status" style="font-size:11px;margin-top:8px;"></div>
             </div>
             <div class="form-section">
@@ -950,11 +960,12 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
               <div style="font-size:10px;color:var(--grey-light);margin-bottom:10px;">Upload a T-12, unit mix report, or offering memorandum and ARIS will read it and pre-fill the fields below. Just the pages with the numbers — you don't need the whole package. Skip the marketing pages, photos, and cover sheet; the financial pages (T-12, rent roll, or the numbers section of the OM) are all ARIS needs. Always review the numbers before running your analysis.</div>
               <div class="upload-drop-row">
                 <label class="upload-drop-btn" for="s-pdf-input">
-                  📄 Upload PDF
-                  <input type="file" id="s-pdf-input" accept=".pdf" style="display:none" onchange="handleStoragePDF(event)" />
+                  📄 Upload file
+                  <input type="file" id="s-pdf-input" accept="application/pdf,.pdf,text/csv,.csv,application/vnd.ms-excel,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.xlsx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx,image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif" style="display:none" onchange="handleStoragePDF(event)" />
                 </label>
-                <span class="upload-hint">Max 4MB · One file</span>
+                <span class="upload-hint">PDF, Excel, Word, CSV, or photo · Max 25MB</span>
               </div>
+              <div class="upload-link-row"><input type="url" id="s-doc-link" placeholder="Or paste a Google Sheets or Docs link" autocomplete="off" inputmode="url" enterkeyhint="go" /><button type="button" class="upload-link-btn" onclick="readDealLink('s')">Read link</button></div>
               <div id="s-pdf-status" style="font-size:11px;margin-top:8px;"></div>
             </div>
             <div class="form-section">
@@ -1019,11 +1030,12 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
               <div style="font-size:10px;color:var(--grey-light);margin-bottom:10px;">Upload a T-12, rent roll, or offering memorandum and ARIS will read it and pre-fill the fields below. Just the pages with the numbers — you don't need the whole package. Skip the marketing pages, photos, and cover sheet; the financial pages (T-12, rent roll, or the numbers section of the OM) are all ARIS needs. Always review the numbers before running your analysis.</div>
               <div class="upload-drop-row">
                 <label class="upload-drop-btn" for="m-pdf-input">
-                  📄 Upload PDF
-                  <input type="file" id="m-pdf-input" accept=".pdf" style="display:none" onchange="handleMHPPDF(event)" />
+                  📄 Upload file
+                  <input type="file" id="m-pdf-input" accept="application/pdf,.pdf,text/csv,.csv,application/vnd.ms-excel,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.xlsx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx,image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif" style="display:none" onchange="handleMHPPDF(event)" />
                 </label>
-                <span class="upload-hint">Max 4MB · One file</span>
+                <span class="upload-hint">PDF, Excel, Word, CSV, or photo · Max 25MB</span>
               </div>
+              <div class="upload-link-row"><input type="url" id="m-doc-link" placeholder="Or paste a Google Sheets or Docs link" autocomplete="off" inputmode="url" enterkeyhint="go" /><button type="button" class="upload-link-btn" onclick="readDealLink('m')">Read link</button></div>
               <div id="m-pdf-status" style="font-size:11px;margin-top:8px;"></div>
             </div>
             <div class="form-section">
@@ -1089,11 +1101,12 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
               <div style="font-size:10px;color:var(--grey-light);margin-bottom:10px;">Upload a rent roll, T-12, or offering memorandum and ARIS will read it and pre-fill the fields below. Just the pages with the numbers — you don't need the whole package. Skip the marketing pages, photos, and cover sheet; the financial pages (T-12, rent roll, or the numbers section of the OM) are all ARIS needs. Always review the numbers before running your analysis.</div>
               <div class="upload-drop-row">
                 <label class="upload-drop-btn" for="o-pdf-input">
-                  📄 Upload PDF
-                  <input type="file" id="o-pdf-input" accept=".pdf" style="display:none" onchange="handleOfficePDF(event)" />
+                  📄 Upload file
+                  <input type="file" id="o-pdf-input" accept="application/pdf,.pdf,text/csv,.csv,application/vnd.ms-excel,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.xlsx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx,image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif" style="display:none" onchange="handleOfficePDF(event)" />
                 </label>
-                <span class="upload-hint">Max 4MB · One file</span>
+                <span class="upload-hint">PDF, Excel, Word, CSV, or photo · Max 25MB</span>
               </div>
+              <div class="upload-link-row"><input type="url" id="o-doc-link" placeholder="Or paste a Google Sheets or Docs link" autocomplete="off" inputmode="url" enterkeyhint="go" /><button type="button" class="upload-link-btn" onclick="readDealLink('o')">Read link</button></div>
               <div id="o-pdf-status" style="font-size:11px;margin-top:8px;"></div>
             </div>
             <div class="form-section">
@@ -1165,11 +1178,12 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
               <div style="font-size:10px;color:var(--grey-light);margin-bottom:10px;">Upload a rent roll, T-12, or offering memorandum and ARIS will read it and pre-fill the fields below. Just the pages with the numbers — you don't need the whole package. Skip the marketing pages, photos, and cover sheet; the financial pages (T-12, rent roll, or the numbers section of the OM) are all ARIS needs. Always review the numbers before running your analysis.</div>
               <div class="upload-drop-row">
                 <label class="upload-drop-btn" for="mu-pdf-input">
-                  📄 Upload PDF
-                  <input type="file" id="mu-pdf-input" accept=".pdf" style="display:none" onchange="handleMixedUsePDF(event)" />
+                  📄 Upload file
+                  <input type="file" id="mu-pdf-input" accept="application/pdf,.pdf,text/csv,.csv,application/vnd.ms-excel,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.xlsx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx,image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif" style="display:none" onchange="handleMixedUsePDF(event)" />
                 </label>
-                <span class="upload-hint">Max 4MB · One file</span>
+                <span class="upload-hint">PDF, Excel, Word, CSV, or photo · Max 25MB</span>
               </div>
+              <div class="upload-link-row"><input type="url" id="mu-doc-link" placeholder="Or paste a Google Sheets or Docs link" autocomplete="off" inputmode="url" enterkeyhint="go" /><button type="button" class="upload-link-btn" onclick="readDealLink('mu')">Read link</button></div>
               <div id="mu-pdf-status" style="font-size:11px;margin-top:8px;"></div>
             </div>
             <div class="form-section">
@@ -1242,11 +1256,12 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
               <div style="font-size:10px;color:var(--grey-light);margin-bottom:10px;">Upload a T-12, STAR report, or offering memorandum and ARIS will read it and pre-fill the fields below. Just the pages with the numbers — you don't need the whole package. Skip the marketing pages, photos, and cover sheet; the financial pages (T-12, STAR report, or the numbers section of the OM) are all ARIS needs. Always review the numbers before running your analysis.</div>
               <div class="upload-drop-row">
                 <label class="upload-drop-btn" for="h-pdf-input">
-                  📄 Upload PDF
-                  <input type="file" id="h-pdf-input" accept=".pdf" style="display:none" onchange="handleHotelPDF(event)" />
+                  📄 Upload file
+                  <input type="file" id="h-pdf-input" accept="application/pdf,.pdf,text/csv,.csv,application/vnd.ms-excel,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.xlsx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx,image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif" style="display:none" onchange="handleHotelPDF(event)" />
                 </label>
-                <span class="upload-hint">Max 4MB · One file</span>
+                <span class="upload-hint">PDF, Excel, Word, CSV, or photo · Max 25MB</span>
               </div>
+              <div class="upload-link-row"><input type="url" id="h-doc-link" placeholder="Or paste a Google Sheets or Docs link" autocomplete="off" inputmode="url" enterkeyhint="go" /><button type="button" class="upload-link-btn" onclick="readDealLink('h')">Read link</button></div>
               <div id="h-pdf-status" style="font-size:11px;margin-top:8px;"></div>
             </div>
             <div class="form-section">
@@ -1534,9 +1549,9 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
             <div class="prop-photo-upload-row">
               <label class="prop-photo-btn" for="prop-photo-input">
                 📷 Add Photos
-                <input type="file" id="prop-photo-input" accept="image/*" multiple onchange="handlePropPhotos(event)" />
+                <input type="file" id="prop-photo-input" accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,image/*,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif" multiple onchange="handlePropPhotos(event)" />
               </label>
-              <span style="font-size:10px;color:var(--grey);">Up to 5 · JPG, PNG, WEBP</span>
+              <span style="font-size:10px;color:var(--grey);">Up to 5 · JPG, PNG, WEBP, HEIC · 25MB each</span>
             </div>
             <div class="prop-photo-strip" id="prop-photo-strip"></div>
           </div>
@@ -1675,9 +1690,9 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
       <div class="upload-drop-row">
         <label class="upload-drop-btn" for="save-photos-input">
           📷 Add Photos
-          <input type="file" id="save-photos-input" accept="image/*" multiple style="display:none" onchange="handlePhotoUpload(event)" />
+          <input type="file" id="save-photos-input" accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,image/*,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif" multiple style="display:none" onchange="handlePhotoUpload(event)" />
         </label>
-        <div class="upload-hint">JPG, PNG, WEBP</div>
+        <div class="upload-hint">JPG, PNG, WEBP, HEIC · 25MB each</div>
       </div>
       <div class="photo-preview-row" id="photo-preview-row"></div>
     </div>
@@ -1688,9 +1703,9 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
       <div class="upload-drop-row">
         <label class="upload-drop-btn" for="save-docs-input">
           📎 Attach PDFs
-          <input type="file" id="save-docs-input" accept=".pdf" multiple style="display:none" onchange="handleDocUpload(event)" />
+          <input type="file" id="save-docs-input" accept="application/pdf,.pdf,text/csv,.csv,application/vnd.ms-excel,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.xlsx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx,image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif" multiple style="display:none" onchange="handleDocUpload(event)" />
         </label>
-        <div class="upload-hint">Purchase agreements, inspection reports, OMs</div>
+        <div class="upload-hint">PDF, Excel, Word, or CSV · 25MB each</div>
       </div>
       <div class="doc-attach-list" id="doc-attach-list"></div>
     </div>
@@ -1716,6 +1731,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
   </div>
 </div>
 
+<script src="/assets/js/direct-upload.js"></script>
 <script src="/assets/js/creative-finance-calc.js"></script>
 <script src="/assets/js/creative-finance-panel.js"></script>
 <script src="/assets/js/skip-trace-shared.js"></script>
@@ -1725,19 +1741,37 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 let propPhotos = []; // [{ name, dataUrl }]
 let heroIndex  = 0;
 
-function handlePropPhotos(e) {
-  const files = Array.from(e.target.files);
+async function stageAnalyzerFile(file, kind) {
+  if (!window.ForgeUpload) throw new Error('Refresh the page and try that upload again.');
+  if (file.size > window.ForgeUpload.MAX_BYTES) throw new Error('File is too large — max 25MB.');
+  const contentType = window.ForgeUpload.normalizeContentType(file.type, file.name);
+  const allowed = kind === 'photo' ? contentType.indexOf('image/') === 0 : window.ForgeUpload.isAllowed('deal-file', contentType) && contentType.indexOf('image/') !== 0;
+  if (!allowed) throw new Error(kind === 'photo' ? 'Choose a photo (JPEG, PNG, WEBP, GIF, or HEIC).' : 'Attach a PDF, Excel, Word, or CSV file.');
+  const uploaded = await window.ForgeUpload.uploadFile(file, { purpose: 'deal-file', token: memberToken });
+  const sizeLabel = window.ForgeUpload.formatSize(file.size);
+  return {
+    name: file.name,
+    path: uploaded.path,
+    contentType: uploaded.contentType,
+    size: file.size,
+    sizeLabel,
+    dataUrl: contentType.indexOf('image/') === 0 ? URL.createObjectURL(file) : ''
+  };
+}
+
+async function handlePropPhotos(e) {
+  const files = Array.from(e.target.files || []);
+  e.target.value = '';
   const remaining = 5 - propPhotos.length;
-  files.slice(0, remaining).forEach(file => {
-    const reader = new FileReader();
-    reader.onload = ev => {
-      propPhotos.push({ name: file.name, dataUrl: ev.target.result });
+  for (const file of files.slice(0, remaining)) {
+    try {
+      propPhotos.push(await stageAnalyzerFile(file, 'photo'));
       renderPropPhotoStrip();
       updateHero();
-    };
-    reader.readAsDataURL(file);
-  });
-  e.target.value = '';
+    } catch (err) {
+      alert(err.message || 'Could not add that photo.');
+    }
+  }
 }
 
 function renderPropPhotoStrip() {
@@ -2098,342 +2132,139 @@ function calcMulti() {
   };
 }
 
-async function handleWholesalePDF(event) {
-  const file = event.target.files[0];
-  event.target.value = '';
-  const statusEl = document.getElementById('w-pdf-status');
-  if (!file) return;
 
-  if (file.type !== 'application/pdf') {
-    statusEl.innerHTML = '<span style="color:var(--red);">Please upload a PDF file.</span>';
-    return;
-  }
-  if (file.size > 4 * 1024 * 1024) {
-    statusEl.innerHTML = '<span style="color:var(--red);">File too large — max 4MB.</span>';
-    return;
-  }
-
-  statusEl.innerHTML = '<span style="color:var(--gold);">📄 ARIS is reading ' + file.name + '...</span>';
-
-  try {
-    const base64 = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result.split(',')[1]);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-
-    const extractPrompt = 'Extract wholesale real estate deal data from this document (purchase contract, appraisal, or comps report). Return ONLY a raw JSON object, no markdown formatting, no code fences, no explanation. Use these exact keys, and use null for any field not found in the document:\n' +
+const DEAL_EXTRACTS = {
+  "w": { status: "w-pdf-status", link: "w-doc-link", prompt: 'Extract wholesale real estate deal data from this document (purchase contract, appraisal, or comps report). Return ONLY a raw JSON object, no markdown formatting, no code fences, no explanation. Use these exact keys, and use null for any field not found in the document:\n' +
       '{ "property_address": string or null, "arv": number or null, "repair_estimate": number or null, "asking_price": number or null }\n' +
-      '"property_address" should be the property name and/or street address if shown anywhere in the document (e.g. a title, header, or letterhead). "arv" is the after-repair value / estimated market value once renovated. "asking_price" is the seller-listed or contracted price.';
-
-    const res = await fetch('/api/aris-quote', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + memberToken },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1024,
-        system: 'You are a precise financial data extraction assistant. You only output raw JSON exactly as instructed, with no other text.',
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
-            { type: 'text', text: extractPrompt }
-          ]
-        }]
-      })
-    });
-
-    const data = await res.json();
-    let raw = (data.content && data.content[0] && data.content[0].text) || '';
-    raw = raw.trim().replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '');
-    const extracted = JSON.parse(raw);
-
-    const fieldMap = {
+      '"property_address" should be the property name and/or street address if shown anywhere in the document (e.g. a title, header, or letterhead). "arv" is the after-repair value / estimated market value once renovated. "asking_price" is the seller-listed or contracted price.', fields: {
       property_address: 'w-address',
       arv: 'w-arv',
       repair_estimate: 'w-repairs',
       asking_price: 'w-asking'
-    };
-
-    let filledCount = 0;
-    const totalCount = Object.keys(fieldMap).length;
-    Object.entries(fieldMap).forEach(([key, id]) => {
-      const val = extracted[key];
-      if (val !== null && val !== undefined && val !== '') {
-        document.getElementById(id).value = val;
-        filledCount++;
-      }
-    });
-
-    const color = filledCount > 0 ? 'var(--green)' : 'var(--grey-light)';
-    statusEl.innerHTML = `<span style="color:${color};">✅ Extracted ${filledCount} of ${totalCount} fields from ${file.name}. Review the numbers below before running your analysis.</span>`;
-
-  } catch (err) {
-    statusEl.innerHTML = '<span style="color:var(--red);">⚠️ Could not read that document. Try a clearer PDF or enter the numbers manually.</span>';
-  }
-}
-
-async function handleFlipPDF(event) {
-  const file = event.target.files[0];
-  event.target.value = '';
-  const statusEl = document.getElementById('f-pdf-status');
-  if (!file) return;
-
-  if (file.type !== 'application/pdf') {
-    statusEl.innerHTML = '<span style="color:var(--red);">Please upload a PDF file.</span>';
-    return;
-  }
-  if (file.size > 4 * 1024 * 1024) {
-    statusEl.innerHTML = '<span style="color:var(--red);">File too large — max 4MB.</span>';
-    return;
-  }
-
-  statusEl.innerHTML = '<span style="color:var(--gold);">📄 ARIS is reading ' + file.name + '...</span>';
-
-  try {
-    const base64 = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result.split(',')[1]);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-
-    const extractPrompt = 'Extract fix-and-flip real estate deal data from this document (purchase contract, appraisal, or scope of work). Return ONLY a raw JSON object, no markdown formatting, no code fences, no explanation. Use these exact keys, and use null for any field not found in the document:\n' +
+    } },
+  "f": { status: "f-pdf-status", link: "f-doc-link", prompt: 'Extract fix-and-flip real estate deal data from this document (purchase contract, appraisal, or scope of work). Return ONLY a raw JSON object, no markdown formatting, no code fences, no explanation. Use these exact keys, and use null for any field not found in the document:\n' +
       '{ "property_address": string or null, "purchase_price": number or null, "arv": number or null, "rehab_budget": number or null }\n' +
-      '"property_address" should be the property name and/or street address if shown anywhere in the document. "arv" is the after-repair value / estimated market value once renovated. "rehab_budget" is the total estimated renovation/repair cost.';
-
-    const res = await fetch('/api/aris-quote', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + memberToken },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1024,
-        system: 'You are a precise financial data extraction assistant. You only output raw JSON exactly as instructed, with no other text.',
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
-            { type: 'text', text: extractPrompt }
-          ]
-        }]
-      })
-    });
-
-    const data = await res.json();
-    let raw = (data.content && data.content[0] && data.content[0].text) || '';
-    raw = raw.trim().replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '');
-    const extracted = JSON.parse(raw);
-
-    const fieldMap = {
+      '"property_address" should be the property name and/or street address if shown anywhere in the document. "arv" is the after-repair value / estimated market value once renovated. "rehab_budget" is the total estimated renovation/repair cost.', fields: {
       property_address: 'f-address',
       purchase_price: 'f-purchase',
       arv: 'f-arv',
       rehab_budget: 'f-rehab'
-    };
-
-    let filledCount = 0;
-    const totalCount = Object.keys(fieldMap).length;
-    Object.entries(fieldMap).forEach(([key, id]) => {
-      const val = extracted[key];
-      if (val !== null && val !== undefined && val !== '') {
-        document.getElementById(id).value = val;
-        filledCount++;
-      }
-    });
-
-    const color = filledCount > 0 ? 'var(--green)' : 'var(--grey-light)';
-    statusEl.innerHTML = `<span style="color:${color};">✅ Extracted ${filledCount} of ${totalCount} fields from ${file.name}. Review the numbers below before running your analysis.</span>`;
-
-  } catch (err) {
-    statusEl.innerHTML = '<span style="color:var(--red);">⚠️ Could not read that document. Try a clearer PDF or enter the numbers manually.</span>';
-  }
-}
-
-async function handleRentalPDF(event) {
-  const file = event.target.files[0];
-  event.target.value = '';
-  const statusEl = document.getElementById('r-pdf-status');
-  if (!file) return;
-
-  if (file.type !== 'application/pdf') {
-    statusEl.innerHTML = '<span style="color:var(--red);">Please upload a PDF file.</span>';
-    return;
-  }
-  if (file.size > 4 * 1024 * 1024) {
-    statusEl.innerHTML = '<span style="color:var(--red);">File too large — max 4MB.</span>';
-    return;
-  }
-
-  statusEl.innerHTML = '<span style="color:var(--gold);">📄 ARIS is reading ' + file.name + '...</span>';
-
-  try {
-    const base64 = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result.split(',')[1]);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-
-    const extractPrompt = 'Extract long-term rental real estate deal data from this document (lease, rent roll, or appraisal). Return ONLY a raw JSON object, no markdown formatting, no code fences, no explanation. Use these exact keys, and use null for any field not found in the document:\n' +
+    } },
+  "r": { status: "r-pdf-status", link: "r-doc-link", prompt: 'Extract long-term rental real estate deal data from this document (lease, rent roll, or appraisal). Return ONLY a raw JSON object, no markdown formatting, no code fences, no explanation. Use these exact keys, and use null for any field not found in the document:\n' +
       '{ "property_address": string or null, "purchase_price": number or null, "monthly_rent": number or null, "property_tax_monthly": number or null, "insurance_monthly": number or null }\n' +
-      '"property_address" should be the property name and/or street address if shown anywhere in the document. "monthly_rent" is the gross monthly rent for the unit. If the document shows annual figures for tax or insurance, divide by 12 to get the monthly amount.';
-
-    const res = await fetch('/api/aris-quote', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + memberToken },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1024,
-        system: 'You are a precise financial data extraction assistant. You only output raw JSON exactly as instructed, with no other text.',
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
-            { type: 'text', text: extractPrompt }
-          ]
-        }]
-      })
-    });
-
-    const data = await res.json();
-    let raw = (data.content && data.content[0] && data.content[0].text) || '';
-    raw = raw.trim().replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '');
-    const extracted = JSON.parse(raw);
-
-    const fieldMap = {
+      '"property_address" should be the property name and/or street address if shown anywhere in the document. "monthly_rent" is the gross monthly rent for the unit. If the document shows annual figures for tax or insurance, divide by 12 to get the monthly amount.', fields: {
       property_address: 'r-address',
       purchase_price: 'r-purchase',
       monthly_rent: 'r-rent',
       property_tax_monthly: 'r-tax',
       insurance_monthly: 'r-insurance'
-    };
-
-    let filledCount = 0;
-    const totalCount = Object.keys(fieldMap).length;
-    Object.entries(fieldMap).forEach(([key, id]) => {
-      const val = extracted[key];
-      if (val !== null && val !== undefined && val !== '') {
-        document.getElementById(id).value = val;
-        filledCount++;
-      }
-    });
-
-    const color = filledCount > 0 ? 'var(--green)' : 'var(--grey-light)';
-    statusEl.innerHTML = `<span style="color:${color};">✅ Extracted ${filledCount} of ${totalCount} fields from ${file.name}. Review the numbers below before running your analysis.</span>`;
-
-  } catch (err) {
-    statusEl.innerHTML = '<span style="color:var(--red);">⚠️ Could not read that document. Try a clearer PDF or enter the numbers manually.</span>';
-  }
-}
-
-async function handleSTRPDF(event) {
-  const file = event.target.files[0];
-  event.target.value = '';
-  const statusEl = document.getElementById('str-pdf-status');
-  if (!file) return;
-
-  if (file.type !== 'application/pdf') {
-    statusEl.innerHTML = '<span style="color:var(--red);">Please upload a PDF file.</span>';
-    return;
-  }
-  if (file.size > 4 * 1024 * 1024) {
-    statusEl.innerHTML = '<span style="color:var(--red);">File too large — max 4MB.</span>';
-    return;
-  }
-
-  statusEl.innerHTML = '<span style="color:var(--gold);">📄 ARIS is reading ' + file.name + '...</span>';
-
-  try {
-    const base64 = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result.split(',')[1]);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-
-    const extractPrompt = 'Extract short-term/mid-term rental real estate deal data from this document (listing sheet, comps report, or Airbnb/host performance report). Return ONLY a raw JSON object, no markdown formatting, no code fences, no explanation. Use these exact keys, and use null for any field not found in the document:\n' +
+    } },
+  "str": { status: "str-pdf-status", link: "str-doc-link", prompt: 'Extract short-term/mid-term rental real estate deal data from this document (listing sheet, comps report, or Airbnb/host performance report). Return ONLY a raw JSON object, no markdown formatting, no code fences, no explanation. Use these exact keys, and use null for any field not found in the document:\n' +
       '{ "property_address": string or null, "purchase_price": number or null, "avg_nightly_rate": number or null, "occupancy_pct": number or null, "monthly_operating_expenses": number or null, "property_tax_monthly": number or null }\n' +
-      '"property_address" should be the property name and/or street address if shown anywhere in the document. "occupancy_pct" must be a percentage number (e.g. 65 for 65%), not a decimal. If the document shows annual property tax, divide by 12 for the monthly amount.';
-
-    const res = await fetch('/api/aris-quote', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + memberToken },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1024,
-        system: 'You are a precise financial data extraction assistant. You only output raw JSON exactly as instructed, with no other text.',
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
-            { type: 'text', text: extractPrompt }
-          ]
-        }]
-      })
-    });
-
-    const data = await res.json();
-    let raw = (data.content && data.content[0] && data.content[0].text) || '';
-    raw = raw.trim().replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '');
-    const extracted = JSON.parse(raw);
-
-    const fieldMap = {
+      '"property_address" should be the property name and/or street address if shown anywhere in the document. "occupancy_pct" must be a percentage number (e.g. 65 for 65%), not a decimal. If the document shows annual property tax, divide by 12 for the monthly amount.', fields: {
       property_address: 'str-address',
       purchase_price: 'str-purchase',
       avg_nightly_rate: 'str-nightly',
       occupancy_pct: 'str-occupancy',
       monthly_operating_expenses: 'str-opex',
       property_tax_monthly: 'str-tax'
-    };
-
-    let filledCount = 0;
-    const totalCount = Object.keys(fieldMap).length;
-    Object.entries(fieldMap).forEach(([key, id]) => {
-      const val = extracted[key];
-      if (val !== null && val !== undefined && val !== '') {
-        document.getElementById(id).value = val;
-        filledCount++;
-      }
-    });
-
-    const color = filledCount > 0 ? 'var(--green)' : 'var(--grey-light)';
-    statusEl.innerHTML = `<span style="color:${color};">✅ Extracted ${filledCount} of ${totalCount} fields from ${file.name}. Review the numbers below before running your analysis.</span>`;
-
-  } catch (err) {
-    statusEl.innerHTML = '<span style="color:var(--red);">⚠️ Could not read that document. Try a clearer PDF or enter the numbers manually.</span>';
-  }
-}
-
-async function handleMultiPDF(event) {
-  const file = event.target.files[0];
-  event.target.value = '';
-  const statusEl = document.getElementById('multi-pdf-status');
-  if (!file) return;
-
-  if (file.type !== 'application/pdf') {
-    statusEl.innerHTML = '<span style="color:var(--red);">Please upload a PDF file.</span>';
-    return;
-  }
-  if (file.size > 4 * 1024 * 1024) {
-    statusEl.innerHTML = '<span style="color:var(--red);">File too large — max 4MB.</span>';
-    return;
-  }
-
-  statusEl.innerHTML = '<span style="color:var(--gold);">📄 ARIS is reading ' + file.name + '...</span>';
-
-  try {
-    const base64 = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result.split(',')[1]);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-
-    const extractPrompt = 'Extract 2-4 unit residential real estate deal data from this document (appraisal, comps report, or rent roll). Return ONLY a raw JSON object, no markdown formatting, no code fences, no explanation. Use these exact keys, and use null for any field not found in the document:\n' +
+    } },
+  "multi": { status: "multi-pdf-status", link: "multi-doc-link", prompt: 'Extract 2-4 unit residential real estate deal data from this document (appraisal, comps report, or rent roll). Return ONLY a raw JSON object, no markdown formatting, no code fences, no explanation. Use these exact keys, and use null for any field not found in the document:\n' +
       '{ "property_address": string or null, "purchase_price": number or null, "units": number or null, "comp_value": number or null, "gross_monthly_rent": number or null, "monthly_operating_expenses": number or null }\n' +
-      '"property_address" should be the property name and/or street address if shown anywhere in the document. "units" is the total number of units (2-4). "comp_value" is the estimated market value from comparable sales, if shown. "gross_monthly_rent" is the total monthly rent across all units combined. If the document shows annual figures for rent or expenses, divide by 12 for the monthly amount.';
+      '"property_address" should be the property name and/or street address if shown anywhere in the document. "units" is the total number of units (2-4). "comp_value" is the estimated market value from comparable sales, if shown. "gross_monthly_rent" is the total monthly rent across all units combined. If the document shows annual figures for rent or expenses, divide by 12 for the monthly amount.', fields: {
+      property_address: 'multi-address',
+      purchase_price: 'multi-purchase',
+      units: 'multi-units',
+      comp_value: 'multi-compvalue',
+      gross_monthly_rent: 'multi-rent',
+      monthly_operating_expenses: 'multi-opex'
+    } },
+  "c": { status: "c-pdf-status", link: "c-doc-link", prompt: 'Extract commercial real estate financial data from this document (T-12, rent roll, or offering memorandum). Return ONLY a raw JSON object, no markdown formatting, no code fences, no explanation. Use these exact keys, and use null for any field not found in the document:\n' +
+      '{ "property_address": string or null, "purchase_price": number or null, "units": number or null, "gross_potential_income": number or null, "vacancy_pct": number or null, "other_income": number or null, "operating_expenses": number or null }\n' +
+      '"property_address" should be the property name and/or street address if shown anywhere in the document (e.g. a title, header, or letterhead) — combine name and address if both are present, e.g. "The Maple Court Apartments, 123 Main St, Springfield, IL". ' +
+      '"gross_potential_income", "other_income", and "operating_expenses" must be ANNUAL totals — if the document shows monthly figures, multiply by 12. "vacancy_pct" must be a percentage number (e.g. 5 for 5%), not a decimal.', fields: {
+      property_address: 'c-address',
+      purchase_price: 'c-purchase',
+      units: 'c-units',
+      gross_potential_income: 'c-gpi',
+      vacancy_pct: 'c-vacancy',
+      other_income: 'c-otherincome',
+      operating_expenses: 'c-opex'
+    } },
+  "s": { status: "s-pdf-status", link: "s-doc-link", prompt: 'Extract self-storage facility financial data from this document (T-12, unit mix report, or offering memorandum). Return ONLY a raw JSON object, no markdown formatting, no code fences, no explanation. Use these exact keys, and use null for any field not found in the document:\n' +
+      '{ "property_address": string or null, "purchase_price": number or null, "rentable_sqft": number or null, "gross_potential_rent": number or null, "occupancy_pct": number or null, "ancillary_income": number or null, "operating_expenses": number or null }\n' +
+      '"property_address" should be the facility name and/or street address if shown anywhere in the document (e.g. a title, header, or letterhead) — combine name and address if both are present, e.g. "Lockbox Self Storage, 456 Commerce Dr, Springfield, IL". ' +
+      '"rentable_sqft" is the total net rentable square footage across all unit sizes, summed if given as a unit mix breakdown. ' +
+      '"gross_potential_rent", "ancillary_income", and "operating_expenses" must be ANNUAL totals — if the document shows monthly figures, multiply by 12. "ancillary_income" covers tenant insurance/protection plans, admin and late fees, retail sales (locks/boxes), and truck rental income. "occupancy_pct" must be a percentage number (e.g. 88 for 88% physical occupancy), not a decimal.', fields: {
+      property_address: 's-address',
+      purchase_price: 's-purchase',
+      rentable_sqft: 's-sqft',
+      gross_potential_rent: 's-gpr',
+      occupancy_pct: 's-occupancy',
+      ancillary_income: 's-ancillary',
+      operating_expenses: 's-opex'
+    } },
+  "m": { status: "m-pdf-status", link: "m-doc-link", prompt: 'Extract mobile home park financial data from this document (T-12, rent roll, or offering memorandum). Return ONLY a raw JSON object, no markdown formatting, no code fences, no explanation. Use these exact keys, and use null for any field not found in the document:\n' +
+      '{ "property_address": string or null, "purchase_price": number or null, "total_lots": number or null, "poh_units": number or null, "gross_potential_rent": number or null, "vacancy_pct": number or null, "other_income": number or null, "operating_expenses": number or null }\n' +
+      '"property_address" should be the park name and/or street address if shown anywhere in the document (e.g. a title, header, or letterhead) — combine name and address if both are present, e.g. "Pinecrest Mobile Home Park, 789 County Rd, Springfield, IL". ' +
+      '"total_lots" is the total number of pads/lots in the park. "poh_units" is how many of those lots have a park-owned home (as opposed to tenant-owned homes that only pay lot rent) — use null if the document does not distinguish POH from TOH. ' +
+      '"gross_potential_rent" should combine lot rent across all pads plus any home rent on park-owned units, as an ANNUAL total at 100% occupancy. "other_income" and "operating_expenses" must also be ANNUAL totals — if the document shows monthly figures, multiply by 12. "vacancy_pct" must be a percentage number (e.g. 8 for 8%), not a decimal.', fields: {
+      property_address: 'm-address',
+      purchase_price: 'm-purchase',
+      total_lots: 'm-lots',
+      poh_units: 'm-poh',
+      gross_potential_rent: 'm-gpi',
+      vacancy_pct: 'm-vacancy',
+      other_income: 'm-otherincome',
+      operating_expenses: 'm-opex'
+    } },
+  "o": { status: "o-pdf-status", link: "o-doc-link", prompt: 'Extract office or industrial commercial real estate financial data from this document (rent roll, T-12, or offering memorandum). Return ONLY a raw JSON object, no markdown formatting, no code fences, no explanation. Use these exact keys, and use null for any field not found in the document:\\n' +
+      '{ "property_address": string or null, "purchase_price": number or null, "rentable_sqft": number or null, "gross_potential_rent": number or null, "occupancy_pct": number or null, "cam_reimbursements": number or null, "operating_expenses": number or null }\\n' +
+      '"property_address" should be the property name and/or street address if shown anywhere in the document (e.g. a title, header, or letterhead) — combine name and address if both are present, e.g. "Riverside Business Park, 200 Industrial Pkwy, Springfield, IL". ' +
+      '"rentable_sqft" is the total net rentable square footage across all suites/units. ' +
+      '"gross_potential_rent", "cam_reimbursements", and "operating_expenses" must be ANNUAL totals — if the document shows monthly figures, multiply by 12. "cam_reimbursements" covers common area maintenance and tax/insurance pass-throughs from tenants. "occupancy_pct" must be a percentage number (e.g. 90 for 90% physical occupancy), not a decimal.', fields: {
+      property_address: 'o-address',
+      purchase_price: 'o-purchase',
+      rentable_sqft: 'o-sqft',
+      gross_potential_rent: 'o-gpr',
+      occupancy_pct: 'o-occupancy',
+      cam_reimbursements: 'o-cam',
+      operating_expenses: 'o-opex'
+    } },
+  "mu": { status: "mu-pdf-status", link: "mu-doc-link", prompt: 'Extract mixed-use property financial data from this document (rent roll, T-12, or offering memorandum). Return ONLY a raw JSON object, no markdown formatting, no code fences, no explanation. Use these exact keys, and use null for any field not found in the document:\\n' +
+      '{ "property_address": string or null, "purchase_price": number or null, "residential_units": number or null, "commercial_sqft": number or null, "residential_gross_rent": number or null, "residential_vacancy_pct": number or null, "commercial_gross_rent": number or null, "commercial_occupancy_pct": number or null, "other_income": number or null, "operating_expenses": number or null }\\n' +
+      '"property_address" should be the property name and/or street address if shown anywhere in the document (e.g. a title, header, or letterhead) — combine name and address if both are present, e.g. "The Corner at 5th, 500 Main St, Springfield, IL". ' +
+      '"residential_units" is the count of residential units. "commercial_sqft" is the total rentable square footage of ground-floor or non-residential commercial space. ' +
+      '"residential_gross_rent" and "commercial_gross_rent" must each be ANNUAL totals at 100% occupancy for their respective component — if the document shows monthly figures, multiply by 12. Do not combine them into one number; keep residential and commercial rent separate. ' +
+      '"other_income" and "operating_expenses" must also be ANNUAL totals. "residential_vacancy_pct" and "commercial_occupancy_pct" must be percentage numbers (e.g. 6 for 6%, 85 for 85%), not decimals.', fields: {
+      property_address: 'mu-address',
+      purchase_price: 'mu-purchase',
+      residential_units: 'mu-units',
+      commercial_sqft: 'mu-sqft',
+      residential_gross_rent: 'mu-res-gpr',
+      residential_vacancy_pct: 'mu-res-vacancy',
+      commercial_gross_rent: 'mu-com-gpr',
+      commercial_occupancy_pct: 'mu-com-occupancy',
+      other_income: 'mu-otherincome',
+      operating_expenses: 'mu-opex'
+    } },
+  "h": { status: "h-pdf-status", link: "h-doc-link", prompt: 'Extract hotel or hospitality property financial data from this document (T-12, STAR report, or offering memorandum). Return ONLY a raw JSON object, no markdown formatting, no code fences, no explanation. Use these exact keys, and use null for any field not found in the document:\\n' +
+      '{ "property_address": string or null, "purchase_price": number or null, "rooms": number or null, "adr": number or null, "occupancy_pct": number or null, "other_income": number or null, "operating_expenses": number or null }\\n' +
+      '"property_address" should be the property name and/or street address if shown anywhere in the document (e.g. a title, header, or letterhead) — combine name and address if both are present, e.g. "The Harbor Inn, 300 Bay St, Springfield, IL". ' +
+      '"rooms" is the total room count. "adr" is the average daily rate (average nightly room rate) — a single dollar figure, not a range. ' +
+      '"other_income" and "operating_expenses" must be ANNUAL totals — if the document shows monthly figures, multiply by 12. "other_income" covers F&B, parking, resort/amenity fees, and event/meeting space revenue. "occupancy_pct" must be a percentage number (e.g. 68 for 68%), not a decimal.', fields: {
+      property_address: 'h-address',
+      purchase_price: 'h-purchase',
+      rooms: 'h-rooms',
+      adr: 'h-adr',
+      occupancy_pct: 'h-occupancy',
+      other_income: 'h-otherincome',
+      operating_expenses: 'h-opex'
+    } },
+};
 
+async function runDealExtract(statusEl, sourceBlock, extractPrompt, fieldMap, label) {
+  try {
     const res = await fetch('/api/aris-quote', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + memberToken },
@@ -2443,44 +2274,102 @@ async function handleMultiPDF(event) {
         system: 'You are a precise financial data extraction assistant. You only output raw JSON exactly as instructed, with no other text.',
         messages: [{
           role: 'user',
-          content: [
-            { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
-            { type: 'text', text: extractPrompt }
-          ]
+          content: [ sourceBlock, { type: 'text', text: extractPrompt } ]
         }]
       })
     });
-
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const msg = data.message || data.error || 'Could not read that file.';
+      statusEl.innerHTML = '<span style="color:var(--red);">' + escapeHtml(String(msg)) + '</span>';
+      return;
+    }
     let raw = (data.content && data.content[0] && data.content[0].text) || '';
     raw = raw.trim().replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '');
     const extracted = JSON.parse(raw);
-
-    const fieldMap = {
-      property_address: 'multi-address',
-      purchase_price: 'multi-purchase',
-      units: 'multi-units',
-      comp_value: 'multi-compvalue',
-      gross_monthly_rent: 'multi-rent',
-      monthly_operating_expenses: 'multi-opex'
-    };
-
     let filledCount = 0;
     const totalCount = Object.keys(fieldMap).length;
-    Object.entries(fieldMap).forEach(([key, id]) => {
-      const val = extracted[key];
+    Object.entries(fieldMap).forEach(([field, id]) => {
+      const val = extracted[field];
       if (val !== null && val !== undefined && val !== '') {
         document.getElementById(id).value = val;
         filledCount++;
       }
     });
-
     const color = filledCount > 0 ? 'var(--green)' : 'var(--grey-light)';
-    statusEl.innerHTML = `<span style="color:${color};">✅ Extracted ${filledCount} of ${totalCount} fields from ${file.name}. Review the numbers below before running your analysis.</span>`;
-
+    statusEl.innerHTML = '<span style="color:' + color + ';">✅ Extracted ' + filledCount + ' of ' + totalCount + ' fields from ' + escapeHtml(label) + '. Review the numbers below before running your analysis.</span>';
   } catch (err) {
-    statusEl.innerHTML = '<span style="color:var(--red);">⚠️ Could not read that document. Try a clearer PDF or enter the numbers manually.</span>';
+    statusEl.innerHTML = '<span style="color:var(--red);">⚠️ Could not read that document. Try a clearer file or enter the numbers manually.</span>';
   }
+}
+
+async function extractDealUpload(file, key) {
+  const spec = DEAL_EXTRACTS[key];
+  const statusEl = document.getElementById(spec.status);
+  if (!file || !statusEl) return;
+  if (!window.ForgeUpload) {
+    statusEl.innerHTML = '<span style="color:var(--red);">Refresh the page and try that upload again.</span>';
+    return;
+  }
+  const mime = window.ForgeUpload.normalizeContentType(file.type, file.name);
+  if (!window.ForgeUpload.isAllowed('quote', mime)) {
+    statusEl.innerHTML = '<span style="color:var(--red);">Upload a PDF, Excel, Word, CSV, or photo.</span>';
+    return;
+  }
+  if (file.size > window.ForgeUpload.MAX_BYTES) {
+    statusEl.innerHTML = '<span style="color:var(--red);">File too large — max 25MB.</span>';
+    return;
+  }
+  statusEl.innerHTML = '<span style="color:var(--gold);">📄 ARIS is reading ' + escapeHtml(file.name) + '...</span>';
+  try {
+    const uploaded = await window.ForgeUpload.uploadFile(file, { purpose: 'quote', token: memberToken });
+    await runDealExtract(statusEl, { type: 'forge_file', path: uploaded.path, mediaType: uploaded.contentType, name: uploaded.name }, spec.prompt, spec.fields, file.name);
+  } catch (err) {
+    statusEl.innerHTML = '<span style="color:var(--red);">' + escapeHtml((err && err.message) || 'Could not upload that file.') + '</span>';
+  }
+}
+
+async function readDealLink(key) {
+  const spec = DEAL_EXTRACTS[key];
+  const statusEl = document.getElementById(spec.status);
+  const input = document.getElementById(spec.link);
+  const url = (input && input.value || '').trim();
+  if (!url) {
+    statusEl.innerHTML = '<span style="color:var(--red);">Paste a Google Sheets or Docs link.</span>';
+    return;
+  }
+  statusEl.innerHTML = '<span style="color:var(--gold);">📄 ARIS is reading that link...</span>';
+  await runDealExtract(statusEl, { type: 'forge_link', url: url }, spec.prompt, spec.fields, 'that link');
+}
+
+async function handleWholesalePDF(event) {
+  const file = event.target.files && event.target.files[0];
+  event.target.value = '';
+  await extractDealUpload(file, "w");
+}
+
+async function handleFlipPDF(event) {
+  const file = event.target.files && event.target.files[0];
+  event.target.value = '';
+  await extractDealUpload(file, "f");
+}
+
+async function handleRentalPDF(event) {
+  const file = event.target.files && event.target.files[0];
+  event.target.value = '';
+  await extractDealUpload(file, "r");
+}
+
+async function handleSTRPDF(event) {
+  const file = event.target.files && event.target.files[0];
+  event.target.value = '';
+  await extractDealUpload(file, "str");
+}
+
+async function handleMultiPDF(event) {
+  const file = event.target.files && event.target.files[0];
+  event.target.value = '';
+  await extractDealUpload(file, "multi");
 }
 
 function calcCommercial() {
@@ -2745,164 +2634,15 @@ function calcHotel() {
 }
 
 async function handleCommercialPDF(event) {
-  const file = event.target.files[0];
+  const file = event.target.files && event.target.files[0];
   event.target.value = '';
-  const statusEl = document.getElementById('c-pdf-status');
-  if (!file) return;
-
-  if (file.type !== 'application/pdf') {
-    statusEl.innerHTML = '<span style="color:var(--red);">Please upload a PDF file.</span>';
-    return;
-  }
-  if (file.size > 4 * 1024 * 1024) {
-    statusEl.innerHTML = '<span style="color:var(--red);">File too large — max 4MB.</span>';
-    return;
-  }
-
-  statusEl.innerHTML = '<span style="color:var(--gold);">📄 ARIS is reading ' + file.name + '...</span>';
-
-  try {
-    const base64 = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result.split(',')[1]);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-
-    const extractPrompt = 'Extract commercial real estate financial data from this document (T-12, rent roll, or offering memorandum). Return ONLY a raw JSON object, no markdown formatting, no code fences, no explanation. Use these exact keys, and use null for any field not found in the document:\n' +
-      '{ "property_address": string or null, "purchase_price": number or null, "units": number or null, "gross_potential_income": number or null, "vacancy_pct": number or null, "other_income": number or null, "operating_expenses": number or null }\n' +
-      '"property_address" should be the property name and/or street address if shown anywhere in the document (e.g. a title, header, or letterhead) — combine name and address if both are present, e.g. "The Maple Court Apartments, 123 Main St, Springfield, IL". ' +
-      '"gross_potential_income", "other_income", and "operating_expenses" must be ANNUAL totals — if the document shows monthly figures, multiply by 12. "vacancy_pct" must be a percentage number (e.g. 5 for 5%), not a decimal.';
-
-    const res = await fetch('/api/aris-quote', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + memberToken },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1024,
-        system: 'You are a precise financial data extraction assistant. You only output raw JSON exactly as instructed, with no other text.',
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
-            { type: 'text', text: extractPrompt }
-          ]
-        }]
-      })
-    });
-
-    const data = await res.json();
-    let raw = (data.content && data.content[0] && data.content[0].text) || '';
-    raw = raw.trim().replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '');
-    const extracted = JSON.parse(raw);
-
-    const fieldMap = {
-      property_address: 'c-address',
-      purchase_price: 'c-purchase',
-      units: 'c-units',
-      gross_potential_income: 'c-gpi',
-      vacancy_pct: 'c-vacancy',
-      other_income: 'c-otherincome',
-      operating_expenses: 'c-opex'
-    };
-
-    let filledCount = 0;
-    const totalCount = Object.keys(fieldMap).length;
-    Object.entries(fieldMap).forEach(([key, id]) => {
-      const val = extracted[key];
-      if (val !== null && val !== undefined && val !== '') {
-        document.getElementById(id).value = val;
-        filledCount++;
-      }
-    });
-
-    const color = filledCount > 0 ? 'var(--green)' : 'var(--grey-light)';
-    statusEl.innerHTML = `<span style="color:${color};">✅ Extracted ${filledCount} of ${totalCount} fields from ${file.name}. Review the numbers below before running your analysis.</span>`;
-
-  } catch (err) {
-    statusEl.innerHTML = '<span style="color:var(--red);">⚠️ Could not read that document. Try a clearer PDF or enter the numbers manually.</span>';
-  }
+  await extractDealUpload(file, "c");
 }
 
 async function handleStoragePDF(event) {
-  const file = event.target.files[0];
+  const file = event.target.files && event.target.files[0];
   event.target.value = '';
-  const statusEl = document.getElementById('s-pdf-status');
-  if (!file) return;
-
-  if (file.type !== 'application/pdf') {
-    statusEl.innerHTML = '<span style="color:var(--red);">Please upload a PDF file.</span>';
-    return;
-  }
-  if (file.size > 4 * 1024 * 1024) {
-    statusEl.innerHTML = '<span style="color:var(--red);">File too large — max 4MB.</span>';
-    return;
-  }
-
-  statusEl.innerHTML = '<span style="color:var(--gold);">📄 ARIS is reading ' + file.name + '...</span>';
-
-  try {
-    const base64 = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result.split(',')[1]);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-
-    const extractPrompt = 'Extract self-storage facility financial data from this document (T-12, unit mix report, or offering memorandum). Return ONLY a raw JSON object, no markdown formatting, no code fences, no explanation. Use these exact keys, and use null for any field not found in the document:\n' +
-      '{ "property_address": string or null, "purchase_price": number or null, "rentable_sqft": number or null, "gross_potential_rent": number or null, "occupancy_pct": number or null, "ancillary_income": number or null, "operating_expenses": number or null }\n' +
-      '"property_address" should be the facility name and/or street address if shown anywhere in the document (e.g. a title, header, or letterhead) — combine name and address if both are present, e.g. "Lockbox Self Storage, 456 Commerce Dr, Springfield, IL". ' +
-      '"rentable_sqft" is the total net rentable square footage across all unit sizes, summed if given as a unit mix breakdown. ' +
-      '"gross_potential_rent", "ancillary_income", and "operating_expenses" must be ANNUAL totals — if the document shows monthly figures, multiply by 12. "ancillary_income" covers tenant insurance/protection plans, admin and late fees, retail sales (locks/boxes), and truck rental income. "occupancy_pct" must be a percentage number (e.g. 88 for 88% physical occupancy), not a decimal.';
-
-    const res = await fetch('/api/aris-quote', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + memberToken },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1024,
-        system: 'You are a precise financial data extraction assistant. You only output raw JSON exactly as instructed, with no other text.',
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
-            { type: 'text', text: extractPrompt }
-          ]
-        }]
-      })
-    });
-
-    const data = await res.json();
-    let raw = (data.content && data.content[0] && data.content[0].text) || '';
-    raw = raw.trim().replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '');
-    const extracted = JSON.parse(raw);
-
-    const fieldMap = {
-      property_address: 's-address',
-      purchase_price: 's-purchase',
-      rentable_sqft: 's-sqft',
-      gross_potential_rent: 's-gpr',
-      occupancy_pct: 's-occupancy',
-      ancillary_income: 's-ancillary',
-      operating_expenses: 's-opex'
-    };
-
-    let filledCount = 0;
-    const totalCount = Object.keys(fieldMap).length;
-    Object.entries(fieldMap).forEach(([key, id]) => {
-      const val = extracted[key];
-      if (val !== null && val !== undefined && val !== '') {
-        document.getElementById(id).value = val;
-        filledCount++;
-      }
-    });
-
-    const color = filledCount > 0 ? 'var(--green)' : 'var(--grey-light)';
-    statusEl.innerHTML = `<span style="color:${color};">✅ Extracted ${filledCount} of ${totalCount} fields from ${file.name}. Review the numbers below before running your analysis.</span>`;
-
-  } catch (err) {
-    statusEl.innerHTML = '<span style="color:var(--red);">⚠️ Could not read that document. Try a clearer PDF or enter the numbers manually.</span>';
-  }
+  await extractDealUpload(file, "s");
 }
 
 function calcMHP() {
@@ -2959,335 +2699,29 @@ function calcMHP() {
 }
 
 async function handleMHPPDF(event) {
-  const file = event.target.files[0];
+  const file = event.target.files && event.target.files[0];
   event.target.value = '';
-  const statusEl = document.getElementById('m-pdf-status');
-  if (!file) return;
-
-  if (file.type !== 'application/pdf') {
-    statusEl.innerHTML = '<span style="color:var(--red);">Please upload a PDF file.</span>';
-    return;
-  }
-  if (file.size > 4 * 1024 * 1024) {
-    statusEl.innerHTML = '<span style="color:var(--red);">File too large — max 4MB.</span>';
-    return;
-  }
-
-  statusEl.innerHTML = '<span style="color:var(--gold);">📄 ARIS is reading ' + file.name + '...</span>';
-
-  try {
-    const base64 = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result.split(',')[1]);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-
-    const extractPrompt = 'Extract mobile home park financial data from this document (T-12, rent roll, or offering memorandum). Return ONLY a raw JSON object, no markdown formatting, no code fences, no explanation. Use these exact keys, and use null for any field not found in the document:\n' +
-      '{ "property_address": string or null, "purchase_price": number or null, "total_lots": number or null, "poh_units": number or null, "gross_potential_rent": number or null, "vacancy_pct": number or null, "other_income": number or null, "operating_expenses": number or null }\n' +
-      '"property_address" should be the park name and/or street address if shown anywhere in the document (e.g. a title, header, or letterhead) — combine name and address if both are present, e.g. "Pinecrest Mobile Home Park, 789 County Rd, Springfield, IL". ' +
-      '"total_lots" is the total number of pads/lots in the park. "poh_units" is how many of those lots have a park-owned home (as opposed to tenant-owned homes that only pay lot rent) — use null if the document does not distinguish POH from TOH. ' +
-      '"gross_potential_rent" should combine lot rent across all pads plus any home rent on park-owned units, as an ANNUAL total at 100% occupancy. "other_income" and "operating_expenses" must also be ANNUAL totals — if the document shows monthly figures, multiply by 12. "vacancy_pct" must be a percentage number (e.g. 8 for 8%), not a decimal.';
-
-    const res = await fetch('/api/aris-quote', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + memberToken },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1024,
-        system: 'You are a precise financial data extraction assistant. You only output raw JSON exactly as instructed, with no other text.',
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
-            { type: 'text', text: extractPrompt }
-          ]
-        }]
-      })
-    });
-
-    const data = await res.json();
-    let raw = (data.content && data.content[0] && data.content[0].text) || '';
-    raw = raw.trim().replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '');
-    const extracted = JSON.parse(raw);
-
-    const fieldMap = {
-      property_address: 'm-address',
-      purchase_price: 'm-purchase',
-      total_lots: 'm-lots',
-      poh_units: 'm-poh',
-      gross_potential_rent: 'm-gpi',
-      vacancy_pct: 'm-vacancy',
-      other_income: 'm-otherincome',
-      operating_expenses: 'm-opex'
-    };
-
-    let filledCount = 0;
-    const totalCount = Object.keys(fieldMap).length;
-    Object.entries(fieldMap).forEach(([key, id]) => {
-      const val = extracted[key];
-      if (val !== null && val !== undefined && val !== '') {
-        document.getElementById(id).value = val;
-        filledCount++;
-      }
-    });
-
-    const color = filledCount > 0 ? 'var(--green)' : 'var(--grey-light)';
-    statusEl.innerHTML = `<span style="color:${color};">✅ Extracted ${filledCount} of ${totalCount} fields from ${file.name}. Review the numbers below before running your analysis.</span>`;
-
-  } catch (err) {
-    statusEl.innerHTML = '<span style="color:var(--red);">⚠️ Could not read that document. Try a clearer PDF or enter the numbers manually.</span>';
-  }
+  await extractDealUpload(file, "m");
 }
 
 async function handleOfficePDF(event) {
-  const file = event.target.files[0];
+  const file = event.target.files && event.target.files[0];
   event.target.value = '';
-  const statusEl = document.getElementById('o-pdf-status');
-  if (!file) return;
-
-  if (file.type !== 'application/pdf') {
-    statusEl.innerHTML = '<span style="color:var(--red);">Please upload a PDF file.</span>';
-    return;
-  }
-  if (file.size > 4 * 1024 * 1024) {
-    statusEl.innerHTML = '<span style="color:var(--red);">File too large — max 4MB.</span>';
-    return;
-  }
-
-  statusEl.innerHTML = '<span style="color:var(--gold);">📄 ARIS is reading ' + file.name + '...</span>';
-
-  try {
-    const base64 = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result.split(',')[1]);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-
-    const extractPrompt = 'Extract office or industrial commercial real estate financial data from this document (rent roll, T-12, or offering memorandum). Return ONLY a raw JSON object, no markdown formatting, no code fences, no explanation. Use these exact keys, and use null for any field not found in the document:\\n' +
-      '{ "property_address": string or null, "purchase_price": number or null, "rentable_sqft": number or null, "gross_potential_rent": number or null, "occupancy_pct": number or null, "cam_reimbursements": number or null, "operating_expenses": number or null }\\n' +
-      '"property_address" should be the property name and/or street address if shown anywhere in the document (e.g. a title, header, or letterhead) — combine name and address if both are present, e.g. "Riverside Business Park, 200 Industrial Pkwy, Springfield, IL". ' +
-      '"rentable_sqft" is the total net rentable square footage across all suites/units. ' +
-      '"gross_potential_rent", "cam_reimbursements", and "operating_expenses" must be ANNUAL totals — if the document shows monthly figures, multiply by 12. "cam_reimbursements" covers common area maintenance and tax/insurance pass-throughs from tenants. "occupancy_pct" must be a percentage number (e.g. 90 for 90% physical occupancy), not a decimal.';
-
-    const res = await fetch('/api/aris-quote', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + memberToken },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1024,
-        system: 'You are a precise financial data extraction assistant. You only output raw JSON exactly as instructed, with no other text.',
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
-            { type: 'text', text: extractPrompt }
-          ]
-        }]
-      })
-    });
-
-    const data = await res.json();
-    let raw = (data.content && data.content[0] && data.content[0].text) || '';
-    raw = raw.trim().replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '');
-    const extracted = JSON.parse(raw);
-
-    const fieldMap = {
-      property_address: 'o-address',
-      purchase_price: 'o-purchase',
-      rentable_sqft: 'o-sqft',
-      gross_potential_rent: 'o-gpr',
-      occupancy_pct: 'o-occupancy',
-      cam_reimbursements: 'o-cam',
-      operating_expenses: 'o-opex'
-    };
-
-    let filledCount = 0;
-    const totalCount = Object.keys(fieldMap).length;
-    Object.entries(fieldMap).forEach(([key, id]) => {
-      const val = extracted[key];
-      if (val !== null && val !== undefined && val !== '') {
-        document.getElementById(id).value = val;
-        filledCount++;
-      }
-    });
-
-    const color = filledCount > 0 ? 'var(--green)' : 'var(--grey-light)';
-    statusEl.innerHTML = `<span style="color:${color};">✅ Extracted ${filledCount} of ${totalCount} fields from ${file.name}. Review the numbers below before running your analysis.</span>`;
-
-  } catch (err) {
-    statusEl.innerHTML = '<span style="color:var(--red);">⚠️ Could not read that document. Try a clearer PDF or enter the numbers manually.</span>';
-  }
+  await extractDealUpload(file, "o");
 }
 
 async function handleMixedUsePDF(event) {
-  const file = event.target.files[0];
+  const file = event.target.files && event.target.files[0];
   event.target.value = '';
-  const statusEl = document.getElementById('mu-pdf-status');
-  if (!file) return;
-
-  if (file.type !== 'application/pdf') {
-    statusEl.innerHTML = '<span style="color:var(--red);">Please upload a PDF file.</span>';
-    return;
-  }
-  if (file.size > 4 * 1024 * 1024) {
-    statusEl.innerHTML = '<span style="color:var(--red);">File too large — max 4MB.</span>';
-    return;
-  }
-
-  statusEl.innerHTML = '<span style="color:var(--gold);">📄 ARIS is reading ' + file.name + '...</span>';
-
-  try {
-    const base64 = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result.split(',')[1]);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-
-    const extractPrompt = 'Extract mixed-use property financial data from this document (rent roll, T-12, or offering memorandum). Return ONLY a raw JSON object, no markdown formatting, no code fences, no explanation. Use these exact keys, and use null for any field not found in the document:\\n' +
-      '{ "property_address": string or null, "purchase_price": number or null, "residential_units": number or null, "commercial_sqft": number or null, "residential_gross_rent": number or null, "residential_vacancy_pct": number or null, "commercial_gross_rent": number or null, "commercial_occupancy_pct": number or null, "other_income": number or null, "operating_expenses": number or null }\\n' +
-      '"property_address" should be the property name and/or street address if shown anywhere in the document (e.g. a title, header, or letterhead) — combine name and address if both are present, e.g. "The Corner at 5th, 500 Main St, Springfield, IL". ' +
-      '"residential_units" is the count of residential units. "commercial_sqft" is the total rentable square footage of ground-floor or non-residential commercial space. ' +
-      '"residential_gross_rent" and "commercial_gross_rent" must each be ANNUAL totals at 100% occupancy for their respective component — if the document shows monthly figures, multiply by 12. Do not combine them into one number; keep residential and commercial rent separate. ' +
-      '"other_income" and "operating_expenses" must also be ANNUAL totals. "residential_vacancy_pct" and "commercial_occupancy_pct" must be percentage numbers (e.g. 6 for 6%, 85 for 85%), not decimals.';
-
-    const res = await fetch('/api/aris-quote', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + memberToken },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1024,
-        system: 'You are a precise financial data extraction assistant. You only output raw JSON exactly as instructed, with no other text.',
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
-            { type: 'text', text: extractPrompt }
-          ]
-        }]
-      })
-    });
-
-    const data = await res.json();
-    let raw = (data.content && data.content[0] && data.content[0].text) || '';
-    raw = raw.trim().replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '');
-    const extracted = JSON.parse(raw);
-
-    const fieldMap = {
-      property_address: 'mu-address',
-      purchase_price: 'mu-purchase',
-      residential_units: 'mu-units',
-      commercial_sqft: 'mu-sqft',
-      residential_gross_rent: 'mu-res-gpr',
-      residential_vacancy_pct: 'mu-res-vacancy',
-      commercial_gross_rent: 'mu-com-gpr',
-      commercial_occupancy_pct: 'mu-com-occupancy',
-      other_income: 'mu-otherincome',
-      operating_expenses: 'mu-opex'
-    };
-
-    let filledCount = 0;
-    const totalCount = Object.keys(fieldMap).length;
-    Object.entries(fieldMap).forEach(([key, id]) => {
-      const val = extracted[key];
-      if (val !== null && val !== undefined && val !== '') {
-        document.getElementById(id).value = val;
-        filledCount++;
-      }
-    });
-
-    const color = filledCount > 0 ? 'var(--green)' : 'var(--grey-light)';
-    statusEl.innerHTML = `<span style="color:${color};">✅ Extracted ${filledCount} of ${totalCount} fields from ${file.name}. Review the numbers below before running your analysis.</span>`;
-
-  } catch (err) {
-    statusEl.innerHTML = '<span style="color:var(--red);">⚠️ Could not read that document. Try a clearer PDF or enter the numbers manually.</span>';
-  }
+  await extractDealUpload(file, "mu");
 }
 
 async function handleHotelPDF(event) {
-  const file = event.target.files[0];
+  const file = event.target.files && event.target.files[0];
   event.target.value = '';
-  const statusEl = document.getElementById('h-pdf-status');
-  if (!file) return;
-
-  if (file.type !== 'application/pdf') {
-    statusEl.innerHTML = '<span style="color:var(--red);">Please upload a PDF file.</span>';
-    return;
-  }
-  if (file.size > 4 * 1024 * 1024) {
-    statusEl.innerHTML = '<span style="color:var(--red);">File too large — max 4MB.</span>';
-    return;
-  }
-
-  statusEl.innerHTML = '<span style="color:var(--gold);">📄 ARIS is reading ' + file.name + '...</span>';
-
-  try {
-    const base64 = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result.split(',')[1]);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-
-    const extractPrompt = 'Extract hotel or hospitality property financial data from this document (T-12, STAR report, or offering memorandum). Return ONLY a raw JSON object, no markdown formatting, no code fences, no explanation. Use these exact keys, and use null for any field not found in the document:\\n' +
-      '{ "property_address": string or null, "purchase_price": number or null, "rooms": number or null, "adr": number or null, "occupancy_pct": number or null, "other_income": number or null, "operating_expenses": number or null }\\n' +
-      '"property_address" should be the property name and/or street address if shown anywhere in the document (e.g. a title, header, or letterhead) — combine name and address if both are present, e.g. "The Harbor Inn, 300 Bay St, Springfield, IL". ' +
-      '"rooms" is the total room count. "adr" is the average daily rate (average nightly room rate) — a single dollar figure, not a range. ' +
-      '"other_income" and "operating_expenses" must be ANNUAL totals — if the document shows monthly figures, multiply by 12. "other_income" covers F&B, parking, resort/amenity fees, and event/meeting space revenue. "occupancy_pct" must be a percentage number (e.g. 68 for 68%), not a decimal.';
-
-    const res = await fetch('/api/aris-quote', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + memberToken },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1024,
-        system: 'You are a precise financial data extraction assistant. You only output raw JSON exactly as instructed, with no other text.',
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
-            { type: 'text', text: extractPrompt }
-          ]
-        }]
-      })
-    });
-
-    const data = await res.json();
-    let raw = (data.content && data.content[0] && data.content[0].text) || '';
-    raw = raw.trim().replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '');
-    const extracted = JSON.parse(raw);
-
-    const fieldMap = {
-      property_address: 'h-address',
-      purchase_price: 'h-purchase',
-      rooms: 'h-rooms',
-      adr: 'h-adr',
-      occupancy_pct: 'h-occupancy',
-      other_income: 'h-otherincome',
-      operating_expenses: 'h-opex'
-    };
-
-    let filledCount = 0;
-    const totalCount = Object.keys(fieldMap).length;
-    Object.entries(fieldMap).forEach(([key, id]) => {
-      const val = extracted[key];
-      if (val !== null && val !== undefined && val !== '') {
-        document.getElementById(id).value = val;
-        filledCount++;
-      }
-    });
-
-    const color = filledCount > 0 ? 'var(--green)' : 'var(--grey-light)';
-    statusEl.innerHTML = `<span style="color:${color};">✅ Extracted ${filledCount} of ${totalCount} fields from ${file.name}. Review the numbers below before running your analysis.</span>`;
-
-  } catch (err) {
-    statusEl.innerHTML = '<span style="color:var(--red);">⚠️ Could not read that document. Try a clearer PDF or enter the numbers manually.</span>';
-  }
+  await extractDealUpload(file, "h");
 }
 
-// ── PROJECTION TABLE ──
 function buildProjectionTable(baseData) {
   const rentGrowth   = (+document.getElementById('proj-rent-growth').value || 3) / 100;
   const appreciation = (+document.getElementById('proj-appreciation').value || 4) / 100;
@@ -3628,35 +3062,33 @@ function removeTyping() { const el = document.getElementById('typing'); if(el) e
 let pendingPhotos = []; // [{ name, dataUrl }]
 let pendingDocs   = []; // [{ name, size, dataUrl }]
 
-function handlePhotoUpload(e) {
-  const files = Array.from(e.target.files);
-  const remaining = 5 - pendingPhotos.length;
-  files.slice(0, remaining).forEach(file => {
-    const reader = new FileReader();
-    reader.onload = ev => {
-      pendingPhotos.push({ name: file.name, dataUrl: ev.target.result });
-      renderPhotoPreviews();
-    };
-    reader.readAsDataURL(file);
-  });
+async function handlePhotoUpload(e) {
+  const files = Array.from(e.target.files || []);
   e.target.value = '';
+  const remaining = 5 - pendingPhotos.length;
+  for (const file of files.slice(0, remaining)) {
+    try {
+      pendingPhotos.push(await stageAnalyzerFile(file, 'photo'));
+      renderPhotoPreviews();
+    } catch (err) {
+      alert(err.message || 'Could not add that photo.');
+    }
+  }
 }
 
-function handleDocUpload(e) {
-  const files = Array.from(e.target.files);
-  const remaining = 3 - pendingDocs.length;
-  files.slice(0, remaining).forEach(file => {
-    const reader = new FileReader();
-    reader.onload = ev => {
-      const sizeLabel = file.size > 1024*1024
-        ? (file.size/(1024*1024)).toFixed(1)+' MB'
-        : Math.round(file.size/1024)+' KB';
-      pendingDocs.push({ name: file.name, size: sizeLabel, dataUrl: ev.target.result });
-      renderDocAttachList();
-    };
-    reader.readAsDataURL(file);
-  });
+async function handleDocUpload(e) {
+  const files = Array.from(e.target.files || []);
   e.target.value = '';
+  const remaining = 3 - pendingDocs.length;
+  for (const file of files.slice(0, remaining)) {
+    try {
+      const staged = await stageAnalyzerFile(file, 'doc');
+      pendingDocs.push({ name: staged.name, size: staged.sizeLabel, path: staged.path, contentType: staged.contentType, fileSize: staged.size });
+      renderDocAttachList();
+    } catch (err) {
+      alert(err.message || 'Could not add that file.');
+    }
+  }
 }
 
 function renderPhotoPreviews() {
@@ -3734,8 +3166,8 @@ async function confirmSave() {
         verdict: lastDealData.data?.verdict || null,
         verdictText: lastDealData.data?.verdictText || null,
         dealData: lastDealData.data,
-        photos: pendingPhotos,
-        docs: pendingDocs,
+        photos: pendingPhotos.map(p => ({ name: p.name, path: p.path, contentType: p.contentType, size: p.size, dataUrl: p.path ? undefined : p.dataUrl })),
+        docs: pendingDocs.map(d => ({ name: d.name, path: d.path, contentType: d.contentType, size: d.fileSize || d.size, dataUrl: d.path ? undefined : d.dataUrl })),
         chatHistory: conversationHistory,
       }),
     });
@@ -3787,10 +3219,10 @@ async function renderDrawer() {
 
   body.innerHTML = saved.map((d) => {
     const thumbs = (d.photos||[]).slice(0,3).map(p =>
-      `<img class="deal-card-thumb" src="${p.dataUrl}" alt="${p.name}" onclick="openDetail('${d.id}')" title="${p.name}" />`
+      `<img class="deal-card-thumb" src="${escapeHtml(p.dataUrl || '')}" alt="${escapeHtml(p.name || '')}" onclick="openDetail('${d.id}')" title="${escapeHtml(p.name || '')}" />`
     ).join('');
-    const docLinks = (d.docs||[]).slice(0,2).map(doc =>
-      `<div class="deal-card-doc" onclick="downloadDoc('${doc.name}','${doc.dataUrl}')">📄 ${doc.name}</div>`
+    const docLinks = (d.docs||[]).slice(0,2).map((doc, docIndex) =>
+      `<div class="deal-card-doc" onclick="downloadSavedDoc('${d.id}', ${docIndex})">📄 ${escapeHtml(doc.name || 'Document')}</div>`
     ).join('');
     const extraPhotos = (d.photos||[]).length > 3 ? `<div style="font-size:10px;color:var(--grey);margin-top:2px;">+${(d.photos.length-3)} more</div>` : '';
     const pipelineBtn = d.crm_deal_id
@@ -3845,15 +3277,15 @@ function openDetail(id) {
   document.getElementById('detail-title').textContent = d.display_name || 'Deal Detail';
 
   const photoGrid = (d.photos||[]).length
-    ? `<div class="detail-photo-grid">${(d.photos).map(p => `<img class="detail-photo" src="${p.dataUrl}" alt="${p.name}" />`).join('')}</div>`
+    ? `<div class="detail-photo-grid">${(d.photos).map(p => `<img class="detail-photo" src="${escapeHtml(p.dataUrl || '')}" alt="${escapeHtml(p.name || '')}" />`).join('')}</div>`
     : '';
 
   const docList = (d.docs||[]).length
-    ? `<div class="detail-doc-list">${(d.docs).map(doc => `
+    ? `<div class="detail-doc-list">${(d.docs).map((doc, docIndex) => `
         <div class="detail-doc-item">
           <span>📄</span>
-          <div class="detail-doc-name">${doc.name}</div>
-          <span class="detail-doc-dl" onclick="downloadDoc('${doc.name}','${doc.dataUrl}')">Download</span>
+          <div class="detail-doc-name">${escapeHtml(doc.name || 'Document')}</div>
+          <span class="detail-doc-dl" onclick="downloadSavedDoc('${d.id}', ${docIndex})">Download</span>
         </div>`).join('')}</div>`
     : '';
 
@@ -3878,10 +3310,23 @@ function openDetail(id) {
 function closeDetail() { document.getElementById('detail-overlay').classList.remove('open'); }
 
 function downloadDoc(name, dataUrl) {
+  if (!dataUrl) return;
   const a = document.createElement('a');
   a.href = dataUrl;
-  a.download = name;
+  if (/^https?:/i.test(dataUrl)) {
+    a.target = '_blank';
+    a.rel = 'noopener';
+  } else {
+    a.download = name;
+  }
   a.click();
+}
+
+function downloadSavedDoc(dealId, index) {
+  const deal = savedDealsCache.find(item => item.id === dealId);
+  const doc = deal && deal.docs && deal.docs[index];
+  if (!doc) return;
+  downloadDoc(doc.name || 'document', doc.dataUrl);
 }
 
 async function deleteDeal(id) {
@@ -4276,10 +3721,19 @@ async function selectFdocDeal(dealId) {
     fdocToast('Generating PDF...');
     const title = typeof getTitle === 'function' ? getTitle() : 'FORGE Report';
     const fileData = await fdocGeneratePdf(elementId, title);
+    const payload = { action: 'create', deal_id: dealId, source_tool: sourceTool, title };
+    if (window.ForgeUpload) {
+      const uploaded = await window.ForgeUpload.uploadDataUrl(fileData, 'report.pdf', { purpose: 'document', token: memberToken });
+      payload.storage_path = uploaded.path;
+    } else if (fileData.length <= 5 * 1024 * 1024) {
+      payload.file_data = fileData;
+    } else {
+      throw new Error('Could not upload this report. Refresh and try again.');
+    }
     const res = await fetch('/api/deal-documents', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${memberToken}` },
-      body: JSON.stringify({ action: 'create', deal_id: dealId, source_tool: sourceTool, title, file_data: fileData }),
+      body: JSON.stringify(payload),
     });
     if (!res.ok) throw new Error('Save failed');
     closeSaveToDealModal();

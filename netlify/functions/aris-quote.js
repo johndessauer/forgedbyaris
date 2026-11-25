@@ -15,6 +15,7 @@
 // working once it sends the member token.
 
 const { analysisCurrencyInstruction } = require('./_Lib/analysis-currency');
+const uploads = require('./_Lib/member-uploads');
 
 const MODEL = 'claude-sonnet-4-6';
 const MAX_TOKENS_CAP = 2000;
@@ -37,12 +38,17 @@ function createHandler(deps) {
     const API_KEY = env.ANTHROPIC_API_KEY;
     if (!API_KEY) return reply(500, { error: 'API key not configured' });
 
+    let memberId = '';
     try {
       // Production passes requireMembership (identity + live plan). Tests that
       // only stub verifyMember still have to present a real bearer token;
       // the deployed handler never uses that identity-only path.
-      if (deps.requireMembership) await deps.requireMembership(event);
-      else await deps.verifyMember(event);
+      if (deps.requireMembership) {
+        const access = await deps.requireMembership(event);
+        memberId = access && access.memberId ? access.memberId : '';
+      } else {
+        memberId = await deps.verifyMember(event);
+      }
     } catch (e) {
       const status = e.statusCode || 401;
       if (status === 403) return reply(403, { error: 'membership_required', message: e.message || 'Active membership required' });
@@ -61,6 +67,15 @@ function createHandler(deps) {
     const requested = Number(body.max_tokens);
     const maxTokens = Number.isFinite(requested) && requested > 0 ? Math.min(Math.floor(requested), MAX_TOKENS_CAP) : DEFAULT_MAX_TOKENS;
 
+    let messages = body.messages;
+    try {
+      const prepare = deps.prepareMessages || ((list, ctx) => defaultPrepareMessages(list, ctx));
+      messages = await prepare(body.messages, { memberId, event });
+    } catch (e) {
+      if (e && e.statusCode) return reply(e.statusCode, { error: e.code || 'upload', message: e.message, code: e.code || '' });
+      return reply(400, { error: 'upload', message: 'Could not read that file.', code: 'upload' });
+    }
+
     // Same rule the streaming property-analysis prompts use. Required from
     // _Lib so a failure to load the edge ESM module cannot crash the function
     // outside this handler. A throw still leaves the member's own wording in
@@ -68,7 +83,7 @@ function createHandler(deps) {
     let currency = '';
     try {
       const instruct = (deps.analysisCurrencyInstruction || analysisCurrencyInstruction);
-      currency = instruct({ messages: body.messages }) || '';
+      currency = instruct({ messages }) || '';
     } catch (e) {
       currency = '';
     }
@@ -78,7 +93,7 @@ function createHandler(deps) {
       const payload = {
         model: MODEL,
         max_tokens: maxTokens,
-        messages: body.messages,
+        messages,
       };
       if (system) payload.system = system;
       const response = await deps.fetch('https://api.anthropic.com/v1/messages', {
@@ -94,6 +109,33 @@ function createHandler(deps) {
       return reply(500, { error: 'Function error' });
     }
   };
+}
+
+function messageHasBlock(messages, type) {
+  return Array.isArray(messages) && messages.some((message) => {
+    return message && Array.isArray(message.content) && message.content.some((block) => block && block.type === type);
+  });
+}
+
+async function defaultPrepareMessages(messages, ctx) {
+  let loadObject;
+  if (messageHasBlock(messages, 'forge_file')) {
+    const { supabase } = require('./_Lib/supabase-client');
+    loadObject = async (path) => {
+      const primary = await supabase.storage.from(uploads.PRIVATE_BUCKET).download(path);
+      const data = primary && primary.data;
+      const chosen = data ? primary : await supabase.storage.from(uploads.AVATAR_BUCKET).download(path);
+      const file = chosen && chosen.data;
+      if (!file) return null;
+      const buffer = Buffer.from(await file.arrayBuffer());
+      return { buffer, contentType: file.type || '' };
+    };
+  }
+  return uploads.resolveMessages(messages, {
+    memberId: ctx.memberId,
+    binaryMax: Math.max(uploads.DIRECT_PDF_MAX_BYTES, uploads.DIRECT_IMAGE_MAX_BYTES),
+    loadObject,
+  });
 }
 
 exports.createHandler = createHandler;

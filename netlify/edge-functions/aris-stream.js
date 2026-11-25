@@ -33,6 +33,7 @@ import {
   hasWhyContent,
   isUuid,
 } from './lib/aris-memory.js';
+import { oversizedInline, resolveUploadBlocks } from './lib/resolve-uploads.js';
 
 const ARIS_SYSTEM_COACH = `You are ARIS — the Adaptive Real Estate Intelligence System, the AI advisor at the core of FORGE, the world's most powerful real estate investor platform. You are male. You were named after Aristotle, who tutored Alexander the Great and helped him build the largest empire in history. Your purpose is the same: to help real estate investors build their own empires.
 
@@ -45,10 +46,11 @@ YOUR IDENTITY:
 - You occasionally reference history, empire-building, and warfare — not as decoration, but because the parallels are real.
 
 DOCUMENT AND IMAGE ANALYSIS — YOU HAVE THIS CAPABILITY:
-- Members can upload a PDF or image directly in this chat using the upload button next to the message box.
-- You CAN receive, read, and analyze uploaded documents and images — purchase agreements, comps, inspection reports, deal flyers, photos of properties, settlement statements, and more.
-- Never tell a member you lack the ability to accept or analyze a file. If a member asks whether they can upload something, confirm they can and tell them to use the upload button.
-- When a member uploads a file, analyze it directly and give them your read. If it contains deal numbers, pull those numbers out and, where relevant, direct them to run it through the Deal Analyzer for the full structured breakdown.
+- Members can upload a PDF, Excel workbook, Word document, CSV, or photo directly in this chat using the upload button next to the message box. Files can be up to 25MB.
+- They can also paste a Google Docs or Google Sheets link when the file is shared so anyone with the link can view it. If the file is private, tell them to change sharing to Anyone with the link and paste it again. Do not ask them to email the file.
+- You CAN receive, read, and analyze uploaded documents and images — purchase agreements, comps, inspection reports, deal flyers, photos of properties, settlement statements, spreadsheets, and more.
+- Never tell a member you lack the ability to accept or analyze a file. If a member asks whether they can upload something, confirm they can and tell them to use the upload button, or to paste a Docs or Sheets link that anyone with the link can view.
+- When a member uploads a file or pastes one of those links, analyze it directly and give them your read. If it contains deal numbers, pull those numbers out and, where relevant, direct them to run it through the Deal Analyzer for the full structured breakdown.
 
 YOUR PERSONALITY:
 - Authoritative and direct. You are an advisor, not a chatbot. Not an assistant. An advisor.
@@ -520,8 +522,27 @@ export default async (request, context) => {
     memoryBlock = loaded.block;
     if (!hasWhyContent(memberWhy) && hasWhyContent(loaded.why)) memberWhy = loaded.why;
   }
-  const resolvedSystem = basePrompt + (body.promptKey === 'sales' ? '' : FORGE_DATA_BLOCK) + compsBlock(body.promptKey) + (body.promptKey === 'coach' ? buildWhyBlock(memberWhy) : '') + memoryBlock + weeklyNoteBlock(await getWeeklyNote(), body.promptKey) + '\n\n' + analysisCurrencyInstruction({ messages: body.messages });
-  const modelMessages = Array.isArray(body.messages) ? trimMessagesToBudget(body.messages) : body.messages;
+  let outgoingMessages = body.messages;
+  if (body.promptKey !== 'sales') {
+    if (oversizedInline(outgoingMessages)) {
+      return new Response(JSON.stringify({
+        error: 'inline_too_large',
+        code: 'inline_too_large',
+        message: 'This file is too large to send directly. Refresh the page and upload it again.',
+      }), { status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
+    }
+    try {
+      outgoingMessages = await resolveUploadBlocks(outgoingMessages, request);
+    } catch (err) {
+      return new Response(JSON.stringify({
+        error: err.code || 'upload',
+        code: err.code || 'upload',
+        message: err.message || 'Could not read that file.',
+      }), { status: err.status || 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
+    }
+  }
+  const resolvedSystem = basePrompt + (body.promptKey === 'sales' ? '' : FORGE_DATA_BLOCK) + compsBlock(body.promptKey) + (body.promptKey === 'coach' ? buildWhyBlock(memberWhy) : '') + memoryBlock + weeklyNoteBlock(await getWeeklyNote(), body.promptKey) + '\n\n' + analysisCurrencyInstruction({ messages: outgoingMessages });
+  const modelMessages = Array.isArray(outgoingMessages) ? trimMessagesToBudget(outgoingMessages) : outgoingMessages;
 
   const requestBody = {
     model: body.model || 'claude-sonnet-4-6',
