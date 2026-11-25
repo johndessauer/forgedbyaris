@@ -1,47 +1,59 @@
 [
   {
-    "id": "property-search-lead-filters",
-    "date": "2026-11-19",
-    "tag": "live",
-    "title": "Property Search: 18 New Lead Filters",
-    "body": "Free & clear, upside down, cash buyers, bored investors, long-term owners, flipped, zombie properties, active listings and more, plus property type filters.",
-    "href": "property-search.html"
+    "id": "aris-member-memory",
+    "date": "2026-11-25",
+    "title": "ARIS Remembers Your Chats",
+    "description": "ARIS keeps your past chats, markets, deals, goals, and buy box on this account. Open Past chats, start a New chat, or delete a chat.",
+    "link": "aris-coach.html"
+  },
+  {
+    "id": "loan-lien-records",
+    "date": "2026-11-25",
+    "title": "Loan & Lien Records",
+    "description": "Open a property in the Command Center for recorded loan and lien facts: open loans, lender, rate, and estimated balance.",
+    "link": "property-search.html"
+  },
+  {
+    "id": "property-command-center",
+    "date": "2026-11-25",
+    "title": "Property Command Center",
+    "description": "One drawer on a search result for property facts, the market, loan and lien records, the Deal Analyzer, and your CRM.",
+    "link": "property-search.html"
   },
   {
     "id": "ask-aris-for-leads",
     "date": "2026-11-19",
-    "tag": "live",
     "title": "Ask ARIS for Leads",
-    "body": "Tell ARIS what you're looking for, like \"free and clear long-term owners in Reno\", and get a match count with a link to the results.",
-    "href": "aris-coach.html"
+    "description": "Tell ARIS the leads you want, such as free and clear long-term owners in a city, and get a count with a link into Property Search.",
+    "link": "aris-coach.html"
   },
   {
-    "id": "marketing",
+    "id": "property-search-lead-filters",
     "date": "2026-11-19",
-    "tag": "soon",
-    "title": "Marketing",
-    "body": "Send mail and outreach campaigns to your leads, right from FORGE."
+    "title": "Property Search Lead List",
+    "description": "Search free and clear, upside down, cash buyers, long-term owners, zombie properties, and the rest of the lead list.",
+    "link": "property-search.html"
   },
   {
-    "id": "group-coaching-session-1",
-    "date": "2026-10-18",
-    "tag": "live",
-    "title": "Group Coaching Replays",
-    "body": "Session 1 is up: Strategy, Market, Money. Build your investor foundation with ARIS, Market Oracle, and Capital Radar. Find it under Education \u2192 Group Coaching.",
-    "href": "education.html#group-coaching"
+    "id": "creative-finance",
+    "date": "2026-11-13",
+    "title": "Lease Option, Subject-To, Assumption",
+    "description": "Those three sit in the Deal Analyzer next to wholesale, flip, and rental. The commercial section inside each one is Empire.",
+    "link": "deal-analyzer.html"
   },
   {
-    "id": "property-search-launch",
-    "date": "2026-09-22",
-    "tag": "live",
-    "title": "Property Search Is Live",
-    "body": "Pre-foreclosure, absentee-owner, high-equity, vacant and tax-delinquent leads \u2014 search any zip and send leads straight to your CRM."
+    "id": "capital-stack",
+    "date": "2026-11-08",
+    "title": "Capital Stack",
+    "description": "Build a starting capital stack for a deal in Capital Radar, then match lenders and draft a private-money pitch.",
+    "link": "capital-radar.html"
   },
   {
-    "id": "lab-expansion-sept2026",
-    "date": "2026-09-17",
-    "tag": "live",
-    "title": "Real Estate Lab: 9 \u2192 36 Scenarios",
-    "body": "All 27 new roleplay scenarios are live \u2014 FSBO sellers, family office negotiations, JV buyouts, 1031 deadlines, and more."
+    "id": "forge-cast-comps",
+    "date": "2026-10-29",
+    "title": "FORGE Cast Comps",
+    "description": "Recorded sales and a FORGE Cast value from Property Search, ready to send to the Deal Analyzer. A FORGE ARV is an estimate from recorded sales, not an appraisal.",
+    "link": "property-search.html",
+    "requires": "empire"
   }
 ]
