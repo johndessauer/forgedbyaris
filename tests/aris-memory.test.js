@@ -393,6 +393,21 @@ test('migration and coach page wire memory without vendor names in the note', ()
   assert.match(toml, /from = "\/api\/aris-memory"/);
 });
 
+test('coach prompts tell ARIS it remembers past chats and do not deny memory', () => {
+  const prompt = fs.readFileSync(path.join(ROOT, 'netlify/edge-functions/aris-stream.js'), 'utf8');
+  assert.equal(/no memory/i.test(prompt), false);
+  assert.equal(/retain memory/i.test(prompt), false);
+  assert.equal(/between sessions/i.test(prompt), false);
+  assert.match(prompt, /ACCOUNT MEMORY — YOU HAVE THIS:/);
+  assert.match(prompt, /WHAT ARIS REMEMBERS/);
+  assert.match(prompt, /markets, active deals, goals, and buy box/);
+  assert.match(prompt, /not as a word-for-word transcript/);
+  assert.match(prompt, /delete a chat anytime/);
+  assert.match(prompt, /Do not invent a detail that is not in that block/);
+  assert.match(prompt, /ACCOUNT MEMORY: Past ARIS coach chats are saved on the member's account/);
+  assert.match(prompt, /Do not tell this visitor that ARIS itself lacks memory/);
+});
+
 test('aris-memory bundles without createRequire(import.meta.url)', async () => {
   process.env.SUPABASE_URL = process.env.SUPABASE_URL || 'https://example.supabase.co';
   process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'test-service-role-key';
@@ -480,7 +495,10 @@ test('coach stream trims to the budget and loads memory and Why on the server', 
     assert.match(sent.system, /South Bend/);
     assert.match(sent.system, /MEMBER'S WHY/);
     assert.match(sent.system, /For my family/);
-    const memorySection = sent.system.slice(sent.system.indexOf('WHAT ARIS REMEMBERS'));
+    assert.match(sent.system, /ACCOUNT MEMORY — YOU HAVE THIS:/);
+    assert.match(sent.system, /delete a chat anytime/);
+    assert.equal(/no memory|retain memory|between sessions/i.test(sent.system), false);
+    const memorySection = sent.system.slice(sent.system.lastIndexOf('WHAT ARIS REMEMBERS'));
     assert.equal(memorySection.includes('Zillow'), false);
     assert.equal(JSON.stringify(sent.messages).includes('service-role-test'), false);
     assert.ok(seen.some((url) => url.includes('/aris_member_facts')));
@@ -519,7 +537,9 @@ test('coach stream trims to the budget and loads memory and Why on the server', 
     }), {});
     assert.equal(still.status, 200);
     assert.match(sent.system, /Client why/);
-    assert.equal(sent.system.includes('WHAT ARIS REMEMBERS'), false);
+    assert.match(sent.system, /ACCOUNT MEMORY — YOU HAVE THIS:/);
+    assert.equal(sent.system.includes('South Bend'), false);
+    assert.equal(sent.system.includes('EARLIER IN THIS CONVERSATION'), false);
   } finally {
     delete globalThis.__forgeTestMembership;
   }
