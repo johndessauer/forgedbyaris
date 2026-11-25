@@ -1,11 +1,9 @@
 // Current Netlify function format so the Stripe secret is available.
-import { createRequire } from 'module';
+// Same import style as marketing-wallet.js. Do not use createRequire(import.meta.url).
 import { createHandler } from './_Lib/skip-trace-credits-http.js';
 import { fromRequest, toResponse } from './_Lib/function-adapter.js';
-
-const require = createRequire(import.meta.url);
-const { supabase } = require('./_Lib/supabase-client');
-const { createSupabaseStore } = require('./_Lib/skip-trace-store');
+import { supabase } from './_Lib/supabase-client.js';
+import { createSupabaseStore } from './_Lib/skip-trace-store.js';
 
 const handler = createHandler({
   fetch: (url, init) => fetch(url, init),
