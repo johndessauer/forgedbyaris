@@ -24,7 +24,7 @@
     var style = document.createElement('style');
     style.id = 'forge-command-css';
     style.textContent = [
-      '.pcc{position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:180;display:flex;justify-content:flex-end;}',
+      '.pcc{position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1050;display:flex;justify-content:flex-end;}',
       '.pcc[hidden]{display:none;}',
       '.pcc-panel{width:min(480px,100%);height:100%;background:#0f2035;color:#fff;border-left:1px solid rgba(200,155,60,0.3);overflow:auto;padding:18px 16px 28px;font-family:Inter,sans-serif;}',
       '.pcc-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;}',
