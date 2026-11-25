@@ -567,6 +567,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
           <button class="category-btn" data-category="commercial" onclick="switchCategory('commercial',this)">Commercial</button>
         </div>
 
+        <div id="da-owner-contact" style="margin:10px 20px 0;"></div>
         <div style="margin: 10px 20px 0; padding: 8px 12px; border-radius: 6px; background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25); font-size: 11px; color: var(--grey-light); display: flex; align-items: center; gap: 6px;">
           <span style="font-size:13px;">⚠️</span>
           <span>Don't leave this page or wander off down a listings rabbit hole — your numbers vanish unless you hit <strong style="color:var(--white);">Save Deal</strong> first.</span>
@@ -1717,6 +1718,8 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 
 <script src="/assets/js/creative-finance-calc.js"></script>
 <script src="/assets/js/creative-finance-panel.js"></script>
+<script src="/assets/js/skip-trace-shared.js"></script>
+<script src="/assets/js/skip-trace-ui.js"></script>
 <script>
 // ── PROPERTY PHOTOS ──
 let propPhotos = []; // [{ name, dataUrl }]
@@ -4109,6 +4112,23 @@ window.addEventListener('load', async () => {
     const tierEl = document.getElementById('sidebar-tier');
     if (tierEl) tierEl.textContent = planName;
     memberToken = await memberstack.getMemberCookie();
+    if (window.ForgeSkipTrace) {
+      const addressIds = {
+        wholesale: 'w-address', flip: 'f-address', rental: 'r-address', str: 'str-address', multi: 'multi-address',
+        commercial: 'c-address', storage: 's-address', mhp: 'm-address', office: 'o-address', mixeduse: 'mu-address',
+        hotel: 'h-address', 'lease-option': 'lo-address', 'subject-to': 'st-address', assumption: 'as-address',
+      };
+      window.ForgeSkipTrace.mountAnalyzer({
+        root: document.getElementById('da-owner-contact'),
+        getToken: () => memberToken,
+        empire: () => hasEmpireAccess,
+        getSubject: () => {
+          const node = document.getElementById(addressIds[currentTab] || 'w-address');
+          return { address: node ? node.value.trim() : '' };
+        },
+        onUpgrade: () => { if (typeof showEmpireLockModal === 'function') showEmpireLockModal(); },
+      });
+    }
     if (!hasEmpireAccess) {
       const commercialBtn = document.querySelector('.category-btn[data-category="commercial"]');
       if (commercialBtn) commercialBtn.innerHTML = 'Commercial <span style="font-size:11px;">🔒</span>';

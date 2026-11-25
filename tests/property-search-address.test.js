@@ -29,7 +29,7 @@ test('live search results include city, state and ZIP in details', async () => {
   process.env.PROPERTYRADAR_API_KEY = 'test-pr-key';
   const realFetch = global.fetch;
   global.fetch = async () => ({ ok: true, status: 200, json: async () => ({ totalResultCount: 1, results: [
-    { RadarID: 'R1', Address: '1930 SILVER CREEK CT', City: 'Crown Point', State: 'IN', ZipFive: '46307', Latitude: 41.4, Longitude: -87.3, Beds: 2, Baths: 2, SqFt: 1684 },
+    { RadarID: 'R1', Address: '1930 SILVER CREEK CT', City: 'Crown Point', State: 'IN', ZipFive: '46307', Latitude: 41.4, Longitude: -87.3, Beds: 2, Baths: 2, SqFt: 1684, Owner: 'Jane Q Public', OwnerFirstName: 'Jane', OwnerLastName: 'Public' },
   ] }) });
   try {
     const ps = loadPropertySearch();
@@ -41,6 +41,11 @@ test('live search results include city, state and ZIP in details', async () => {
     assert.equal(r.details.state, 'IN');
     assert.equal(r.details.zip, '46307');
     assert.equal(r.details.sqft, 1684);
+    assert.equal(r.ownerFirstName, 'Jane');
+    assert.equal(r.ownerLastName, 'Public');
+    assert.equal(r.details.ownerFirstName, 'Jane');
+    assert.equal(r.details.ownerLastName, 'Public');
+    assert.equal(r.owner, 'Jane Q Public');
   } finally {
     global.fetch = realFetch;
     delete process.env.PROPERTYRADAR_API_KEY;

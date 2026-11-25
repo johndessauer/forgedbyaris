@@ -81,11 +81,11 @@ function isLiveModeEnabled() {
 // high-equity, or a vacant property that's also pre-foreclosure), and the
 // UI now surfaces every matching tag instead of forcing one bucket per lead.
 const DEMO_POINTS = [
-  { addr: '412 W Joliet St, Crown Point, IN 46307', lat: 41.4235, lng: -87.3711, plays: ['prefore', 'zombie'], owner: 'M. Delgado', equity: 89 },
-  { addr: '2107 Delaware Pkwy, Crown Point, IN 46307', lat: 41.4102, lng: -87.3599, plays: ['taxdelinquent'], owner: 'R. Nowak', equity: 34 },
+  { addr: '412 W Joliet St, Crown Point, IN 46307', lat: 41.4235, lng: -87.3711, plays: ['prefore', 'zombie'], owner: 'M. Delgado', ownerFirstName: 'M.', ownerLastName: 'Delgado', equity: 89 },
+  { addr: '2107 Delaware Pkwy, Crown Point, IN 46307', lat: 41.4102, lng: -87.3599, plays: ['taxdelinquent'], owner: 'R. Nowak', ownerFirstName: 'R.', ownerLastName: 'Nowak', equity: 34 },
   { addr: '9541 Randolph St, Crown Point, IN 46307', lat: 41.4310, lng: -87.3480, plays: ['prefore', 'vacant', 'zombie'], owner: 'Unknown', equity: 21 },
-  { addr: '1188 S Court St, Crown Point, IN 46307', lat: 41.4050, lng: -87.3820, plays: ['absentee', 'bored', 'longterm', 'freeclear'], owner: 'J. Whitfield', equity: 58, mail: { address: '500 Mail St', city: 'Chicago', state: 'IL', zip: '60601' } },
-  { addr: '733 N Main St, Crown Point, IN 46307', lat: 41.4278, lng: -87.3602, plays: ['prefore', 'highequity'], owner: 'T. Alvarez', equity: 112 },
+  { addr: '1188 S Court St, Crown Point, IN 46307', lat: 41.4050, lng: -87.3820, plays: ['absentee', 'bored', 'longterm', 'freeclear'], owner: 'J. Whitfield', ownerFirstName: 'J.', ownerLastName: 'Whitfield', equity: 58, mail: { address: '500 Mail St', city: 'Chicago', state: 'IL', zip: '60601' } },
+  { addr: '733 N Main St, Crown Point, IN 46307', lat: 41.4278, lng: -87.3602, plays: ['prefore', 'highequity'], owner: 'T. Alvarez', ownerFirstName: 'T.', ownerLastName: 'Alvarez', equity: 112 },
   { addr: '5502 Broadway, Crown Point, IN 46307', lat: 41.4155, lng: -87.3455, plays: ['taxdelinquent', 'lowequity'], owner: 'S. Krueger', equity: 27 },
   { addr: '861 E 93rd Ave, Crown Point, IN 46307', lat: 41.4330, lng: -87.3750, plays: ['absentee', 'cashbuyer'], owner: 'D. Okafor', equity: 45 },
   { addr: '3390 Ross Township Rd, Crown Point, IN 46307', lat: 41.4400, lng: -87.3450, plays: ['highequity'], owner: 'L. Chen', equity: 158 },
@@ -120,11 +120,15 @@ function mapRadarRecord(r, i, playIds) {
     lng,
     playIds: playIds.length ? playIds : ['prefore'],
     owner: r.Owner || [r.OwnerFirstName, r.OwnerLastName].filter(Boolean).join(' ') || null,
+    ownerFirstName: r.OwnerFirstName || null,
+    ownerLastName: r.OwnerLastName || null,
     equity: r.AvailableEquity != null ? Math.round(r.AvailableEquity / 1000) : null,
     details: {
       city: r.City || null,
       state: r.State || null,
       zip: r.ZipFive || null,
+      ownerFirstName: r.OwnerFirstName || null,
+      ownerLastName: r.OwnerLastName || null,
       ownerAddress: r.OwnerAddress || null,
       ownerCity: r.OwnerCity || null,
       ownerState: r.OwnerState || null,
@@ -156,14 +160,19 @@ function buildDemoResults(playIds) {
       lng: p.lng,
       playIds: p.plays,
       owner: p.owner,
+      ownerFirstName: p.ownerFirstName || null,
+      ownerLastName: p.ownerLastName || null,
       equity: p.equity,
-      details: p.mail ? {
+      details: Object.assign({
+        ownerFirstName: p.ownerFirstName || null,
+        ownerLastName: p.ownerLastName || null,
+      }, p.mail ? {
         ownerAddress: p.mail.address,
         ownerCity: p.mail.city,
         ownerState: p.mail.state,
         ownerZip: p.mail.zip,
         absenteeMail: true,
-      } : {},
+      } : {}),
       mapUrl: buildMapUrl(p.lat, p.lng),
       zillowUrl: buildZillowUrl(p.addr),
     }));
@@ -387,6 +396,9 @@ exports.handler = async function (event, context) {
       if (payload.action === 'save') {
         const { leadId, address, playIds, lat, lng, owner, equity, details } = payload;
         if (!leadId) return json(400, { error: 'leadId is required' });
+        const savedDetails = Object.assign({}, details || {});
+        if (payload.ownerFirstName) savedDetails.ownerFirstName = payload.ownerFirstName;
+        if (payload.ownerLastName) savedDetails.ownerLastName = payload.ownerLastName;
 
         // play_id is a single text column (see add-property-search-saves-table.sql)
         // but a lead can now carry more than one matching tag — flatten to a
@@ -410,7 +422,7 @@ exports.handler = async function (event, context) {
             // (details jsonb — see add-property-search-details-column.sql)
             // rather than one column per field, since the field set is
             // still unverified and likely to change.
-            details: details || null,
+            details: Object.keys(savedDetails).length ? savedDetails : null,
           })
           .select()
           .single();

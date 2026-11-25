@@ -457,6 +457,18 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
       </div>
 
       <div id="contact-detail-extra" style="display:none;">
+        <div class="form-group" id="contact-owner-extra"></div>
+        <div class="form-group">
+          <label class="form-label" for="contact-outreach">Outreach status</label>
+          <select class="form-input" id="contact-outreach">
+            <option value="">Not set</option>
+            <option value="new">New</option>
+            <option value="called">Called</option>
+            <option value="texted">Texted</option>
+            <option value="emailed">Emailed</option>
+            <option value="do_not_contact">Do not contact</option>
+          </select>
+        </div>
         <div class="form-group">
           <label class="form-label">Notes</label>
           <div class="notes-list" id="contact-notes-list"></div>
@@ -1370,6 +1382,18 @@ function syncContactTypeLabelField() {
   document.getElementById('contact-type-label-group').style.display = type === 'other' ? '' : 'none';
 }
 
+function contactFlagLine(c) {
+  const flags = c.flags || {};
+  const bits = [];
+  if (flags.dnc) bits.push('DNC');
+  if (flags.tcpa) bits.push('TCPA');
+  if (flags.litigator) bits.push('Litigator');
+  if (c.outreach_status) bits.push(String(c.outreach_status).replace(/_/g, ' '));
+  if (!bits.length && !c.address) return '';
+  const text = [c.address || '', bits.join(' · ')].filter(Boolean).join(' — ');
+  return `<div class="contact-card-info">${escapeHtml(text)}</div>`;
+}
+
 function renderContacts() {
   const root = document.getElementById('contacts-root');
   if (!allContacts.length) {
@@ -1394,6 +1418,7 @@ function renderContacts() {
       <div class="contact-card-name">${escapeHtml(c.name)}</div>
       <div class="contact-card-type">${escapeHtml(contactBadge(c))}</div>
       <div class="contact-card-info">${escapeHtml(c.phone || '')}${c.phone && c.email ? ' · ' : ''}${escapeHtml(c.email || '')}</div>
+      ${contactFlagLine(c)}
     `;
     root.appendChild(card);
   });
@@ -1410,6 +1435,22 @@ function openContactModal(contactId = null) {
   syncContactTypeLabelField();
   document.getElementById('contact-phone').value = contact ? (contact.phone || '') : '';
   document.getElementById('contact-email').value = contact ? (contact.email || '') : '';
+  const outreach = document.getElementById('contact-outreach');
+  if (outreach) outreach.value = contact && contact.outreach_status ? contact.outreach_status : '';
+  const extra = document.getElementById('contact-owner-extra');
+  if (extra) {
+    if (!contact) extra.innerHTML = '';
+    else {
+      const phones = Array.isArray(contact.phones) ? contact.phones : [];
+      const emails = Array.isArray(contact.emails) ? contact.emails : [];
+      const phoneLine = phones.map(p => `${p.number || ''}${p.type ? ' (' + p.type + ')' : ''}${p.dnc ? ' DNC' : ''}${p.tcpa ? ' TCPA' : ''}${p.litigator ? ' Litigator' : ''}`).join(', ');
+      extra.innerHTML = [
+        contact.address ? `<div class="form-label">Mailing address</div><div class="contact-card-info">${escapeHtml(contact.address)}</div>` : '',
+        phoneLine ? `<div class="form-label" style="margin-top:8px;">Phones on file</div><div class="contact-card-info">${escapeHtml(phoneLine)}</div>` : '',
+        emails.length ? `<div class="form-label" style="margin-top:8px;">Emails on file</div><div class="contact-card-info">${escapeHtml(emails.join(', '))}</div>` : '',
+      ].join('');
+    }
+  }
   document.getElementById('contact-detail-extra').style.display = contact ? 'block' : 'none';
   if (contact) loadContactNotes(contactId);
   document.getElementById('contact-overlay').classList.add('open');
@@ -1429,7 +1470,9 @@ async function saveContact() {
     if (!cleaned.ok) { showToast(cleaned.error, true); return; }
     type_label = cleaned.value;
   }
+  const outreachNode = document.getElementById('contact-outreach');
   const fields = { name, type, type_label, phone, email };
+  if (outreachNode) fields.outreach_status = outreachNode.value || null;
   try {
     if (activeContactId) {
       await apiCall('crm-contacts', { method: 'POST', body: JSON.stringify({ action: 'update', id: activeContactId, ...fields }) });

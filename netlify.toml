@@ -194,6 +194,21 @@
   to = "/.netlify/functions/webinar-register"
   status = 200
 
+[[redirects]]
+  from = "/api/skip-trace"
+  to = "/.netlify/functions/skip-trace"
+  status = 200
+
+[[redirects]]
+  from = "/api/skip-trace-credits"
+  to = "/.netlify/functions/skip-trace-credits"
+  status = 200
+
+[[redirects]]
+  from = "/api/skip-trace-stripe-webhook"
+  to = "/.netlify/functions/skip-trace-stripe-webhook"
+  status = 200
+
 # Attendance tracking link used in reminder emails/texts. Tags, then 302s to Google Meet.
 [[redirects]]
   from = "/webinar/join"
@@ -237,6 +252,15 @@
 
 [functions.webinar-join]
   timeout = 10
+
+[functions.skip-trace]
+  timeout = 26
+
+[functions.skip-trace-credits]
+  timeout = 26
+
+[functions.skip-trace-stripe-webhook]
+  timeout = 26
 
 # Forced 404s for source and other non-web files. These rules are below
 # every /api/* rewrite. A splat matches only at the end of a segment, so

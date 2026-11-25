@@ -1449,10 +1449,27 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
         },
         required: ['reason']
       }
+    },
+    {
+      name: 'get_owner_contact_info',
+      description: "Look up owner phones, emails, and mailing address for one property the member already named. A hit spends skip-trace credits (20 cents). A miss is free. The same address is free again for 90 days. This shows a confirm card with the cost and balance before anything is charged. Empire members only. The server decides access, balance, and caps. Never mention data vendors. Never invent a phone, email, or mailing address. Never offer to dial or text. Tell the member that data is not consent, and repeat DNC, TCPA, and litigator flags exactly as returned. Do not use this for bulk lists, company piercing, relatives, or enhanced lookups.",
+      input_schema: {
+        type: 'object',
+        properties: {
+          address: { type: 'string', description: 'Street address, or a full one-line address with city, state, and ZIP.' },
+          city: { type: 'string' },
+          state: { type: 'string', description: 'Two-letter state code.' },
+          zip: { type: 'string' },
+          owner_first_name: { type: 'string', description: 'Owner first name when known. Improves the match.' },
+          owner_last_name: { type: 'string', description: 'Owner last name when known.' },
+          owner_name: { type: 'string', description: 'Full owner name when first and last are not separate.' }
+        },
+        required: ['address']
+      }
     }
   ];
 
-  const WRITE_TOOL_NAMES = new Set(['propose_stage_update', 'propose_note', 'propose_flag_lead']);
+  const WRITE_TOOL_NAMES = new Set(['propose_stage_update', 'propose_note', 'propose_flag_lead', 'get_owner_contact_info']);
 
   // ── CRM API HELPERS ──
   async function apiCallCRM(fn, opts = {}) {
@@ -1675,6 +1692,39 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
         }
       };
     }
+    if (name === 'get_owner_contact_info') {
+      const payload = {
+        address: input.address,
+        city: input.city,
+        state: input.state,
+        zip: input.zip,
+        ownerFirstName: input.owner_first_name,
+        ownerLastName: input.owner_last_name,
+        owner: input.owner_name,
+      };
+      let quote;
+      try {
+        quote = await apiCallCRM('skip-trace', { method: 'POST', body: JSON.stringify(Object.assign({ action: 'quote' }, payload)) });
+      } catch (e) {
+        return { error: e.message };
+      }
+      if (!quote.sufficient) return { error: quote.message || 'Not enough skip-trace credits. The member can add a pack on the profile page.' };
+      const dollars = (cents) => '$' + (Math.round(Number(cents) || 0) / 100).toFixed(2);
+      const cost = quote.cached
+        ? 'This address is already on file, so showing it is free.'
+        : ('A successful lookup costs ' + dollars(quote.costCents) + '. Balance ' + dollars(quote.balanceCents) + '. A miss is free.');
+      return {
+        tool: name,
+        label: 'Confirm owner contact lookup',
+        confirmLabel: quote.cached ? 'SHOW' : 'LOOK UP',
+        workingLabel: 'LOOKING UP...',
+        description: 'Get owner contact info for <strong>' + escapeHtmlCoach(quote.addressLabel || input.address || 'this property') + '</strong>?<br>' + escapeHtmlCoach(cost) + (quote.entityNote ? '<br>' + escapeHtmlCoach(quote.entityNote) : '') + '<br>Nothing is dialed or texted. Data is not consent.',
+        execute: async () => {
+          const data = await apiCallCRM('skip-trace', { method: 'POST', body: JSON.stringify(Object.assign({ action: 'lookup', confirm: true }, payload)) });
+          return JSON.stringify(data);
+        }
+      };
+    }
     return { error: 'Unknown write tool: ' + name };
   }
 
@@ -1691,11 +1741,11 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
     card.className = 'transfer-card';
     card.innerHTML = `
       <div class="transfer-card-left">
-        <div class="transfer-card-label">ARIS wants to update your CRM</div>
+        <div class="transfer-card-label">${proposal.label || 'ARIS wants to update your CRM'}</div>
         <div class="transfer-card-desc">${proposal.description}</div>
       </div>
       <div style="display:flex; gap:8px;">
-        <button class="transfer-btn confirm-yes">YES</button>
+        <button class="transfer-btn confirm-yes">${proposal.confirmLabel || 'YES'}</button>
         <button class="transfer-btn confirm-no" style="background:transparent;border:1px solid rgba(255,255,255,0.15);color:#9CA3AF;">NO</button>
       </div>
     `;
@@ -1703,7 +1753,7 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
     const noBtn = card.querySelector('.confirm-no');
     yesBtn.addEventListener('click', async () => {
       yesBtn.disabled = true; noBtn.disabled = true;
-      yesBtn.textContent = 'SAVING...';
+      yesBtn.textContent = proposal.workingLabel || 'SAVING...';
       try {
         const resultText = await proposal.execute();
         yesBtn.textContent = 'DONE';
