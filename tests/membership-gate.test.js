@@ -404,6 +404,8 @@ async function loadEdge(name) {
   fs.copyFileSync(path.join(edge, 'lib', 'membership.js'), path.join(dir, 'lib', 'membership.js'));
   const speech = path.join(edge, 'lib', 'speech-text.js');
   if (fs.existsSync(speech)) fs.copyFileSync(speech, path.join(dir, 'lib', 'speech-text.js'));
+  const memoryLib = path.join(edge, 'lib', 'aris-memory.js');
+  if (fs.existsSync(memoryLib)) fs.copyFileSync(memoryLib, path.join(dir, 'lib', 'aris-memory.js'));
   return import(pathToFileURL(path.join(dir, name.replace(/\.js$/, '.mjs'))).href + '?t=' + Math.random());
 }
 

@@ -276,6 +276,53 @@
     display: flex;
     align-items: center;
     gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .past-chats { position: relative; }
+  .past-chats-panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: min(280px, 70vw);
+    max-height: 320px;
+    overflow: auto;
+    background: #162840;
+    border: 1px solid rgba(200,155,60,0.35);
+    border-radius: 8px;
+    z-index: 20;
+    padding: 6px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+  }
+  .past-chats-panel[hidden] { display: none; }
+  .past-chat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: 0;
+    color: var(--white);
+    font-family: Inter, sans-serif;
+    font-size: 12px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    gap: 2px;
+  }
+  .past-chat-item:hover,
+  .past-chat-item.active { background: rgba(255,255,255,0.06); }
+  .past-chat-item small { color: var(--grey); font-size: 10px; }
+  .past-chats-empty { color: var(--grey); font-size: 12px; padding: 10px; }
+  .memory-note {
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--grey);
+    padding: 8px 28px 0;
+    position: relative;
+    z-index: 2;
   }
 
   .topbar-btn {
@@ -700,12 +747,14 @@
     .suggestions { padding: 0 16px 10px; }
     .input-bar { padding: 10px 16px 16px; }
     .topbar { padding: 12px 16px; }
+    .memory-note { padding: 6px 16px 0; }
   }
 </style>
 <script src="https://static.memberstack.com/scripts/v1/memberstack.js" data-memberstack-app="app_cmr41qq5500q80tsx94pj61rc" defer></script>
 <script src="/assets/js/ref-capture.js"></script>
 <script src="/assets/js/member-preferences.js"></script>
 <script src="/assets/js/contact-types.js"></script>
+<script src="/assets/js/aris-memory-client.js"></script>
 </head>
 <body>
 
@@ -786,9 +835,17 @@
         </div>
       </div>
       <div class="topbar-right">
-        <button class="topbar-btn" onclick="clearChat()">New Session</button>
+        <div class="past-chats">
+          <button class="topbar-btn" type="button" id="past-chats-btn" onclick="togglePastChats()">Past chats</button>
+          <div class="past-chats-panel" id="past-chats-panel" hidden>
+            <div id="past-chats-list" class="past-chats-empty">No past chats yet.</div>
+          </div>
+        </div>
+        <button class="topbar-btn" type="button" onclick="startNewChat()">New chat</button>
+        <button class="topbar-btn" type="button" onclick="deleteCurrentChat()">Delete chat</button>
       </div>
     </div>
+    <p class="memory-note">ARIS remembers your past chats on this account. You can delete a chat anytime.</p>
 
     <!-- MESSAGES -->
     <div class="messages" id="messages"></div>
@@ -849,6 +906,12 @@
 <script>
   // ── STATE ──
   const conversationHistory = [];
+  let currentConversationId = null;
+  let persistedCount = 0;
+  let persistChain = Promise.resolve();
+  let userTookOver = false;
+  let chatEpoch = 0;
+  const epochConversationIds = new Map();
   var currentMemberToken = null; // Memberstack JWT, set once auth resolves below; required for all CRM tool calls
   // NOTE: deliberately `var`, not `let` -- this file has a second, separate
   // <script> block further down (the existing Memberstack auth gate) that
@@ -860,14 +923,104 @@
   // tool call to send no Authorization header and fail with 401.
   var currentMemberInitials = 'You';
 
-  function saveHistory() {
+  function memoryTools() {
+    return window.ForgeArisMemory || {};
+  }
+
+  function toolResultOnly(message) {
+    const fn = memoryTools().isToolResultOnly;
+    return fn ? fn(message) : false;
+  }
+
+  function writeSessionCache() {
     try {
-      sessionStorage.setItem('aris-chat-history', JSON.stringify(conversationHistory));
+      // Fast cache for this tab. The account copy is /api/aris-memory.
+      sessionStorage.setItem('aris-chat-history', JSON.stringify({
+        id: currentConversationId,
+        messages: conversationHistory,
+      }));
     } catch (e) {
       // Quota exceeded (e.g. large uploaded files) — chat still works,
       // it just won't survive a page navigation this session.
       console.warn('Could not save chat history:', e);
     }
+  }
+
+  function readSessionCache() {
+    try {
+      const raw = JSON.parse(sessionStorage.getItem('aris-chat-history') || 'null');
+      if (Array.isArray(raw)) return { id: null, messages: raw };
+      if (raw && Array.isArray(raw.messages)) return { id: raw.id || null, messages: raw.messages };
+    } catch (e) {}
+    return null;
+  }
+
+  function saveHistory() {
+    writeSessionCache();
+    queuePersist();
+  }
+
+  function queuePersist() {
+    if (!currentMemberToken) return;
+    const hasUser = conversationHistory.some((message) => message && message.role === 'user' && !toolResultOnly(message));
+    if (!hasUser || conversationHistory.length <= persistedCount) return;
+    const start = persistedCount;
+    const slice = conversationHistory.slice(start, start + 40);
+    const sanitize = memoryTools().sanitizeMessageForStorage;
+    const batch = slice.map((message) => (sanitize ? sanitize(message) : { role: message.role, content: message.content })).filter(Boolean);
+    if (!batch.length) {
+      persistedCount = conversationHistory.length;
+      return;
+    }
+    const advancedTo = start + slice.length;
+    persistedCount = advancedTo;
+    const epoch = chatEpoch;
+    const capturedId = currentConversationId || epochConversationIds.get(epoch) || null;
+    const plain = (memoryTools().messagePlainText || function () { return ''; })(batch[0] || {});
+    const idempotencyKey = String(epoch) + ':' + start + ':' + batch.length + ':' + String(plain).slice(0, 24);
+    persistChain = persistChain.then(() => persistBatch(epoch, capturedId, batch, idempotencyKey, advancedTo, start)).catch((err) => {
+      console.warn('Could not save ARIS chat:', err);
+    });
+  }
+
+  async function persistBatch(epoch, capturedId, batch, idempotencyKey, advancedTo, start) {
+    const id = capturedId || epochConversationIds.get(epoch) || null;
+    let data;
+    try {
+      data = await arisMemory('POST', {
+        action: 'append',
+        conversationId: id,
+        messages: batch,
+        idempotencyKey,
+      });
+    } catch (err) {
+      if (epoch === chatEpoch && persistedCount === advancedTo) persistedCount = start;
+      throw err;
+    }
+    if (!data || !data.conversationId) {
+      if (epoch === chatEpoch && persistedCount === advancedTo) persistedCount = start;
+      return;
+    }
+    epochConversationIds.set(epoch, data.conversationId);
+    if (epoch !== chatEpoch) return;
+    currentConversationId = data.conversationId;
+    writeSessionCache();
+    if (conversationHistory.length > persistedCount) queuePersist();
+  }
+
+  async function arisMemory(method, params) {
+    if (!currentMemberToken) return null;
+    const headers = { Authorization: 'Bearer ' + currentMemberToken };
+    let url = '/api/aris-memory';
+    const init = { method, headers };
+    if (method === 'GET') url += '?' + new URLSearchParams(params).toString();
+    else {
+      headers['Content-Type'] = 'application/json';
+      init.body = JSON.stringify(params);
+    }
+    const res = await fetch(url, init);
+    if (!res.ok) throw new Error('memory ' + res.status);
+    return res.json();
   }
 
   function displayTextFor(content) {
@@ -916,18 +1069,14 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
     const why = JSON.parse(localStorage.getItem('forge-member-why') || 'null');
     MEMBER_WHY = (why && (why.q1 || why.q2 || why.q3 || why.experienceLevel || why.primaryStrategy || why.biggestObstacle)) ? why : null;
 
-    const savedHistory = JSON.parse(sessionStorage.getItem('aris-chat-history') || 'null');
-    if (savedHistory && savedHistory.length) {
-      savedHistory.forEach((msg, i) => {
-        conversationHistory.push(msg);
-        appendMessage(msg.role === 'assistant' ? 'aris' : 'user', displayTextFor(msg.content), i === 0);
-      });
-      const suggestionsEl = document.getElementById('suggestions');
-      if (suggestionsEl) suggestionsEl.style.display = 'none';
+    const savedHistory = readSessionCache();
+    if (savedHistory && savedHistory.messages.length) {
+      currentConversationId = savedHistory.id;
+      if (savedHistory.id) epochConversationIds.set(chatEpoch, savedHistory.id);
+      renderStoredConversation(savedHistory.messages);
+      if (savedHistory.id) persistedCount = conversationHistory.length;
     } else {
-      appendMessage('aris', ARIS_INTRO, true);
-      conversationHistory.push({ role: 'assistant', content: ARIS_INTRO.replace(/\*\*/g, '') });
-      saveHistory();
+      showIntro();
     }
 
     // ── READ QUICK CHAT FROM DASHBOARD ──
@@ -1833,7 +1982,10 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
         max_tokens: 2200,
         promptKey: 'coach',
         memberWhy: MEMBER_WHY,
-        messages: conversationHistory,
+        messages: (window.ForgeArisMemory && window.ForgeArisMemory.trimMessagesToBudget)
+          ? window.ForgeArisMemory.trimMessagesToBudget(conversationHistory)
+          : conversationHistory,
+        conversationId: currentConversationId,
         tools: CRM_TOOLS
       })
     });
@@ -1969,6 +2121,7 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
   // ── SEND ──
   async function sendMessage() {
     if (isLoading) return;
+    userTookOver = true;
     const input = document.getElementById('user-input');
     const text = input.value.trim();
     if (!text) return;
@@ -2051,16 +2204,194 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
     sendMessage();
   }
 
-  // ── CLEAR ──
-  function clearChat() {
-    conversationHistory.length = 0;
-    sessionStorage.removeItem('aris-chat-history');
+  function showIntro() {
     document.getElementById('messages').innerHTML = '';
-    const s = document.getElementById('suggestions');
-    if (s) s.style.display = 'flex';
+    conversationHistory.length = 0;
     appendMessage('aris', ARIS_INTRO, true);
     conversationHistory.push({ role: 'assistant', content: ARIS_INTRO.replace(/\*\*/g, '') });
-    saveHistory();
+    const suggestions = document.getElementById('suggestions');
+    if (suggestions) suggestions.style.display = 'flex';
+    persistedCount = 0;
+    currentConversationId = null;
+    writeSessionCache();
+  }
+
+  function renderStoredConversation(messages) {
+    document.getElementById('messages').innerHTML = '';
+    conversationHistory.length = 0;
+    let shown = 0;
+    (messages || []).forEach((message) => {
+      conversationHistory.push(message);
+      const text = displayTextFor(message.content);
+      if (!text) return;
+      appendMessage(message.role === 'assistant' ? 'aris' : 'user', text, shown === 0);
+      shown += 1;
+    });
+    const hasUser = conversationHistory.some((message) => message && message.role === 'user' && !toolResultOnly(message));
+    const suggestions = document.getElementById('suggestions');
+    if (suggestions) suggestions.style.display = hasUser ? 'none' : 'flex';
+  }
+
+  async function loadMemberWhyFromProfile() {
+    if (MEMBER_WHY || !currentMemberToken) return;
+    try {
+      const res = await fetch('/api/profile-data?action=get', {
+        headers: { Authorization: 'Bearer ' + currentMemberToken },
+      });
+      if (!res.ok) return;
+      const body = await res.json();
+      const fromProfile = memoryTools().whyFromProfileRow ? memoryTools().whyFromProfileRow(body.profile) : null;
+      if (!fromProfile) return;
+      MEMBER_WHY = fromProfile;
+      const existing = JSON.parse(localStorage.getItem('forge-member-why') || '{}');
+      localStorage.setItem('forge-member-why', JSON.stringify({ ...existing, ...fromProfile }));
+    } catch (err) {
+      console.warn('Could not load Member Why:', err);
+    }
+  }
+
+  async function restoreLatestConversation() {
+    const epoch = chatEpoch;
+    let data;
+    try { data = await arisMemory('GET', { action: 'latest' }); }
+    catch (err) { return; }
+    if (epoch !== chatEpoch || userTookOver) return;
+    if (!data || !data.conversation) return;
+    const serverMessages = data.messages || [];
+    if (data.conversation.id === currentConversationId && conversationHistory.length >= serverMessages.length && conversationHistory.length) {
+      persistedCount = Math.min(persistedCount || serverMessages.length, serverMessages.length);
+      if (conversationHistory.length > persistedCount) queuePersist();
+      return;
+    }
+    currentConversationId = data.conversation.id;
+    epochConversationIds.set(chatEpoch, data.conversation.id);
+    renderStoredConversation(serverMessages);
+    persistedCount = conversationHistory.length;
+    writeSessionCache();
+  }
+
+  async function initArisMemory() {
+    await loadMemberWhyFromProfile();
+    if (userTookOver) {
+      queuePersist();
+      return;
+    }
+    await restoreLatestConversation();
+  }
+
+  function closePastChats() {
+    const panel = document.getElementById('past-chats-panel');
+    if (panel) panel.hidden = true;
+  }
+
+  async function refreshPastChats() {
+    const list = document.getElementById('past-chats-list');
+    if (!list) return;
+    if (!currentMemberToken) {
+      list.className = 'past-chats-empty';
+      list.textContent = 'Sign in to see past chats.';
+      return;
+    }
+    list.className = 'past-chats-empty';
+    list.textContent = 'Loading…';
+    try {
+      const data = await arisMemory('GET', { action: 'list' });
+      const conversations = (data && data.conversations) || [];
+      if (!conversations.length) {
+        list.textContent = 'No past chats yet.';
+        return;
+      }
+      list.className = '';
+      list.innerHTML = '';
+      conversations.forEach((conversation) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'past-chat-item' + (conversation.id === currentConversationId ? ' active' : '');
+        const title = document.createElement('span');
+        title.textContent = conversation.title || 'Chat';
+        const when = document.createElement('small');
+        const parsed = conversation.updated_at ? new Date(conversation.updated_at) : null;
+        when.textContent = parsed && !Number.isNaN(parsed.getTime())
+          ? parsed.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+          : '';
+        button.appendChild(title);
+        button.appendChild(when);
+        button.addEventListener('click', () => openPastChat(conversation.id));
+        list.appendChild(button);
+      });
+    } catch (err) {
+      list.className = 'past-chats-empty';
+      list.textContent = 'Could not load past chats.';
+    }
+  }
+
+  function togglePastChats() {
+    const panel = document.getElementById('past-chats-panel');
+    if (!panel) return;
+    panel.hidden = !panel.hidden;
+    if (!panel.hidden) refreshPastChats();
+  }
+
+  async function openPastChat(id) {
+    if (isLoading || !id) return;
+    closePastChats();
+    userTookOver = true;
+    chatEpoch += 1;
+    try {
+      const data = await arisMemory('GET', { action: 'load', id });
+      if (!data || !data.conversation) return;
+      currentConversationId = data.conversation.id;
+      epochConversationIds.set(chatEpoch, data.conversation.id);
+      renderStoredConversation(data.messages || []);
+      persistedCount = conversationHistory.length;
+      writeSessionCache();
+    } catch (err) {
+      appendMessage('aris', 'Could not open that chat. Try again.');
+    }
+  }
+
+  function startNewChat() {
+    if (isLoading) return;
+    closePastChats();
+    userTookOver = true;
+    chatEpoch += 1;
+    showIntro();
+  }
+
+  async function deleteCurrentChat() {
+    if (isLoading) return;
+    const id = currentConversationId;
+    const hasUser = conversationHistory.some((message) => message && message.role === 'user' && !toolResultOnly(message));
+    if (!id && !hasUser) {
+      startNewChat();
+      return;
+    }
+    if (!confirm('Delete this chat? ARIS will forget it.')) return;
+    closePastChats();
+    userTookOver = true;
+    chatEpoch += 1;
+    const doomed = id;
+    showIntro();
+    if (!doomed || !currentMemberToken) return;
+    try {
+      await arisMemory('POST', { action: 'delete', id: doomed });
+    } catch (err) {
+      console.warn('Could not delete ARIS chat:', err);
+    }
+  }
+
+  document.addEventListener('click', (event) => {
+    const wrap = document.querySelector('.past-chats');
+    if (!wrap || wrap.contains(event.target)) return;
+    closePastChats();
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closePastChats();
+  });
+
+  // ── CLEAR ──
+  function clearChat() {
+    deleteCurrentChat();
   }
 
   // ── INPUT HELPERS ──
@@ -2198,6 +2529,7 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
       console.error('Could not retrieve Memberstack token for CRM tool access:', e);
     }
     await loadArisVoicePreference();
+    try { await initArisMemory(); } catch (err) { console.error('ARIS memory init failed:', err); }
     // ── UPDATE SESSION COUNT (server-side, syncs across devices) ──
     // Previously a localStorage counter — didn't sync across devices, and
     // also incorrectly incremented once per Dashboard page load in
