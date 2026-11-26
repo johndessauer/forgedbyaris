@@ -22,6 +22,7 @@
 // The member id is taken from the verified token, not the request body.
 
 import { requireEdgeMembership, EMPIRE_SCENARIO_TITLE } from './lib/membership.js';
+import { sanitizeAnthropicMessages } from './lib/anthropic-messages.js';
 
 const ROLEPLAY_GUARDRAILS = `
 
@@ -118,7 +119,7 @@ export default async (request, context) => {
   const requestBody = {
     model: body.model || 'claude-sonnet-4-6',
     max_tokens: body.max_tokens || 1200,
-    messages: body.messages,
+    messages: sanitizeAnthropicMessages(body.messages),
     system: buildSystemPrompt(rolePrompt),
     stream: true,
   };

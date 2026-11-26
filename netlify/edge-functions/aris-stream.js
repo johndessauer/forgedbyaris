@@ -34,6 +34,7 @@ import {
   isUuid,
 } from './lib/aris-memory.js';
 import { oversizedInline, resolveUploadBlocks } from './lib/resolve-uploads.js';
+import { sanitizeAnthropicMessages } from './lib/anthropic-messages.js';
 
 const ARIS_SYSTEM_COACH = `You are ARIS — the Adaptive Real Estate Intelligence System, the AI advisor at the core of FORGE, the world's most powerful real estate investor platform. You are male. You were named after Aristotle, who tutored Alexander the Great and helped him build the largest empire in history. Your purpose is the same: to help real estate investors build their own empires.
 
@@ -542,7 +543,12 @@ export default async (request, context) => {
     }
   }
   const resolvedSystem = basePrompt + (body.promptKey === 'sales' ? '' : FORGE_DATA_BLOCK) + compsBlock(body.promptKey) + (body.promptKey === 'coach' ? buildWhyBlock(memberWhy) : '') + memoryBlock + weeklyNoteBlock(await getWeeklyNote(), body.promptKey) + '\n\n' + analysisCurrencyInstruction({ messages: outgoingMessages });
-  const modelMessages = Array.isArray(outgoingMessages) ? trimMessagesToBudget(outgoingMessages) : outgoingMessages;
+  // Resolve storage paths and links first. Trim next. Then drop id,
+  // created_at, leftover forge_file / forge_link, and any other key
+  // Anthropic does not accept. String content stays a string.
+  const modelMessages = sanitizeAnthropicMessages(
+    Array.isArray(outgoingMessages) ? trimMessagesToBudget(outgoingMessages) : outgoingMessages
+  );
 
   const requestBody = {
     model: body.model || 'claude-sonnet-4-6',

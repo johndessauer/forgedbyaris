@@ -1988,9 +1988,7 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
         max_tokens: 2200,
         promptKey: 'coach',
         memberWhy: MEMBER_WHY,
-        messages: (window.ForgeArisMemory && window.ForgeArisMemory.trimMessagesToBudget)
-          ? window.ForgeArisMemory.trimMessagesToBudget(conversationHistory)
-          : conversationHistory,
+        messages: messagesForModel(),
         conversationId: currentConversationId,
         tools: CRM_TOOLS
       })
@@ -2235,13 +2233,30 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
     writeSessionCache();
   }
 
+  // Memory rows include id and created_at. The model rejects those keys.
+  // Keep role and content only, including forge_file / forge_link paths
+  // so the server can still read the stored file.
+  function messageForHistory(message) {
+    if (!message || (message.role !== 'user' && message.role !== 'assistant') || message.content == null) return null;
+    return { role: message.role, content: message.content };
+  }
+
+  function messagesForModel() {
+    const budgeted = (window.ForgeArisMemory && window.ForgeArisMemory.trimMessagesToBudget)
+      ? window.ForgeArisMemory.trimMessagesToBudget(conversationHistory)
+      : conversationHistory;
+    return budgeted.map((message) => messageForHistory(message)).filter(Boolean);
+  }
+
   function renderStoredConversation(messages) {
     document.getElementById('messages').innerHTML = '';
     conversationHistory.length = 0;
     let shown = 0;
     (messages || []).forEach((message) => {
-      conversationHistory.push(message);
-      const text = displayTextFor(message.content);
+      const clean = messageForHistory(message);
+      if (!clean) return;
+      conversationHistory.push(clean);
+      const text = displayTextFor(clean.content);
       if (!text) return;
       appendMessage(message.role === 'assistant' ? 'aris' : 'user', text, shown === 0);
       shown += 1;
