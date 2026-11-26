@@ -409,6 +409,8 @@ async function loadEdge(name) {
   if (fs.existsSync(memoryLib)) fs.copyFileSync(memoryLib, path.join(dir, 'lib', 'aris-memory.js'));
   const resolveLib = path.join(edge, 'lib', 'resolve-uploads.js');
   if (fs.existsSync(resolveLib)) fs.copyFileSync(resolveLib, path.join(dir, 'lib', 'resolve-uploads.js'));
+  const sanitizeLib = path.join(edge, 'lib', 'anthropic-messages.js');
+  if (fs.existsSync(sanitizeLib)) fs.copyFileSync(sanitizeLib, path.join(dir, 'lib', 'anthropic-messages.js'));
   return import(pathToFileURL(path.join(dir, name.replace(/\.js$/, '.mjs'))).href + '?t=' + Math.random());
 }
 

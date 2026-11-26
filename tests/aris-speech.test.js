@@ -24,6 +24,8 @@ async function loadEdge(file) {
   if (fs.existsSync(memoryLib)) fs.copyFileSync(memoryLib, path.join(dir, 'lib', 'aris-memory.js'));
   const resolveLib = path.join(EDGE, 'lib', 'resolve-uploads.js');
   if (fs.existsSync(resolveLib)) fs.copyFileSync(resolveLib, path.join(dir, 'lib', 'resolve-uploads.js'));
+  const sanitizeLib = path.join(EDGE, 'lib', 'anthropic-messages.js');
+  if (fs.existsSync(sanitizeLib)) fs.copyFileSync(sanitizeLib, path.join(dir, 'lib', 'anthropic-messages.js'));
   globalThis.__forgeTestMembership = async () => ({ ok: true, status: 200, memberId: 'mem_test', active: true, empire: true });
   return import(pathToFileURL(path.join(dir, file.replace(/\.js$/, '.mjs'))).href + '?t=' + Math.random());
 }

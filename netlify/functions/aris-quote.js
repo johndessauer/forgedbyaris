@@ -15,6 +15,7 @@
 // working once it sends the member token.
 
 const { analysisCurrencyInstruction } = require('./_Lib/analysis-currency');
+const { sanitizeAnthropicMessages } = require('./_Lib/anthropic-messages');
 const uploads = require('./_Lib/member-uploads');
 
 const MODEL = 'claude-sonnet-4-6';
@@ -88,6 +89,9 @@ function createHandler(deps) {
       currency = '';
     }
     const system = [typeof body.system === 'string' ? body.system : '', currency].filter(Boolean).join('\n\n');
+    // Uploads are already resolved above. Strip history ids and any
+    // leftover forge_file / forge_link before the model sees the thread.
+    messages = sanitizeAnthropicMessages(messages);
 
     try {
       const payload = {
