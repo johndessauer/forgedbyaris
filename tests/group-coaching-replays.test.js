@@ -125,8 +125,9 @@ test('education inline script still parses', () => {
 test('session dates, studio durations, and video ids stay on the published uploads', () => {
   const { api } = loadCoaching('');
   const replays = api.GROUP_COACHING_REPLAYS;
-  assert.deepEqual(json(replays.map((s) => s.session)), [6, 5, 4, 3, 2, 1]);
+  assert.deepEqual(json(replays.map((s) => s.session)), [7, 6, 5, 4, 3, 2, 1]);
   assert.deepEqual(json(replays.map((s) => s.youtubeId)), [
+    'iFnOAI2p96g',
     '-z8SHWsxr-w',
     't-PRLfCXFTc',
     'F5NGUHBeAQw',
@@ -293,6 +294,60 @@ test('session dates, studio durations, and video ids stay on the published uploa
     }
   }
 
+  const s7 = session(api, 7);
+  assert.equal(s7.date, '2026-11-25');
+  assert.equal(api.coachingDate(s7.date), 'Nov 25, 2026');
+  assert.equal(s7.duration, '58:44');
+  assert.equal(s7.title, 'Strategic Networking, Pattern Interrupts & Follow-Up | FORGE Group Coaching');
+  assert.deepEqual(json(s7.clips), []);
+  assert.equal(s7.description, 'FORGE Group Coaching Session 7 (Nov 25, 2026): strategic networking, pattern interrupts, building trust, and turning holiday conversations into real estate deals. John opens with FORGE Phase 2 updates (expanded Property Search with owner contact details and mortgage documents, 25 MB uploads, persistent ARIS chat history, and direct marketing) before explaining why networking is about "who knows you" rather than who you know. You\'ll learn how to position yourself as the go-to investor, lead with pattern interrupts and positive energy, use the Benjamin Franklin effect to build trust, avoid pitching skeptical friends and family at holiday gatherings (letting your results speak), craft a 30-second value-first intro using micro-expressions and one-word hooks, and follow up within 24 hours with Market Oracle and FORGE Deal CRM. Homework: write your 30-second intro with ARIS, practice over the weekend, post it on social media, and lead and leave conversations with authentic gratitude.');
+  assert.deepEqual(json(s7.chapters), [
+    ['0:00', 'Welcome & Thanksgiving Gratitude'],
+    ['1:16', 'FORGE Phase 2 Updates: Property Search, 25MB Uploads & ARIS Memory'],
+    ['3:38', 'FORGE Social Media Rollout'],
+    ['6:04', 'Gratitude Week & Tonight\'s Topic: Networking'],
+    ['8:36', 'Why Relationships Create Deal Flow'],
+    ['10:34', 'Who Knows You Beats Who You Know'],
+    ['13:05', 'Building Your Real Estate Team in FORGE CRM'],
+    ['15:43', 'How to Network So It Turns Into Deals'],
+    ['18:31', 'Pattern Interrupts & Leading With Positive Energy'],
+    ['21:44', 'The Sunrise Story: Attracting Curiosity Without Bragging'],
+    ['27:32', 'The Benjamin Franklin Effect: Give Value to Build Trust'],
+    ['31:35', 'Holiday Gatherings: Don\'t Pitch Friends & Family'],
+    ['33:16', 'Let Your Results Speak (Key West & Weight-Loss Examples)'],
+    ['37:32', 'The 30-Second Intro: Never Say \'I\'m in Real Estate\''],
+    ['39:52', 'Reading Micro-Expressions & One-Word Hooks'],
+    ['43:29', 'Market Strategy, 2006–2007 Rhymes & Symbiotic Deals'],
+    ['45:15', 'Practicing Networking Prompts With ARIS'],
+    ['48:06', '24-Hour Follow-Up With Market Oracle & Deal CRM'],
+    ['50:00', 'CRM QR Code Idea & Proactive ARIS Vision'],
+    ['52:23', 'Holiday Homework: Write & Share Your 30-Second Intro'],
+    ['55:59', 'Extra Credit: Lead & Leave With Authentic Gratitude'],
+  ]);
+  const s7Secs = s7.chapters.map(([time]) => time.split(':').reduce((acc, part) => acc * 60 + Number(part), 0));
+  assert.equal(s7Secs[0], 0);
+  for (let i = 1; i < s7Secs.length; i += 1) assert.ok(s7Secs[i] - s7Secs[i - 1] >= 10);
+  assert.ok(s7Secs[s7Secs.length - 1] < 3525);
+  {
+    const liveBlock7 = html.slice(html.indexOf('const LIVE_COACHING_VIDEOS'), html.indexOf('let liveCoachingRendered'));
+    const session7Clips = [
+      ['RXorkP3Lw_E', 'Real Estate Networking: Why "Who Knows You" Beats Who You Know'],
+      ['BdlxLcW0jbI', 'Pattern Interrupts: How to Spark Curiosity When Networking'],
+      ['MeCFAcCF5VY', 'The Benjamin Franklin Effect: Build Instant Trust in Real Estate Networking'],
+      ['uGMGigFB1c4', 'Stop Pitching Friends & Family: Let Your Real Estate Results Speak'],
+      ['F7bDQuKCFCw', 'Never Say "I\'m in Real Estate": Craft a 30-Second Intro With a Hook'],
+      ['u83YFINDEPM', 'The 24-Hour Follow-Up Rule: Turn Holiday Conversations Into Deals'],
+    ];
+    let at7 = liveBlock7.indexOf('G-l2RSL0QEY');
+    assert.ok(at7 > 0);
+    for (const [id, title] of session7Clips) {
+      const at = liveBlock7.indexOf(id);
+      assert.ok(at > at7, id);
+      assert.ok(liveBlock7.includes(title), title);
+      at7 = at;
+    }
+  }
+
   const liveStart = html.indexOf('const LIVE_COACHING_VIDEOS');
   const liveEnd = html.indexOf('let liveCoachingRendered');
   const liveBlock = html.slice(liveStart, liveEnd);
@@ -410,10 +465,10 @@ test('member gate still hides replays, and a verified player renders one summary
   assert.match(card, /Oct 14, 2026/);
   assert.match(card, /src="\/assets\/group-coaching-session-5\.jpg"/);
   assert.equal((card.match(/i\.ytimg\.com\/vi\/t-PRLfCXFTc\/hqdefault\.jpg/g) || []).length, 0);
-  for (const id of ['-z8SHWsxr-w', 'F5NGUHBeAQw', 'Dp8cqmMoHg4', 'hUWw3BUte5Y', 'SxgQqVXivNI']) {
+  for (const id of ['iFnOAI2p96g', '-z8SHWsxr-w', 'F5NGUHBeAQw', 'Dp8cqmMoHg4', 'hUWw3BUte5Y', 'SxgQqVXivNI']) {
     assert.match(card, new RegExp(`i\\.ytimg\\.com/vi/${id}/hqdefault\\.jpg`));
   }
-  assert.equal(topicBlockCount(card), 6);
+  assert.equal(topicBlockCount(card), 7);
   assert.equal((card.match(/coaching-topics-placeholder/g) || []).length, 0);
   assert.equal(card.includes('Group Coaching Call Brief'), false);
   assert.equal(card.includes('re-recorded this short lesson'), false);
