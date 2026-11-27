@@ -25,8 +25,17 @@
 // "times"; a spaced x, as in a lot size, is left as written.
 // Currency suffixes K, M, MM, and B scale the amount ("forty thousand
 // dollars", "one point five million dollars"). A leading ~ or ≈ before a
-// figure is "about". A hyphen in a word, street number, phone, ZIP, or
-// year range is not a minus.
+// figure is "about". A numeric range joined by a hyphen, en dash, or em
+// dash is "to" ("3–5%" is "three to five percent"; a percent sign written
+// only on the second number covers both). A spaced dash between currency
+// amounts or comma-grouped numbers stays "minus". A hyphen in a word,
+// phone, ZIP+4, or calendar date is not a range. An em dash between words
+// stays a pause. A bed/bath count is spoken in words ("3/2" is
+// "3 bedroom, 2 bathroom"). In a property sentence that wins over a
+// fraction or a calendar day. Other slashes are conversational: "11/27"
+// is "November 27th", "50/50" is "fifty-fifty", "1/2 of" is "half of",
+// "buy/hold" is "buy or hold". A slash between two amounts stays
+// "divided by". A multiplier such as "× 0.70" is "times 70 percent".
 
 export const SPEECH_CHAR_LIMIT = 5000;
 
@@ -699,12 +708,18 @@ function speakRatio(num) {
   return `${words} point ${speakPointDigits(decPart)}`;
 }
 
-function speakPercent(intPart, decPart) {
+function speakPercentNumber(intPart, decPart) {
   const words = integerToWords(intPart);
   if (!words) return null;
   const trimmed = decPart ? String(decPart).replace(/0+$/, '') : '';
-  if (!trimmed) return `${words} percent`;
-  return `${words} point ${speakPointDigits(trimmed)} percent`;
+  if (!trimmed) return words;
+  return `${words} point ${speakPointDigits(trimmed)}`;
+}
+
+function speakPercent(intPart, decPart) {
+  const words = speakPercentNumber(intPart, decPart);
+  if (!words) return null;
+  return `${words} percent`;
 }
 
 function speakPhone(match) {
@@ -880,6 +895,8 @@ function replaceSpacedDashes(text) {
   return text.replace(/(?<=\S)(\s+)([-–])(\s+)(?=\S)/g, (match, pre, dash, post, offset, src) => {
     const before = previousToken(src, offset);
     const after = nextToken(src, offset + match.length);
+    // Year spans are spoken as "to" earlier. A leftover year-year dash
+    // stays a dash rather than "minus".
     if (isYearToken(before) && isYearToken(after)) return match;
     // The en dash is a minus sign. An ASCII hyphen is a minus only beside an amount.
     if (dash === '–' || isMathyToken(before) || isMathyToken(after)) return `${pre}minus${post}`;
@@ -945,13 +962,34 @@ function pronounceLoanTerms(text) {
 // Symbols ElevenLabs skips, spoken as the operation. Word forms already
 // in the line ("divided by", "times", "minus", "plus") are left as written.
 // Runs after phones, ZIPs, and amounts so those hyphens are already gone.
+function percentFromMultiplier(raw) {
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value <= 0 || value > 1) return null;
+  const pct = value * 100;
+  const nearest = Math.round(pct);
+  if (Math.abs(pct - nearest) < 0.051) return String(nearest);
+  return String(Math.round(pct * 10) / 10);
+}
+
+function speakDecimalMultipliers(text) {
+  return text.replace(/(?:×|(?<![\p{L}\d])[xX*])\s*(0?\.\d+)\b/gu, (match, num) => {
+    const pct = percentFromMultiplier(num);
+    return pct == null ? match : `times ${pct} percent`;
+  });
+}
+
 function pronounceOperators(text) {
   const held = [];
-  let out = holdMatches(text, /\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g, held);
-  out = holdMatches(out, /\b(?:and\/or|w\/o|n\/a|s\/he|he\/she|she\/he|his\/her)\b/gi, held);
+  let out = speakDecimalMultipliers(text);
+  out = holdMatches(out, /\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g, held);
+  out = holdMatches(out, /\b(?:w\/o|n\/a|s\/he)\b/gi, held);
   out = holdMatches(out, /\bw\/(?=\s|$)/gi, held);
 
   out = out.replace(/\s*÷\s*/g, ' divided by ');
+  // "and/or" is "and or". Any other word/word slash is "or".
+  // A slash between amounts was already spoken as "divided by".
+  out = out.replace(/\band\s*\/\s*or\b/gi, 'and or');
+  out = out.replace(/\b([A-Za-z]{2,})\s*\/\s*([A-Za-z]{2,})\b/g, '$1 or $2');
   out = out.replace(/(?<!\/)([^/\s])\s*\/\s*(?=[^/\s])/g, '$1 divided by ');
   out = out.replace(/\s*[×·⋅]\s*/g, ' times ');
   // A letter glued to * or + is not an operator ("50 x 100" is handled
@@ -985,13 +1023,275 @@ function pronounceNumbers(text) {
   return out;
 }
 
+// Phones, calendar dates, and ZIP+4 use hyphens that are not ranges.
+// They are held only while dashes are rewritten, then restored so the
+// later digit-by-digit passes still see the original form.
+function protectNonRanges(text) {
+  const held = [];
+  let out = holdMatches(
+    text,
+    /(?<![\p{L}\d])(?:\+?1[\s.-]\s*)?(?:\(\s*\d{3}\s*\)\s*|\d{3}[\s.-])\d{3}[\s.-]\d{4}(?![\p{L}\d])/gu,
+    held
+  );
+  out = holdMatches(
+    out,
+    /\b(?:0?[1-9]|1[0-2])[-–—](?:0?[1-9]|[12]\d|3[01])[-–—](?:\d{4}|\d{2})\b/g,
+    held
+  );
+  out = holdMatches(
+    out,
+    /\b\d{4}[-–—](?:0?[1-9]|1[0-2])[-–—](?:0?[1-9]|[12]\d|3[01])\b/g,
+    held
+  );
+  out = holdMatches(out, /\b(?:0?[1-9]|1[0-2])[-–—](?:19|20)\d{2}\b/g, held);
+  out = out.replace(/(?<![\p{L}\d.])(\d{5})[-–—](\d{4})(?![\p{L}\d])/gu, (_, zip, plus4) => {
+    const token = `\uE010${held.length}\uE011`;
+    held.push(`${zip}-${plus4}`);
+    return token;
+  });
+  return { out, held };
+}
+
+function speakPercentRange(leftInt, leftDec, leftPct, rightInt, rightDec, rightPct) {
+  if (!leftPct && !rightPct) return null;
+  const left = speakPercentNumber(leftInt, leftDec);
+  const right = speakPercentNumber(rightInt, rightDec);
+  if (!left || !right) return null;
+  if (leftPct && rightPct) return `${left} percent to ${right} percent`;
+  if (rightPct) return `${left} to ${right} percent`;
+  return `${left} percent to ${right}`;
+}
+
+function normalizePercentRanges(text) {
+  const num = String.raw`(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d+))?`;
+  const re = new RegExp(
+    String.raw`(?<![\p{L}\d.,$£€])${num}(\s*%)?(\s*[-–—]\s*)${num}(\s*%)?(?![\p{L}\d])`,
+    'gu'
+  );
+  return text.replace(re, (match, a, adec, apct, _dash, b, bdec, bpct) => {
+    const spoken = speakPercentRange(a, adec, apct, b, bdec, bpct);
+    return spoken == null ? match : spoken;
+  });
+}
+
+function normalizeCurrencyRanges(text) {
+  const amount = String.raw`(?:(?:(?:AU|CA|NZ|HK|NT|US|A|C|S)?\$|£|€)\s*(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:MM|M|K|B)?)`;
+  const re = new RegExp(
+    String.raw`(?<![\p{L}\d])${amount}[-–—]${amount}(?![\p{L}\d])`,
+    'giu'
+  );
+  return text.replace(re, (match) => {
+    const parts = match.split(/[-–—]/);
+    if (parts.length !== 2 || !parts[0] || !parts[1]) return match;
+    return `${parts[0]} to ${parts[1]}`;
+  });
+}
+
+function speakAbbreviatedRange(a, b, unit) {
+  if (!/^(?:yrs?|mos?)$/i.test(unit)) return null;
+  const left = integerToWords(a);
+  const right = integerToWords(b);
+  if (!left || !right) return null;
+  const name = /^mo/i.test(unit) ? 'months' : 'years';
+  return `${left} to ${right} ${name}`;
+}
+
+function normalizePlainRanges(text) {
+  const re = /(?<![\p{L}\d.,$£€])(\d{1,3}(?:,\d{3})+|\d+)(\.\d+)?(\s*[-–—]\s*)(\d{1,3}(?:,\d{3})+|\d+)(\.\d+)?(?:\s+(years?|yrs?|months?|mos?|days?))?(?![\p{L}\d])/giu;
+  return text.replace(re, (match, a, adec, dash, b, bdec, unit) => {
+    const spaced = /^\s/.test(dash) && /\s$/.test(dash);
+    if (spaced && !unit) {
+      const year = /^(?:19|20)\d{2}$/.test(a) && /^(?:19|20)\d{2}$/.test(b) && !adec && !bdec;
+      if (!year) return match;
+    }
+    // "5 yrs" is spoken "five years". Spell both ends so a range does not
+    // come out as "5 to ten years".
+    if (unit && !adec && !bdec) {
+      const spoken = speakAbbreviatedRange(a, b, unit);
+      if (spoken) return spoken;
+    }
+    return `${a}${adec || ''} to ${b}${bdec || ''}${unit ? ` ${unit}` : ''}`;
+  });
+}
+
+const BED_LABEL = String.raw`bedrooms?|beds?|brs?|bds?`;
+const BATH_LABEL = String.raw`bathrooms?|baths?|bas?`;
+const BATH_COUNT = String.raw`[0-6]\s*(?:\.5|½)|½|[1-6]`;
+const BED_BATH_BLOCK_AFTER = new Set([
+  'of', 'split', 'ratio', 'percent', 'percentage', 'pct',
+  'bath', 'baths', 'bathroom', 'bathrooms',
+]);
+const BED_BATH_BLOCK_BEFORE = new Set(['ratio', 'split', 'fraction', 'divided']);
+
+function followingWord(text, index) {
+  const match = text.slice(index).match(/^\s*([A-Za-z]+)/);
+  return match ? match[1].toLowerCase() : '';
+}
+
+function precedingWord(text, index) {
+  const match = text.slice(0, index).match(/([A-Za-z]+)\s*$/);
+  return match ? match[1].toLowerCase() : '';
+}
+
+function bedBathBlocked(text, start, end) {
+  if (BED_BATH_BLOCK_BEFORE.has(precedingWord(text, start))) return true;
+  return BED_BATH_BLOCK_AFTER.has(followingWord(text, end));
+}
+
+function speakBathCount(raw) {
+  const text = String(raw).replace(/\s+/g, '');
+  if (text === '½' || text === '.5' || text === '0.5' || text === '0½') return 'half';
+  const half = text.match(/^([0-6])(?:\.5|½)$/);
+  if (half) return half[1] === '0' ? 'half' : `${half[1]} and a half`;
+  if (/^[1-6]$/.test(text)) return text;
+  return null;
+}
+
+function bedBathPhrase(beds, bathRaw, garage) {
+  const bath = speakBathCount(bathRaw);
+  if (!bath) return null;
+  const bedsN = Number(beds);
+  if (!Number.isInteger(bedsN) || bedsN < 1 || bedsN > 9) return null;
+  let phrase = `${beds} bedroom, ${bath} bathroom`;
+  if (garage) phrase += `, ${garage} car garage`;
+  return phrase;
+}
+
+// Listing shorthand only. Beds are 1–9 and baths are 1–6 (optional half).
+// "1/2 of", "70/30 split", dates, and percents are not counts. URLs are
+// already masked. Labels such as "3bd/2ba" and "3 bed/2 bath" count too.
+function normalizeBedBath(text) {
+  const explicit = new RegExp(
+    String.raw`(?<![\p{L}\d.])([1-9])\s*(${BED_LABEL})\s*/\s*(${BATH_COUNT})\s*(${BATH_LABEL})(?:\s*/\s*([1-9]))?(?![\p{L}\d/])(?!\.\d)`,
+    'giu'
+  );
+  const labeled = text.replace(explicit, (match, beds, _bedWord, bathRaw, _bathWord, garage, offset, source) => {
+    const end = offset + match.length;
+    if (bedBathBlocked(source, offset, end)) return match;
+    const phrase = bedBathPhrase(beds, bathRaw, garage);
+    return phrase == null ? match : phrase;
+  });
+  const bare = new RegExp(
+    String.raw`(?<![\p{L}\d./])([1-9])\s*/\s*(${BATH_COUNT})(?:\s*/\s*([1-9]))?(?![\d/%])(?!\.\d)`,
+    'giu'
+  );
+  return labeled.replace(bare, (match, beds, bathRaw, garage, offset, source) => {
+    const end = offset + match.length;
+    if (bedBathBlocked(source, offset, end)) return match;
+    // "1/3" is "one third" unless this sentence is about a property.
+    const pair = `${Number(beds)}/${String(bathRaw).replace(/\s+/g, '')}`;
+    if (!garage && FRACTION_PAIRS.has(pair) && !inPropertyContext(source, offset)) return match;
+    const phrase = bedBathPhrase(beds, bathRaw, garage);
+    return phrase == null ? match : phrase;
+  });
+}
+
+const FRACTION_PAIRS = new Set(['1/3', '1/4', '2/3', '3/4']);
+const PROPERTY_CONTEXT = /\b(?:single[\s-]?famil(?:y|ies)|multi[\s-]?famil(?:y|ies)|duplex(?:es)?|triplex(?:es)?|fourplex(?:es)?|condos?|townhomes?|townhouses?|houses?|homes?|propert(?:y|ies)|rentals?|neighbou?rhoods?|bedrooms?|bathrooms?|garages?|listings?|sq\.?\s*ft|sfh|bungalows?|units?)\b/i;
+const MONTHS = [
+  '', 'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+function sentenceAt(text, index) {
+  const before = text.slice(0, index);
+  const startBreak = Math.max(
+    before.lastIndexOf('.'),
+    before.lastIndexOf('!'),
+    before.lastIndexOf('?'),
+    before.lastIndexOf('\n')
+  );
+  const start = startBreak < 0 ? 0 : startBreak + 1;
+  let end = text.length;
+  for (let i = index; i < text.length; i += 1) {
+    const ch = text[i];
+    if (ch === '.' || ch === '!' || ch === '?' || ch === '\n') {
+      end = i;
+      break;
+    }
+  }
+  return text.slice(start, end);
+}
+
+function inPropertyContext(text, index) {
+  return PROPERTY_CONTEXT.test(sentenceAt(text, index));
+}
+
+function ordinalDay(day) {
+  const n = Number(day);
+  const teen = n % 100;
+  if (teen >= 11 && teen <= 13) return `${n}th`;
+  if (n % 10 === 1) return `${n}st`;
+  if (n % 10 === 2) return `${n}nd`;
+  if (n % 10 === 3) return `${n}rd`;
+  return `${n}th`;
+}
+
+function speakDate(month, day, year) {
+  const m = Number(month);
+  const d = Number(day);
+  if (m < 1 || m > 12 || d < 1 || d > 31) return null;
+  const spoken = `${MONTHS[m]} ${ordinalDay(d)}`;
+  if (!year) return spoken;
+  const y = String(year).length === 2 ? `20${year}` : String(year);
+  return `${spoken}, ${y}`;
+}
+
+// Dates, everyday fractions, and splits. Bed/bath shorthand is already
+// rewritten, including 1/3 or 3/4 inside a property sentence. A slash
+// between two dollar amounts is still "divided by" later.
+function normalizeSpokenSlashes(text) {
+  const md = String.raw`(0?[1-9]|1[0-2])\s*/\s*(0?[1-9]|[12]\d|3[01])`;
+  let out = text.replace(
+    new RegExp(String.raw`(?<![\d./])${md}\s*/\s*(\d{4}|\d{2})(?!\d)`, 'g'),
+    (match, month, day, year) => speakDate(month, day, year) || match
+  );
+  out = out.replace(/(?<![\d./])1\s*\/\s*2(?=\s+of\b)/gi, 'half');
+  out = out.replace(/(?<![\d./])1\s*\/\s*2(?=\s+bath(?:room)?s?\b)/gi, 'half');
+  out = out.replace(/(?<![\d./])1\s*\/\s*3(?![\d./])/g, 'one third');
+  out = out.replace(/(?<![\d./])1\s*\/\s*4(?![\d./])/g, 'one quarter');
+  out = out.replace(/(?<![\d./])2\s*\/\s*3(?![\d./])/g, 'two thirds');
+  out = out.replace(/(?<![\d./])3\s*\/\s*4(?![\d./])/g, 'three quarters');
+  out = out.replace(
+    new RegExp(String.raw`(?<![\d./])${md}(?![\d./])`, 'g'),
+    (match, month, day) => speakDate(month, day) || match
+  );
+  out = out.replace(/(?<![\d./])24\s*\/\s*7(?![\d./])/g, '24 7');
+  out = out.replace(/(?<![\d,.$/])(\d{1,3})\s*\/\s*(\d{1,3})(?![\d,./%])/g, (match, a, b) => {
+    if (a === '50' && b === '50') return 'fifty-fifty';
+    return `${a}-${b}`;
+  });
+  // $18,000 / $200,000 is still division. Do this while the figures are
+  // digits, before they are spelled and the slash sits between words.
+  const amount = String.raw`(?:(?:(?:AU|CA|NZ|HK|NT|US|A|C|S)?\$|£|€)\s*)?(?:\d{1,3}(?:,\d{3})+|\d{4,})(?:\.\d+)?(?:MM|M|K|B)?`;
+  out = out.replace(new RegExp(String.raw`(${amount})\s*/\s*(${amount})`, 'giu'), '$1 divided by $2');
+  return out;
+}
+
+// Runs before currency and percent spelling. Glued numeric ranges, percent
+// ranges (spaced or not), and year spans become "to". A spaced dash between
+// currency amounts or comma-grouped numbers is left for the minus pass.
+function normalizeNumericRanges(text) {
+  const { out, held } = protectNonRanges(text);
+  const ranged = normalizePlainRanges(normalizeCurrencyRanges(normalizePercentRanges(out)));
+  return restoreHolds(ranged, held);
+}
+
 export function normalizeSpeechText(raw) {
   const stripped = stripMarkdownForSpeech(raw);
   if (!stripped) return '';
   const { masked, slots } = maskProtected(stripped);
   const normalized = expandStateAbbreviations(
     expandAbbreviations(
-      pronounceLoanTerms(pronounceRateShorthands(normalizeCurrency(normalizeApproximations(masked))))
+      pronounceLoanTerms(
+        pronounceRateShorthands(
+          normalizeCurrency(
+            normalizeSpokenSlashes(
+              normalizeNumericRanges(normalizeBedBath(normalizeApproximations(masked)))
+            )
+          )
+        )
+      )
     )
   );
   return unmask(pronounceNumbers(normalized), slots);

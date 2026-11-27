@@ -167,7 +167,7 @@ test('abbreviations expand on word boundaries and leave ARIS, URLs, HTML, and lo
   assert.match(spoken, /capitalization rate six point five percent/);
   assert.match(
     normalizeSpeechText('NOI / cap rate = $1,200,000 and LTV = 0.75.'),
-    /net operating income divided by capitalization rate equals one million two hundred thousand dollars and loan-to-value equals zero point seven five\./
+    /net operating income or capitalization rate equals one million two hundred thousand dollars and loan-to-value equals zero point seven five\./
   );
   assert.match(spoken, /HARVARD CARVING NOISE MAOIST capacity recap rate/);
   assert.match(spoken, /https:\/\/example\.com\/ARV\?price=\$100/);
@@ -231,7 +231,7 @@ test('spoken numbers follow the approved pronunciation list', async () => {
     ['12345 Main St', '12345 Main St'],
     ['Built in 2026.', 'Built in 2026.'],
     ['A 1998 roof.', 'A 1998 roof.'],
-    ['1998-2026', '1998-2026'],
+    ['1998-2026', '1998 to 2026'],
     [
       '123 Main St, Austin, TX 78701 was built in 1998 and refinanced in 2026.',
       '123 Main St, Austin, Texas seven eight seven oh one was built in 1998 and refinanced in 2026.',
@@ -280,16 +280,16 @@ test('formulas speak math operators and leave prose hyphens alone', async () => 
     ['Subtract repairs. The price minus repairs. A subtracted fee is less than the ARV.', 'Subtract repairs. The price minus repairs. A subtracted fee is less than the after-repair value.'],
     ['the spread - which is the risk', 'the spread - which is the risk'],
     ['a well-known plan', 'a well-known plan'],
-    ['1998-2026', '1998-2026'],
-    ['1998 - 2026', '1998 - 2026'],
-    ['123-125 Main St', '123-125 Main St'],
+    ['1998-2026', '1998 to 2026'],
+    ['1998 - 2026', '1998 to 2026'],
+    ['123-125 Main St', '123 to 125 Main St'],
     ['$18,000 + $2,000 = $20,000', 'eighteen thousand dollars plus two thousand dollars equals twenty thousand dollars'],
     ['Add the fee. Added value is a plus.', 'Add the fee. Added value is a plus.'],
     ['2 * 3 * 4', '2 times 3 times 4'],
     ['*NOI*', 'net operating income'],
-    ['and/or the NOI', 'and/or the net operating income'],
+    ['and/or the NOI', 'and or the net operating income'],
     ['w/ the seller', 'w/ the seller'],
-    ['closed on 11/12/2026', 'closed on 11/12/2026'],
+    ['closed on 11/12/2026', 'closed on November 12th, 2026'],
     ['See https://example.com/ARV?price=$100', 'See https://example.com/ARV?price=$100'],
     ['512-555-0123', 'five one two, five five five, oh one two three'],
     ['property ID 83702', 'property ID eight three seven oh two'],
@@ -353,11 +353,12 @@ test('period slashes are per-unit and formula slashes stay divided by', async ()
     ['$2,000/unit', 'two thousand dollars per unit'],
     ['$18,000 / $200,000', 'eighteen thousand dollars divided by two hundred thousand dollars'],
     ['$18,000 / $200,000 = 9%', 'eighteen thousand dollars divided by two hundred thousand dollars equals nine percent'],
-    ['NOI / cap rate', 'net operating income divided by capitalization rate'],
-    // Not a period unit. /monthly is still division, and a date stays a date.
-    ['rent/monthly', 'rent divided by monthly'],
-    ['closed on 11/12/2026', 'closed on 11/12/2026'],
-    ['and/or the NOI', 'and/or the net operating income'],
+    ['NOI / cap rate', 'net operating income or capitalization rate'],
+    // A slash between words is "or". A dollar slash stays division.
+    ['rent/monthly', 'rent or monthly'],
+    ['buy/hold', 'buy or hold'],
+    ['closed on 11/12/2026', 'closed on November 12th, 2026'],
+    ['and/or the NOI', 'and or the net operating income'],
   ];
   for (const [input, expected] of cases) {
     assert.equal(normalizeSpeechText(input), expected, input);
@@ -665,6 +666,205 @@ test('two-letter words and lookalikes are not spoken as states', async () => {
   assert.equal(normalizeSpeechText('ACME CO reported'), 'ACME CO reported');
   assert.equal(normalizeSpeechText('A$185,000 and C$90 and CA$10.'), 'one hundred eighty-five thousand Australian dollars and ninety Canadian dollars and ten Canadian dollars.');
   assert.equal(normalizeSpeechText('code D.C.A stays'), 'code D.C.A stays');
+});
+
+test('numeric ranges are spoken with to, and non-ranges stay put', async () => {
+  const { normalizeSpeechText, prepareSpeechText } = await loadSpeech();
+  const cases = [
+    ['Expect 3–5% rent growth', 'Expect three to five percent rent growth'],
+    ['3–5%', 'three to five percent'],
+    ['3-5%', 'three to five percent'],
+    ['3 – 5%', 'three to five percent'],
+    ['3 - 5%', 'three to five percent'],
+    ['3—5%', 'three to five percent'],
+    ['3 — 5%', 'three to five percent'],
+    ['3–5', '3 to 5'],
+    ['3-5', '3 to 5'],
+    ['3–5 percent', '3 to 5 percent'],
+    ['6.5%–7%', 'six point five percent to seven percent'],
+    ['6.5%-7%', 'six point five percent to seven percent'],
+    ['6.5% – 7%', 'six point five percent to seven percent'],
+    ['5%–7%', 'five percent to seven percent'],
+    ['75%-80%', 'seventy-five percent to eighty percent'],
+    ['LTV 75–80%', 'loan-to-value seventy-five to eighty percent'],
+    ['~3–5%', 'about three to five percent'],
+    ['$100k–$150k', 'one hundred thousand dollars to one hundred fifty thousand dollars'],
+    ['$100k-$150k', 'one hundred thousand dollars to one hundred fifty thousand dollars'],
+    ['$100k—$150k', 'one hundred thousand dollars to one hundred fifty thousand dollars'],
+    ['$1.2M–$1.5M', 'one point two million dollars to one point five million dollars'],
+    ['$1.2m–$1.5m', 'one point two million dollars to one point five million dollars'],
+    ['£2.5M–£3M', 'two point five million pounds to three million pounds'],
+    ['5–10 years', '5 to 10 years'],
+    ['5-10 years', '5 to 10 years'],
+    ['5 – 10 years', '5 to 10 years'],
+    ['5 - 10 years', '5 to 10 years'],
+    ['5–10 yrs', 'five to ten years'],
+    ['6–12 mos', 'six to twelve months'],
+    ['2025–2026', '2025 to 2026'],
+    ['2025-2026', '2025 to 2026'],
+    ['2025 — 2026', '2025 to 2026'],
+    ['1998 - 2026', '1998 to 2026'],
+    [
+      'Expect 3–5% rent growth and $100k–$150k prices in 2025–2026.',
+      'Expect three to five percent rent growth and one hundred thousand dollars to one hundred fifty thousand dollars prices in 2025 to 2026.',
+    ],
+    ['123-125 Main St', '123 to 125 Main St'],
+    [
+      '123-125 Main St, Austin, TX 78701',
+      '123 to 125 Main St, Austin, Texas seven eight seven oh one',
+    ],
+    // Not ranges. A leading hyphen is still a negative. Phones, dates, and
+    // ZIP+4 keep their hyphens. An em dash after words stays a pause.
+    // Spaced currency and comma-grouped dashes stay subtraction.
+    ['-5%', '-five percent'],
+    ['from -5% to -2%', 'from -five percent to -two percent'],
+    ['-$16K', 'negative sixteen thousand dollars'],
+    ['$-3,251', 'negative three thousand two hundred fifty-one dollars'],
+    ['75%', 'seventy-five percent'],
+    ['6.5%', 'six point five percent'],
+    ['$40K', 'forty thousand dollars'],
+    ['$1.5M', 'one point five million dollars'],
+    ['CoC ~23%', 'cash-on-cash about twenty-three percent'],
+    ['30-yr', 'thirty-year'],
+    ['18-mo balloon', 'eighteen-month balloon'],
+    ['a well-known plan', 'a well-known plan'],
+    ['the spread - which is the risk', 'the spread - which is the risk'],
+    ['555-123-4567', 'five five five, one two three, four five six seven'],
+    ['(512) 555-0123', 'five one two, five five five, oh one two three'],
+    ['512.555.0123', 'five one two, five five five, oh one two three'],
+    ['11-27-2026', '11-27-2026'],
+    ['11/27/2026', 'November 27th, 2026'],
+    ['closed on 11/12/2026', 'closed on November 12th, 2026'],
+    ['2026-11-27', '2026-11-27'],
+    ['11-2026', '11-2026'],
+    ['33101-1234', 'three three one oh one, one two three four'],
+    ['12345-6789', 'one two three four five, six seven eight nine'],
+    ['Miami, FL 33101-1234', 'Miami, Florida three three one oh one, one two three four'],
+    ['100 NE 45th', '100 NE 45th'],
+    ['123 Main St', '123 Main St'],
+    ['Rent growth — Expect stronger demand.', 'Rent growth — Expect stronger demand.'],
+    ['Rent growth — Expect 3–5% rent growth.', 'Rent growth — Expect three to five percent rent growth.'],
+    ['$200,000 - $18,000', 'two hundred thousand dollars minus eighteen thousand dollars'],
+    ['$200,000 – $18,000', 'two hundred thousand dollars minus eighteen thousand dollars'],
+    ['$200,000 − $18,000', 'two hundred thousand dollars minus eighteen thousand dollars'],
+    ['200,000 - 18,000', 'two hundred thousand minus eighteen thousand'],
+    ['$200,000 - $40K', 'two hundred thousand dollars minus forty thousand dollars'],
+  ];
+  for (const [input, expected] of cases) {
+    assert.equal(normalizeSpeechText(input), expected, input);
+  }
+
+  const bullet = normalizeSpeechText('Rent growth — Expect stronger demand.');
+  assert.equal(bullet.includes('—'), true);
+  assert.equal(bullet.includes(' to '), false);
+
+  assert.equal(
+    prepareSpeechText('Expect 3–5% rent growth'),
+    'Expect three to five percent rent growth'
+  );
+});
+
+test('bed and bath shorthand is spoken as bedrooms and bathrooms', async () => {
+  const { normalizeSpeechText, prepareSpeechText } = await loadSpeech();
+  const cases = [
+    [
+      'Single family, 3/2 or 4/2, in stable neighborhoods',
+      'Single family, 3 bedroom, 2 bathroom or 4 bedroom, 2 bathroom, in stable neighborhoods',
+    ],
+    ['3/2', '3 bedroom, 2 bathroom'],
+    ['It is a 3/2.', 'It is a 3 bedroom, 2 bathroom.'],
+    ['3 bed/2 bath.', '3 bedroom, 2 bathroom.'],
+    ['4/2', '4 bedroom, 2 bathroom'],
+    ['3/1.5', '3 bedroom, 1 and a half bathroom'],
+    ['3/1½', '3 bedroom, 1 and a half bathroom'],
+    ['3/1 ½', '3 bedroom, 1 and a half bathroom'],
+    ['4/2.5', '4 bedroom, 2 and a half bathroom'],
+    ['3/2/2', '3 bedroom, 2 bathroom, 2 car garage'],
+    ['3/1.5/2', '3 bedroom, 1 and a half bathroom, 2 car garage'],
+    ['3bd/2ba', '3 bedroom, 2 bathroom'],
+    ['3BD/2BA', '3 bedroom, 2 bathroom'],
+    ['3 bed/2 bath', '3 bedroom, 2 bathroom'],
+    ['3 Bed/2 Bath', '3 bedroom, 2 bathroom'],
+    ['3br/2ba', '3 bedroom, 2 bathroom'],
+    ['3 br / 2 ba', '3 bedroom, 2 bathroom'],
+    ['3 beds/2 baths', '3 bedroom, 2 bathroom'],
+    ['9/6', '9 bedroom, 6 bathroom'],
+    ['1/2', '1 bedroom, 2 bathroom'],
+    // Not bed/bath. Dates, fractions, ratios, percents, formulas, and URLs.
+    ['11/27', 'November 27th'],
+    ['11/27/2026', 'November 27th, 2026'],
+    ['11/27/26', 'November 27th, 2026'],
+    ['02/05/2026', 'February 5th, 2026'],
+    ['closed on 11/12/2026', 'closed on November 12th, 2026'],
+    ['1/2 of the ARV', 'half of the after-repair value'],
+    ['1/2 bath', 'half bath'],
+    ['1/3', 'one third'],
+    ['1/4', 'one quarter'],
+    ['2/3', 'two thirds'],
+    ['3/4', 'three quarters'],
+    ['3/4 of the price', 'three quarters of the price'],
+    ['Single family, 3/4', 'Single family, 3 bedroom, 4 bathroom'],
+    ['50/50', 'fifty-fifty'],
+    ['70/30 split', '70-30 split'],
+    ['80/20', '80-20'],
+    ['24/7', '24 7'],
+    ['10/2', 'October 2nd'],
+    ['3/7', 'March 7th'],
+    ['13/40', '13-40'],
+    ['buy/hold', 'buy or hold'],
+    ['75%', 'seventy-five percent'],
+    ['NOI / cap rate', 'net operating income or capitalization rate'],
+    ['$18,000 / $200,000', 'eighteen thousand dollars divided by two hundred thousand dollars'],
+    ['and/or the NOI', 'and or the net operating income'],
+    ['See https://example.com/3/2 for the house', 'See https://example.com/3/2 for the house'],
+    ['ARV × 0.70 − Repairs', 'after-repair value times 70 percent minus Repairs'],
+    ['arv x .7 − repairs', 'after-repair value times 70 percent minus repairs'],
+    ['ARV x 0.7 − Repairs', 'after-repair value times 70 percent minus Repairs'],
+    [
+      'MAO = ARV × 0.70 − repair costs',
+      'maximum allowable offer equals after-repair value times 70 percent minus repair costs',
+    ],
+    ['$80,000–$140,000', 'eighty thousand dollars to one hundred forty thousand dollars'],
+    [
+      'Single family, 3/2 or 4/2, $80,000–$140,000',
+      'Single family, 3 bedroom, 2 bathroom or 4 bedroom, 2 bathroom, eighty thousand dollars to one hundred forty thousand dollars',
+    ],
+  ];
+  for (const [input, expected] of cases) {
+    assert.equal(normalizeSpeechText(input), expected, input);
+  }
+  assert.equal(
+    prepareSpeechText('Single family, 3/2 or 4/2, in stable neighborhoods'),
+    'Single family, 3 bedroom, 2 bathroom or 4 bedroom, 2 bathroom, in stable neighborhoods'
+  );
+});
+
+test('voice request speaks a percent range with to', async () => {
+  const mod = await loadEdge('aris-voice.js');
+  let sent = null;
+  const realFetch = globalThis.fetch;
+  globalThis.Netlify = { env: { get: (key) => (key === 'ELEVENLABS_API_KEY' ? 'test-key' : undefined) } };
+  globalThis.fetch = async (url, init) => {
+    sent = { url: String(url), body: JSON.parse(init.body) };
+    return new Response('audio', { status: 200, headers: { 'Content-Type': 'audio/mpeg' } });
+  };
+  try {
+    const res = await mod.default(new Request('https://x/api/aris-voice', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: 'Expect 3–5% rent growth' }),
+    }), {});
+    assert.equal(res.status, 200);
+    const played = await res.text();
+    assert.equal(played, 'audio');
+    assert.equal(played.includes('three to five'), false);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+  assert.ok(sent.url.includes('/text-to-speech/'));
+  assert.equal(sent.body.text, 'Expect three to five percent rent growth');
+  assert.equal(sent.body.text.includes('3–5%'), false);
+  assert.equal(sent.body.text.includes('–'), false);
 });
 
 test('voice request normalizes speech and still sends the pronunciation dictionary', async () => {
