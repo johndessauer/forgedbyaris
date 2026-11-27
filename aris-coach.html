@@ -755,6 +755,7 @@
 <script src="/assets/js/member-preferences.js"></script>
 <script src="/assets/js/contact-types.js"></script>
 <script src="/assets/js/aris-memory-client.js"></script>
+<script src="/assets/js/aris-greetings.js"></script>
 <script src="/assets/js/direct-upload.js"></script>
 </head>
 <body>
@@ -923,6 +924,16 @@
   // it just never reaches this variable), which is what caused every CRM
   // tool call to send no Authorization header and fail with 401.
   var currentMemberInitials = 'You';
+  // Opening line for this page load. It is painted into the thread and
+  // never pushed onto conversationHistory, so it is not saved and not sent.
+  var coachContextMessages = [];
+  var coachContextFromServer = false;
+  var coachLastActivityAt = '';
+  var coachProfile = null;
+  var coachPageReady = false;
+  var coachMemoryReady = false;
+  var coachGreetingDecided = false;
+  var coachGreetingMember = null;
 
   function memoryTools() {
     return window.ForgeArisMemory || {};
@@ -1074,6 +1085,7 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
     if (savedHistory && savedHistory.messages.length) {
       currentConversationId = savedHistory.id;
       if (savedHistory.id) epochConversationIds.set(chatEpoch, savedHistory.id);
+      noteCoachContext(savedHistory.messages, 'cache');
       renderStoredConversation(savedHistory.messages);
       if (savedHistory.id) persistedCount = conversationHistory.length;
     } else {
@@ -1083,12 +1095,14 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
     // ── READ QUICK CHAT FROM DASHBOARD ──
     const quickChat = localStorage.getItem('forge-quick-chat');
     if (quickChat) {
+      window.__forgeQuickChatHandoff = true;
       localStorage.removeItem('forge-quick-chat');
       setTimeout(() => {
         document.getElementById('user-input').value = quickChat;
         sendMessage();
       }, 600);
     }
+    forgeCoachPageReady();
   };
 
   // ── RENDER HELPERS ──
@@ -2221,6 +2235,81 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
     sendMessage();
   }
 
+  function noteCoachContext(messages, source, activityAt) {
+    if (source === 'server') {
+      coachContextMessages = Array.isArray(messages) ? messages : [];
+      coachContextFromServer = true;
+      if (activityAt) coachLastActivityAt = activityAt;
+      return;
+    }
+    if (coachContextFromServer) return;
+    if (Array.isArray(messages) && messages.length) coachContextMessages = messages;
+    if (activityAt) coachLastActivityAt = activityAt;
+  }
+
+  function paintCoachGreeting(text) {
+    const messages = document.getElementById('messages');
+    if (!messages || !text) return;
+    let row = messages.querySelector('[data-forge-greeting]');
+    if (!row) {
+      row = document.createElement('div');
+      row.className = 'msg-row aris';
+      row.dataset.forgeGreeting = '1';
+      row.dataset.persist = 'false';
+      messages.appendChild(row);
+    }
+    row.textContent = '';
+    const avatar = document.createElement('div');
+    avatar.className = 'msg-avatar';
+    avatar.textContent = 'ARIS';
+    const content = document.createElement('div');
+    content.className = 'msg-content';
+    const meta = document.createElement('div');
+    meta.className = 'msg-meta';
+    meta.textContent = 'ARIS  ·  ' + getTime();
+    const bubble = document.createElement('div');
+    bubble.className = 'msg-bubble';
+    bubble.textContent = text;
+    content.appendChild(meta);
+    content.appendChild(bubble);
+    row.appendChild(avatar);
+    row.appendChild(content);
+    messages.scrollTop = messages.scrollHeight;
+  }
+
+  function forgeCoachPageReady() {
+    coachPageReady = true;
+    maybeShowCoachGreeting();
+  }
+
+  function forgeCoachMemoryReady(member) {
+    if (coachMemoryReady) return;
+    coachMemoryReady = true;
+    coachGreetingMember = member || null;
+    maybeShowCoachGreeting();
+  }
+
+  // One opening bubble per page load. Not added to conversationHistory.
+  function maybeShowCoachGreeting() {
+    if (!coachPageReady || !coachMemoryReady || coachGreetingDecided) return;
+    coachGreetingDecided = true;
+    if (userTookOver || window.__forgeQuickChatHandoff || localStorage.getItem('forge-quick-chat')) return;
+    if (!window.ForgeGreetings) return;
+    const member = coachGreetingMember;
+    const opening = window.ForgeGreetings.selectCoachOpening({
+      member: member,
+      memberId: member && member.id,
+      profile: coachProfile,
+      messages: coachContextMessages,
+      lastActivityAt: coachLastActivityAt,
+      storage: window.localStorage,
+      now: new Date(),
+      quickChat: false,
+    });
+    if (!opening || opening.persist || opening.includeInModelHistory || !opening.show || !opening.text) return;
+    paintCoachGreeting(opening.text);
+  }
+
   function showIntro() {
     document.getElementById('messages').innerHTML = '';
     conversationHistory.length = 0;
@@ -2274,6 +2363,7 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
       });
       if (!res.ok) return;
       const body = await res.json();
+      coachProfile = body.profile || null;
       const fromProfile = memoryTools().whyFromProfileRow ? memoryTools().whyFromProfileRow(body.profile) : null;
       if (!fromProfile) return;
       MEMBER_WHY = fromProfile;
@@ -2292,6 +2382,7 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
     if (epoch !== chatEpoch || userTookOver) return;
     if (!data || !data.conversation) return;
     const serverMessages = data.messages || [];
+    noteCoachContext(serverMessages, 'server', data.conversation.updated_at);
     if (data.conversation.id === currentConversationId && conversationHistory.length >= serverMessages.length && conversationHistory.length) {
       persistedCount = Math.min(persistedCount || serverMessages.length, serverMessages.length);
       if (conversationHistory.length > persistedCount) queuePersist();
@@ -2564,6 +2655,7 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
     }
     await loadArisVoicePreference();
     try { await initArisMemory(); } catch (err) { console.error('ARIS memory init failed:', err); }
+    if (typeof forgeCoachMemoryReady === 'function') forgeCoachMemoryReady(member);
     // ── UPDATE SESSION COUNT (server-side, syncs across devices) ──
     // Previously a localStorage counter — didn't sync across devices, and
     // also incorrectly incremented once per Dashboard page load in
@@ -2586,7 +2678,10 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
     if (av) av.textContent = initials;
     currentMemberInitials = initials;
     if (tierEl) tierEl.textContent = planName;
-  } catch(e) { console.error('Auth gate error:', e); }
+  } catch(e) {
+    console.error('Auth gate error:', e);
+    if (typeof forgeCoachMemoryReady === 'function') forgeCoachMemoryReady(null);
+  }
 })();
 
 async function handleLogout() {

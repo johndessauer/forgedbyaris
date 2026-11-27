@@ -85,8 +85,8 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 .main { flex: 1; display: flex; flex-direction: column; overflow: visible; }
 
 /* ── TOP BAR ── */
-.topbar { display: flex; align-items: center; justify-content: space-between; padding: 16px 28px; border-bottom: 1px solid var(--border-sub); flex-shrink: 0; }
-.topbar-left { display: flex; align-items: center; gap: 14px; }
+.topbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 16px 28px; border-bottom: 1px solid var(--border-sub); flex-shrink: 0; }
+.topbar-left { display: flex; align-items: flex-start; gap: 14px; min-width: 0; flex: 1; }
 .topbar-avatar {
   width: 42px; height: 42px; border-radius: 50%;
   background: linear-gradient(135deg, var(--gold), #a07820);
@@ -95,10 +95,10 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
   overflow: visible; border: 2px solid var(--gold); flex-shrink: 0;
 }
 .topbar-avatar img { width: 100%; height: 100%; object-fit: cover; }
-.topbar-greeting { line-height: 1.2; }
-.topbar-welcome { font-size: 11px; color: var(--grey); letter-spacing: 1px; }
-.topbar-name { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 3px; color: var(--white); }
-.topbar-right { display: flex; align-items: center; gap: 8px; }
+.topbar-greeting { line-height: 1.2; min-width: 0; }
+.topbar-welcome { font-size: 14px; line-height: 1.45; color: var(--white); letter-spacing: 0; font-weight: 500; max-width: 42rem; }
+.topbar-name { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 3px; color: var(--white); margin-top: 2px; }
+.topbar-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; padding-top: 4px; }
 .topbar-date { font-size: 11px; color: var(--grey); letter-spacing: 0.5px; }
 
 /* ── SCROLL AREA ── */
@@ -152,7 +152,8 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 
 /* ── ARIS QUICK CHAT ── */
 .quick-chat-card { background: var(--navy-light); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; }
-.quick-chat-top { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.quick-chat-top { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.quick-chat-prompt { font-size: 14px; line-height: 1.45; color: var(--white); font-weight: 500; margin-bottom: 10px; }
 .quick-chat-label { font-size: 9px; letter-spacing: 2.5px; text-transform: uppercase; color: var(--gold); font-weight: 600; }
 .quick-chat-status { font-size: 10px; color: var(--green); display: flex; align-items: center; gap: 4px; margin-left: auto; }
 .quick-chat-status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--green); display: inline-block; }
@@ -375,6 +376,8 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 @media (max-width: 1100px) { .modules-grid { grid-template-columns: repeat(2, 1fr); } .stats-row { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 768px) {
   .sidebar { display: none; }
+  .topbar { padding: 14px 16px; }
+  .topbar-name { letter-spacing: 2px; font-size: 18px; }
   .dashboard-scroll { padding: 16px; }
   .recent-grid { grid-template-columns: 1fr; }
   .recent-empty { grid-column: span 1; }
@@ -434,6 +437,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
 <script src="/assets/js/level-unlocks.js"></script>
 <script src="/assets/js/marketing-entry.js?v=20261122-knock"></script>
 <script src="/assets/js/whats-new.js"></script>
+<script src="/assets/js/aris-greetings.js"></script>
 </head>
 <body>
 <div class="app">
@@ -484,7 +488,7 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
       <div class="topbar-left">
         <div class="topbar-avatar" id="topbar-avatar"><span id="topbar-initials">JD</span></div>
         <div class="topbar-greeting">
-          <div class="topbar-welcome" id="topbar-welcome">Good morning</div>
+          <div class="topbar-welcome" id="topbar-welcome">Hey, how are ya? Glad to see you're back. What are we working on today, and how can I help?</div>
           <div class="topbar-name" id="topbar-name">Member</div>
         </div>
       </div>
@@ -569,8 +573,9 @@ html, body { height: 100%; background: var(--black); color: var(--white); font-f
           <div class="quick-chat-label">Ask ARIS Anything</div>
           <div class="quick-chat-status">Online</div>
         </div>
+        <div class="quick-chat-prompt" id="quick-prompt">What are we working on today, and how can I help?</div>
         <div class="quick-chat-wrap">
-          <input type="text" id="quick-input" placeholder="What deal are you working on today?" onkeydown="handleQuickKey(event)" />
+          <input type="text" id="quick-input" placeholder="What are we working on today, and how can I help?" onkeydown="handleQuickKey(event)" />
           <button class="quick-send-btn" onclick="sendQuickChat()">
             <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
           </button>
@@ -824,6 +829,8 @@ let whatsNewMemberId = '';
 let whatsNewEmpire = false;
 let whatsNewEmpirePriceId = '';
 let memberCreatedAt = null;
+let currentMember = null;
+let dashboardProfile = null;
 
 async function syncWhyFromServer() {
   try {
@@ -832,6 +839,7 @@ async function syncWhyFromServer() {
     });
     if (!res.ok) return; // fall back to whatever localStorage already has
     const { profile } = await res.json();
+    dashboardProfile = profile || null;
     if (profile && (profile.why_q1 || profile.why_q2 || profile.why_q3 || profile.experience_level || profile.primary_strategy || profile.biggest_obstacle)) {
       const why = {
         q1: profile.why_q1 || '', q2: profile.why_q2 || '', q3: profile.why_q3 || '',
@@ -967,6 +975,7 @@ window.onload = async () => {
     const baseName = activeConn?.planName || PLAN_NAME_OVERRIDES[activeConn?.planId] || 'Member';
     currentPlanName = (hasSeparateEmpireConn && !baseConnHasEmpireBuiltIn) ? (baseName + ' + Empire') : baseName;
     memberCreatedAt = member.createdAt || null;
+    currentMember = member;
     memberToken = await memberstack.getMemberCookie();
     loadEducationBadges();
     // Pull Why answers from the server before deciding whether to show
@@ -998,7 +1007,7 @@ window.onload = async () => {
     // If Memberstack not loaded yet, allow page to render
   }
 
-  setGreeting();
+  applyDashboardGreeting(currentMember);
   setDate();
   loadStats();
   loadWhatsNew();
@@ -1019,10 +1028,23 @@ async function handleLogout() {
 }
 
 // ── GREETING ──
-function setGreeting() {
-  const h = new Date().getHours();
-  const greeting = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
-  document.getElementById('topbar-welcome').textContent = greeting;
+// First visit of the Chicago day gets a named hello. Later visits that
+// same day get a shorter line. The quick-chat prompt asks the same question.
+function applyDashboardGreeting(member) {
+  const welcome = document.getElementById('topbar-welcome');
+  const input = document.getElementById('quick-input');
+  const prompt = document.getElementById('quick-prompt');
+  if (!window.ForgeGreetings) return;
+  const result = window.ForgeGreetings.selectDashboardGreeting({
+    member: member,
+    memberId: member && member.id,
+    profile: dashboardProfile,
+    storage: window.localStorage,
+    now: new Date(),
+  });
+  if (welcome && result.text) welcome.textContent = result.text;
+  if (input && result.placeholder) input.placeholder = result.placeholder;
+  if (prompt && result.placeholder) prompt.textContent = result.placeholder;
 }
 
 function setDate() {
