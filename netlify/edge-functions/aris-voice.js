@@ -95,7 +95,8 @@ export default async (request, context) => {
   // and the amount is not converted to another currency. Amounts are
   // then spoken as words; ZIP codes, phone numbers, and property IDs
   // are spoken as digits. A postal abbreviation in a city, address, or
-  // market is spoken as the state name ("Dallas, TX" → Texas).
+  // market is spoken as the state name ("Dallas, TX" → Texas). A numeric
+  // range is spoken with "to" ("3–5%" → "three to five percent").
   const speechText = prepareSpeechText(rawText, SPEECH_CHAR_LIMIT);
   if (!speechText) {
     return new Response(JSON.stringify({ error: 'Nothing left to speak after stripping formatting' }), {

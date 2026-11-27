@@ -25,8 +25,12 @@
 // "times"; a spaced x, as in a lot size, is left as written.
 // Currency suffixes K, M, MM, and B scale the amount ("forty thousand
 // dollars", "one point five million dollars"). A leading ~ or ≈ before a
-// figure is "about". A hyphen in a word, street number, phone, ZIP, or
-// year range is not a minus.
+// figure is "about". A numeric range joined by a hyphen, en dash, or em
+// dash is "to" ("3–5%" is "three to five percent"; a percent sign written
+// only on the second number covers both). A spaced dash between currency
+// amounts or comma-grouped numbers stays "minus". A hyphen in a word,
+// phone, ZIP+4, or calendar date is not a range. An em dash between words
+// stays a pause.
 
 export const SPEECH_CHAR_LIMIT = 5000;
 
@@ -699,12 +703,18 @@ function speakRatio(num) {
   return `${words} point ${speakPointDigits(decPart)}`;
 }
 
-function speakPercent(intPart, decPart) {
+function speakPercentNumber(intPart, decPart) {
   const words = integerToWords(intPart);
   if (!words) return null;
   const trimmed = decPart ? String(decPart).replace(/0+$/, '') : '';
-  if (!trimmed) return `${words} percent`;
-  return `${words} point ${speakPointDigits(trimmed)} percent`;
+  if (!trimmed) return words;
+  return `${words} point ${speakPointDigits(trimmed)}`;
+}
+
+function speakPercent(intPart, decPart) {
+  const words = speakPercentNumber(intPart, decPart);
+  if (!words) return null;
+  return `${words} percent`;
 }
 
 function speakPhone(match) {
@@ -880,6 +890,8 @@ function replaceSpacedDashes(text) {
   return text.replace(/(?<=\S)(\s+)([-–])(\s+)(?=\S)/g, (match, pre, dash, post, offset, src) => {
     const before = previousToken(src, offset);
     const after = nextToken(src, offset + match.length);
+    // Year spans are spoken as "to" earlier. A leftover year-year dash
+    // stays a dash rather than "minus".
     if (isYearToken(before) && isYearToken(after)) return match;
     // The en dash is a minus sign. An ASCII hyphen is a minus only beside an amount.
     if (dash === '–' || isMathyToken(before) || isMathyToken(after)) return `${pre}minus${post}`;
@@ -985,13 +997,117 @@ function pronounceNumbers(text) {
   return out;
 }
 
+// Phones, calendar dates, and ZIP+4 use hyphens that are not ranges.
+// They are held only while dashes are rewritten, then restored so the
+// later digit-by-digit passes still see the original form.
+function protectNonRanges(text) {
+  const held = [];
+  let out = holdMatches(
+    text,
+    /(?<![\p{L}\d])(?:\+?1[\s.-]\s*)?(?:\(\s*\d{3}\s*\)\s*|\d{3}[\s.-])\d{3}[\s.-]\d{4}(?![\p{L}\d])/gu,
+    held
+  );
+  out = holdMatches(
+    out,
+    /\b(?:0?[1-9]|1[0-2])[-–—](?:0?[1-9]|[12]\d|3[01])[-–—](?:\d{4}|\d{2})\b/g,
+    held
+  );
+  out = holdMatches(
+    out,
+    /\b\d{4}[-–—](?:0?[1-9]|1[0-2])[-–—](?:0?[1-9]|[12]\d|3[01])\b/g,
+    held
+  );
+  out = holdMatches(out, /\b(?:0?[1-9]|1[0-2])[-–—](?:19|20)\d{2}\b/g, held);
+  out = out.replace(/(?<![\p{L}\d.])(\d{5})[-–—](\d{4})(?![\p{L}\d])/gu, (_, zip, plus4) => {
+    const token = `\uE010${held.length}\uE011`;
+    held.push(`${zip}-${plus4}`);
+    return token;
+  });
+  return { out, held };
+}
+
+function speakPercentRange(leftInt, leftDec, leftPct, rightInt, rightDec, rightPct) {
+  if (!leftPct && !rightPct) return null;
+  const left = speakPercentNumber(leftInt, leftDec);
+  const right = speakPercentNumber(rightInt, rightDec);
+  if (!left || !right) return null;
+  if (leftPct && rightPct) return `${left} percent to ${right} percent`;
+  if (rightPct) return `${left} to ${right} percent`;
+  return `${left} percent to ${right}`;
+}
+
+function normalizePercentRanges(text) {
+  const num = String.raw`(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d+))?`;
+  const re = new RegExp(
+    String.raw`(?<![\p{L}\d.,$£€])${num}(\s*%)?(\s*[-–—]\s*)${num}(\s*%)?(?![\p{L}\d])`,
+    'gu'
+  );
+  return text.replace(re, (match, a, adec, apct, _dash, b, bdec, bpct) => {
+    const spoken = speakPercentRange(a, adec, apct, b, bdec, bpct);
+    return spoken == null ? match : spoken;
+  });
+}
+
+function normalizeCurrencyRanges(text) {
+  const amount = String.raw`(?:(?:(?:AU|CA|NZ|HK|NT|US|A|C|S)?\$|£|€)\s*(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:MM|M|K|B)?)`;
+  const re = new RegExp(
+    String.raw`(?<![\p{L}\d])${amount}[-–—]${amount}(?![\p{L}\d])`,
+    'giu'
+  );
+  return text.replace(re, (match) => {
+    const parts = match.split(/[-–—]/);
+    if (parts.length !== 2 || !parts[0] || !parts[1]) return match;
+    return `${parts[0]} to ${parts[1]}`;
+  });
+}
+
+function speakAbbreviatedRange(a, b, unit) {
+  if (!/^(?:yrs?|mos?)$/i.test(unit)) return null;
+  const left = integerToWords(a);
+  const right = integerToWords(b);
+  if (!left || !right) return null;
+  const name = /^mo/i.test(unit) ? 'months' : 'years';
+  return `${left} to ${right} ${name}`;
+}
+
+function normalizePlainRanges(text) {
+  const re = /(?<![\p{L}\d.,$£€])(\d{1,3}(?:,\d{3})+|\d+)(\.\d+)?(\s*[-–—]\s*)(\d{1,3}(?:,\d{3})+|\d+)(\.\d+)?(?:\s+(years?|yrs?|months?|mos?|days?))?(?![\p{L}\d])/giu;
+  return text.replace(re, (match, a, adec, dash, b, bdec, unit) => {
+    const spaced = /^\s/.test(dash) && /\s$/.test(dash);
+    if (spaced && !unit) {
+      const year = /^(?:19|20)\d{2}$/.test(a) && /^(?:19|20)\d{2}$/.test(b) && !adec && !bdec;
+      if (!year) return match;
+    }
+    // "5 yrs" is spoken "five years". Spell both ends so a range does not
+    // come out as "5 to ten years".
+    if (unit && !adec && !bdec) {
+      const spoken = speakAbbreviatedRange(a, b, unit);
+      if (spoken) return spoken;
+    }
+    return `${a}${adec || ''} to ${b}${bdec || ''}${unit ? ` ${unit}` : ''}`;
+  });
+}
+
+// Runs before currency and percent spelling. Glued numeric ranges, percent
+// ranges (spaced or not), and year spans become "to". A spaced dash between
+// currency amounts or comma-grouped numbers is left for the minus pass.
+function normalizeNumericRanges(text) {
+  const { out, held } = protectNonRanges(text);
+  const ranged = normalizePlainRanges(normalizeCurrencyRanges(normalizePercentRanges(out)));
+  return restoreHolds(ranged, held);
+}
+
 export function normalizeSpeechText(raw) {
   const stripped = stripMarkdownForSpeech(raw);
   if (!stripped) return '';
   const { masked, slots } = maskProtected(stripped);
   const normalized = expandStateAbbreviations(
     expandAbbreviations(
-      pronounceLoanTerms(pronounceRateShorthands(normalizeCurrency(normalizeApproximations(masked))))
+      pronounceLoanTerms(
+        pronounceRateShorthands(
+          normalizeCurrency(normalizeNumericRanges(normalizeApproximations(masked)))
+        )
+      )
     )
   );
   return unmask(pronounceNumbers(normalized), slots);

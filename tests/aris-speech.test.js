@@ -231,7 +231,7 @@ test('spoken numbers follow the approved pronunciation list', async () => {
     ['12345 Main St', '12345 Main St'],
     ['Built in 2026.', 'Built in 2026.'],
     ['A 1998 roof.', 'A 1998 roof.'],
-    ['1998-2026', '1998-2026'],
+    ['1998-2026', '1998 to 2026'],
     [
       '123 Main St, Austin, TX 78701 was built in 1998 and refinanced in 2026.',
       '123 Main St, Austin, Texas seven eight seven oh one was built in 1998 and refinanced in 2026.',
@@ -280,9 +280,9 @@ test('formulas speak math operators and leave prose hyphens alone', async () => 
     ['Subtract repairs. The price minus repairs. A subtracted fee is less than the ARV.', 'Subtract repairs. The price minus repairs. A subtracted fee is less than the after-repair value.'],
     ['the spread - which is the risk', 'the spread - which is the risk'],
     ['a well-known plan', 'a well-known plan'],
-    ['1998-2026', '1998-2026'],
-    ['1998 - 2026', '1998 - 2026'],
-    ['123-125 Main St', '123-125 Main St'],
+    ['1998-2026', '1998 to 2026'],
+    ['1998 - 2026', '1998 to 2026'],
+    ['123-125 Main St', '123 to 125 Main St'],
     ['$18,000 + $2,000 = $20,000', 'eighteen thousand dollars plus two thousand dollars equals twenty thousand dollars'],
     ['Add the fee. Added value is a plus.', 'Add the fee. Added value is a plus.'],
     ['2 * 3 * 4', '2 times 3 times 4'],
@@ -665,6 +665,130 @@ test('two-letter words and lookalikes are not spoken as states', async () => {
   assert.equal(normalizeSpeechText('ACME CO reported'), 'ACME CO reported');
   assert.equal(normalizeSpeechText('A$185,000 and C$90 and CA$10.'), 'one hundred eighty-five thousand Australian dollars and ninety Canadian dollars and ten Canadian dollars.');
   assert.equal(normalizeSpeechText('code D.C.A stays'), 'code D.C.A stays');
+});
+
+test('numeric ranges are spoken with to, and non-ranges stay put', async () => {
+  const { normalizeSpeechText, prepareSpeechText } = await loadSpeech();
+  const cases = [
+    ['Expect 3–5% rent growth', 'Expect three to five percent rent growth'],
+    ['3–5%', 'three to five percent'],
+    ['3-5%', 'three to five percent'],
+    ['3 – 5%', 'three to five percent'],
+    ['3 - 5%', 'three to five percent'],
+    ['3—5%', 'three to five percent'],
+    ['3 — 5%', 'three to five percent'],
+    ['3–5', '3 to 5'],
+    ['3-5', '3 to 5'],
+    ['3–5 percent', '3 to 5 percent'],
+    ['6.5%–7%', 'six point five percent to seven percent'],
+    ['6.5%-7%', 'six point five percent to seven percent'],
+    ['6.5% – 7%', 'six point five percent to seven percent'],
+    ['5%–7%', 'five percent to seven percent'],
+    ['75%-80%', 'seventy-five percent to eighty percent'],
+    ['LTV 75–80%', 'loan-to-value seventy-five to eighty percent'],
+    ['~3–5%', 'about three to five percent'],
+    ['$100k–$150k', 'one hundred thousand dollars to one hundred fifty thousand dollars'],
+    ['$100k-$150k', 'one hundred thousand dollars to one hundred fifty thousand dollars'],
+    ['$100k—$150k', 'one hundred thousand dollars to one hundred fifty thousand dollars'],
+    ['$1.2M–$1.5M', 'one point two million dollars to one point five million dollars'],
+    ['$1.2m–$1.5m', 'one point two million dollars to one point five million dollars'],
+    ['£2.5M–£3M', 'two point five million pounds to three million pounds'],
+    ['5–10 years', '5 to 10 years'],
+    ['5-10 years', '5 to 10 years'],
+    ['5 – 10 years', '5 to 10 years'],
+    ['5 - 10 years', '5 to 10 years'],
+    ['5–10 yrs', 'five to ten years'],
+    ['6–12 mos', 'six to twelve months'],
+    ['2025–2026', '2025 to 2026'],
+    ['2025-2026', '2025 to 2026'],
+    ['2025 — 2026', '2025 to 2026'],
+    ['1998 - 2026', '1998 to 2026'],
+    [
+      'Expect 3–5% rent growth and $100k–$150k prices in 2025–2026.',
+      'Expect three to five percent rent growth and one hundred thousand dollars to one hundred fifty thousand dollars prices in 2025 to 2026.',
+    ],
+    ['123-125 Main St', '123 to 125 Main St'],
+    [
+      '123-125 Main St, Austin, TX 78701',
+      '123 to 125 Main St, Austin, Texas seven eight seven oh one',
+    ],
+    // Not ranges. A leading hyphen is still a negative. Phones, dates, and
+    // ZIP+4 keep their hyphens. An em dash after words stays a pause.
+    // Spaced currency and comma-grouped dashes stay subtraction.
+    ['-5%', '-five percent'],
+    ['from -5% to -2%', 'from -five percent to -two percent'],
+    ['-$16K', 'negative sixteen thousand dollars'],
+    ['$-3,251', 'negative three thousand two hundred fifty-one dollars'],
+    ['75%', 'seventy-five percent'],
+    ['6.5%', 'six point five percent'],
+    ['$40K', 'forty thousand dollars'],
+    ['$1.5M', 'one point five million dollars'],
+    ['CoC ~23%', 'cash-on-cash about twenty-three percent'],
+    ['30-yr', 'thirty-year'],
+    ['18-mo balloon', 'eighteen-month balloon'],
+    ['a well-known plan', 'a well-known plan'],
+    ['the spread - which is the risk', 'the spread - which is the risk'],
+    ['555-123-4567', 'five five five, one two three, four five six seven'],
+    ['(512) 555-0123', 'five one two, five five five, oh one two three'],
+    ['512.555.0123', 'five one two, five five five, oh one two three'],
+    ['11-27-2026', '11-27-2026'],
+    ['11/27/2026', '11/27/2026'],
+    ['closed on 11/12/2026', 'closed on 11/12/2026'],
+    ['2026-11-27', '2026-11-27'],
+    ['11-2026', '11-2026'],
+    ['33101-1234', 'three three one oh one, one two three four'],
+    ['12345-6789', 'one two three four five, six seven eight nine'],
+    ['Miami, FL 33101-1234', 'Miami, Florida three three one oh one, one two three four'],
+    ['100 NE 45th', '100 NE 45th'],
+    ['123 Main St', '123 Main St'],
+    ['Rent growth — Expect stronger demand.', 'Rent growth — Expect stronger demand.'],
+    ['Rent growth — Expect 3–5% rent growth.', 'Rent growth — Expect three to five percent rent growth.'],
+    ['$200,000 - $18,000', 'two hundred thousand dollars minus eighteen thousand dollars'],
+    ['$200,000 – $18,000', 'two hundred thousand dollars minus eighteen thousand dollars'],
+    ['$200,000 − $18,000', 'two hundred thousand dollars minus eighteen thousand dollars'],
+    ['200,000 - 18,000', 'two hundred thousand minus eighteen thousand'],
+    ['$200,000 - $40K', 'two hundred thousand dollars minus forty thousand dollars'],
+  ];
+  for (const [input, expected] of cases) {
+    assert.equal(normalizeSpeechText(input), expected, input);
+  }
+
+  const bullet = normalizeSpeechText('Rent growth — Expect stronger demand.');
+  assert.equal(bullet.includes('—'), true);
+  assert.equal(bullet.includes(' to '), false);
+
+  assert.equal(
+    prepareSpeechText('Expect 3–5% rent growth'),
+    'Expect three to five percent rent growth'
+  );
+});
+
+test('voice request speaks a percent range with to', async () => {
+  const mod = await loadEdge('aris-voice.js');
+  let sent = null;
+  const realFetch = globalThis.fetch;
+  globalThis.Netlify = { env: { get: (key) => (key === 'ELEVENLABS_API_KEY' ? 'test-key' : undefined) } };
+  globalThis.fetch = async (url, init) => {
+    sent = { url: String(url), body: JSON.parse(init.body) };
+    return new Response('audio', { status: 200, headers: { 'Content-Type': 'audio/mpeg' } });
+  };
+  try {
+    const res = await mod.default(new Request('https://x/api/aris-voice', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: 'Expect 3–5% rent growth' }),
+    }), {});
+    assert.equal(res.status, 200);
+    const played = await res.text();
+    assert.equal(played, 'audio');
+    assert.equal(played.includes('three to five'), false);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+  assert.ok(sent.url.includes('/text-to-speech/'));
+  assert.equal(sent.body.text, 'Expect three to five percent rent growth');
+  assert.equal(sent.body.text.includes('3–5%'), false);
+  assert.equal(sent.body.text.includes('–'), false);
 });
 
 test('voice request normalizes speech and still sends the pronunciation dictionary', async () => {
