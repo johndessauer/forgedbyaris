@@ -110,6 +110,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/aris-talk"
+  to = "/.netlify/functions/aris-talk"
+  status = 200
+
+[[redirects]]
   from = "/api/aris-inactive"
   to = "/.netlify/functions/aris-inactive"
   status = 200
@@ -476,6 +481,12 @@
 
 [[redirects]]
   from = "/docs/DUNNING-SETUP.md"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/docs/ARIS-TALK-MODE.md"
   to = "/404.html"
   status = 404
   force = true
