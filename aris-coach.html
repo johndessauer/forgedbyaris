@@ -638,6 +638,52 @@
   .mic-btn:disabled { opacity: 0.5; cursor: not-allowed; }
   @keyframes mic-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,107,43,0.5); } 50% { box-shadow: 0 0 0 6px rgba(255,107,43,0); } }
 
+  /* Talk Mode. Hidden until /api/aris-talk says this member is allowed. */
+  .talk-btn {
+    height: 36px;
+    padding: 0 10px;
+    border-radius: 7px;
+    background: var(--navy-light);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: var(--gold);
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+  }
+  .talk-btn:hover { background: var(--gold-dim); border-color: var(--gold); }
+  .talk-btn.active { background: var(--orange); border-color: var(--orange); color: white; }
+  .talk-btn[hidden],
+  .talk-resume[hidden],
+  .talk-status[hidden] { display: none !important; }
+  .talk-status {
+    font-size: 12px;
+    color: var(--gold);
+    margin-top: 8px;
+    letter-spacing: 0.2px;
+  }
+  .talk-resume {
+    display: block;
+    width: 100%;
+    margin-top: 8px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--gold);
+    background: var(--gold-dim);
+    color: var(--gold);
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+  }
+  .talk-resume:hover { background: rgba(200,155,60,0.2); }
+
   .input-hint.recording-active {
     color: var(--orange);
     font-weight: 600;
@@ -756,6 +802,8 @@
 <script src="/assets/js/contact-types.js"></script>
 <script src="/assets/js/aris-memory-client.js"></script>
 <script src="/assets/js/aris-greetings.js"></script>
+<script src="/assets/js/aris-talk.js"></script>
+<script src="/assets/js/aris-talk-session.js"></script>
 <script src="/assets/js/direct-upload.js"></script>
 </head>
 <body>
@@ -874,6 +922,7 @@
             <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/></svg>
           </span>
         </button>
+        <button class="talk-btn" id="talk-btn" type="button" hidden aria-pressed="false" title="Talk with ARIS hands-free">Talk</button>
         <textarea
           id="user-input"
           placeholder="Ask ARIS anything about real estate investing..."
@@ -886,6 +935,8 @@
         </button>
       </div>
       <div class="input-hint" id="input-hint">Press Enter to send &nbsp;·&nbsp; Shift+Enter for new line &nbsp;·&nbsp; 📎 PDF, Excel, Word, CSV, or photo up to 25MB &nbsp;·&nbsp; Or paste a Google Sheets or Docs link shared so anyone with the link can view &nbsp;·&nbsp; 🎤 Click to speak to ARIS</div>
+      <p class="talk-status" id="talk-status" hidden></p>
+      <button class="talk-resume" id="talk-resume" type="button" hidden>Talk Mode paused — tap to resume</button>
     </div>
 
     <div style="text-align:center; padding: 16px 28px 12px; border-top: 1px solid rgba(200,155,60,0.15);">
@@ -1044,6 +1095,22 @@
     return '';
   }
   let isLoading = false;
+  let talkHooks = null;
+  let talkSendFromMode = false;
+
+  function talkHook(name, arg) {
+    const hooks = talkHooks;
+    if (!hooks || typeof hooks[name] !== 'function') return undefined;
+    try { return hooks[name](arg); }
+    catch (err) {
+      console.error('Talk Mode hook failed');
+      return undefined;
+    }
+  }
+
+  function talkSpeakable(text) {
+    return String(text || '').replace(/<<<DEAL_DATA[\s\S]*?DEAL_DATA>>>/g, ' ');
+  }
   let pendingDocument = null;
   let MEMBER_WHY = null; // raw why answers only; server builds the prompt block
 
@@ -1157,7 +1224,7 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
     btn.title = 'Play ARIS\u2019s response';
   }
 
-  function stopCurrentVoice() {
+  function stopClickToPlay() {
     if (currentVoiceAudio) {
       currentVoiceAudio.pause();
       currentVoiceAudio.src = '';
@@ -1165,6 +1232,13 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
     if (currentVoiceBtn) resetVoiceBtn(currentVoiceBtn);
     currentVoiceAudio = null;
     currentVoiceBtn = null;
+  }
+
+  function stopCurrentVoice() {
+    stopClickToPlay();
+    if (window.ForgeTalkSession && typeof window.ForgeTalkSession.interruptForSpeaker === 'function') {
+      window.ForgeTalkSession.interruptForSpeaker();
+    }
   }
 
   async function playARISVoice(text, btn) {
@@ -1238,6 +1312,29 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
   let mediaRecorder = null;
   let recordedChunks = [];
   let micStream = null;
+  let discardVoiceClip = false;
+  let talkOwnsMic = false;
+
+  function cancelPushToTalk() {
+    if (!(mediaRecorder && mediaRecorder.state === 'recording')) return;
+    discardVoiceClip = true;
+    try { mediaRecorder.stop(); } catch (err) { discardVoiceClip = false; }
+  }
+
+  function setPushToTalkEnabled(on) {
+    talkOwnsMic = !on;
+    const btn = document.getElementById('mic-btn');
+    if (!btn) return;
+    if (!on) {
+      btn.disabled = true;
+      btn.title = 'The microphone is in use by Talk Mode';
+      return;
+    }
+    if (!btn.classList.contains('recording') && !btn.classList.contains('transcribing')) {
+      btn.disabled = false;
+      btn.title = 'Speak to ARIS';
+    }
+  }
 
   const MIC_ICON = `<svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/></svg>`;
   const STOP_ICON = `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>`;
@@ -1268,6 +1365,10 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
       btn.title = 'Speak to ARIS';
       icon.innerHTML = MIC_ICON;
       hint.innerHTML = DEFAULT_HINT;
+    }
+    if (talkOwnsMic) {
+      btn.disabled = true;
+      btn.title = 'The microphone is in use by Talk Mode';
     }
   }
 
@@ -1300,6 +1401,13 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
     mediaRecorder.onstop = async () => {
       micStream.getTracks().forEach((t) => t.stop());
       micStream = null;
+
+      if (discardVoiceClip) {
+        discardVoiceClip = false;
+        recordedChunks = [];
+        setMicState('idle');
+        return;
+      }
 
       if (!recordedChunks.length) { setMicState('idle'); return; }
 
@@ -1905,6 +2013,7 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
 
   // ── CONFIRM CARD (for write tool proposals) ──
   function renderCRMConfirmCard(proposal, onDecision) {
+    talkHook('onConfirm');
     const messages = document.getElementById('messages');
     const card = document.createElement('div');
     card.className = 'transfer-card';
@@ -1982,6 +2091,7 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
   async function streamARIS(depth = 0) {
     if (depth > 4) {
       appendMessage('aris', "I've made several tool calls on this and want to check in before going further — could you rephrase or narrow what you need?");
+      talkHook('onStreamError');
       return;
     }
 
@@ -2013,14 +2123,17 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
       try { rawText = await res.text(); errData = JSON.parse(rawText); } catch (e) {}
       if (errData.code === 'private_link' || errData.error === 'private_link') {
         appendMessage('aris', errData.message || 'That file is private. Set sharing to Anyone with the link and try again.');
+        talkHook('onStreamError');
         return;
       }
       if (errData.message && (errData.code === 'bad_link' || errData.code === 'too_large' || errData.code === 'scan' || errData.code === 'bad_type' || errData.code === 'heic' || errData.code === 'image_too_large' || errData.code === 'inline_too_large')) {
         appendMessage('aris', errData.message);
+        talkHook('onStreamError');
         return;
       }
       const detail = errData.error?.message || errData.message || errData.error || (rawText ? rawText.slice(0, 300) : 'no response body');
       appendMessage('aris', `ARIS hit a snag (HTTP ${res.status}): ${detail}`);
+      talkHook('onStreamError');
       return;
     }
 
@@ -2036,6 +2149,19 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
     const blockTypes = {}; // index -> 'text' | 'tool_use'
 
     while (true) {
+      if (talkHook('shouldAbort')) {
+        try { await reader.cancel(); } catch (e) {}
+        const partial = talkSpeakable(accumulatedText).trim();
+        if (partial && Object.keys(toolBlocks).length === 0) {
+          streamHandle.finalize(partial);
+          conversationHistory.push({ role: 'assistant', content: partial });
+          saveHistory();
+        } else {
+          streamHandle.remove();
+        }
+        talkHook('onDiscard');
+        return;
+      }
       const { done, value } = await reader.read();
       if (done) break;
       buffer += decoder.decode(value, { stream: true });
@@ -2059,6 +2185,7 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
           if (parsed.delta?.type === 'text_delta') {
             accumulatedText += parsed.delta.text;
             streamHandle.update(accumulatedText);
+            talkHook('onDelta', talkSpeakable(accumulatedText));
           } else if (parsed.delta?.type === 'input_json_delta' && toolBlocks[parsed.index]) {
             toolBlocks[parsed.index].jsonBuf += parsed.delta.partial_json || '';
           }
@@ -2084,6 +2211,7 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
       streamHandle.finalize(reply);
       conversationHistory.push({ role: 'assistant', content: reply });
       saveHistory();
+      talkHook('onFinal', reply);
       if (dealData && dealData.tab && dealData.fields) renderTransferCard(dealData);
       return;
     }
@@ -2100,6 +2228,7 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
       assistantContent.push({ type: 'tool_use', id: tb.id, name: tb.name, input });
     }
     streamHandle.remove(); // tool-call turns aren't shown as a bare bubble; the confirm card or continued answer covers it
+    talkHook('onDiscard');
     conversationHistory.push({ role: 'assistant', content: assistantContent });
     saveHistory();
 
@@ -2147,6 +2276,8 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
   // ── SEND ──
   async function sendMessage() {
     if (isLoading) return;
+    const fromTalk = talkSendFromMode;
+    if (!fromTalk) talkHook('onTypedSend');
     userTookOver = true;
     const input = document.getElementById('user-input');
     const text = input.value.trim();
@@ -2187,6 +2318,7 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
     } catch (err) {
       removeTyping();
       appendMessage('aris', 'Connection interrupted. Check your network and try again.');
+      talkHook('onStreamError');
     }
 
     isLoading = false;
@@ -2531,6 +2663,29 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
     el.style.height = 'auto';
     el.style.height = Math.min(el.scrollHeight, 120) + 'px';
   }
+
+  window.ForgeCoachTalk = {
+    getToken: function () { return currentMemberToken; },
+    sendText: function (text) {
+      const started = Date.now();
+      function attempt() {
+        if (isLoading) {
+          if (Date.now() - started > 30000) return Promise.reject(new Error('busy'));
+          return new Promise(function (resolve) { setTimeout(resolve, 40); }).then(attempt);
+        }
+        talkSendFromMode = true;
+        const input = document.getElementById('user-input');
+        input.value = text;
+        return Promise.resolve(sendMessage()).finally(function () { talkSendFromMode = false; });
+      }
+      return attempt();
+    },
+    armHooks: function (hooks) { talkHooks = hooks || null; },
+    cancelPushToTalk: cancelPushToTalk,
+    stopClickToPlay: stopClickToPlay,
+    setPushToTalkEnabled: setPushToTalkEnabled,
+    appendNote: function (text) { appendMessage('aris', text); },
+  };
 </script>
 
 
@@ -2655,6 +2810,9 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
     }
     await loadArisVoicePreference();
     try { await initArisMemory(); } catch (err) { console.error('ARIS memory init failed:', err); }
+    if (window.ForgeTalkSession && window.ForgeCoachTalk) {
+      window.ForgeTalkSession.attach(window.ForgeCoachTalk);
+    }
     if (typeof forgeCoachMemoryReady === 'function') forgeCoachMemoryReady(member);
     // ── UPDATE SESSION COUNT (server-side, syncs across devices) ──
     // Previously a localStorage counter — didn't sync across devices, and
@@ -2681,6 +2839,9 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
   } catch(e) {
     console.error('Auth gate error:', e);
     if (typeof forgeCoachMemoryReady === 'function') forgeCoachMemoryReady(null);
+    if (window.ForgeTalkSession && window.ForgeCoachTalk) {
+      try { window.ForgeTalkSession.attach(window.ForgeCoachTalk); } catch (err) {}
+    }
   }
 })();
 

@@ -1,0 +1,502 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('fs');
+const path = require('path');
+
+const talk = require('../assets/js/aris-talk');
+const { createHandler } = require('../netlify/functions/aris-talk');
+
+const root = path.join(__dirname, '..');
+const {
+  COPY,
+  createTalkSession,
+  applyUsage,
+  segmentSpeech,
+  nextSentences,
+  createVad,
+  rmsFromTimeDomain,
+  talkModeAccess,
+  clampIdleMs,
+  idleMsFromEnv,
+  capMinutesFromEnv,
+  evaluateMonthAlert,
+  monthKeyFromDate,
+  isEchoOf,
+} = talk;
+
+function session(idleMs) {
+  return createTalkSession({ idleMs: idleMs == null ? 120000 : idleMs });
+}
+
+test('idle warns 15s before a 2 minute pause and usage stops while paused', () => {
+  const s = session();
+  assert.equal(s.start(0).unlockAudio, true);
+  assert.equal(s.phase, 'listening');
+  assert.equal(s.capture, true);
+
+  let warned = null;
+  for (let t = 1000; t <= 105000; t += 1000) {
+    const ev = s.tick(t);
+    if (ev.warning) warned = { t, ev };
+  }
+  assert.ok(warned, 'expected a heads-up');
+  assert.equal(warned.t, 105000);
+  assert.equal(warned.ev.msUntilPause, 15000);
+  assert.equal(s.phase, 'listening');
+  assert.equal(talk.statusLabel(s.phase, true), COPY.warning);
+
+  const paused = s.tick(120000);
+  assert.equal(paused.paused, true);
+  assert.equal(paused.stopMic, true);
+  assert.equal(paused.stopPlayback, true);
+  assert.equal(s.phase, 'paused');
+  assert.equal(s.capture, false);
+  assert.equal(s.playback, false);
+  assert.equal(talk.statusLabel(s.phase, false), COPY.paused);
+  assert.equal(talk.buttonLabel(s.phase), COPY.buttonResume);
+
+  const before = s.drainSeconds();
+  assert.equal(before.listen, 120);
+  assert.equal(before.speak, 0);
+  s.tick(180000);
+  s.tick(240000);
+  const during = s.drainSeconds();
+  assert.deepEqual(during, { listen: 0, speak: 0 });
+  assert.deepEqual(s.pendingMs(), { listenMs: 0, speakMs: 0 });
+
+  const resumed = s.resume(240000);
+  assert.equal(resumed.ok, true);
+  assert.equal(resumed.unlockAudio, true);
+  assert.equal(s.phase, 'listening');
+  assert.equal(s.capture, true);
+  s.tick(250000);
+  assert.equal(s.drainSeconds().listen, 10);
+});
+
+test('member speech resets the idle clock, including after ARIS finishes', () => {
+  const s = session();
+  s.start(0);
+  s.tick(100000);
+  s.noteMemberSpeech(100000);
+  assert.notEqual(s.tick(120000).paused, true);
+  assert.equal(s.phase, 'listening');
+
+  s.memberSpeechEnd(130000);
+  s.markSpeaking(131000);
+  s.tick(200000);
+  assert.equal(s.phase, 'speaking');
+  s.markListening(200000);
+  const warn = s.tick(200000 + 105000);
+  assert.equal(warn.warning, true);
+  assert.equal(s.phase, 'listening');
+  assert.notEqual(s.tick(200000 + 119000).paused, true);
+  assert.equal(s.tick(200000 + 120000).paused, true);
+});
+
+test('idle seconds clamp to the 2–3 minute range', () => {
+  assert.equal(clampIdleMs(60000), 120000);
+  assert.equal(clampIdleMs(90), 120000);
+  assert.equal(clampIdleMs(120), 120000);
+  assert.equal(clampIdleMs(150), 150000);
+  assert.equal(clampIdleMs(180), 180000);
+  assert.equal(clampIdleMs(180000), 180000);
+  assert.equal(clampIdleMs(240), 180000);
+  assert.equal(clampIdleMs(''), 120000);
+  assert.equal(idleMsFromEnv({}), 120000);
+  assert.equal(idleMsFromEnv({ ARIS_TALK_IDLE_SECONDS: '150' }), 150000);
+  assert.equal(idleMsFromEnv({ ARIS_TALK_IDLE_SECONDS: '30' }), 120000);
+  assert.equal(capMinutesFromEnv({}), 30);
+  assert.equal(capMinutesFromEnv({ ARIS_TALK_CAP_MINUTES: '45' }), 45);
+  assert.equal(capMinutesFromEnv({ ARIS_TALK_CAP_MINUTES: '0' }), 0);
+});
+
+test('page hide pauses playback and stops the usage clock', () => {
+  const s = session();
+  s.start(0);
+  s.memberSpeechEnd(1000);
+  s.markSpeaking(1000);
+  s.tick(4000);
+  const hidden = s.pageHide(4000);
+  assert.equal(hidden.paused, true);
+  assert.equal(hidden.capture, false);
+  assert.equal(hidden.playback, false);
+  assert.equal(hidden.stopMic, true);
+  const used = s.drainSeconds();
+  assert.equal(used.listen, 1);
+  assert.equal(used.speak, 3);
+  s.tick(64000);
+  assert.deepEqual(s.drainSeconds(), { listen: 0, speak: 0 });
+  assert.equal(s.addSpeakMs(2000), false);
+});
+
+test('thinking time is not counted and a later resume is a fresh listen', () => {
+  const s = session();
+  s.start(0);
+  s.memberSpeechStart(0);
+  s.memberSpeechEnd(2000);
+  s.tick(9000);
+  assert.equal(s.phase, 'thinking');
+  assert.equal(s.capture, true);
+  assert.equal(s.playback, false);
+  s.markSpeaking(9000);
+  s.tick(11000);
+  const used = s.drainSeconds();
+  assert.equal(used.listen, 2);
+  assert.equal(used.speak, 2);
+});
+
+test('barge-in while speaking stops playback and the next listen starts after the new reply', () => {
+  const s = session();
+  s.start(0);
+  s.memberSpeechStart(200);
+  s.memberSpeechEnd(1200);
+  assert.equal(s.phase, 'thinking');
+  s.markSpeaking(1500);
+  assert.equal(s.playback, true);
+  assert.equal(s.phase, 'speaking');
+
+  const barge = s.memberSpeechStart(4000);
+  assert.equal(barge.bargeIn, true);
+  assert.equal(barge.stopPlayback, true);
+  assert.equal(barge.abortReply, true);
+  assert.equal(barge.from, 'speaking');
+  assert.equal(s.phase, 'listening');
+  assert.equal(s.playback, false);
+  assert.equal(s.capture, true);
+
+  const heard = s.memberSpeechEnd(5600);
+  assert.equal(heard.transcribe, true);
+  assert.equal(s.phase, 'thinking');
+  s.markSpeaking(6000);
+  s.markListening(9000);
+  assert.equal(s.phase, 'listening');
+  assert.equal(s.capture, true);
+  assert.equal(s.playback, false);
+  assert.equal(s.tick(9000 + 1000).paused, undefined);
+});
+
+test('barge-in during thinking aborts the reply and returns to a live listen', () => {
+  const s = session();
+  s.start(0);
+  s.memberSpeechEnd(500);
+  const barge = s.memberSpeechStart(800);
+  assert.equal(barge.bargeIn, true);
+  assert.equal(barge.abortReply, true);
+  assert.equal(barge.from, 'thinking');
+  assert.equal(s.capture, true);
+  assert.equal(s.playback, false);
+});
+
+test('cap accounting accepts listening before speaking, replays a request, and ignores paused zeroes', () => {
+  let state = { usedSeconds: 0, seen: {} };
+  const first = applyUsage(state, {
+    listenSeconds: 50,
+    speakSeconds: 20,
+    capSeconds: 60,
+    requestId: 'a',
+    maxChunkSeconds: 180,
+  });
+  assert.equal(first.acceptedListen, 50);
+  assert.equal(first.acceptedSpeak, 10);
+  assert.equal(first.usedSeconds, 60);
+  assert.equal(first.capped, true);
+  state = { usedSeconds: first.usedSeconds, seen: first.seen };
+
+  const replay = applyUsage(state, {
+    listenSeconds: 50,
+    speakSeconds: 20,
+    capSeconds: 60,
+    requestId: 'a',
+    maxChunkSeconds: 180,
+  });
+  assert.equal(replay.replayed, true);
+  assert.equal(replay.acceptedListen, 0);
+  assert.equal(replay.acceptedSpeak, 0);
+  assert.equal(replay.usedSeconds, 60);
+
+  const blocked = applyUsage(state, {
+    listenSeconds: 5,
+    speakSeconds: 5,
+    capSeconds: 60,
+    requestId: 'b',
+    maxChunkSeconds: 180,
+  });
+  assert.equal(blocked.acceptedListen, 0);
+  assert.equal(blocked.acceptedSpeak, 0);
+  assert.equal(blocked.capped, true);
+
+  const chunk = applyUsage({ usedSeconds: 0, seen: {} }, {
+    listenSeconds: 500,
+    speakSeconds: 40,
+    capSeconds: 10000,
+    requestId: 'c',
+    maxChunkSeconds: 180,
+  });
+  assert.equal(chunk.acceptedListen, 180);
+  assert.equal(chunk.acceptedSpeak, 0);
+
+  const pausedAdd = applyUsage({ usedSeconds: 10, seen: {} }, {
+    listenSeconds: 0,
+    speakSeconds: 0,
+    capSeconds: 1800,
+    requestId: 'pause',
+    maxChunkSeconds: 180,
+  });
+  assert.equal(pausedAdd.usedSeconds, 10);
+  assert.equal(pausedAdd.acceptedListen, 0);
+  assert.equal(pausedAdd.acceptedSpeak, 0);
+  assert.equal(pausedAdd.capped, false);
+});
+
+test('month alert flags once when total minutes cross the threshold', () => {
+  assert.deepEqual(evaluateMonthAlert({ totalSeconds: 59, thresholdMinutes: 1, alreadyFlagged: false }).flag, false);
+  const cross = evaluateMonthAlert({ totalSeconds: 60, thresholdMinutes: 1, alreadyFlagged: false });
+  assert.equal(cross.flag, true);
+  assert.equal(cross.reason, 'cross');
+  assert.equal(evaluateMonthAlert({ totalSeconds: 120, thresholdMinutes: 1, alreadyFlagged: true }).reason, 'already');
+  assert.equal(evaluateMonthAlert({ totalSeconds: 99999, thresholdMinutes: 0 }).reason, 'disabled');
+});
+
+test('sentence chunking keeps decimals and abbreviations, flushes the tail, and drops deal data', () => {
+  const money = segmentSpeech('The ARV is $185,000. The spread is 3.5 percent', false);
+  assert.deepEqual(money.sentences, ['The ARV is $185,000.']);
+  assert.equal(money.rest, 'The spread is 3.5 percent');
+
+  const finished = segmentSpeech('The spread is 3.5 percent.', false);
+  assert.deepEqual(finished.sentences, ['The spread is 3.5 percent.']);
+  assert.equal(finished.rest, '');
+
+  const flushed = segmentSpeech('The ARV is $185,000. The spread is 3.5 percent', true);
+  assert.deepEqual(flushed.sentences, ['The ARV is $185,000.', 'The spread is 3.5 percent']);
+  assert.equal(flushed.rest, '');
+
+  const doctor = segmentSpeech('Dr. Smith said yes. Then we moved', false);
+  assert.deepEqual(doctor.sentences, ['Dr. Smith said yes.']);
+  assert.equal(doctor.rest, 'Then we moved');
+
+  const deal = segmentSpeech('Price is firm. <<<DEAL_DATA {"tab":"flip"} DEAL_DATA>>> Ask about repairs.', true);
+  assert.deepEqual(deal.sentences, ['Price is firm.', 'Ask about repairs.']);
+  assert.equal(deal.sentences.join(' ').includes('DEAL_DATA'), false);
+
+  const live = nextSentences(0, 'First sentence is ready. Second is still', false);
+  assert.deepEqual(live.next, ['First sentence is ready.']);
+  const more = nextSentences(live.sentences.length, 'First sentence is ready. Second is still growing.', true);
+  assert.deepEqual(more.next, ['Second is still growing.']);
+});
+
+test('voice activity needs a longer run to interrupt playback', () => {
+  const vad = createVad({ speechRms: 0.05, bargeRms: 0.1, speechFrames: 3, bargeFrames: 5, silenceMs: 200, minUtteranceMs: 50 });
+  assert.equal(vad.push(0.2, 40, 'listening'), 'noise');
+  assert.equal(vad.push(0.2, 40, 'listening'), 'noise');
+  assert.equal(vad.push(0.2, 80, 'listening'), 'speech_start');
+  assert.equal(vad.push(0.2, 80, 'listening'), 'speech');
+  assert.equal(vad.push(0.01, 250, 'listening'), 'speech_end');
+
+  const barge = createVad({ speechRms: 0.05, bargeRms: 0.1, speechFrames: 3, bargeFrames: 5, silenceMs: 200, minUtteranceMs: 50 });
+  assert.equal(barge.push(0.2, 40, 'speaking'), 'noise');
+  assert.equal(barge.push(0.2, 40, 'speaking'), 'noise');
+  assert.equal(barge.push(0.2, 40, 'speaking'), 'noise');
+  assert.equal(barge.push(0.04, 40, 'speaking'), 'silence');
+  assert.equal(barge.push(0.2, 40, 'speaking'), 'noise');
+  assert.equal(barge.push(0.2, 40, 'speaking'), 'noise');
+  assert.equal(barge.push(0.2, 40, 'speaking'), 'noise');
+  assert.equal(barge.push(0.2, 40, 'speaking'), 'noise');
+  assert.equal(barge.push(0.2, 40, 'speaking'), 'speech_start');
+
+  const quiet = new Uint8Array(8);
+  quiet.fill(128);
+  assert.equal(rmsFromTimeDomain(quiet), 0);
+  const loud = new Uint8Array(4);
+  loud[0] = 255;
+  loud[1] = 0;
+  loud[2] = 255;
+  loud[3] = 0;
+  assert.ok(rmsFromTimeDomain(loud) > 0.9);
+});
+
+test('heads-up echo matches only the same words', () => {
+  assert.equal(isEchoOf("I'm still here. I'll pause in a moment if you're done.", COPY.headsUp), true);
+  assert.equal(isEchoOf('What is the ARV?', COPY.headsUp), false);
+});
+
+test('member-facing Talk Mode copy never names a vendor', () => {
+  const banned = /elevenlabs|scribe|deepgram|openai|whisper|anthropic|claude|web speech|speechrecognition|google/i;
+  for (const value of Object.values(COPY)) {
+    assert.equal(banned.test(value), false, value);
+  }
+  assert.equal(COPY.listening, 'Listening');
+  assert.equal(COPY.thinking, 'Thinking');
+  assert.equal(COPY.speaking, 'Speaking');
+  assert.match(COPY.paused, /Talk Mode paused — tap to resume/);
+  assert.match(COPY.cap, /speaker button/);
+});
+
+test('Talk Mode stays off unless the global flag or allowlist matches', () => {
+  assert.deepEqual(talkModeAccess({ env: {}, memberId: 'mem_john', email: 'john@thedessauergroup.com' }), {
+    enabled: false,
+    reason: 'off',
+  });
+  assert.equal(talkModeAccess({ env: { TALK_MODE_ENABLED: 'false' }, memberId: 'mem_john' }).enabled, false);
+  assert.equal(talkModeAccess({ env: { TALK_MODE_ENABLED: 'yes' }, memberId: 'mem_john' }).reason, 'global');
+  assert.equal(talkModeAccess({
+    env: { TALK_MODE_ALLOWLIST: ' mem_other , John@Example.com ' },
+    memberId: 'mem_john',
+    email: 'john@example.com',
+  }).reason, 'allowlist');
+  assert.equal(talkModeAccess({
+    env: { TALK_MODE_ALLOWLIST: 'mem_john' },
+    memberId: 'mem_john',
+    email: '',
+  }).enabled, true);
+  assert.equal(talkModeAccess({
+    env: { TALK_MODE_ENABLED: 'true', TALK_MODE_ALLOWLIST: 'nobody@example.com' },
+    memberId: 'mem_else',
+    email: 'else@example.com',
+  }).reason, 'global');
+});
+
+function handlerFor(env, store, extras) {
+  const lines = [];
+  const log = {
+    log: (message) => lines.push(String(message)),
+    error: (message) => lines.push('ERR ' + String(message)),
+  };
+  const handler = createHandler(Object.assign({
+    env: env,
+    now: () => new Date('2026-11-27T18:00:00Z'),
+    store: store,
+    log: log,
+    enforce: async () => ({ access: { memberId: 'mem_john', active: true } }),
+    getMember: async () => ({ auth: { email: 'john@example.com' } }),
+  }, extras || {}));
+  return { handler, lines };
+}
+
+async function call(handler, method, body) {
+  const res = await handler({
+    httpMethod: method,
+    headers: { authorization: 'Bearer token' },
+    body: body ? JSON.stringify(body) : '',
+  });
+  return { status: res.statusCode, body: JSON.parse(res.body || '{}') };
+}
+
+test('status hides Talk Mode when the flag is off and does not read usage', async () => {
+  let reads = 0;
+  const store = {
+    async read() { reads += 1; return { usedSeconds: 0 }; },
+    async monthTotal() { return 0; },
+    async hasAlert() { return false; },
+    async insertAlert() { return true; },
+    async add() { throw new Error('no add'); },
+  };
+  const { handler, lines } = handlerFor({}, store);
+  const res = await call(handler, 'GET');
+  assert.equal(res.status, 200);
+  assert.equal(res.body.enabled, false);
+  assert.equal(reads, 0);
+  assert.equal(lines.some((line) => /ARIS_TALK_ALERT|@/.test(line)), false);
+});
+
+test('allowlisted member can add minutes, hit the cap, and raise the log alert once', async () => {
+  const store = talk.createMemoryStore();
+  const env = {
+    TALK_MODE_ALLOWLIST: 'john@example.com',
+    ARIS_TALK_CAP_MINUTES: '1',
+    ARIS_TALK_IDLE_SECONDS: '150',
+    ARIS_TALK_ALERT_MINUTES: '1',
+  };
+  const { handler, lines } = handlerFor(env, store);
+  const status = await call(handler, 'GET');
+  assert.equal(status.status, 200);
+  assert.equal(status.body.enabled, true);
+  assert.equal(status.body.capSeconds, 60);
+  assert.equal(status.body.idleMs, 150000);
+  assert.equal(status.body.monthKey, monthKeyFromDate(new Date('2026-11-27T18:00:00Z')));
+  assert.equal(status.body.capped, false);
+
+  const add = await call(handler, 'POST', {
+    action: 'add',
+    listenSeconds: 40,
+    speakSeconds: 30,
+    requestId: 'req-1',
+  });
+  assert.equal(add.status, 200);
+  assert.equal(add.body.acceptedListen, 40);
+  assert.equal(add.body.acceptedSpeak, 20);
+  assert.equal(add.body.capped, true);
+  assert.match(add.body.capMessage, /Talk Mode/);
+  assert.equal(/elevenlabs|scribe/i.test(JSON.stringify(add.body)), false);
+
+  const replay = await call(handler, 'POST', {
+    action: 'add',
+    listenSeconds: 40,
+    speakSeconds: 30,
+    requestId: 'req-1',
+  });
+  assert.equal(replay.body.replayed, true);
+  assert.equal(replay.body.usedSeconds, 60);
+
+  const alerts = lines.filter((line) => line.startsWith('ARIS_TALK_ALERT'));
+  assert.equal(alerts.length, 1);
+  assert.match(alerts[0], /note=log-only-no-email/);
+  assert.equal(lines.some((line) => /mailto|sendgrid|nodemailer/i.test(line)), false);
+
+  const again = await call(handler, 'GET');
+  assert.equal(again.body.capped, true);
+  assert.equal(lines.filter((line) => line.startsWith('ARIS_TALK_ALERT')).length, 1);
+});
+
+test('global flag does not need an email lookup', async () => {
+  const store = talk.createMemoryStore();
+  const { handler } = handlerFor(
+    { TALK_MODE_ENABLED: 'true' },
+    store,
+    { getMember: async () => { throw new Error('should not look up email'); } }
+  );
+  const res = await call(handler, 'GET');
+  assert.equal(res.status, 200);
+  assert.equal(res.body.enabled, true);
+  assert.equal(res.body.capSeconds, 1800);
+});
+
+test('a signed-out caller cannot read or add Talk Mode usage', async () => {
+  const { handler } = handlerFor({}, talk.createMemoryStore(), {
+    enforce: async () => ({ response: { statusCode: 401, body: JSON.stringify({ error: 'Active membership required' }) } }),
+  });
+  const res = await call(handler, 'POST', { action: 'add', listenSeconds: 5, speakSeconds: 0, requestId: 'x' });
+  assert.equal(res.status, 401);
+});
+
+test('coach page gates Talk Mode and the dashboard Ask ARIS box does not get it', () => {
+  const coach = fs.readFileSync(path.join(root, 'aris-coach.html'), 'utf8');
+  const dash = fs.readFileSync(path.join(root, 'dashboard.html'), 'utf8');
+  assert.match(coach, /id="talk-btn"[^>]*hidden/);
+  assert.match(coach, /Talk Mode paused — tap to resume/);
+  assert.match(coach, /\/assets\/js\/aris-talk\.js/);
+  assert.match(coach, /\/assets\/js\/aris-talk-session\.js/);
+  assert.match(coach, /ForgeTalkSession\.attach/);
+  assert.equal(dash.includes('talk-btn'), false);
+  assert.equal(dash.includes('ForgeTalk'), false);
+  assert.equal(dash.includes('TALK_MODE'), false);
+  assert.equal(dash.includes('aris-talk'), false);
+
+  const fn = fs.readFileSync(path.join(root, 'netlify/functions/aris-talk.js'), 'utf8');
+  const session = fs.readFileSync(path.join(root, 'assets/js/aris-talk-session.js'), 'utf8');
+  assert.equal(/createRequire\s*\(\s*import\.meta\.url\s*\)/.test(fn), false);
+  assert.equal(/createRequire\s*\(\s*import\.meta\.url\s*\)/.test(session), false);
+  assert.match(session, /\/api\/aris-transcribe/);
+  assert.match(session, /\/api\/aris-voice/);
+  assert.match(session, /\/api\/aris-talk/);
+  assert.equal(/SpeechRecognition|webkitSpeechRecognition/.test(session), false);
+
+  const sql = fs.readFileSync(path.join(root, 'sql/migrations/add-aris-talk-usage.sql'), 'utf8');
+  assert.match(sql, /add_aris_talk_seconds/);
+  assert.match(sql, /aris_talk_alert_log/);
+  assert.match(sql, /for update/);
+  assert.match(sql, /replayed/);
+  assert.match(sql, /does not\s+send email/i);
+  const toml = fs.readFileSync(path.join(root, 'netlify.toml'), 'utf8');
+  assert.match(toml, /\/api\/aris-talk/);
+  assert.match(toml, /\/docs\/ARIS-TALK-MODE\.md/);
+});
