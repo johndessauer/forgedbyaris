@@ -172,22 +172,49 @@ export function formatUsd(n) {
   return `$${Math.round(value).toLocaleString('en-US')}`;
 }
 
+function spokenImageAlt(alt) {
+  const text = String(alt || '').replace(/\s+/g, ' ').trim();
+  if (!/[A-Za-z]{2,}/.test(text)) return '';
+  if (/\.(?:png|jpe?g|gif|webp|svg|heic|bmp|avif)$/i.test(text)) return '';
+  return text;
+}
+
 export function stripMarkdownForSpeech(text) {
-  return String(text)
-    .replace(/```[\s\S]*?```/g, '')
-    .replace(/`([^`]+)`/g, '$1')
-    .replace(/^#{1,6}\s+/gm, '')
-    .replace(/\*\*([^*]+)\*\*/g, '$1')
-    // Italic wraps words. A spaced or numeric * is multiplication, so
-    // leave those stars for pronounceOperators. "*3*" between other
-    // numbers must not collapse into one digit string.
-    .replace(/\*(\S(?:[^*]*\S)?)\*/g, (match, inner) => (/[A-Za-z]/.test(inner) ? inner : match))
-    .replace(/^[-*+]\s+/gm, '')
-    .replace(/^\d+\.\s+/gm, '')
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-    .replace(/\n{2,}/g, '. ')
-    .replace(/\n/g, ' ')
-    .trim();
+  let s = String(text);
+  s = s.replace(/!\s*\[([^\]]*)\]\([^)]*\)/g, (_, alt) => {
+    const words = spokenImageAlt(alt);
+    return words ? ` ${words} ` : ' ';
+  });
+  s = s.replace(/<img\b[^>]*>/gi, (tag) => {
+    const alt = tag.match(/\balt\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i);
+    const words = spokenImageAlt(alt ? (alt[1] || alt[2] || alt[3] || '') : '');
+    return words ? ` ${words} ` : ' ';
+  });
+  s = s.replace(/data:image\/[a-z0-9.+-]+;base64,[a-z0-9+/=\s]+/gi, ' ');
+  s = s.replace(/https?:\/\/\S+\.(?:png|jpe?g|gif|webp|svg|heic|bmp|avif)(?:\?[^\s)]*)?/gi, ' ');
+  s = s.replace(/(?:^|\n)[ \t]*(?:(?:[-*_]){3,}|[—–]{2,}|#{3,})[ \t]*(?=\n|$)/g, '\n');
+  s = s.replace(/[\u2500-\u257F\u2580-\u259F•●◦▪▫■□◆◇▶►▸]/g, ' ');
+  s = s.replace(/\p{Extended_Pictographic}/gu, ' ');
+  s = s.replace(/[\uFE0F\u200D]/g, '');
+  s = s.replace(/```[\s\S]*?```/g, '');
+  s = s.replace(/`([^`]+)`/g, '$1');
+  s = s.replace(/^#{1,6}\s+/gm, '');
+  s = s.replace(/\*\*([^*]+)\*\*/g, '$1');
+  // Italic wraps words. A spaced or numeric * is multiplication, so
+  // leave those stars for speakMathStars. "*3*" between other
+  // numbers must not collapse into one digit string.
+  s = s.replace(/\*(\S(?:[^*]*\S)?)\*/g, (match, inner) => (/[A-Za-z]/.test(inner) ? inner : match));
+  s = s.replace(/^[-*+]\s+/gm, '');
+  s = s.replace(/^\d+\.\s+/gm, '');
+  s = s.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+  s = s.replace(/\|/g, ' ');
+  s = s.replace(/(?:^|\s)(?:[-*_]){3,}(?=\s|$)/g, ' ');
+  s = s.replace(/(?:^|\s)[—–]{2,}(?=\s|$)/g, ' ');
+  s = s.replace(/\n{2,}/g, '. ');
+  s = s.replace(/\n/g, ' ');
+  s = s.replace(/\.{2,}/g, '.');
+  s = s.replace(/\.\s+\./g, '.');
+  return s.replace(/[ \t]{2,}/g, ' ').trim();
 }
 
 function maskProtected(text) {
@@ -992,9 +1019,10 @@ function pronounceOperators(text) {
   out = out.replace(/\b([A-Za-z]{2,})\s*\/\s*([A-Za-z]{2,})\b/g, '$1 or $2');
   out = out.replace(/(?<!\/)([^/\s])\s*\/\s*(?=[^/\s])/g, '$1 divided by ');
   out = out.replace(/\s*[×·⋅]\s*/g, ' times ');
-  // A letter glued to * or + is not an operator ("50 x 100" is handled
-  // separately; "C++" stays). Spelled amounts still need "* two" and "+ two".
-  out = out.replace(/(?<![A-Za-z*])\*(?![*])/g, ' times ');
+  // Math stars are spoken in speakMathStars, while the digits are still
+  // digits. A leftover * here is a markdown fragment, not multiplication.
+  out = out.replace(/\*/g, '');
+  // A letter glued to + is not an operator ("C++" stays). "+ two" is still plus.
   out = out.replace(/(?<![A-Za-z+])\+(?![+])/g, ' plus ');
   out = out.replace(/<=/g, ' less than or equal to ');
   out = out.replace(/>=/g, ' greater than or equal to ');
@@ -1010,6 +1038,66 @@ function pronounceOperators(text) {
 // Runs after state expansion. ZIPs must still be digits until a postal
 // abbreviation has been confirmed; phones are rewritten before any
 // amount so a hyphenated number is not read as hundreds or thousands.
+// "2 * 3" and "$18,000 * $2" are multiplication. A lone * that does not
+// sit between numbers is a markdown leftover and is dropped, so it is
+// never spoken as "times".
+function speakMathStars(text) {
+  const multiplied = String(text).replace(/(\d[\d,]*(?:\.\d+)?)\s*\*\s*(?=\$?\s*\d)/g, '$1 times ');
+  // Leave "* 0.70" for the decimal-multiplier pass. Any other lone star
+  // is markdown, not "times".
+  return multiplied.replace(/\*(?!\s*0?\.\d)/g, '');
+}
+
+const CLOCK_ZONES = {
+  CT: 'Central Time',
+  CST: 'Central Standard Time',
+  CDT: 'Central Daylight Time',
+  ET: 'Eastern Time',
+  EST: 'Eastern Standard Time',
+  EDT: 'Eastern Daylight Time',
+  MT: 'Mountain Time',
+  MST: 'Mountain Standard Time',
+  MDT: 'Mountain Daylight Time',
+  PT: 'Pacific Time',
+  PST: 'Pacific Standard Time',
+  PDT: 'Pacific Daylight Time',
+};
+
+function clockFace(hour, minute) {
+  const h = String(Number(hour));
+  if (minute == null || minute === '' || minute === '00') return h;
+  return `${h}:${minute}`;
+}
+
+function meridiemWord(raw) {
+  return /^a/i.test(String(raw || '')) ? 'AM' : 'PM';
+}
+
+// Only a clock with a.m./p.m. is rewritten, and a zone is spoken only when
+// it sits on that clock. "Hartford, CT" stays a state for the later pass.
+function normalizeClockTimes(text) {
+  const zone = String.raw`(?:CST|CDT|EST|EDT|MST|MDT|PST|PDT|CT|ET|MT|PT)`;
+  const mer = String.raw`(?:[ap]\.?\s*m\.?|[ap]m)`;
+  const hh = String.raw`(\d{1,2})(?::([0-5]\d))?`;
+  const range = new RegExp(
+    String.raw`(?<![\d:])${hh}\s*(${mer})?\s*(?:[-–—]|to)\s*${hh}\s*(${mer})(?:\s+(${zone}))?(?![A-Za-z])`,
+    'gi'
+  );
+  let out = String(text).replace(range, (match, h1, m1, mer1, h2, m2, mer2, zoneRaw) => {
+    const zoneName = zoneRaw ? ` ${CLOCK_ZONES[zoneRaw.toUpperCase()]}` : '';
+    return `${clockFace(h1, m1)} to ${clockFace(h2, m2)} ${meridiemWord(mer2 || mer1)}${zoneName}`;
+  });
+  const single = new RegExp(
+    String.raw`(?<![\d:])${hh}\s*(${mer})(?:\s+(${zone}))?(?![A-Za-z])`,
+    'gi'
+  );
+  out = out.replace(single, (match, h, m, merRaw, zoneRaw) => {
+    const zoneName = zoneRaw ? ` ${CLOCK_ZONES[zoneRaw.toUpperCase()]}` : '';
+    return `${clockFace(h, m)} ${meridiemWord(merRaw)}${zoneName}`;
+  });
+  return out;
+}
+
 function pronounceNumbers(text) {
   let out = pronouncePhones(text);
   out = pronouncePropertyIds(out);
@@ -1281,13 +1369,15 @@ export function normalizeSpeechText(raw) {
   const stripped = stripMarkdownForSpeech(raw);
   if (!stripped) return '';
   const { masked, slots } = maskProtected(stripped);
+  const starred = speakMathStars(masked);
+  const timed = normalizeClockTimes(starred);
   const normalized = expandStateAbbreviations(
     expandAbbreviations(
       pronounceLoanTerms(
         pronounceRateShorthands(
           normalizeCurrency(
             normalizeSpokenSlashes(
-              normalizeNumericRanges(normalizeBedBath(normalizeApproximations(masked)))
+              normalizeNumericRanges(normalizeBedBath(normalizeApproximations(timed)))
             )
           )
         )
