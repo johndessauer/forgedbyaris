@@ -244,21 +244,97 @@
     };
   }
 
-  var ABBREV = /(?:Mr|Mrs|Ms|Dr|Prof|Sr|Jr|St|vs|etc|Inc|Ltd|Co|Ave|Blvd|Rd|No|Fig|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec|U\.S|U\.K|e\.g|i\.e)\.$/i;
+  var ABBREV = /(?:Mr|Mrs|Ms|Dr|Prof|Sr|Jr|St|vs|etc|Inc|Ltd|Co|Ave|Blvd|Rd|No|Fig|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec|a\.m|p\.m|e\.g|i\.e|U\.S|U\.K|AM|PM)\.$/i;
+  var DOTTED_ABBREV = ['a.m.', 'a.m', 'p.m.', 'p.m', 'e.g.', 'e.g', 'i.e.', 'i.e', 'u.s.', 'u.s', 'u.k.', 'u.k'];
 
-  function stripUnspeakable(text) {
-    return String(text || '')
-      .replace(/<<<DEAL_DATA[\s\S]*?DEAL_DATA>>>/g, ' ')
-      .replace(/```[\s\S]*?```/g, ' ');
+  function stripMarkdownForSpeech(text) {
+    var s = String(text || '');
+    s = s.replace(/<<<DEAL_DATA[\s\S]*?DEAL_DATA>>>/g, ' ');
+    s = s.replace(/```[\s\S]*?```/g, ' ');
+    s = s.replace(/`([^`]+)`/g, '$1');
+    s = s.replace(/!\s*\[([^\]]*)\]\([^)]*\)/g, function (_, alt) {
+      var words = String(alt || '').replace(/\s+/g, ' ').trim();
+      if (!/[A-Za-z]{2,}/.test(words) || /\.(?:png|jpe?g|gif|webp|svg|heic|bmp|avif)$/i.test(words)) return ' ';
+      return ' ' + words + ' ';
+    });
+    s = s.replace(/<img\b[^>]*>/gi, ' ');
+    s = s.replace(/data:image\/[a-z0-9.+-]+;base64,[a-z0-9+/=\s]+/gi, ' ');
+    s = s.replace(/https?:\/\/\S+\.(?:png|jpe?g|gif|webp|svg|heic|bmp|avif)(?:\?[^\s)]*)?/gi, ' ');
+    s = s.replace(/(?:^|\n)[ \t]*(?:(?:[-*_]){3,}|[—–]{2,}|#{3,})[ \t]*(?=\n|$)/g, '\n');
+    s = s.replace(/[\u2500-\u257F\u2580-\u259F•●◦▪▫■□◆◇▶►▸]/g, ' ');
+    s = s.replace(/\p{Extended_Pictographic}/gu, ' ');
+    s = s.replace(/\|/g, ' ');
+    s = s.replace(/(?:^|\s)(?:[-*_]){3,}(?=\s|$)/g, ' ');
+    s = s.replace(/(?:^|\s)[—–]{2,}(?=\s|$)/g, ' ');
+    s = s.replace(/\[([^\]]+)\]\([^)]*\)/g, '$1');
+    s = s.replace(/\*\*\*([^*]+)\*\*\*/g, '$1');
+    s = s.replace(/\*\*([^*]+)\*\*/g, '$1');
+    s = s.replace(/__([^_]+)__/g, '$1');
+    s = s.replace(/(^|[\s(])\*([A-Za-z][^*]*?)\*(?=[\s).,!?:;]|$)/g, '$1$2');
+    s = s.replace(/(^|[\s(])_([A-Za-z][^_]*?)_(?=[\s).,!?:;]|$)/g, '$1$2');
+    s = s.replace(/^#{1,6}\s+/gm, '');
+    s = s.replace(/^[ \t]*[-*+]\s+/gm, '');
+    s = s.replace(/(^|\n)\s*\d{1,2}\.\s+/g, '$1');
+    s = s.replace(/\*/g, function (match, offset, src) {
+      var prev = src.slice(Math.max(0, offset - 12), offset);
+      var next = src.slice(offset + 1, offset + 13);
+      if (/\d\s*$/.test(prev) && /^\s*\d/.test(next)) return '*';
+      return '';
+    });
+    return s;
+  }
+
+  function polishSpokenChunk(sentence) {
+    var s = String(sentence || '').replace(/\s+/g, ' ').trim();
+    s = s.replace(/^(?:\d{1,2}\.\s+)+/, '');
+    s = s.replace(/^[*_#]+/, '').replace(/[*_#]+$/, '');
+    return s.replace(/\s+/g, ' ').trim();
+  }
+
+  function dottedAbbrevAt(clean, dotIndex) {
+    var start = Math.max(0, dotIndex - 6);
+    var end = Math.min(clean.length, dotIndex + 4);
+    var slice = clean.slice(start, end).toLowerCase();
+    var n;
+    var at;
+    for (n = 0; n < DOTTED_ABBREV.length; n += 1) {
+      var form = DOTTED_ABBREV[n];
+      at = slice.indexOf(form);
+      while (at !== -1) {
+        var abs = start + at;
+        var prev = abs > 0 ? clean.charAt(abs - 1) : '';
+        if (!prev || /[^A-Za-z0-9]/.test(prev)) {
+          if (dotIndex >= abs && dotIndex < abs + form.length) return true;
+        }
+        at = slice.indexOf(form, at + 1);
+      }
+    }
+    return false;
+  }
+
+  function isListMarker(clean, dotIndex) {
+    var j = dotIndex - 1;
+    var digits = 0;
+    if (j < 0 || !/\d/.test(clean.charAt(j))) return false;
+    while (j >= 0 && /\d/.test(clean.charAt(j))) {
+      digits += 1;
+      j -= 1;
+    }
+    if (digits < 1 || digits > 2) return false;
+    var prev = j >= 0 ? clean.charAt(j) : '';
+    if (prev && !/\s/.test(prev)) return false;
+    var next = dotIndex + 1 < clean.length ? clean.charAt(dotIndex + 1) : '';
+    if (next && !/\s/.test(next)) return false;
+    return true;
   }
 
   function segmentSpeech(text, flush) {
-    var clean = stripUnspeakable(text).replace(/[ \t\f\v]+/g, ' ');
+    var clean = stripMarkdownForSpeech(text).replace(/[ \t\f\v]+/g, ' ');
     var sentences = [];
     var start = 0;
     var i;
     function push(end) {
-      var sentence = clean.slice(start, end).replace(/\s+/g, ' ').trim();
+      var sentence = polishSpokenChunk(clean.slice(start, end));
       if (sentence) sentences.push(sentence);
       start = end;
       while (start < clean.length && /\s/.test(clean.charAt(start))) start += 1;
@@ -276,6 +352,8 @@
       if (ch !== '.' && ch !== '!' && ch !== '?') continue;
       if (ch === '.' && i > 0 && i + 1 < clean.length && /\d/.test(clean.charAt(i - 1)) && /\d/.test(clean.charAt(i + 1))) continue;
       if (ch === '.' && clean.charAt(i + 1) === '.') continue;
+      if (ch === '.' && dottedAbbrevAt(clean, i)) continue;
+      if (ch === '.' && isListMarker(clean, i)) continue;
       var slice = clean.slice(start, i + 1);
       if (ch === '.' && ABBREV.test(slice.trim())) continue;
       var next = i + 1 < clean.length ? clean.charAt(i + 1) : '';
@@ -289,6 +367,79 @@
       rest = '';
     }
     return { sentences: sentences, rest: rest };
+  }
+
+  function planPrefetch(states, ahead) {
+    var extra = ahead == null ? 2 : ahead;
+    if (extra < 1) extra = 1;
+    var origin = -1;
+    var found = false;
+    var i;
+    for (i = 0; i < states.length; i += 1) {
+      if (states[i] === 'playing' || states[i] === 'scheduled') {
+        origin = i;
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      for (i = 0; i < states.length; i += 1) {
+        if (states[i] === 'ready') {
+          origin = i;
+          found = true;
+          break;
+        }
+      }
+    }
+    var out = [];
+    var inflight = 0;
+    var limit = found ? extra : extra + 1;
+    var begin = found ? origin + 1 : 0;
+    for (i = begin; i < states.length; i += 1) {
+      if (states[i] === 'fetch' || states[i] === 'ready') inflight += 1;
+      else if (states[i] === 'queued') {
+        if (inflight >= limit) break;
+        out.push(i);
+        inflight += 1;
+      }
+      if (inflight >= limit) break;
+    }
+    return out;
+  }
+
+  function trimPcmEdges(samples, sampleRate, options) {
+    var opts = options || {};
+    var threshold = opts.threshold == null ? 0.015 : opts.threshold;
+    var rate = sampleRate > 0 ? sampleRate : 44100;
+    var maxTrim = Math.floor((opts.maxSeconds == null ? 0.04 : opts.maxSeconds) * rate);
+    var length = samples && samples.length ? samples.length : 0;
+    if (!length) return { start: 0, end: 0 };
+    if (maxTrim < 1) return { start: 0, end: length };
+    var start = 0;
+    var end = length;
+    while (start < maxTrim && start < length - 1 && Math.abs(samples[start]) < threshold) start += 1;
+    while (end > length - maxTrim && end > start + 1 && Math.abs(samples[end - 1]) < threshold) end -= 1;
+    return { start: start, end: end };
+  }
+
+  function playbackSchedule(input) {
+    var opts = input || {};
+    var fade = opts.fade == null ? 0.015 : opts.fade;
+    if (fade < 0.01) fade = 0.01;
+    if (fade > 0.02) fade = 0.02;
+    var cross = opts.crossfade == null ? 0.012 : opts.crossfade;
+    var duration = Math.max(0, Number(opts.duration) || 0);
+    var playFor = Math.max(duration, fade * 2);
+    var now = Number(opts.now) || 0;
+    var startAt = Math.max(now + 0.02, Number(opts.nextStart) || 0);
+    var usedFade = Math.min(fade, playFor / 3);
+    var overlap = Math.min(Math.max(0, cross), playFor / 3);
+    return {
+      startAt: startAt,
+      fade: usedFade,
+      playFor: playFor,
+      nextStart: startAt + playFor - overlap,
+    };
   }
 
   function nextSentences(alreadyCount, fullText, flush) {
@@ -578,6 +729,11 @@
     evaluateMonthAlert: evaluateMonthAlert,
     createMemoryStore: createMemoryStore,
     segmentSpeech: segmentSpeech,
+    stripMarkdownForSpeech: stripMarkdownForSpeech,
+    polishSpokenChunk: polishSpokenChunk,
+    planPrefetch: planPrefetch,
+    trimPcmEdges: trimPcmEdges,
+    playbackSchedule: playbackSchedule,
     nextSentences: nextSentences,
     isEchoOf: isEchoOf,
     rmsFromTimeDomain: rmsFromTimeDomain,

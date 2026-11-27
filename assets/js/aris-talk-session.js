@@ -37,8 +37,11 @@
     var lastFrame = 0;
     var playToken = 0;
     var queue = [];
+    var clips = [];
+    var clipCursor = 0;
+    var nextStart = 0;
+    var activeSources = [];
     var pumping = false;
-    var currentAudio = null;
     var spokenCount = 0;
     var autoSpeak = false;
     var turn = 0;
@@ -140,19 +143,31 @@
       vad.reset();
     }
 
+    function stopSources() {
+      activeSources.forEach(function (item) {
+        try { item.source.stop(); } catch (err) {}
+        try { if (item.gain) item.gain.disconnect(); } catch (err) {}
+      });
+      activeSources = [];
+    }
+
     function haltPlayback() {
       playToken += 1;
+      clips.forEach(function (clip) {
+        clip.state = 'cancelled';
+        if (clip.controller) {
+          try { clip.controller.abort(); } catch (err) {}
+        }
+      });
+      clips = [];
+      clipCursor = 0;
+      nextStart = 0;
       queue = [];
       pumping = false;
       spokenCount = 0;
-      if (currentAudio) {
-        currentAudio.pause();
-        currentAudio.src = '';
-        currentAudio = null;
-      }
+      stopSources();
       if (headsAudio) {
-        headsAudio.pause();
-        headsAudio.src = '';
+        try { headsAudio.stop(); } catch (err) {}
         headsAudio = null;
       }
     }
@@ -312,9 +327,15 @@
       });
     }
 
+    function playbackBusy() {
+      return clips.some(function (clip) {
+        return clip.state === 'queued' || clip.state === 'fetch' || clip.state === 'ready' || clip.state === 'playing';
+      });
+    }
+
     function finishReplyIfIdle(mine) {
       if (mine !== turn || !machine) return;
-      if (pumping || queue.length) return;
+      if (playbackBusy() || activeSources.length) return;
       if (machine.phase === 'thinking' || machine.phase === 'speaking') {
         machine.markListening(now());
         showWarning = false;
@@ -326,94 +347,196 @@
     function queueNewSentences(text, flush) {
       var diff = root.ForgeTalk.nextSentences(spokenCount, text, flush);
       var i;
-      for (i = 0; i < diff.next.length; i += 1) queue.push(diff.next[i]);
+      for (i = 0; i < diff.next.length; i += 1) {
+        var sentence = diff.next[i];
+        var prev = clips.length ? clips[clips.length - 1].text : '';
+        clips.push({
+          text: sentence,
+          prev: prev,
+          next: '',
+          state: 'queued',
+          controller: null,
+          buffer: null,
+        });
+        if (clips.length >= 2 && clips[clips.length - 2].state === 'queued') {
+          clips[clips.length - 2].next = sentence;
+        }
+      }
       spokenCount = flush ? 0 : diff.sentences.length;
-      pump();
+      if (!diff.next.length) {
+        if (flush) finishReplyIfIdle(turn);
+        return;
+      }
+      drivePlayback();
     }
 
-    function pump() {
-      if (pumping) return;
-      pumping = true;
-      var token = playToken;
-      var step = function () {
-        if (token !== playToken || !queue.length) return Promise.resolve();
-        var sentence = queue.shift();
-        if (machine && machine.phase === 'speaking') machine.markThinking(now());
-        return fetchAudio(sentence).then(function (url) {
-          if (token !== playToken) {
-            URL.revokeObjectURL(url);
-            return null;
-          }
-          if (machine) machine.markSpeaking(now());
-          render();
-          return playUrl(url, token);
-        }).then(step);
-      };
-      step().catch(function () {
-        if (token === playToken) fail(COPY.failed);
-      }).then(function () {
-        if (token !== playToken) return;
-        pumping = false;
-        if (queue.length) pump();
-        else finishReplyIfIdle(turn);
+    function clipStates() {
+      return clips.map(function (clip) {
+        if (clip.state === 'playing' || clip.state === 'scheduled') return 'playing';
+        return clip.state;
       });
     }
 
-    function fetchAudio(text) {
+    function audioContext() {
+      var AC = root.AudioContext || root.webkitAudioContext;
+      if (!AC) return null;
+      if (!unlockCtx) unlockCtx = new AC();
+      if (unlockCtx.state === 'suspended' && unlockCtx.resume) unlockCtx.resume();
+      return unlockCtx;
+    }
+
+    function requestVoice(text, previousText, nextText, controller) {
       if (page.stopClickToPlay) page.stopClickToPlay();
-      return fetch('/api/aris-voice', {
+      var body = { text: text };
+      if (previousText) body.previousText = String(previousText).slice(-800);
+      if (nextText) body.nextText = String(nextText).slice(0, 800);
+      var init = {
         method: 'POST',
         headers: Object.assign({ 'Content-Type': 'application/json' }, tokenHeader()),
-        body: JSON.stringify({ text: text }),
-      }).then(function (res) {
+        body: JSON.stringify(body),
+      };
+      if (controller) init.signal = controller.signal;
+      return fetch('/api/aris-voice', init).then(function (res) {
+        if (res.status === 400) return null;
         if (!res.ok) throw new Error('voice');
-        return res.blob();
-      }).then(function (blob) {
-        return URL.createObjectURL(blob);
+        return res.arrayBuffer();
       });
     }
 
-    function playUrl(url, token) {
+    function decodeVoice(bytes) {
+      var ctx = audioContext();
+      if (!ctx || !ctx.decodeAudioData) return Promise.reject(new Error('voice'));
+      var copy = bytes.slice(0);
       return new Promise(function (resolve, reject) {
-        if (token !== playToken) {
-          URL.revokeObjectURL(url);
-          resolve();
+        var result;
+        try {
+          result = ctx.decodeAudioData(copy, resolve, reject);
+        } catch (err) {
+          reject(err);
           return;
         }
-        var audio = new Audio(url);
-        currentAudio = audio;
-        var settled = false;
-        var finish = function (err) {
-          if (settled) return;
-          settled = true;
-          if (currentAudio === audio) currentAudio = null;
-          URL.revokeObjectURL(url);
-          if (err) reject(err);
-          else resolve();
-        };
-        audio.addEventListener('ended', function () { finish(null); });
-        audio.addEventListener('error', function () { finish(new Error('playback')); });
-        var played = audio.play();
-        if (played && played.catch) {
-          played.catch(function (err) {
-            if (token !== playToken) finish(null);
-            else finish(err);
-          });
-        }
-        var watch = setInterval(function () {
-          if (token !== playToken) {
-            clearInterval(watch);
-            audio.pause();
-            finish(null);
-          } else if (settled) clearInterval(watch);
-        }, 40);
+        if (result && result.then) result.then(resolve, reject);
       });
+    }
+
+    function scheduleBuffer(buffer, token, hooks) {
+      var ctx = audioContext();
+      if (!ctx || token !== playToken) return null;
+      var channel = buffer.getChannelData(0);
+      var edge = root.ForgeTalk.trimPcmEdges(channel, buffer.sampleRate, { threshold: 0.015, maxSeconds: 0.04 });
+      var offset = edge.start / buffer.sampleRate;
+      var duration = Math.max(0.02, (edge.end - edge.start) / buffer.sampleRate);
+      var follow = hooks && hooks.follow;
+      var plan = root.ForgeTalk.playbackSchedule({
+        now: ctx.currentTime,
+        nextStart: follow ? nextStart : 0,
+        duration: duration,
+        fade: 0.015,
+        crossfade: 0.012,
+      });
+      var source = ctx.createBufferSource();
+      source.buffer = buffer;
+      var gain = ctx.createGain();
+      var fade = plan.fade;
+      var endAt = plan.startAt + plan.playFor;
+      gain.gain.setValueAtTime(0, plan.startAt);
+      gain.gain.linearRampToValueAtTime(1, plan.startAt + fade);
+      gain.gain.setValueAtTime(1, Math.max(plan.startAt + fade, endAt - fade));
+      gain.gain.linearRampToValueAtTime(0, endAt);
+      source.connect(gain);
+      gain.connect(ctx.destination);
+      try {
+        source.start(plan.startAt, offset, plan.playFor);
+      } catch (err) {
+        return null;
+      }
+      if (follow) nextStart = plan.nextStart;
+      activeSources.push({ source: source, gain: gain });
+      source.onended = function () {
+        activeSources = activeSources.filter(function (item) { return item.source !== source; });
+        if (hooks && hooks.onended) hooks.onended();
+      };
+      return source;
+    }
+
+    function startClipFetch(index, token) {
+      var clip = clips[index];
+      if (!clip || clip.state !== 'queued' || token !== playToken) return;
+      clip.state = 'fetch';
+      if (clips[index + 1] && !clip.next) clip.next = clips[index + 1].text;
+      var controller = typeof root.AbortController === 'function' ? new root.AbortController() : null;
+      clip.controller = controller;
+      requestVoice(clip.text, clip.prev, clip.next, controller).then(function (bytes) {
+        if (!bytes || token !== playToken || clip.state === 'cancelled') return null;
+        return decodeVoice(bytes);
+      }).then(function (buffer) {
+        if (token !== playToken || clip.state === 'cancelled') return;
+        if (!buffer) {
+          clip.state = 'done';
+          drivePlayback();
+          return;
+        }
+        clip.buffer = buffer;
+        clip.state = 'ready';
+        drivePlayback();
+      }).catch(function (err) {
+        if (token !== playToken || clip.state === 'cancelled') return;
+        if (err && err.name === 'AbortError') return;
+        fail(COPY.failed);
+      });
+    }
+
+    function scheduleReady(token) {
+      if (token !== playToken) return;
+      while (clipCursor < clips.length && clips[clipCursor].state === 'ready') {
+        var clip = clips[clipCursor];
+        var source = scheduleBuffer(clip.buffer, token, {
+          follow: true,
+          onended: function () {
+            if (clip.state === 'playing') clip.state = 'done';
+            if (token !== playToken) return;
+            if (!playbackBusy() && !activeSources.length) {
+              pumping = false;
+              finishReplyIfIdle(turn);
+            }
+          },
+        });
+        if (!source) {
+          clip.state = 'done';
+          clipCursor += 1;
+          continue;
+        }
+        clip.state = 'playing';
+        clipCursor += 1;
+        if (machine && machine.phase !== 'speaking') {
+          machine.markSpeaking(now());
+          render();
+        }
+      }
+    }
+
+    function fillPrefetch(token) {
+      root.ForgeTalk.planPrefetch(clipStates(), 2).forEach(function (index) {
+        startClipFetch(index, token);
+      });
+    }
+
+    function drivePlayback() {
+      var token = playToken;
+      if (token !== playToken) return;
+      pumping = true;
+      fillPrefetch(token);
+      scheduleReady(token);
+      fillPrefetch(token);
+      if (!playbackBusy() && !activeSources.length) {
+        pumping = false;
+        finishReplyIfIdle(turn);
+      }
     }
 
     function stopHeadsAudio() {
       if (!headsAudio) return;
-      headsAudio.pause();
-      headsAudio.src = '';
+      try { headsAudio.stop(); } catch (err) {}
       headsAudio = null;
     }
 
@@ -421,28 +544,19 @@
       if (headsUpPlayed || !machine || machine.phase !== 'listening') return;
       headsUpPlayed = true;
       var started = 0;
-      fetchAudio(COPY.headsUp).then(function (url) {
-        if (!machine || machine.phase !== 'listening') {
-          URL.revokeObjectURL(url);
-          return;
-        }
+      requestVoice(COPY.headsUp, '', '').then(function (bytes) {
+        if (!machine || machine.phase !== 'listening') return null;
+        return decodeVoice(bytes);
+      }).then(function (buffer) {
+        if (!buffer || !machine || machine.phase !== 'listening') return;
         started = now();
-        return new Promise(function (resolve) {
-          var audio = new Audio(url);
-          headsAudio = audio;
-          var done = function () {
-            if (headsAudio === audio) headsAudio = null;
-            URL.revokeObjectURL(url);
-            resolve();
-          };
-          audio.addEventListener('ended', done);
-          audio.addEventListener('error', done);
-          var played = audio.play();
-          if (played && played.catch) played.catch(done);
+        headsAudio = scheduleBuffer(buffer, playToken, {
+          follow: false,
+          onended: function () {
+            headsAudio = null;
+            if (machine && started) machine.addSpeakMs(now() - started);
+          },
         });
-      }).then(function () {
-        var elapsed = started ? now() - started : 0;
-        if (machine) machine.addSpeakMs(elapsed);
       }).catch(function () {});
     }
 

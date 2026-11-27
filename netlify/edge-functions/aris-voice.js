@@ -100,6 +100,11 @@ export default async (request, context) => {
   // count is spoken in words ("3/2" → "3 bedroom, 2 bathroom"). A date is
   // "November 27th", and a word slash such as "buy/hold" is "buy or hold".
   const speechText = prepareSpeechText(rawText, SPEECH_CHAR_LIMIT);
+  // Talk Mode sends the neighboring sentences so prosody continues across
+  // chunks. The speaker button omits them. Empty context is left off the
+  // request so a single clip sounds the same as before.
+  const previousText = prepareSpeechText(typeof body.previousText === 'string' ? body.previousText : '', 800);
+  const nextText = prepareSpeechText(typeof body.nextText === 'string' ? body.nextText : '', 800);
   if (!speechText) {
     return new Response(JSON.stringify({ error: 'Nothing left to speak after stripping formatting' }), {
       status: 400,
@@ -126,7 +131,7 @@ export default async (request, context) => {
         'xi-api-key': API_KEY,
         Accept: 'audio/mpeg',
       },
-      body: JSON.stringify({
+      body: JSON.stringify(Object.assign({
         text: speechText,
         model_id: MODEL_ID,
         voice_settings: voiceSettings,
@@ -136,7 +141,7 @@ export default async (request, context) => {
             version_id: PRONUNCIATION_DICTIONARY_VERSION_ID,
           },
         ],
-      }),
+      }, previousText ? { previous_text: previousText } : {}, nextText ? { next_text: nextText } : {})),
     });
   } catch (err) {
     console.error('aris-voice: failed to reach ElevenLabs:', err.message);

@@ -286,6 +286,8 @@ test('formulas speak math operators and leave prose hyphens alone', async () => 
     ['$18,000 + $2,000 = $20,000', 'eighteen thousand dollars plus two thousand dollars equals twenty thousand dollars'],
     ['Add the fee. Added value is a plus.', 'Add the fee. Added value is a plus.'],
     ['2 * 3 * 4', '2 times 3 times 4'],
+    ['See the * note', 'See the note'],
+    ['Call * now', 'Call now'],
     ['*NOI*', 'net operating income'],
     ['and/or the NOI', 'and or the net operating income'],
     ['w/ the seller', 'w/ the seller'],
@@ -867,6 +869,62 @@ test('voice request speaks a percent range with to', async () => {
   assert.equal(sent.body.text.includes('–'), false);
 });
 
+test('clocks speak PM and a time zone, and drop :00', async () => {
+  const { normalizeSpeechText } = await loadSpeech();
+  const cases = [
+    ['6:00pm CST', '6 PM Central Standard Time'],
+    ['6:00 pm CDT', '6 PM Central Daylight Time'],
+    ['6 p.m. CT', '6 PM Central Time'],
+    ['6:30pm', '6:30 PM'],
+    ['6-7 p.m. CT', '6 to 7 PM Central Time'],
+    ['8:00am ET', '8 AM Eastern Time'],
+    ['8:15 a.m. EST', '8:15 AM Eastern Standard Time'],
+    ['9 pm EDT', '9 PM Eastern Daylight Time'],
+    ['5:00pm MT', '5 PM Mountain Time'],
+    ['5:45pm MST', '5:45 PM Mountain Standard Time'],
+    ['4 p.m. MDT', '4 PM Mountain Daylight Time'],
+    ['7:00pm PT', '7 PM Pacific Time'],
+    ['7:05pm PST', '7:05 PM Pacific Standard Time'],
+    ['3 pm PDT', '3 PM Pacific Daylight Time'],
+    ['Hartford, CT', 'Hartford, Connecticut'],
+    ['Billings, MT', 'Billings, Montana'],
+  ];
+  for (const [input, expected] of cases) {
+    assert.equal(normalizeSpeechText(input), expected, input);
+  }
+});
+
+test('images, emoji, rules, and table chrome are not spoken', async () => {
+  const { normalizeSpeechText } = await loadSpeech();
+  assert.equal(
+    normalizeSpeechText('See ![Open house flyer](https://cdn.example.com/a.png) tonight.'),
+    'See Open house flyer tonight.'
+  );
+  assert.equal(
+    normalizeSpeechText('See ![flyer.png](https://cdn.example.com/a.png) tonight.'),
+    'See tonight.'
+  );
+  assert.equal(
+    normalizeSpeechText('Look <img alt="the porch" src="https://cdn.example.com/p.jpg"> now.'),
+    'Look the porch now.'
+  );
+  assert.equal(
+    normalizeSpeechText('Look <img src="data:image/png;base64,aaaa"> now.'),
+    'Look now.'
+  );
+  assert.equal(normalizeSpeechText('Hello 😀 there'), 'Hello there');
+  assert.equal(
+    normalizeSpeechText('Intro.\n\n---\n\nNext step.'),
+    'Intro. Next step.'
+  );
+  assert.equal(normalizeSpeechText('Before\n\n***\n\nAfter'), 'Before. After');
+  assert.equal(normalizeSpeechText('Before\n\n___\n\nAfter'), 'Before. After');
+  assert.equal(normalizeSpeechText('Before\n\n———\n\nAfter'), 'Before. After');
+  assert.equal(normalizeSpeechText('• Post the offer\n• Call the seller'), 'Post the offer Call the seller');
+  assert.equal(normalizeSpeechText('| Rent | $1,200 |\n| --- | --- |'), 'Rent one thousand two hundred dollars');
+  assert.equal(normalizeSpeechText('## December plan'), 'December plan');
+});
+
 test('voice request normalizes speech and still sends the pronunciation dictionary', async () => {
   const mod = await loadEdge('aris-voice.js');
   let sent = null;
@@ -900,6 +958,37 @@ test('voice request normalizes speech and still sends the pronunciation dictiona
   assert.equal(sent.body.pronunciation_dictionary_locators[0].version_id, 'K4NSU6bIVNNrQHZl1PDT');
   assert.equal(sent.body.model_id, 'eleven_flash_v2_5');
   assert.equal(sent.body.voice_settings.stability, 0.58);
+  assert.equal(sent.body.previous_text, undefined);
+  assert.equal(sent.body.next_text, undefined);
+});
+
+test('voice request carries neighboring sentences and still plays one clip without them', async () => {
+  const mod = await loadEdge('aris-voice.js');
+  let sent = null;
+  const realFetch = globalThis.fetch;
+  globalThis.Netlify = { env: { get: (key) => (key === 'ELEVENLABS_API_KEY' ? 'test-key' : undefined) } };
+  globalThis.fetch = async (url, init) => {
+    sent = JSON.parse(init.body);
+    return new Response('audio', { status: 200, headers: { 'Content-Type': 'audio/mpeg' } });
+  };
+  try {
+    const res = await mod.default(new Request('https://x/api/aris-voice', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: 'Send the scripts tonight.',
+        previousText: 'Post the offer at 6-7 p.m. CT.',
+        nextText: 'Then follow up in the morning.',
+      }),
+    }), {});
+    assert.equal(res.status, 200);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+  assert.match(sent.text, /Send the scripts tonight/);
+  assert.match(sent.previous_text, /6 to 7 PM Central Time/);
+  assert.match(sent.next_text, /follow up in the morning/);
+  assert.equal(sent.model_id, 'eleven_flash_v2_5');
 });
 
 test('deal-analyzer and coach prompts carry the currency rule for a new session and a resumed one', async () => {

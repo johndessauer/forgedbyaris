@@ -314,6 +314,58 @@ test('voice activity needs a longer run to interrupt playback', () => {
   assert.ok(rmsFromTimeDomain(loud) > 0.9);
 });
 
+test('list markers, clock times, and markdown stay in one spoken chunk', () => {
+  const { segmentSpeech, planPrefetch, trimPcmEdges, playbackSchedule } = talk;
+  const fortWayne = segmentSpeech(
+    '1. Post the offer at 6-7 p.m. CT, Forge Group Coaching Call. 2. Send the *scripts* tonight.',
+    true
+  );
+  assert.deepEqual(fortWayne.sentences, [
+    'Post the offer at 6-7 p.m. CT, Forge Group Coaching Call.',
+    'Send the scripts tonight.',
+  ]);
+  assert.equal(fortWayne.sentences.some(function (line) { return line === '1.' || line === '2.'; }), false);
+  assert.equal(fortWayne.sentences.join(' ').includes('*'), false);
+
+  const clock = segmentSpeech('Doors open at 6-7 p.m. CT, Forge Group Coaching Call.', false);
+  assert.deepEqual(clock.sentences, ['Doors open at 6-7 p.m. CT, Forge Group Coaching Call.']);
+
+  const morning = segmentSpeech('The call is at 8 a.m. Bring the sheet.', false);
+  assert.deepEqual(morning.sentences, ['The call is at 8 a.m. Bring the sheet.']);
+
+  const example = segmentSpeech('Use a range, e.g. three to five percent.', false);
+  assert.equal(example.sentences.length, 1);
+  assert.match(example.sentences[0], /e\.g\. three to five percent/);
+
+  const italic = segmentSpeech('Use the *script* tonight. Then follow up.', true);
+  assert.deepEqual(italic.sentences, ['Use the script tonight.', 'Then follow up.']);
+
+  const stray = segmentSpeech('See the * note before you post.', true);
+  assert.equal(stray.sentences[0].includes('*'), false);
+  assert.match(stray.sentences[0], /See the note before you post/);
+
+  const divided = segmentSpeech('Post the offer.\n\n---\n\nSend the scripts.', true);
+  assert.deepEqual(divided.sentences, ['Post the offer.', 'Send the scripts.']);
+  assert.equal(divided.sentences.join(' ').includes('---'), false);
+
+  assert.deepEqual(planPrefetch(['playing', 'queued', 'queued', 'queued'], 2), [1, 2]);
+  assert.deepEqual(planPrefetch(['queued', 'queued', 'queued', 'queued'], 2), [0, 1, 2]);
+  assert.deepEqual(planPrefetch(['playing', 'fetch', 'queued', 'queued'], 2), [2]);
+  assert.deepEqual(planPrefetch(['ready', 'queued', 'queued', 'queued'], 2), [1, 2]);
+
+  const samples = [0, 0, 0, 0.5, 0.2, 0, 0];
+  const trimmed = trimPcmEdges(samples, 100, { threshold: 0.05, maxSeconds: 0.05 });
+  assert.equal(trimmed.start, 3);
+  assert.equal(trimmed.end, 5);
+  const loud = trimPcmEdges([0.4, 0.5, 0.4], 100, { threshold: 0.05, maxSeconds: 0.05 });
+  assert.deepEqual(loud, { start: 0, end: 3 });
+
+  const plan = playbackSchedule({ now: 10, nextStart: 0, duration: 1.2, fade: 0.015, crossfade: 0.012 });
+  assert.ok(plan.fade >= 0.01 && plan.fade <= 0.02);
+  assert.ok(plan.nextStart > plan.startAt);
+  assert.ok(plan.nextStart < plan.startAt + plan.playFor);
+});
+
 test('heads-up echo matches only the same words', () => {
   assert.equal(isEchoOf("I'm still here. I'll pause in a moment if you're done.", COPY.headsUp), true);
   assert.equal(isEchoOf('What is the ARV?', COPY.headsUp), false);
