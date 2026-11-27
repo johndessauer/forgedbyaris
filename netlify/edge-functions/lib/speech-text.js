@@ -30,7 +30,10 @@
 // only on the second number covers both). A spaced dash between currency
 // amounts or comma-grouped numbers stays "minus". A hyphen in a word,
 // phone, ZIP+4, or calendar date is not a range. An em dash between words
-// stays a pause.
+// stays a pause. A bed/bath count is spoken in words ("3/2" is
+// "3 bedroom, 2 bathroom", "3/1.5" is "3 bedroom, 1 and a half bathroom",
+// "3/2/2" adds a car garage). Dates, fractions, ratios, and formula
+// slashes stay division or a date.
 
 export const SPEECH_CHAR_LIMIT = 5000;
 
@@ -1088,6 +1091,75 @@ function normalizePlainRanges(text) {
   });
 }
 
+const BED_LABEL = String.raw`bedrooms?|beds?|brs?|bds?`;
+const BATH_LABEL = String.raw`bathrooms?|baths?|bas?`;
+const BATH_COUNT = String.raw`[0-6]\s*(?:\.5|½)|½|[1-6]`;
+const BED_BATH_BLOCK_AFTER = new Set([
+  'of', 'split', 'ratio', 'percent', 'percentage', 'pct',
+  'bath', 'baths', 'bathroom', 'bathrooms',
+]);
+const BED_BATH_BLOCK_BEFORE = new Set(['ratio', 'split', 'fraction', 'divided']);
+
+function followingWord(text, index) {
+  const match = text.slice(index).match(/^\s*([A-Za-z]+)/);
+  return match ? match[1].toLowerCase() : '';
+}
+
+function precedingWord(text, index) {
+  const match = text.slice(0, index).match(/([A-Za-z]+)\s*$/);
+  return match ? match[1].toLowerCase() : '';
+}
+
+function bedBathBlocked(text, start, end) {
+  if (BED_BATH_BLOCK_BEFORE.has(precedingWord(text, start))) return true;
+  return BED_BATH_BLOCK_AFTER.has(followingWord(text, end));
+}
+
+function speakBathCount(raw) {
+  const text = String(raw).replace(/\s+/g, '');
+  if (text === '½' || text === '.5' || text === '0.5' || text === '0½') return 'half';
+  const half = text.match(/^([0-6])(?:\.5|½)$/);
+  if (half) return half[1] === '0' ? 'half' : `${half[1]} and a half`;
+  if (/^[1-6]$/.test(text)) return text;
+  return null;
+}
+
+function bedBathPhrase(beds, bathRaw, garage) {
+  const bath = speakBathCount(bathRaw);
+  if (!bath) return null;
+  const bedsN = Number(beds);
+  if (!Number.isInteger(bedsN) || bedsN < 1 || bedsN > 9) return null;
+  let phrase = `${beds} bedroom, ${bath} bathroom`;
+  if (garage) phrase += `, ${garage} car garage`;
+  return phrase;
+}
+
+// Listing shorthand only. Beds are 1–9 and baths are 1–6 (optional half).
+// "1/2 of", "70/30 split", dates, and percents are not counts. URLs are
+// already masked. Labels such as "3bd/2ba" and "3 bed/2 bath" count too.
+function normalizeBedBath(text) {
+  const explicit = new RegExp(
+    String.raw`(?<![\p{L}\d.])([1-9])\s*(${BED_LABEL})\s*/\s*(${BATH_COUNT})\s*(${BATH_LABEL})(?:\s*/\s*([1-9]))?(?![\p{L}\d/])(?!\.\d)`,
+    'giu'
+  );
+  const labeled = text.replace(explicit, (match, beds, _bedWord, bathRaw, _bathWord, garage, offset, source) => {
+    const end = offset + match.length;
+    if (bedBathBlocked(source, offset, end)) return match;
+    const phrase = bedBathPhrase(beds, bathRaw, garage);
+    return phrase == null ? match : phrase;
+  });
+  const bare = new RegExp(
+    String.raw`(?<![\p{L}\d./])([1-9])\s*/\s*(${BATH_COUNT})(?:\s*/\s*([1-9]))?(?![\d/%])(?!\.\d)`,
+    'giu'
+  );
+  return labeled.replace(bare, (match, beds, bathRaw, garage, offset, source) => {
+    const end = offset + match.length;
+    if (bedBathBlocked(source, offset, end)) return match;
+    const phrase = bedBathPhrase(beds, bathRaw, garage);
+    return phrase == null ? match : phrase;
+  });
+}
+
 // Runs before currency and percent spelling. Glued numeric ranges, percent
 // ranges (spaced or not), and year spans become "to". A spaced dash between
 // currency amounts or comma-grouped numbers is left for the minus pass.
@@ -1105,7 +1177,7 @@ export function normalizeSpeechText(raw) {
     expandAbbreviations(
       pronounceLoanTerms(
         pronounceRateShorthands(
-          normalizeCurrency(normalizeNumericRanges(normalizeApproximations(masked)))
+          normalizeCurrency(normalizeNumericRanges(normalizeBedBath(normalizeApproximations(masked))))
         )
       )
     )

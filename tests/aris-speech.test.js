@@ -763,6 +763,67 @@ test('numeric ranges are spoken with to, and non-ranges stay put', async () => {
   );
 });
 
+test('bed and bath shorthand is spoken as bedrooms and bathrooms', async () => {
+  const { normalizeSpeechText, prepareSpeechText } = await loadSpeech();
+  const cases = [
+    [
+      'Single family, 3/2 or 4/2, in stable neighborhoods',
+      'Single family, 3 bedroom, 2 bathroom or 4 bedroom, 2 bathroom, in stable neighborhoods',
+    ],
+    ['3/2', '3 bedroom, 2 bathroom'],
+    ['It is a 3/2.', 'It is a 3 bedroom, 2 bathroom.'],
+    ['3 bed/2 bath.', '3 bedroom, 2 bathroom.'],
+    ['4/2', '4 bedroom, 2 bathroom'],
+    ['3/1.5', '3 bedroom, 1 and a half bathroom'],
+    ['3/1½', '3 bedroom, 1 and a half bathroom'],
+    ['3/1 ½', '3 bedroom, 1 and a half bathroom'],
+    ['4/2.5', '4 bedroom, 2 and a half bathroom'],
+    ['3/2/2', '3 bedroom, 2 bathroom, 2 car garage'],
+    ['3/1.5/2', '3 bedroom, 1 and a half bathroom, 2 car garage'],
+    ['3bd/2ba', '3 bedroom, 2 bathroom'],
+    ['3BD/2BA', '3 bedroom, 2 bathroom'],
+    ['3 bed/2 bath', '3 bedroom, 2 bathroom'],
+    ['3 Bed/2 Bath', '3 bedroom, 2 bathroom'],
+    ['3br/2ba', '3 bedroom, 2 bathroom'],
+    ['3 br / 2 ba', '3 bedroom, 2 bathroom'],
+    ['3 beds/2 baths', '3 bedroom, 2 bathroom'],
+    ['9/6', '9 bedroom, 6 bathroom'],
+    ['1/2', '1 bedroom, 2 bathroom'],
+    // Not bed/bath. Dates, fractions, ratios, percents, formulas, and URLs.
+    ['11/27', '11 divided by 27'],
+    ['11/27/2026', '11/27/2026'],
+    ['closed on 11/12/2026', 'closed on 11/12/2026'],
+    ['1/2 of the ARV', '1 divided by 2 of the after-repair value'],
+    ['1/2 bath', '1 divided by 2 bath'],
+    ['50/50', '50 divided by 50'],
+    ['70/30 split', '70 divided by 30 split'],
+    ['10/2', '10 divided by 2'],
+    ['3/7', '3 divided by 7'],
+    ['75%', 'seventy-five percent'],
+    ['NOI / cap rate', 'net operating income divided by capitalization rate'],
+    ['$18,000 / $200,000', 'eighteen thousand dollars divided by two hundred thousand dollars'],
+    ['and/or the NOI', 'and/or the net operating income'],
+    ['See https://example.com/3/2 for the house', 'See https://example.com/3/2 for the house'],
+    ['ARV × 0.70 − Repairs', 'after-repair value times 0.70 minus Repairs'],
+    [
+      'MAO = ARV × 0.70 − repair costs',
+      'maximum allowable offer equals after-repair value times 0.70 minus repair costs',
+    ],
+    ['$80,000–$140,000', 'eighty thousand dollars to one hundred forty thousand dollars'],
+    [
+      'Single family, 3/2 or 4/2, $80,000–$140,000',
+      'Single family, 3 bedroom, 2 bathroom or 4 bedroom, 2 bathroom, eighty thousand dollars to one hundred forty thousand dollars',
+    ],
+  ];
+  for (const [input, expected] of cases) {
+    assert.equal(normalizeSpeechText(input), expected, input);
+  }
+  assert.equal(
+    prepareSpeechText('Single family, 3/2 or 4/2, in stable neighborhoods'),
+    'Single family, 3 bedroom, 2 bathroom or 4 bedroom, 2 bathroom, in stable neighborhoods'
+  );
+});
+
 test('voice request speaks a percent range with to', async () => {
   const mod = await loadEdge('aris-voice.js');
   let sent = null;
