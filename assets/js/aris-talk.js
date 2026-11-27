@@ -247,6 +247,20 @@
   var ABBREV = /(?:Mr|Mrs|Ms|Dr|Prof|Sr|Jr|St|vs|etc|Inc|Ltd|Co|Ave|Blvd|Rd|No|Fig|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec|a\.m|p\.m|e\.g|i\.e|U\.S|U\.K|AM|PM)\.$/i;
   var DOTTED_ABBREV = ['a.m.', 'a.m', 'p.m.', 'p.m', 'e.g.', 'e.g', 'i.e.', 'i.e', 'u.s.', 'u.s', 'u.k.', 'u.k'];
 
+  function collapseSpokenSources(text) {
+    return String(text || '').replace(/\n+\s*sources?\s*:?\s*([\s\S]*)$/i, function (_, body) {
+      var names = [];
+      var lines = String(body || '').split(/\n+/);
+      var i;
+      for (i = 0; i < lines.length && names.length < 2; i += 1) {
+        var cleaned = lines[i].replace(/^[-*•\d.)\s]+/, '').replace(/\s+/g, ' ').trim();
+        if (cleaned) names.push(cleaned.slice(0, 80));
+      }
+      if (!names.length) return '\n';
+      return '\nSource: ' + names.join(' and ') + '.';
+    });
+  }
+
   function stripMarkdownForSpeech(text) {
     var s = String(text || '');
     s = s.replace(/<<<DEAL_DATA[\s\S]*?DEAL_DATA>>>/g, ' ');
@@ -267,6 +281,9 @@
     s = s.replace(/(?:^|\s)(?:[-*_]){3,}(?=\s|$)/g, ' ');
     s = s.replace(/(?:^|\s)[—–]{2,}(?=\s|$)/g, ' ');
     s = s.replace(/\[([^\]]+)\]\([^)]*\)/g, '$1');
+    s = s.replace(/\bhttps?:\/\/\S+/gi, ' ');
+    s = s.replace(/\bwww\.\S+/gi, ' ');
+    s = collapseSpokenSources(s);
     s = s.replace(/\*\*\*([^*]+)\*\*\*/g, '$1');
     s = s.replace(/\*\*([^*]+)\*\*/g, '$1');
     s = s.replace(/__([^_]+)__/g, '$1');
@@ -461,6 +478,188 @@
     var b = normalizeEcho(spoken);
     if (!a || !b) return false;
     return a === b;
+  }
+
+  var PRE_ROLL_MS = 500;
+
+  function rmsFromFloat(samples) {
+    if (!samples || !samples.length) return 0;
+    var sum = 0;
+    var i;
+    for (i = 0; i < samples.length; i += 1) {
+      var v = Number(samples[i]) || 0;
+      sum += v * v;
+    }
+    return Math.sqrt(sum / samples.length);
+  }
+
+  function createPreRoll(sampleRate, ms) {
+    var rate = sampleRate > 0 ? sampleRate : 48000;
+    var windowMs = ms == null ? PRE_ROLL_MS : ms;
+    if (windowMs < 300) windowMs = 300;
+    if (windowMs > 500) windowMs = 500;
+    var capacity = Math.max(1, Math.round(rate * windowMs / 1000));
+    var buffer = new Float32Array(capacity);
+    var write = 0;
+    var filled = 0;
+    return {
+      sampleRate: rate,
+      windowMs: windowMs,
+      capacity: capacity,
+      push: function (samples) {
+        var incoming = samples instanceof Float32Array ? samples : Float32Array.from(samples || []);
+        var i;
+        for (i = 0; i < incoming.length; i += 1) {
+          buffer[write] = incoming[i];
+          write = (write + 1) % capacity;
+          if (filled < capacity) filled += 1;
+        }
+      },
+      snapshot: function () {
+        var out = new Float32Array(filled);
+        var start = filled < capacity ? 0 : write;
+        var i;
+        for (i = 0; i < filled; i += 1) out[i] = buffer[(start + i) % capacity];
+        return out;
+      },
+      reset: function () {
+        write = 0;
+        filled = 0;
+        buffer.fill(0);
+      },
+    };
+  }
+
+  function concatPcm(parts) {
+    var list = [];
+    var total = 0;
+    var i;
+    for (i = 0; i < parts.length; i += 1) {
+      if (!parts[i] || !parts[i].length) continue;
+      list.push(parts[i]);
+      total += parts[i].length;
+    }
+    var out = new Float32Array(total);
+    var offset = 0;
+    var j;
+    for (j = 0; j < list.length; j += 1) {
+      out.set(list[j], offset);
+      offset += list[j].length;
+    }
+    return out;
+  }
+
+  function encodeWav(samples, sampleRate) {
+    var rate = sampleRate > 0 ? sampleRate : 16000;
+    var data = samples instanceof Float32Array ? samples : Float32Array.from(samples || []);
+    var n = data.length;
+    var buffer = new ArrayBuffer(44 + n * 2);
+    var view = new DataView(buffer);
+    function writeStr(offset, str) {
+      var c;
+      for (c = 0; c < str.length; c += 1) view.setUint8(offset + c, str.charCodeAt(c));
+    }
+    writeStr(0, 'RIFF');
+    view.setUint32(4, 36 + n * 2, true);
+    writeStr(8, 'WAVE');
+    writeStr(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, rate, true);
+    view.setUint32(28, rate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeStr(36, 'data');
+    view.setUint32(40, n * 2, true);
+    var o = 44;
+    var s;
+    for (s = 0; s < n; s += 1) {
+      var sample = Math.max(-1, Math.min(1, data[s] || 0));
+      view.setInt16(o, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+      o += 2;
+    }
+    return new Uint8Array(buffer);
+  }
+
+  // Captures from the moment the mic is open. speech_start snapshots the
+  // pre-roll, so the onset that the VAD needed in order to fire is inside
+  // the clip instead of being dropped.
+  function createTalkCapture(options) {
+    var opts = options || {};
+    var sampleRate = opts.sampleRate > 0 ? opts.sampleRate : 48000;
+    var pre = createPreRoll(sampleRate, opts.preRollMs == null ? PRE_ROLL_MS : opts.preRollMs);
+    var vad = createVad(opts.vad);
+    var active = false;
+    var lead = null;
+    var chunks = [];
+
+    function copyOf(samples) {
+      var incoming = samples instanceof Float32Array ? samples : Float32Array.from(samples || []);
+      return incoming.slice();
+    }
+
+    return {
+      sampleRate: sampleRate,
+      preRollMs: pre.windowMs,
+      pending: function () { return active; },
+      reset: function () {
+        active = false;
+        lead = null;
+        chunks = [];
+        pre.reset();
+        vad.reset();
+      },
+      push: function (samples, dt, mode) {
+        var incoming = copyOf(samples);
+        pre.push(incoming);
+        var heard = vad.push(rmsFromFloat(incoming), dt, mode || 'listening');
+        if (heard === 'speech_start') {
+          lead = pre.snapshot();
+          chunks = [];
+          active = true;
+          return { event: 'speech_start' };
+        }
+        if (heard === 'speech_reject') {
+          active = false;
+          lead = null;
+          chunks = [];
+          return { event: 'speech_reject' };
+        }
+        if (heard === 'speech_end') {
+          if (!active) return { event: 'speech_end', samples: new Float32Array(0), wav: null };
+          var merged = concatPcm([lead].concat(chunks));
+          active = false;
+          lead = null;
+          chunks = [];
+          return { event: 'speech_end', samples: merged, wav: encodeWav(merged, sampleRate) };
+        }
+        if (active) chunks.push(incoming);
+        return { event: heard };
+      },
+    };
+  }
+
+  // A clip that finishes while permissions or the session handshake are
+  // still in flight is held and sent once listening is actually on.
+  function holdOpeningClip(state, result) {
+    var held = state || { ready: false, wav: null };
+    if (result && result.event === 'speech_end' && result.wav && result.wav.length > 44) {
+      if (!held.ready) {
+        held.wav = result.wav;
+        return { state: held, send: null };
+      }
+      return { state: held, send: result.wav };
+    }
+    return { state: held, send: null };
+  }
+
+  function markCaptureReady(state) {
+    var held = state || { ready: false, wav: null };
+    var send = held.wav || null;
+    held.ready = true;
+    held.wav = null;
+    return { state: held, send: send };
   }
 
   function rmsFromTimeDomain(samples) {
@@ -737,6 +936,14 @@
     nextSentences: nextSentences,
     isEchoOf: isEchoOf,
     rmsFromTimeDomain: rmsFromTimeDomain,
+    rmsFromFloat: rmsFromFloat,
+    createPreRoll: createPreRoll,
+    concatPcm: concatPcm,
+    encodeWav: encodeWav,
+    createTalkCapture: createTalkCapture,
+    holdOpeningClip: holdOpeningClip,
+    markCaptureReady: markCaptureReady,
+    PRE_ROLL_MS: PRE_ROLL_MS,
     createVad: createVad,
     statusLabel: statusLabel,
     buttonLabel: buttonLabel,

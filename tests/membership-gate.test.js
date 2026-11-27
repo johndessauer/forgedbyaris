@@ -402,6 +402,9 @@ async function loadEdge(name) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gate-'));
   fs.mkdirSync(path.join(dir, 'lib'));
   fs.copyFileSync(path.join(edge, name), path.join(dir, name.replace(/\.js$/, '.mjs')));
+  for (const file of fs.readdirSync(path.join(edge, 'lib'))) {
+    if (file.endsWith('.js')) fs.copyFileSync(path.join(edge, 'lib', file), path.join(dir, 'lib', file));
+  }
   fs.copyFileSync(path.join(edge, 'lib', 'membership.js'), path.join(dir, 'lib', 'membership.js'));
   const speech = path.join(edge, 'lib', 'speech-text.js');
   if (fs.existsSync(speech)) fs.copyFileSync(speech, path.join(dir, 'lib', 'speech-text.js'));

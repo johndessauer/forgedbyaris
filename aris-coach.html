@@ -468,6 +468,13 @@
   .msg-bubble ul, .msg-bubble ol { padding-left: 18px; margin: 8px 0; }
   .msg-bubble li { margin-bottom: 4px; }
   .msg-bubble p + p { margin-top: 10px; }
+  .msg-bubble a { color: var(--gold); text-decoration: underline; }
+  .msg-status {
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    color: var(--gold);
+    padding: 0 4px 2px;
+  }
 
   .aris-signature {
     font-family: 'Bebas Neue', sans-serif;
@@ -1189,6 +1196,7 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
       .replace(/^/, '<p>')
       .replace(/$/, '</p>')
       .replace(/<p><\/p>/g, '')
+      .replace(/\[([^\]]+)\]\((https?:\/\/[^\s"'<>)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
       // convert markdown bullets
       .replace(/<br>- (.*?)(?=<br>|<\/p>)/g, '<br>• $1')
       .replace(/<p>- (.*?)<\/p>/g, '<p>• $1</p>')
@@ -2061,6 +2069,7 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
       <div class="msg-avatar" style="background:linear-gradient(135deg,#162840,#0D1B2A);border:1.5px solid #C89B3C;font-family:'Bebas Neue',sans-serif;letter-spacing:1px;color:#C89B3C;font-size:10px;">ARIS</div>
       <div class="msg-content">
         <div class="msg-meta">ARIS &nbsp;·&nbsp; ${getTime()}</div>
+        <div class="msg-status" hidden></div>
         <div class="msg-bubble"><span class="stream-cursor">▍</span></div>
       </div>
     `;
@@ -2068,7 +2077,12 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
     messages.scrollTop = messages.scrollHeight;
     const bubble = row.querySelector('.msg-bubble');
     const metaEl = row.querySelector('.msg-meta');
+    const statusEl = row.querySelector('.msg-status');
     return {
+      status(text) {
+        statusEl.hidden = false;
+        statusEl.textContent = text;
+      },
       update(rawText) {
         bubble.innerHTML = escapeHtmlCoach(rawText).replace(/\n/g, '<br>') + '<span class="stream-cursor">▍</span>';
         messages.scrollTop = messages.scrollHeight;
@@ -2176,6 +2190,12 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
         let parsed;
         try { parsed = JSON.parse(jsonStr); } catch (e) { continue; }
 
+        if (parsed.type === 'aris_status' && parsed.status === 'research') {
+          const line = parsed.text || 'Let me research that';
+          streamHandle.status(line);
+          talkHook('onResearch', line);
+          continue;
+        }
         if (parsed.type === 'content_block_start') {
           blockTypes[parsed.index] = parsed.content_block?.type;
           if (parsed.content_block?.type === 'tool_use') {

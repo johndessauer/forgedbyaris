@@ -366,6 +366,57 @@ test('list markers, clock times, and markdown stay in one spoken chunk', () => {
   assert.ok(plan.nextStart < plan.startAt + plan.playFor);
 });
 
+test('pre-roll keeps the onset that voice activity used to notice speech', () => {
+  const { createTalkCapture, createPreRoll, holdOpeningClip, markCaptureReady, PRE_ROLL_MS } = talk;
+  assert.ok(PRE_ROLL_MS >= 300 && PRE_ROLL_MS <= 500);
+  const roll = createPreRoll(1000, 400);
+  assert.equal(roll.windowMs, 400);
+  assert.equal(roll.capacity, 400);
+  roll.push(new Float32Array(500).fill(0.25));
+  const snap = roll.snapshot();
+  assert.equal(snap.length, 400);
+  assert.ok(snap.every((sample) => sample === 0.25));
+
+  const capture = createTalkCapture({
+    sampleRate: 1000,
+    preRollMs: 400,
+    vad: { speechRms: 0.05, speechFrames: 3, silenceMs: 200, minUtteranceMs: 50 },
+  });
+  const quiet = new Float32Array(100);
+  const loud = new Float32Array(100).fill(0.5);
+  assert.equal(capture.push(quiet, 100, 'listening').event, 'silence');
+  assert.equal(capture.push(loud, 100, 'listening').event, 'noise');
+  assert.equal(capture.push(loud, 100, 'listening').event, 'noise');
+  assert.equal(capture.push(loud, 100, 'listening').event, 'speech_start');
+  capture.push(loud, 100, 'listening');
+  const ended = capture.push(quiet, 250, 'listening');
+  assert.equal(ended.event, 'speech_end');
+  const loudSamples = Array.from(ended.samples).filter((sample) => sample > 0.4).length;
+  assert.ok(loudSamples >= 300, 'onset frames before speech_start must stay in the clip, got ' + loudSamples);
+  assert.equal(ended.wav[0], 82); // R
+  assert.equal(String.fromCharCode(ended.wav[8], ended.wav[9], ended.wav[10], ended.wav[11]), 'WAVE');
+
+  let opening = { ready: false, wav: null };
+  const early = holdOpeningClip(opening, { event: 'speech_end', wav: ended.wav });
+  opening = early.state;
+  assert.equal(early.send, null);
+  const ready = markCaptureReady(opening);
+  assert.equal(ready.send, ended.wav);
+  assert.equal(ready.state.ready, true);
+  const later = holdOpeningClip(ready.state, { event: 'speech_end', wav: ended.wav });
+  assert.equal(later.send, ended.wav);
+});
+
+test('a sourced reply is spoken without the URL', () => {
+  const cited = segmentSpeech(
+    'Crown Point has no stop.\n\nSources\n- NICTD https://nictd.com/stations\n- West Lake Corridor',
+    true
+  );
+  const spoken = cited.sentences.join(' ');
+  assert.equal(spoken.includes('http'), false);
+  assert.match(spoken, /Source: NICTD and West Lake Corridor/);
+});
+
 test('heads-up echo matches only the same words', () => {
   assert.equal(isEchoOf("I'm still here. I'll pause in a moment if you're done.", COPY.headsUp), true);
   assert.equal(isEchoOf('What is the ARV?', COPY.headsUp), false);
@@ -538,6 +589,9 @@ test('coach page gates Talk Mode and the dashboard Ask ARIS box does not get it'
   assert.equal(/createRequire\s*\(\s*import\.meta\.url\s*\)/.test(fn), false);
   assert.equal(/createRequire\s*\(\s*import\.meta\.url\s*\)/.test(session), false);
   assert.match(session, /\/api\/aris-transcribe/);
+  assert.match(session, /createTalkCapture/);
+  assert.match(session, /onResearch/);
+  assert.match(session, /heldWav/);
   assert.match(session, /\/api\/aris-voice/);
   assert.match(session, /\/api\/aris-talk/);
   assert.equal(/SpeechRecognition|webkitSpeechRecognition/.test(session), false);

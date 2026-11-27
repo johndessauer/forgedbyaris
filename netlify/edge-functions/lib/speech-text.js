@@ -179,8 +179,36 @@ function spokenImageAlt(alt) {
   return text;
 }
 
+function sourceNames(body) {
+  const names = [];
+  const linkRe = /\[([^\]]+)\]\([^)]*\)/g;
+  let match = linkRe.exec(body);
+  while (match && names.length < 2) {
+    const name = match[1].replace(/\s+/g, ' ').trim();
+    if (name) names.push(name);
+    match = linkRe.exec(body);
+  }
+  if (names.length) return names;
+  for (const line of body.split(/\n+/)) {
+    if (names.length >= 2) break;
+    const cleaned = line.replace(/^[-*•\d.)\s]+/, '').replace(/https?:\/\/\S+/gi, '').replace(/\s+/g, ' ').trim();
+    if (cleaned) names.push(cleaned.slice(0, 80));
+  }
+  return names;
+}
+
+// A trailing Sources block is spoken as one short line of site names.
+// The written chat keeps the links. URLs are not read aloud.
+function briefSpokenSources(text) {
+  return String(text).replace(/\n+\s*(?:\*\*)?\s*sources?\s*:?\s*(?:\*\*)?\s*([\s\S]*)$/i, (_, body) => {
+    const names = sourceNames(body);
+    if (!names.length) return '\n';
+    return `\nSource: ${names.join(' and ')}.`;
+  });
+}
+
 export function stripMarkdownForSpeech(text) {
-  let s = String(text);
+  let s = briefSpokenSources(text);
   s = s.replace(/!\s*\[([^\]]*)\]\([^)]*\)/g, (_, alt) => {
     const words = spokenImageAlt(alt);
     return words ? ` ${words} ` : ' ';
@@ -207,6 +235,8 @@ export function stripMarkdownForSpeech(text) {
   s = s.replace(/^[-*+]\s+/gm, '');
   s = s.replace(/^\d+\.\s+/gm, '');
   s = s.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+  s = s.replace(/\bhttps?:\/\/\S+/gi, ' ');
+  s = s.replace(/\bwww\.\S+/gi, ' ');
   s = s.replace(/\|/g, ' ');
   s = s.replace(/(?:^|\s)(?:[-*_]){3,}(?=\s|$)/g, ' ');
   s = s.replace(/(?:^|\s)[—–]{2,}(?=\s|$)/g, ' ');
