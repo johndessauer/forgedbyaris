@@ -97,7 +97,8 @@ export default async (request, context) => {
   // are spoken as digits. A postal abbreviation in a city, address, or
   // market is spoken as the state name ("Dallas, TX" → Texas). A numeric
   // range is spoken with "to" ("3–5%" → "three to five percent"). A bed/bath
-  // count is spoken in words ("3/2" → "3 bedroom, 2 bathroom").
+  // count is spoken in words ("3/2" → "3 bedroom, 2 bathroom"). A date is
+  // "November 27th", and a word slash such as "buy/hold" is "buy or hold".
   const speechText = prepareSpeechText(rawText, SPEECH_CHAR_LIMIT);
   if (!speechText) {
     return new Response(JSON.stringify({ error: 'Nothing left to speak after stripping formatting' }), {

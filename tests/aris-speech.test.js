@@ -167,7 +167,7 @@ test('abbreviations expand on word boundaries and leave ARIS, URLs, HTML, and lo
   assert.match(spoken, /capitalization rate six point five percent/);
   assert.match(
     normalizeSpeechText('NOI / cap rate = $1,200,000 and LTV = 0.75.'),
-    /net operating income divided by capitalization rate equals one million two hundred thousand dollars and loan-to-value equals zero point seven five\./
+    /net operating income or capitalization rate equals one million two hundred thousand dollars and loan-to-value equals zero point seven five\./
   );
   assert.match(spoken, /HARVARD CARVING NOISE MAOIST capacity recap rate/);
   assert.match(spoken, /https:\/\/example\.com\/ARV\?price=\$100/);
@@ -287,9 +287,9 @@ test('formulas speak math operators and leave prose hyphens alone', async () => 
     ['Add the fee. Added value is a plus.', 'Add the fee. Added value is a plus.'],
     ['2 * 3 * 4', '2 times 3 times 4'],
     ['*NOI*', 'net operating income'],
-    ['and/or the NOI', 'and/or the net operating income'],
+    ['and/or the NOI', 'and or the net operating income'],
     ['w/ the seller', 'w/ the seller'],
-    ['closed on 11/12/2026', 'closed on 11/12/2026'],
+    ['closed on 11/12/2026', 'closed on November 12th, 2026'],
     ['See https://example.com/ARV?price=$100', 'See https://example.com/ARV?price=$100'],
     ['512-555-0123', 'five one two, five five five, oh one two three'],
     ['property ID 83702', 'property ID eight three seven oh two'],
@@ -353,11 +353,12 @@ test('period slashes are per-unit and formula slashes stay divided by', async ()
     ['$2,000/unit', 'two thousand dollars per unit'],
     ['$18,000 / $200,000', 'eighteen thousand dollars divided by two hundred thousand dollars'],
     ['$18,000 / $200,000 = 9%', 'eighteen thousand dollars divided by two hundred thousand dollars equals nine percent'],
-    ['NOI / cap rate', 'net operating income divided by capitalization rate'],
-    // Not a period unit. /monthly is still division, and a date stays a date.
-    ['rent/monthly', 'rent divided by monthly'],
-    ['closed on 11/12/2026', 'closed on 11/12/2026'],
-    ['and/or the NOI', 'and/or the net operating income'],
+    ['NOI / cap rate', 'net operating income or capitalization rate'],
+    // A slash between words is "or". A dollar slash stays division.
+    ['rent/monthly', 'rent or monthly'],
+    ['buy/hold', 'buy or hold'],
+    ['closed on 11/12/2026', 'closed on November 12th, 2026'],
+    ['and/or the NOI', 'and or the net operating income'],
   ];
   for (const [input, expected] of cases) {
     assert.equal(normalizeSpeechText(input), expected, input);
@@ -732,8 +733,8 @@ test('numeric ranges are spoken with to, and non-ranges stay put', async () => {
     ['(512) 555-0123', 'five one two, five five five, oh one two three'],
     ['512.555.0123', 'five one two, five five five, oh one two three'],
     ['11-27-2026', '11-27-2026'],
-    ['11/27/2026', '11/27/2026'],
-    ['closed on 11/12/2026', 'closed on 11/12/2026'],
+    ['11/27/2026', 'November 27th, 2026'],
+    ['closed on 11/12/2026', 'closed on November 12th, 2026'],
     ['2026-11-27', '2026-11-27'],
     ['11-2026', '11-2026'],
     ['33101-1234', 'three three one oh one, one two three four'],
@@ -790,24 +791,38 @@ test('bed and bath shorthand is spoken as bedrooms and bathrooms', async () => {
     ['9/6', '9 bedroom, 6 bathroom'],
     ['1/2', '1 bedroom, 2 bathroom'],
     // Not bed/bath. Dates, fractions, ratios, percents, formulas, and URLs.
-    ['11/27', '11 divided by 27'],
-    ['11/27/2026', '11/27/2026'],
-    ['closed on 11/12/2026', 'closed on 11/12/2026'],
-    ['1/2 of the ARV', '1 divided by 2 of the after-repair value'],
-    ['1/2 bath', '1 divided by 2 bath'],
-    ['50/50', '50 divided by 50'],
-    ['70/30 split', '70 divided by 30 split'],
-    ['10/2', '10 divided by 2'],
-    ['3/7', '3 divided by 7'],
+    ['11/27', 'November 27th'],
+    ['11/27/2026', 'November 27th, 2026'],
+    ['11/27/26', 'November 27th, 2026'],
+    ['02/05/2026', 'February 5th, 2026'],
+    ['closed on 11/12/2026', 'closed on November 12th, 2026'],
+    ['1/2 of the ARV', 'half of the after-repair value'],
+    ['1/2 bath', 'half bath'],
+    ['1/3', 'one third'],
+    ['1/4', 'one quarter'],
+    ['2/3', 'two thirds'],
+    ['3/4', 'three quarters'],
+    ['3/4 of the price', 'three quarters of the price'],
+    ['Single family, 3/4', 'Single family, 3 bedroom, 4 bathroom'],
+    ['50/50', 'fifty-fifty'],
+    ['70/30 split', '70-30 split'],
+    ['80/20', '80-20'],
+    ['24/7', '24 7'],
+    ['10/2', 'October 2nd'],
+    ['3/7', 'March 7th'],
+    ['13/40', '13-40'],
+    ['buy/hold', 'buy or hold'],
     ['75%', 'seventy-five percent'],
-    ['NOI / cap rate', 'net operating income divided by capitalization rate'],
+    ['NOI / cap rate', 'net operating income or capitalization rate'],
     ['$18,000 / $200,000', 'eighteen thousand dollars divided by two hundred thousand dollars'],
-    ['and/or the NOI', 'and/or the net operating income'],
+    ['and/or the NOI', 'and or the net operating income'],
     ['See https://example.com/3/2 for the house', 'See https://example.com/3/2 for the house'],
-    ['ARV × 0.70 − Repairs', 'after-repair value times 0.70 minus Repairs'],
+    ['ARV × 0.70 − Repairs', 'after-repair value times 70 percent minus Repairs'],
+    ['arv x .7 − repairs', 'after-repair value times 70 percent minus repairs'],
+    ['ARV x 0.7 − Repairs', 'after-repair value times 70 percent minus Repairs'],
     [
       'MAO = ARV × 0.70 − repair costs',
-      'maximum allowable offer equals after-repair value times 0.70 minus repair costs',
+      'maximum allowable offer equals after-repair value times 70 percent minus repair costs',
     ],
     ['$80,000–$140,000', 'eighty thousand dollars to one hundred forty thousand dollars'],
     [
