@@ -311,6 +311,7 @@
     s = s.replace(/(^|[\s(])\*([A-Za-z][^*]*?)\*(?=[\s).,!?:;]|$)/g, '$1$2');
     s = s.replace(/(^|[\s(])_([A-Za-z][^_]*?)_(?=[\s).,!?:;]|$)/g, '$1$2');
     s = s.replace(/^#{1,6}\s+/gm, '');
+    s = s.replace(/^[ \t]*>[ \t]?/gm, '');
     s = s.replace(/^[ \t]*[-*+]\s+/gm, '');
     s = s.replace(/(^|\n)\s*\d{1,2}\.\s+/g, '$1');
     s = s.replace(/\*/g, function (match, offset, src) {
@@ -717,6 +718,82 @@
   // What the mic loop should do for one voice-activity event.
   // While ARIS is speaking, the first loud frames only arm the recorder.
   // Playback stops once that loudness holds long enough to be the member.
+  function interruptionIsEcho(heard, spoken) {
+    var h = normalizeEcho(heard);
+    var s = normalizeEcho(spoken);
+    if (!h) return true;
+    if (!s) return false;
+    if (h === s || s.indexOf(h) !== -1) return true;
+    var words = h.split(' ').filter(function (word) { return word.length > 2; });
+    if (!words.length) return true;
+    var hits = 0;
+    var i;
+    for (i = 0; i < words.length; i += 1) {
+      if (s.indexOf(words[i]) !== -1) hits += 1;
+    }
+    return hits / words.length >= 0.75;
+  }
+
+  // iPhone speaker echo is loud and echo cancellation is weak. A barge-in
+  // has to stay above the level we are actually hearing from playback, for
+  // about half a second, and not during the attack of a new sentence.
+  var BARGE_HOLD_MS = 500;
+  var BARGE_GRACE_MS = 300;
+  var BARGE_RATIO = 2.5;
+  var BARGE_FLOOR = 0.1;
+
+  function createBargeWatch(options) {
+    var opts = options || {};
+    var holdMs = opts.holdMs == null ? BARGE_HOLD_MS : opts.holdMs;
+    var graceMs = opts.graceMs == null ? BARGE_GRACE_MS : opts.graceMs;
+    var ratio = opts.ratio == null ? BARGE_RATIO : opts.ratio;
+    var floor = opts.floor == null ? BARGE_FLOOR : opts.floor;
+    var baseline = opts.baseline == null ? 0.03 : opts.baseline;
+    var sentenceAt = 0;
+    var hasSentence = false;
+    var loudMs = 0;
+
+    function limit() {
+      return Math.max(floor, baseline * ratio);
+    }
+
+    return {
+      holdMs: holdMs,
+      graceMs: graceMs,
+      limit: limit,
+      baseline: function () { return baseline; },
+      noteSentence: function (now) {
+        sentenceAt = Number(now) || 0;
+        hasSentence = true;
+        loudMs = 0;
+      },
+      reset: function () {
+        loudMs = 0;
+      },
+      push: function (sample) {
+        var rms = Number(sample && sample.rms) || 0;
+        var dt = Math.max(0, Number(sample && sample.dt) || 0);
+        var t = Number(sample && sample.now) || 0;
+        var ceiling = limit();
+        if (hasSentence && t - sentenceAt < graceMs) {
+          baseline = baseline * 0.7 + rms * 0.3;
+          loudMs = 0;
+          return 'grace';
+        }
+        if (rms >= ceiling) {
+          loudMs += dt;
+          if (loudMs >= holdMs) return 'candidate';
+          if (loudMs >= 80) return 'arm';
+          return 'rise';
+        }
+        baseline = baseline * 0.8 + rms * 0.2;
+        var wasLoud = loudMs > 0;
+        loudMs = 0;
+        return wasLoud ? 'idle' : 'quiet';
+      },
+    };
+  }
+
   function planVadAction(state, heard) {
     var phase = state && state.phase;
     var priming = !!(state && state.priming);
@@ -1011,6 +1088,10 @@
     talkUnlimited: talkUnlimited,
     talkTimeBlocked: talkTimeBlocked,
     planVadAction: planVadAction,
+    createBargeWatch: createBargeWatch,
+    interruptionIsEcho: interruptionIsEcho,
+    BARGE_HOLD_MS: BARGE_HOLD_MS,
+    BARGE_GRACE_MS: BARGE_GRACE_MS,
     monthKeyFromDate: monthKeyFromDate,
     cleanSeconds: cleanSeconds,
     applyUsage: applyUsage,
