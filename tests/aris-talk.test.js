@@ -520,7 +520,21 @@ test('speaker echo does not stop playback, and a louder sustained voice can', ()
   var many = talk.simulateTalkTurns(10);
   assert.equal(many.phase, 'listening');
   assert.equal(many.turns, 10);
+  assert.equal(many.recovered, null);
   assert.ok(many.log.filter(function (name) { return name === 'listening'; }).length >= 11);
+
+  var mogulStall = talk.simulateTalkTurns(1, { style: 'natural', stall: true });
+  assert.equal(mogulStall.recovered.from, 'speaking');
+  assert.equal(mogulStall.phase, 'listening');
+  assert.equal(talk.statusLabel(mogulStall.phase, false), 'Listening');
+
+  var turnStall = talk.simulateTalkTurns(1, { style: 'turn', stall: true });
+  assert.equal(turnStall.style, 'turn');
+  assert.equal(turnStall.recovered.from, 'speaking');
+  assert.equal(turnStall.recovered.phase, 'ready');
+  assert.equal(turnStall.phase, 'ready');
+  assert.equal(talk.statusLabel(turnStall.phase, false), 'Your turn — tap Talk');
+  assert.equal(talk.COPY.yourTurn, 'Your turn — tap Talk');
 
   const session = fs.readFileSync(path.join(root, 'assets/js/aris-talk-session.js'), 'utf8');
   assert.match(session, /createBargeWatch/);
@@ -530,6 +544,8 @@ test('speaker echo does not stop playback, and a louder sustained voice can', ()
   assert.match(session, /ARIS talk state:/);
   assert.match(session, /createTalkWatchdog/);
   assert.match(session, /recoverToListening/);
+  assert.match(session, /function recoverToListening\(reason\) \{[\s\S]*?returnToMember\(\)/);
+  assert.equal(/function recoverToListening\(reason\) \{[\s\S]*?machine\.markListening\(/.test(session), false);
   assert.match(session, /logPlayback\('recorder-error'\)/);
   assert.match(session, /speechDeadline/);
   assert.match(session, /recoverToListening\('stream'\)/);
@@ -739,6 +755,7 @@ test('coach page gates Talk Mode and the dashboard Ask ARIS box does not get it'
   const coach = fs.readFileSync(path.join(root, 'aris-coach.html'), 'utf8');
   const dash = fs.readFileSync(path.join(root, 'dashboard.html'), 'utf8');
   assert.match(coach, /id="talk-btn"[^>]*hidden/);
+  assert.match(coach, /id="talk-pack"[^>]*hidden/);
   assert.match(coach, /Talk Mode paused — tap to resume/);
   assert.match(coach, /\/assets\/js\/aris-talk\.js/);
   assert.match(coach, /\/assets\/js\/aris-talk-session\.js/);
@@ -770,5 +787,163 @@ test('coach page gates Talk Mode and the dashboard Ask ARIS box does not get it'
   assert.match(sql, /does not\s+send email/i);
   const toml = fs.readFileSync(path.join(root, 'netlify.toml'), 'utf8');
   assert.match(toml, /\/api\/aris-talk/);
+  assert.match(toml, /\/api\/aris-talk-pack/);
   assert.match(toml, /\/docs\/ARIS-TALK-MODE\.md/);
+  assert.match(session, /returnToMember/);
+  assert.match(session, /lastStatus\.style === 'turn'/);
+  assert.match(session, /\/api\/aris-talk-pack/);
+  assert.equal(/createRequire\s*\(\s*import\.meta\.url\s*\)/.test(session), false);
+});
+
+test('Mogul is hands-free with 600 minutes; everyone else takes turns at the 30 minute cap', () => {
+  assert.equal(talk.isMogul({ id: 'mem_student' }, { env: {} }), false);
+  assert.equal(talk.isMogul({
+    id: 'mem_empire',
+    planConnections: [{ planId: 'pln_empire--871c00ah3', status: 'ACTIVE' }],
+  }, { env: {} }), false);
+  assert.equal(talk.isMogul({ id: 'mem_m' }, { awards: { investor: true, mogul: false } }), false);
+  assert.equal(talk.isMogul({ id: 'mem_m' }, { awards: { mogul: true } }), true);
+  assert.equal(talk.isMogul({ id: 'Mem_Test' }, {
+    env: { TALK_MOGUL_MEMBER_IDS: 'mem_test, coach@example.com' },
+  }), true);
+  assert.equal(talk.isMogul({ auth: { email: 'Coach@Example.com' } }, {
+    env: { TALK_MOGUL_MEMBER_IDS: 'coach@example.com' },
+  }), true);
+
+  const mogul = talk.talkAllowance({
+    env: { ARIS_TALK_CAP_MINUTES: '30' },
+    memberId: 'mem_m',
+    awards: { mogul: true },
+    usedSeconds: 0,
+  });
+  assert.equal(mogul.mogul, true);
+  assert.equal(mogul.style, 'natural');
+  assert.equal(mogul.capSeconds, 600 * 60);
+  assert.equal(mogul.packOffer, null);
+
+  const near = talk.talkAllowance({
+    awards: { mogul: true },
+    usedSeconds: Math.floor(600 * 60 * 0.9),
+  });
+  assert.equal(near.warnLevel, 90);
+  assert.match(near.warnMessage, /90%/);
+  assert.equal(near.packOffer, null);
+  const closer = talk.talkAllowance({
+    awards: { mogul: true },
+    usedSeconds: Math.floor(600 * 60 * 0.95),
+  });
+  assert.equal(closer.warnLevel, 95);
+  assert.equal(closer.capped, false);
+  const stopped = talk.talkAllowance({
+    awards: { mogul: true },
+    usedSeconds: 600 * 60,
+  });
+  assert.equal(stopped.capped, true);
+  assert.equal(stopped.warnLevel, 0);
+  assert.equal(stopped.packOffer.minutes, 60);
+  assert.equal(stopped.packOffer.amountCents, 1997);
+  assert.match(stopped.packOffer.label, /\$19\.97/);
+  assert.equal(/stripe|memberstack|supabase/i.test(stopped.packOffer.label), false);
+
+  const student = talk.talkAllowance({
+    env: { ARIS_TALK_CAP_MINUTES: '30' },
+    usedSeconds: 0,
+  });
+  assert.equal(student.mogul, false);
+  assert.equal(student.style, 'turn');
+  assert.equal(student.capSeconds, 30 * 60);
+  const withPack = talk.talkAllowance({
+    env: { ARIS_TALK_CAP_MINUTES: '30' },
+    usedSeconds: 30 * 60,
+    packSeconds: talk.PACK_SECONDS,
+  });
+  assert.equal(withPack.capped, false);
+  assert.equal(withPack.capSeconds, 30 * 60 + talk.PACK_SECONDS);
+  assert.equal(withPack.packOffer, null);
+
+  const staff = talk.talkAllowance({
+    env: { TALK_MODE_UNLIMITED: 'mem_john', ARIS_TALK_CAP_MINUTES: '1' },
+    memberId: 'mem_john',
+    awards: { mogul: false },
+    usedSeconds: 99999,
+  });
+  assert.equal(staff.unlimited, true);
+  assert.equal(staff.style, 'natural');
+  assert.equal(staff.capped, false);
+  assert.equal(staff.packOffer, null);
+});
+
+test('turn-taking does not barge in and waits for the next tap', () => {
+  const s = talk.createTalkSession({ style: 'turn' });
+  assert.equal(s.style, 'turn');
+  s.start(0);
+  assert.equal(s.capture, true);
+  s.memberSpeechEnd(1000);
+  s.markSpeaking(1200);
+  assert.equal(s.capture, false);
+  assert.equal(s.playback, true);
+  const barge = s.memberSpeechStart(1500);
+  assert.equal(barge.bargeIn, false);
+  assert.equal(s.phase, 'speaking');
+  const yielded = s.yieldTurn(4000);
+  assert.equal(yielded.stopMic, true);
+  assert.equal(s.phase, 'ready');
+  assert.equal(s.capture, false);
+  assert.equal(talk.statusLabel('ready', false), talk.COPY.yourTurn);
+  assert.equal(talk.buttonLabel('ready'), 'Talk');
+  assert.equal(s.start(5000).ok, true);
+  assert.equal(s.phase, 'listening');
+  assert.equal(talk.planVadAction({ phase: 'speaking', allowBarge: false }, 'speech_start').barge, false);
+  assert.equal(talk.planVadAction({ phase: 'speaking' }, 'speech_start').barge, true);
+  const natural = talk.createTalkSession();
+  assert.equal(natural.style, 'natural');
+});
+
+test('a Mogul allowance is 600 minutes and a stored badge or the env list is what counts', async () => {
+  const byBadge = handlerFor({ TALK_MODE_ENABLED: 'true' }, talk.createMemoryStore({ moguls: ['mem_john'] }));
+  const badge = await call(byBadge.handler, 'GET');
+  assert.equal(badge.body.mogul, true);
+  assert.equal(badge.body.style, 'natural');
+  assert.equal(badge.body.capSeconds, 600 * 60);
+  assert.equal(badge.body.packOffer, null);
+
+  const byEnv = handlerFor({
+    TALK_MODE_ENABLED: 'true',
+    TALK_MOGUL_MEMBER_IDS: 'mem_john',
+    ARIS_TALK_CAP_MINUTES: '5',
+  }, talk.createMemoryStore());
+  const listed = await call(byEnv.handler, 'GET');
+  assert.equal(listed.body.mogul, true);
+  assert.equal(listed.body.capSeconds, 600 * 60);
+  assert.equal(listed.body.style, 'natural');
+
+  const student = handlerFor({
+    TALK_MODE_ENABLED: 'true',
+    ARIS_TALK_CAP_MINUTES: '1',
+  }, talk.createMemoryStore());
+  const open = await call(student.handler, 'GET');
+  assert.equal(open.body.style, 'turn');
+  assert.equal(open.body.mogul, false);
+  assert.equal(open.body.capSeconds, 60);
+  assert.equal(open.body.packOffer, null);
+
+  const warm = await call(student.handler, 'POST', {
+    action: 'add',
+    listenSeconds: 54,
+    speakSeconds: 0,
+    requestId: 'warm',
+  });
+  assert.equal(warm.body.warnLevel, 90);
+  assert.equal(warm.body.capped, false);
+  assert.equal(warm.body.packOffer, null);
+
+  const capped = await call(student.handler, 'POST', {
+    action: 'add',
+    listenSeconds: 20,
+    speakSeconds: 0,
+    requestId: 'cap',
+  });
+  assert.equal(capped.body.capped, true);
+  assert.equal(capped.body.packOffer.amountCents, 1997);
+  assert.equal(/stripe|memberstack|supabase|elevenlabs/i.test(JSON.stringify(capped.body)), false);
 });

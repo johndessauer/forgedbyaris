@@ -7,7 +7,11 @@
  * Idle: 2 minutes of no member speech by default, clamped to 2–3 minutes.
  * Hitting the idle deadline pauses the session. It does not end it.
  * Listening and speaking time count toward the monthly cap. Paused,
- * off, capped, and thinking time do not.
+ * off, capped, ready, and thinking time do not.
+ *
+ * style "natural" is the hands-free loop (Mogul, and TALK_MODE_UNLIMITED).
+ * style "turn" is strict turn-taking: one tap, one utterance, no barge-in,
+ * and the microphone closes while ARIS answers.
  */
 (function (root, factory) {
   var api = factory();
@@ -37,10 +41,27 @@
     failed: 'Talk Mode stopped. You can keep typing, and you can play a reply with the speaker button.',
     missed: "I didn't catch that. I'm listening again.",
     here: "I'm here.",
+    missedTurn: "I didn't catch that. Tap Talk to try again.",
+    yourTurn: 'Your turn — tap Talk',
+    near90: "You've used 90% of your Talk Mode time this month.",
+    near95: "You've used 95% of your Talk Mode time this month.",
+    packLabel: 'Add 60 more minutes this month for $19.97.',
+    packReady: 'Your extra Talk Mode minutes are ready for this month.',
+    packPending: 'Your extra minutes will show up in a moment. Refresh this page, then tap Talk.',
+    packFailed: 'Extra minutes could not be started. You can keep typing.',
+    packNotYet: 'You can add minutes after you have used your Talk Mode time for this month.',
     hearing: 'I had trouble hearing that. Talk Mode stopped. You can keep typing, and you can play a reply with the speaker button.',
     unavailable: 'Talk Mode is unavailable right now. You can keep typing.',
     confirmPause: 'Talk Mode paused — tap to resume',
   };
+
+  // Mogul cap is fixed. Non-Mogul keeps ARIS_TALK_CAP_MINUTES (default 30).
+  // The pack is one charge of 60 minutes. Price stays in cents so the
+  // checkout and the ledger cannot drift. Product ids stay on the server.
+  var MOGUL_CAP_MINUTES = 600;
+  var PACK_MINUTES = 60;
+  var PACK_SECONDS = PACK_MINUTES * 60;
+  var PACK_AMOUNT_CENTS = 1997;
 
   function clampIdleMs(value) {
     if (value == null || String(value).trim() === '') return DEFAULT_IDLE_MS;
@@ -119,6 +140,90 @@
     return false;
   }
 
+  // TODO(mogul-source): realwiseacademy.com is not in this repository, and
+  // nothing here reads a REALWISE progression. Memberstack plans are
+  // Foundation and Empire. Memberstack custom fields do not store Mogul.
+  // The only Mogul record in FORGE is the education badge
+  // education_level_awards.level = 'mogul' (Rookie, Investor, Mogul).
+  // Pass that as awards.mogul. TALK_MOGUL_MEMBER_IDS is the test override
+  // (Memberstack ids and emails, comma-separated). If John's Mogul is a
+  // progression that lives only on the REALWISE site, this returns false
+  // for those students until that source is passed in as awards.mogul.
+  function isMogul(member, options) {
+    var opts = options || {};
+    var env = opts.env || {};
+    var list = parseAllowlist(env.TALK_MOGUL_MEMBER_IDS);
+    var id = String((member && (member.id || member.memberId)) || opts.memberId || '').trim().toLowerCase();
+    var email = '';
+    if (member && member.auth && member.auth.email) email = String(member.auth.email);
+    else if (member && member.email) email = String(member.email);
+    else email = String(opts.email || '');
+    email = email.trim().toLowerCase();
+    if (id && list.indexOf(id) !== -1) return true;
+    if (email && list.indexOf(email) !== -1) return true;
+    var awards = opts.awards || null;
+    return !!(awards && awards.mogul === true);
+  }
+
+  function capWarning(usedSeconds, capSeconds) {
+    var used = Math.max(0, Math.floor(Number(usedSeconds) || 0));
+    var cap = Math.max(0, Math.floor(Number(capSeconds) || 0));
+    if (!cap || used >= cap) return { level: 0, message: '' };
+    var ratio = used / cap;
+    if (ratio >= 0.95) return { level: 95, message: COPY.near95 };
+    if (ratio >= 0.9) return { level: 90, message: COPY.near90 };
+    return { level: 0, message: '' };
+  }
+
+  function packOffer() {
+    return {
+      minutes: PACK_MINUTES,
+      amountCents: PACK_AMOUNT_CENTS,
+      label: COPY.packLabel,
+    };
+  }
+
+  // unlimited wins over Mogul. Mogul gets natural Talk and 600 minutes.
+  // Everyone else gets turn-taking and ARIS_TALK_CAP_MINUTES.
+  // Pack minutes add to this month's cap only. They do not raise a future month.
+  function talkAllowance(input) {
+    var opts = input || {};
+    var env = opts.env || {};
+    var unlimited = opts.unlimited;
+    if (unlimited == null) {
+      unlimited = talkUnlimited({ env: env, memberId: opts.memberId, email: opts.email });
+    }
+    var mogul = isMogul(opts.member, {
+      env: env,
+      memberId: opts.memberId,
+      email: opts.email,
+      awards: opts.awards,
+    });
+    var style = (unlimited || mogul) ? 'natural' : 'turn';
+    var baseMinutes = mogul ? MOGUL_CAP_MINUTES : capMinutesFromEnv(env);
+    var baseCapSeconds = baseMinutes * 60;
+    var packSeconds = Math.max(0, Math.floor(Number(opts.packSeconds) || 0));
+    var capSeconds = baseCapSeconds + (unlimited ? 0 : packSeconds);
+    var used = Math.max(0, Math.floor(Number(opts.usedSeconds) || 0));
+    var packSupported = opts.packSupported !== false;
+    var warning = unlimited ? { level: 0, message: '' } : capWarning(used, capSeconds);
+    var capped = !unlimited && used >= capSeconds;
+    return {
+      unlimited: !!unlimited,
+      mogul: !!mogul,
+      style: style,
+      baseMinutes: baseMinutes,
+      baseCapSeconds: baseCapSeconds,
+      packSeconds: packSeconds,
+      capSeconds: capSeconds,
+      capped: capped,
+      packSupported: packSupported,
+      warnLevel: capped ? 0 : warning.level,
+      warnMessage: capped ? '' : warning.message,
+      packOffer: (!unlimited && capped && packSupported) ? packOffer() : null,
+    };
+  }
+
   function talkTimeBlocked(status) {
     if (!status || status.unlimited) return false;
     if (status.capped) return true;
@@ -195,9 +300,15 @@
     return { flag: true, reason: 'cross', totalSeconds: total, thresholdMinutes: threshold };
   }
 
-  function createMemoryStore() {
+  function createMemoryStore(seed) {
+    var options = seed || {};
     var rows = {};
     var alerts = {};
+    var credited = {};
+    var moguls = {};
+    var mi;
+    var seedMoguls = options.moguls || [];
+    for (mi = 0; mi < seedMoguls.length; mi += 1) moguls[seedMoguls[mi]] = true;
 
     function key(memberId, monthKey) {
       return memberId + '|' + monthKey;
@@ -219,6 +330,7 @@
         rows[id] = {
           listenSeconds: row.listenSeconds + applied.acceptedListen,
           speakSeconds: row.speakSeconds + applied.acceptedSpeak,
+          packSeconds: row.packSeconds || 0,
           seen: applied.seen,
         };
         return {
@@ -233,12 +345,36 @@
       },
       async read(memberId, monthKey) {
         var row = rows[key(memberId, monthKey)];
-        if (!row) return { listenSeconds: 0, speakSeconds: 0, usedSeconds: 0 };
+        if (!row) return { listenSeconds: 0, speakSeconds: 0, usedSeconds: 0, packSeconds: 0, packSupported: true };
         return {
           listenSeconds: row.listenSeconds,
           speakSeconds: row.speakSeconds,
           usedSeconds: row.listenSeconds + row.speakSeconds,
+          packSeconds: row.packSeconds || 0,
+          packSupported: true,
         };
+      },
+      async mogulAward(memberId) {
+        return !!moguls[memberId];
+      },
+      async creditPack(input) {
+        var request = input || {};
+        var id = key(request.memberId, request.monthKey);
+        var row = rows[id] || { listenSeconds: 0, speakSeconds: 0, packSeconds: 0, seen: {} };
+        var sessionId = String(request.stripeSessionId || '').trim();
+        if (sessionId && credited[sessionId]) {
+          return { ok: true, credited: false, duplicate: true, packSeconds: row.packSeconds || 0 };
+        }
+        if (request.seconds !== PACK_SECONDS || request.amountCents !== PACK_AMOUNT_CENTS) {
+          return { ok: false, error: 'bad pack' };
+        }
+        if (!request.monthKey || !/^[0-9]{4}-[0-9]{2}$/.test(request.monthKey)) {
+          return { ok: false, error: 'bad month' };
+        }
+        row.packSeconds = (row.packSeconds || 0) + request.seconds;
+        rows[id] = row;
+        if (sessionId) credited[sessionId] = true;
+        return { ok: true, credited: true, duplicate: false, packSeconds: row.packSeconds };
       },
       async monthTotal(monthKey) {
         var total = 0;
@@ -855,12 +991,20 @@
     };
   }
 
-  function simulateTalkTurns(count) {
+  // The 10-turn call stays on listening the whole way. Pass stall:true to
+  // hang the next spoken reply. Hands-free recovery lands on listening.
+  // Turn-taking recovery lands on ready, which the coach shows as
+  // "Your turn — tap Talk."
+  function simulateTalkTurns(count, options) {
+    var opts = options || {};
+    var style = opts.style === 'turn' ? 'turn' : 'natural';
+    var home = style === 'turn' ? 'ready' : 'listening';
     var watch = createTalkWatchdog();
     var phase = 'listening';
     var t = 0;
     var log = ['listening'];
     var n;
+    var recovered = null;
     watch.enter('listening', 0);
     for (n = 0; n < count; n += 1) {
       t += 400;
@@ -878,7 +1022,27 @@
       watch.enter(phase, t);
       log.push(phase);
     }
-    return { phase: phase, turns: count, log: log };
+    if (opts.stall) {
+      t += 400;
+      phase = 'speaking';
+      watch.enter(phase, t);
+      log.push(phase);
+      t += 30000;
+      var hung = watch.tick(t, { lastProgress: t - 30000 });
+      if (hung.recover) {
+        phase = home;
+        watch.enter(phase, t);
+        log.push(phase);
+        recovered = { from: hung.from, phase: phase };
+      }
+    }
+    return {
+      phase: phase,
+      turns: count,
+      log: log,
+      style: style,
+      recovered: recovered,
+    };
   }
 
   function planVadAction(state, heard) {
@@ -893,6 +1057,9 @@
       return { clearPrime: true, discard: true, barge: false, finish: false };
     }
     if (heard === 'speech_start' && (phase === 'speaking' || phase === 'thinking')) {
+      if (state && state.allowBarge === false) {
+        return { clearPrime: true, live: false, discard: true, barge: false, finish: false };
+      }
       return { clearPrime: true, live: true, barge: true, ensureRecorder: true, discard: false, finish: false };
     }
     if (heard === 'speech_start' && phase === 'listening') {
@@ -979,6 +1146,7 @@
 
   function statusLabel(phase, warning) {
     if (phase === 'paused') return COPY.paused;
+    if (phase === 'ready') return COPY.yourTurn;
     if (phase === 'capped') return COPY.cap;
     if (warning && phase === 'listening') return COPY.warning;
     if (phase === 'listening') return COPY.listening;
@@ -995,6 +1163,7 @@
 
   function createTalkSession(options) {
     var opts = options || {};
+    var style = opts.style === 'turn' ? 'turn' : 'natural';
     var idleMs = clampIdleMs(opts.idleMs == null ? DEFAULT_IDLE_MS : opts.idleMs);
     var warnLeadMs = Math.min(WARN_LEAD_MS, Math.floor(idleMs / 2));
     var phase = 'off';
@@ -1025,7 +1194,9 @@
     function snapshot(extra) {
       var out = extra || {};
       out.phase = phase;
-      out.capture = phase === 'listening' || phase === 'thinking' || phase === 'speaking';
+      out.style = style;
+      var handsFree = phase === 'listening' || phase === 'thinking' || phase === 'speaking';
+      out.capture = style === 'turn' ? phase === 'listening' : handsFree;
       out.playback = phase === 'speaking';
       out.usageStopped = phase !== 'listening' && phase !== 'speaking';
       return out;
@@ -1033,15 +1204,27 @@
 
     return {
       get phase() { return phase; },
+      get style() { return style; },
       get capture() { return snapshot().capture; },
       get playback() { return phase === 'speaking'; },
       get idleMs() { return idleMs; },
       get warnLeadMs() { return warnLeadMs; },
       start: function (now) {
         if (phase === 'capped') return snapshot({ ok: false, reason: 'capped' });
+        if (phase === 'ready') {
+          enter('listening', now);
+          return snapshot({ ok: true, unlockAudio: true });
+        }
         if (phase !== 'off') return snapshot({ ok: false, reason: 'busy' });
         enter('listening', now);
         return snapshot({ ok: true, unlockAudio: true });
+      },
+      yieldTurn: function (now) {
+        if (phase === 'off' || phase === 'capped' || phase === 'ready' || phase === 'paused') {
+          return snapshot({ ok: false });
+        }
+        enter('ready', now);
+        return snapshot({ ok: true, yielded: true, stopMic: true, stopPlayback: true });
       },
       resume: function (now) {
         if (phase !== 'paused') return snapshot({ ok: false, reason: 'not-paused' });
@@ -1075,6 +1258,9 @@
         return snapshot({ ok: true });
       },
       memberSpeechStart: function (now) {
+        if (style === 'turn' && (phase === 'speaking' || phase === 'thinking')) {
+          return snapshot({ ok: false, bargeIn: false });
+        }
         if (phase === 'speaking' || phase === 'thinking') {
           var from = phase;
           enter('listening', now);
@@ -1129,7 +1315,7 @@
         return snapshot({ warning: false, msUntilPause: idleMs - quiet });
       },
       pageHide: function (now) {
-        if (phase === 'off' || phase === 'paused' || phase === 'capped') {
+        if (phase === 'off' || phase === 'paused' || phase === 'capped' || phase === 'ready') {
           return snapshot({ ok: true, alreadyStopped: true });
         }
         enter('paused', now);
@@ -1164,6 +1350,10 @@
     DEFAULT_CAP_MINUTES: DEFAULT_CAP_MINUTES,
     DEFAULT_ALERT_MINUTES: DEFAULT_ALERT_MINUTES,
     MAX_CHUNK_SECONDS: MAX_CHUNK_SECONDS,
+    MOGUL_CAP_MINUTES: MOGUL_CAP_MINUTES,
+    PACK_MINUTES: PACK_MINUTES,
+    PACK_SECONDS: PACK_SECONDS,
+    PACK_AMOUNT_CENTS: PACK_AMOUNT_CENTS,
     clampIdleMs: clampIdleMs,
     clampIdleSeconds: clampIdleSeconds,
     capMinutesFromEnv: capMinutesFromEnv,
@@ -1173,6 +1363,10 @@
     parseAllowlist: parseAllowlist,
     talkModeAccess: talkModeAccess,
     talkUnlimited: talkUnlimited,
+    isMogul: isMogul,
+    capWarning: capWarning,
+    packOffer: packOffer,
+    talkAllowance: talkAllowance,
     talkTimeBlocked: talkTimeBlocked,
     planVadAction: planVadAction,
     createBargeWatch: createBargeWatch,
