@@ -15,12 +15,44 @@
 import { requireEdgeMembership } from './lib/membership.js';
 import { normalizeHeardName } from './lib/aris-heard-name.js';
 
-// scribe_v2 is the batch model that accepts keyterms. scribe_v1 ignores
-// or rejects them. One keyterm, "ARIS", biases the name. ElevenLabs adds
-// a surcharge on the transcription when keyterms are sent. Same API key.
+// scribe_v2 accepts keyterms. scribe_v1 does not. iOS Safari records
+// audio/mp4. If the keyterm request fails, retry scribe_v1 with no
+// keyterms so a bad hint cannot blank the transcript. The name rewrite
+// still runs on whatever text comes back.
 const MODEL_ID = 'scribe_v2';
+const FALLBACK_MODEL_ID = 'scribe_v1';
 const KEYTERMS = ['ARIS'];
 const MAX_AUDIO_BYTES = 15 * 1024 * 1024; // ~15MB — generous for a spoken practice turn, guards against abuse
+
+export function clipExtension(contentType) {
+  const type = String(contentType || '').toLowerCase();
+  if (type.includes('mp4') || type.includes('m4a') || type.includes('aac')) return 'mp4';
+  if (type.includes('ogg')) return 'ogg';
+  if (type.includes('wav')) return 'wav';
+  return 'webm';
+}
+
+function formFor(audioBuffer, contentType, modelId, keyterms) {
+  const form = new FormData();
+  form.append('model_id', modelId);
+  for (const term of keyterms || []) form.append('keyterms', term);
+  const type = contentType || 'audio/webm';
+  form.append('file', new Blob([audioBuffer], { type }), `clip.${clipExtension(type)}`);
+  return form;
+}
+
+async function transcribeOnce(apiKey, audioBuffer, contentType, modelId, keyterms) {
+  const upstream = await fetch('https://api.elevenlabs.io/v1/speech-to-text', {
+    method: 'POST',
+    headers: {
+      'xi-api-key': apiKey,
+      Accept: 'application/json',
+    },
+    body: formFor(audioBuffer, contentType, modelId, keyterms),
+  });
+  const raw = await upstream.text();
+  return { ok: upstream.ok, status: upstream.status, raw };
+}
 
 export default async (request, context) => {
   const CORS_HEADERS = {
@@ -78,41 +110,32 @@ export default async (request, context) => {
     });
   }
 
-  // ElevenLabs' /v1/speech-to-text endpoint expects a real multipart form
-  // (file + model_id) — build one here rather than passing the raw audio
-  // bytes straight through, since that's the format their API requires.
-  const ext = contentType.includes('mp4') ? 'mp4' : contentType.includes('ogg') ? 'ogg' : 'webm';
-  const form = new FormData();
-  form.append('model_id', MODEL_ID);
-  for (const term of KEYTERMS) form.append('keyterms', term);
-  form.append('file', new Blob([audioBuffer], { type: contentType }), `clip.${ext}`);
-
-  let upstream;
+  let result;
   try {
-    upstream = await fetch('https://api.elevenlabs.io/v1/speech-to-text', {
-      method: 'POST',
-      headers: {
-        'xi-api-key': API_KEY,
-        Accept: 'application/json',
-      },
-      body: form,
-    });
+    result = await transcribeOnce(API_KEY, audioBuffer, contentType, MODEL_ID, KEYTERMS);
   } catch (err) {
-    console.error('aris-transcribe: failed to reach ElevenLabs:', err.message);
-    return new Response(JSON.stringify({ error: 'Failed to reach ElevenLabs', detail: err.message }), {
-      status: 502,
+    result = { ok: false, status: 0, raw: '' };
+  }
+  if (!result.ok) {
+    console.error(`aris-transcribe: ${MODEL_ID} failed status=${result.status}; retrying ${FALLBACK_MODEL_ID} without keyterms`);
+    try {
+      result = await transcribeOnce(API_KEY, audioBuffer, contentType, FALLBACK_MODEL_ID, []);
+    } catch (err) {
+      console.error('aris-transcribe: failed to reach ElevenLabs:', err.message);
+      return new Response(JSON.stringify({ error: 'Failed to reach ElevenLabs' }), {
+        status: 502,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      });
+    }
+  }
+  if (!result.ok) {
+    console.error(`aris-transcribe: ${FALLBACK_MODEL_ID} returned ${result.status}`);
+    return new Response(result.raw || JSON.stringify({ error: 'Transcription failed' }), {
+      status: result.status || 502,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     });
   }
-
-  const raw = await upstream.text();
-  if (!upstream.ok) {
-    console.error(`aris-transcribe: ElevenLabs returned ${upstream.status}: ${raw}`);
-    return new Response(raw, {
-      status: upstream.status,
-      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-    });
-  }
+  const raw = result.raw;
 
   let parsed;
   try {
