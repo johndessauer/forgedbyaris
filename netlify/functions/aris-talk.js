@@ -12,12 +12,13 @@
 // Env (all optional; defaults keep Talk Mode off and the cap at 30 minutes):
 //   TALK_MODE_ENABLED       "true" / "1" / "on" / "yes" shows Talk Mode to every member.
 //                           Unset or anything else is off.
-//   TALK_MODE_ALLOWLIST     Comma-separated Memberstack ids or emails. Those
-//                           members see Talk Mode even when the global flag is off.
-//   TALK_MODE_UNLIMITED     Same comma list. Those members skip the monthly cap,
+//   TALK_MODE_ALLOWLIST     Memberstack ids or emails, separated by commas,
+//                           semicolons, or whitespace. Those members see Talk
+//                           Mode even when the global flag is off.
+//   TALK_MODE_UNLIMITED     Same list. Those members skip the monthly cap,
 //                           the Mogul gate, and the extra-minutes pack.
 //                           Usage is still recorded. Nothing is hardcoded.
-//   TALK_MOGUL_MEMBER_IDS   Comma-separated Memberstack ids or emails treated as
+//   TALK_MOGUL_MEMBER_IDS   Memberstack ids or emails, same separators, treated as
 //                           Mogul for testing. The stored Mogul badge is
 //                           education_level_awards.level = 'mogul'. REALWISE
 //                           is not in this repo. See isMogul() in aris-talk.js.
@@ -184,6 +185,13 @@ async function flagMonth(store, env, monthKey, log) {
 // a Postgres integer. Unlimited members still store their seconds.
 const UNLIMITED_CAP_SECONDS = 100000000;
 
+function logTalkStatus(log, body) {
+  if (!log || !body || !body.enabled) return;
+  const style = body.style === 'turn' ? 'turn' : 'natural';
+  const unlimited = body.unlimited ? 'yes' : 'no';
+  log.log('ARIS talk status: style=' + style + ' unlimited=' + unlimited);
+}
+
 function statusBody(usedSeconds, allowance, idleMs, monthKey) {
   const used = Math.max(0, Math.floor(Number(usedSeconds) || 0));
   const capSeconds = allowance.capSeconds;
@@ -292,7 +300,9 @@ function createHandler(deps) {
       try {
         const loaded = await allowanceFor(access, memberId, monthKey);
         await flagMonth(store, env, monthKey, log);
-        return json(200, statusBody(loaded.row.usedSeconds, loaded.allowance, idleMs, monthKey));
+        const payload = statusBody(loaded.row.usedSeconds, loaded.allowance, idleMs, monthKey);
+        logTalkStatus(log, payload);
+        return json(200, payload);
       } catch (err) {
         log.error('aris-talk: status failed');
         return json(503, { enabled: false, error: MEMBER_UNAVAILABLE });
@@ -340,6 +350,7 @@ function createHandler(deps) {
       payload.acceptedListen = saved.acceptedListen;
       payload.acceptedSpeak = saved.acceptedSpeak;
       payload.replayed = !!saved.replayed;
+      logTalkStatus(log, payload);
       return json(200, payload);
     } catch (err) {
       log.error('aris-talk: usage update failed');

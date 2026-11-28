@@ -107,9 +107,11 @@
     return v === '1' || v === 'true' || v === 'on' || v === 'yes';
   }
 
+  // Commas, semicolons, and any whitespace. A Netlify value pasted with
+  // spaces or line breaks still matches. Comparison is case-insensitive.
   function parseAllowlist(value) {
     return String(value == null ? '' : value)
-      .split(',')
+      .split(/[,;\s]+/)
       .map(function (part) { return part.trim().toLowerCase(); })
       .filter(Boolean);
   }
@@ -126,7 +128,7 @@
     return { enabled: false, reason: 'off' };
   }
 
-  // Same comma list as the allowlist. A match skips the monthly cap.
+  // Same separator rules as the allowlist. A match skips the monthly cap.
   // Ids and emails are compared case-insensitively. Nothing is hardcoded.
   function talkUnlimited(input) {
     var opts = input || {};
@@ -146,7 +148,7 @@
   // The only Mogul record in FORGE is the education badge
   // education_level_awards.level = 'mogul' (Rookie, Investor, Mogul).
   // Pass that as awards.mogul. TALK_MOGUL_MEMBER_IDS is the test override
-  // (Memberstack ids and emails, comma-separated). If John's Mogul is a
+  // (Memberstack ids and emails). If John's Mogul is a
   // progression that lives only on the REALWISE site, this returns false
   // for those students until that source is passed in as awards.mogul.
   function isMogul(member, options) {
@@ -887,15 +889,29 @@
   }
 
   // iPhone speaker echo is loud and echo cancellation is weak, so iOS keeps
-  // an unbroken half-second above a 0.10 floor. Desktop Chrome ducks the
-  // member's voice between syllables, so a dip must not zero the hold:
-  // about 250ms of loud frames inside a 400ms window, floor about 0.06.
-  // Scheduling the next sentence must not clear a hold already in progress.
+  // an unbroken half-second above a 0.10 floor and a 2.5x ratio.
+  // Desktop Chrome on MacBook speakers attenuates the member to about
+  // 0.04–0.08 while speaker bleed becomes the echo floor. The desktop
+  // gate follows that floor: limit = max(0.035, baseline * 1.4).
+  // The baseline is seeded from the quiet level before ARIS speaks, then
+  // moves at about 0.05 per frame, and only on frames that still look
+  // like bleed. Frames during an arm or a candidate, and frames that look
+  // like the member, do not raise it. The 80ms onset still locks onto
+  // steady bleed quickly (so ARIS's own voice does not count as a barge);
+  // a step more than 6x the current floor is left alone. A syllable
+  // dip still does not clear the 250ms / 400ms hold. Scheduling the next
+  // sentence must not clear a hold already in progress.
   var BARGE_HOLD_MS = 500;
   var BARGE_GRACE_MS = 300;
   var BARGE_RATIO = 2.5;
   var BARGE_FLOOR = 0.1;
-  var BARGE_FLOOR_DESKTOP = 0.06;
+  var BARGE_FLOOR_DESKTOP = 0.035;
+  var BARGE_RATIO_DESKTOP = 1.4;
+  var BARGE_LEARN_DESKTOP = 0.05;
+  var BARGE_GRACE_ALPHA_DESKTOP = 0.5;
+  var BARGE_BLEED_BAND = 1.2;
+  var BARGE_GRACE_LOCK = 6;
+  var BARGE_LISTEN_CEILING = 0.04;
   var BARGE_HOLD_DESKTOP_MS = 250;
   var BARGE_WINDOW_DESKTOP_MS = 400;
   var BARGE_GRACE_DESKTOP_MS = 80;
@@ -950,13 +966,43 @@
       holdMs: hold != null ? hold : (ios ? BARGE_HOLD_MS : BARGE_HOLD_DESKTOP_MS),
       graceMs: ios ? BARGE_GRACE_MS : BARGE_GRACE_DESKTOP_MS,
       strict: ios,
-      ratio: BARGE_RATIO,
+      ratio: ios ? BARGE_RATIO : BARGE_RATIO_DESKTOP,
     };
   }
 
   function bargeGainPlan(action) {
     if (action === 'duck') return { gain: BARGE_DUCK_GAIN, rampMs: BARGE_DUCK_MS };
     return { gain: 1, rampMs: BARGE_DUCK_MS };
+  }
+
+  // Sentences that start while a duck is already on must not fade back up
+  // to full volume. rampActiveGain only reaches sources that exist already.
+  function bargePlaybackPeak(ducked) {
+    return ducked ? BARGE_DUCK_GAIN : 1;
+  }
+
+  function focusBlocksManualBarge(node) {
+    var el = node || null;
+    if (el && el.nodeType && el.nodeType !== 1) el = el.parentElement || null;
+    while (el) {
+      var tag = String(el.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
+      if (el.isContentEditable) return true;
+      var editable = el.getAttribute && el.getAttribute('contenteditable');
+      if (editable && String(editable).toLowerCase() !== 'false') return true;
+      el = el.parentElement || null;
+    }
+    return false;
+  }
+
+  // Space interrupts playback unless the member is typing. The click
+  // control uses the same phase check. Both styles, no microphone.
+  function isManualBargeKey(event, phase) {
+    if (!event || event.repeat) return false;
+    if (event.altKey || event.ctrlKey || event.metaKey) return false;
+    if (event.key !== ' ' && event.code !== 'Space') return false;
+    if (phase !== 'speaking') return false;
+    return !focusBlocksManualBarge(event.target);
   }
 
   function createBargeWatch(options) {
@@ -966,10 +1012,11 @@
     var floor = opts.floor != null ? opts.floor : (platform === 'desktop' ? BARGE_FLOOR_DESKTOP : BARGE_FLOOR);
     var holdMs = opts.holdMs != null ? opts.holdMs : (platform === 'desktop' ? BARGE_HOLD_DESKTOP_MS : BARGE_HOLD_MS);
     var graceMs = opts.graceMs != null ? opts.graceMs : (platform === 'desktop' ? BARGE_GRACE_DESKTOP_MS : BARGE_GRACE_MS);
-    var ratio = opts.ratio == null ? BARGE_RATIO : opts.ratio;
+    var ratio = opts.ratio == null ? (platform === 'desktop' ? BARGE_RATIO_DESKTOP : BARGE_RATIO) : opts.ratio;
     var windowMs = opts.windowMs != null ? opts.windowMs : (strict ? 0 : Math.max(BARGE_WINDOW_DESKTOP_MS, holdMs + 150));
     var initialBaseline = opts.baseline == null ? 0.03 : opts.baseline;
     var baseline = initialBaseline;
+    var listenLevel = null;
     var sentenceAt = 0;
     var hasSentence = false;
     var loudMs = 0;
@@ -977,6 +1024,10 @@
 
     function limit() {
       return Math.max(floor, baseline * ratio);
+    }
+
+    function blend(current, rms, alpha) {
+      return current * (1 - alpha) + rms * alpha;
     }
 
     function clearLoud() {
@@ -993,15 +1044,34 @@
       if (loudMs < 0) loudMs = 0;
     }
 
+    // Close to the echo floor. A step above that is the member, even when
+    // it is still under the barge limit, and must not be averaged in.
+    function bleedLike(rms) {
+      return rms <= baseline * BARGE_BLEED_BAND;
+    }
+
     return {
       platform: platform,
       strict: strict,
       floor: floor,
+      ratio: ratio,
       holdMs: holdMs,
       graceMs: graceMs,
       windowMs: windowMs,
       limit: limit,
       baseline: function () { return baseline; },
+      // Quiet frames before ARIS speaks. The first sample replaces the
+      // fixed 0.03 seed. Later samples move slowly. Member speech and
+      // anything already inside a sentence are ignored. iOS keeps the
+      // fixed seed.
+      observeListening: function (rms) {
+        if (strict || hasSentence || loudMs > 0) return;
+        var level = Number(rms);
+        if (!Number.isFinite(level) || level <= 0 || level >= BARGE_LISTEN_CEILING) return;
+        if (listenLevel == null) listenLevel = level;
+        else listenLevel = blend(listenLevel, level, BARGE_LEARN_DESKTOP);
+        baseline = listenLevel;
+      },
       // Playback start. Opens the short dead zone only when no hold is
       // already building. A sentence scheduled ahead of the speakers must
       // use noteScheduled instead.
@@ -1017,7 +1087,7 @@
         clearLoud();
       },
       release: function () {
-        baseline = initialBaseline;
+        baseline = (!strict && listenLevel != null) ? listenLevel : initialBaseline;
         clearLoud();
         hasSentence = false;
         sentenceAt = 0;
@@ -1028,7 +1098,10 @@
         var t = Number(sample && sample.now) || 0;
         var ceiling = limit();
         if (hasSentence && loudMs <= 0 && t - sentenceAt < graceMs) {
-          baseline = baseline * 0.7 + rms * 0.3;
+          if (strict) baseline = baseline * 0.7 + rms * 0.3;
+          else if (rms <= Math.max(baseline * BARGE_GRACE_LOCK, floor)) {
+            baseline = blend(baseline, rms, BARGE_GRACE_ALPHA_DESKTOP);
+          }
           clearLoud();
           return 'grace';
         }
@@ -1045,7 +1118,7 @@
           var had = loudMs > 0;
           frames.push({ end: t, dt: dt, loud: loud });
           if (loud) loudMs += dt;
-          else baseline = baseline * 0.8 + rms * 0.2;
+          else if (loudMs <= 0 && bleedLike(rms)) baseline = blend(baseline, rms, BARGE_LEARN_DESKTOP);
           prune(t);
           if (!loud && loudMs <= 0) return had ? 'idle' : 'quiet';
         }
@@ -1491,6 +1564,9 @@
     createBargeWatch: createBargeWatch,
     bargeWatchOptions: bargeWatchOptions,
     bargeGainPlan: bargeGainPlan,
+    bargePlaybackPeak: bargePlaybackPeak,
+    focusBlocksManualBarge: focusBlocksManualBarge,
+    isManualBargeKey: isManualBargeKey,
     isIosTalkDevice: isIosTalkDevice,
     createTalkWatchdog: createTalkWatchdog,
     simulateTalkTurns: simulateTalkTurns,
@@ -1499,6 +1575,11 @@
     BARGE_GRACE_MS: BARGE_GRACE_MS,
     BARGE_FLOOR: BARGE_FLOOR,
     BARGE_FLOOR_DESKTOP: BARGE_FLOOR_DESKTOP,
+    BARGE_RATIO_DESKTOP: BARGE_RATIO_DESKTOP,
+    BARGE_LEARN_DESKTOP: BARGE_LEARN_DESKTOP,
+    BARGE_GRACE_ALPHA_DESKTOP: BARGE_GRACE_ALPHA_DESKTOP,
+    BARGE_BLEED_BAND: BARGE_BLEED_BAND,
+    BARGE_LISTEN_CEILING: BARGE_LISTEN_CEILING,
     BARGE_HOLD_DESKTOP_MS: BARGE_HOLD_DESKTOP_MS,
     BARGE_WINDOW_DESKTOP_MS: BARGE_WINDOW_DESKTOP_MS,
     BARGE_DUCK_GAIN: BARGE_DUCK_GAIN,
