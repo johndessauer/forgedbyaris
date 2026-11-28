@@ -220,61 +220,43 @@
 
     function handleVad(heard) {
       if (!machine) return;
-      // Arm the recorder on the first loud frame, before speech is
-      // confirmed, so the onset is in the file. A blip that never becomes
-      // speech is discarded. iOS keeps using MediaRecorder (mp4), not a
-      // script-processor WAV.
-      if (heard === 'noise' && machine.phase === 'listening' && !utteranceLive) {
-        if (!priming) {
-          startRecorder();
-          priming = true;
-        }
-        return;
+      // Echo cancellation stays on in getUserMedia. The speaking threshold
+      // is higher than listening, so the speaker does not count as the member.
+      // The recorder arms on the first loud frames and keeps rolling through
+      // the new utterance after playback stops.
+      var plan = root.ForgeTalk.planVadAction({
+        phase: machine.phase,
+        priming: priming,
+        utteranceLive: utteranceLive,
+      }, heard);
+      if (plan.prime) {
+        startRecorder();
+        priming = true;
       }
-      if (heard === 'silence' && priming && !utteranceLive) {
-        priming = false;
+      if (plan.clearPrime) priming = false;
+      if (plan.live === true) utteranceLive = true;
+      if (plan.live === false) utteranceLive = false;
+      if (plan.discard) {
         discardRecording();
         return;
       }
-      if (heard === 'speech_start') {
+      if (plan.barge) {
         showWarning = false;
         headsUpPlayed = false;
         stopHeadsAudio();
-        priming = false;
-        utteranceLive = true;
-        if (machine.phase === 'speaking' || machine.phase === 'thinking') {
-          turn += 1;
-          abortFlag = true;
-          haltPlayback();
-          machine.memberSpeechStart(now());
-          autoSpeak = true;
-          researchSpoken = false;
-          startRecorder();
-          render();
-          return;
-        }
-        if (machine.phase === 'listening') {
-          machine.noteMemberSpeech(now());
-          startRecorder();
-          render();
-        }
+        turn += 1;
+        abortFlag = true;
+        haltPlayback();
+        machine.memberSpeechStart(now());
+        autoSpeak = true;
+        researchSpoken = false;
+        if (plan.ensureRecorder) startRecorder();
+        render();
         return;
       }
-      if (heard === 'speech' && machine.phase === 'listening') {
-        machine.noteMemberSpeech(now());
-        return;
-      }
-      if (heard === 'speech_reject') {
-        utteranceLive = false;
-        priming = false;
-        discardRecording();
-        return;
-      }
-      if (heard === 'speech_end' && machine.phase === 'listening') {
-        utteranceLive = false;
-        priming = false;
-        finishRecorder();
-      }
+      if (plan.note && machine.phase === 'listening') machine.noteMemberSpeech(now());
+      if (plan.ensureRecorder) startRecorder();
+      if (plan.finish) finishRecorder();
     }
 
     function startRecorder() {
@@ -645,7 +627,7 @@
         return postUsage(batch);
       }).then(function (body) {
         inflight = null;
-        if (body && body.capped) showCap();
+        if (root.ForgeTalk.talkTimeBlocked(body)) showCap();
         return body;
       });
       var done = flushing;
@@ -747,7 +729,7 @@
           });
         }
         enabled = true;
-        if (status.capped || status.remainingSeconds <= 0) {
+        if (root.ForgeTalk.talkTimeBlocked(status)) {
           ensureMachine(status);
           return micPromise.then(releaseOpened, releaseOpened).then(function () {
             showCap();

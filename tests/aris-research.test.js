@@ -46,6 +46,8 @@ test('factual questions research, and coaching or math does not', async () => {
   assert.equal(classifyResearch('What about the duplex?'), 'skip');
   assert.equal(classifyResearch('Is Crown Point a good market?'), 'skip');
   assert.equal(classifyResearch('Explain the 70% rule.'), 'skip');
+  assert.equal(classifyResearch('Am I able to ask you a question in regards to that?'), 'skip');
+  assert.equal(classifyResearch('Can I ask you something about my offer?'), 'skip');
   assert.equal(classifyMessages([
     { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't', content: '{"ok":true}' }] },
   ]), 'skip');
