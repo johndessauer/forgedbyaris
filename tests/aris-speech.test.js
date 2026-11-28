@@ -18,6 +18,9 @@ async function loadEdge(file) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aris-speech-'));
   fs.copyFileSync(path.join(EDGE, file), path.join(dir, file.replace(/\.js$/, '.mjs')));
   fs.mkdirSync(path.join(dir, 'lib'));
+  for (const file of fs.readdirSync(path.join(EDGE, 'lib'))) {
+    if (file.endsWith('.js')) fs.copyFileSync(path.join(EDGE, 'lib', file), path.join(dir, 'lib', file));
+  }
   fs.copyFileSync(path.join(EDGE, 'lib', 'speech-text.js'), path.join(dir, 'lib', 'speech-text.js'));
   fs.copyFileSync(path.join(EDGE, 'lib', 'membership.js'), path.join(dir, 'lib', 'membership.js'));
   const memoryLib = path.join(EDGE, 'lib', 'aris-memory.js');
@@ -170,9 +173,10 @@ test('abbreviations expand on word boundaries and leave ARIS, URLs, HTML, and lo
     /net operating income or capitalization rate equals one million two hundred thousand dollars and loan-to-value equals zero point seven five\./
   );
   assert.match(spoken, /HARVARD CARVING NOISE MAOIST capacity recap rate/);
-  assert.match(spoken, /https:\/\/example\.com\/ARV\?price=\$100/);
+  assert.doesNotMatch(spoken, /https?:\/\//);
+  assert.doesNotMatch(spoken, /one hundred dollars/);
   assert.match(spoken, /<span class="ARV">fifty dollars<\/span>/);
-  const prose = spoken.split('See https')[0];
+  const prose = spoken.split('See')[0];
   assert.doesNotMatch(prose, /\bARV\b/);
   assert.doesNotMatch(prose, /\bROI\b/);
   assert.doesNotMatch(prose, /\bMAO\b/);
@@ -292,7 +296,7 @@ test('formulas speak math operators and leave prose hyphens alone', async () => 
     ['and/or the NOI', 'and or the net operating income'],
     ['w/ the seller', 'w/ the seller'],
     ['closed on 11/12/2026', 'closed on November 12th, 2026'],
-    ['See https://example.com/ARV?price=$100', 'See https://example.com/ARV?price=$100'],
+    ['See https://example.com/ARV?price=$100', 'See'],
     ['512-555-0123', 'five one two, five five five, oh one two three'],
     ['property ID 83702', 'property ID eight three seven oh two'],
     ['123 Main St, Austin, TX 78701', '123 Main St, Austin, Texas seven eight seven oh one'],
@@ -818,7 +822,7 @@ test('bed and bath shorthand is spoken as bedrooms and bathrooms', async () => {
     ['NOI / cap rate', 'net operating income or capitalization rate'],
     ['$18,000 / $200,000', 'eighteen thousand dollars divided by two hundred thousand dollars'],
     ['and/or the NOI', 'and or the net operating income'],
-    ['See https://example.com/3/2 for the house', 'See https://example.com/3/2 for the house'],
+    ['See https://example.com/3/2 for the house', 'See for the house'],
     ['ARV × 0.70 − Repairs', 'after-repair value times 70 percent minus Repairs'],
     ['arv x .7 − repairs', 'after-repair value times 70 percent minus repairs'],
     ['ARV x 0.7 − Repairs', 'after-repair value times 70 percent minus Repairs'],
@@ -1030,6 +1034,23 @@ test('deal-analyzer and coach prompts carry the currency rule for a new session 
   } finally {
     globalThis.fetch = realFetch;
   }
+});
+
+test('a researched answer is spoken without URLs and names sources once', async () => {
+  const { normalizeSpeechText, prepareSpeechText } = await loadSpeech();
+  const written = [
+    'Crown Point has no South Shore Line stop. The nearest stations are on the West Lake Corridor in Munster and Dyer, about a twenty minute drive.',
+    '',
+    '**Sources**',
+    '- [NICTD](https://www.nictd.com/stations)',
+    '- [West Lake Corridor](https://nictd.com/west-lake)',
+  ].join('\n');
+  const spoken = normalizeSpeechText(written);
+  assert.equal(spoken.includes('http'), false);
+  assert.match(spoken, /no South Shore Line stop/);
+  assert.match(spoken, /Source: NICTD and West Lake Corridor\./);
+  assert.equal(spoken.split('Source:').length, 2);
+  assert.equal(prepareSpeechText(written).includes('nictd.com'), false);
 });
 
 test('inline Market Oracle scripts parse as JavaScript', () => {

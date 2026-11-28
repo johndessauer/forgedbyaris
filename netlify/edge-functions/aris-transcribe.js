@@ -13,8 +13,13 @@
 // record, release, transcribe, respond.
 
 import { requireEdgeMembership } from './lib/membership.js';
+import { normalizeHeardName } from './lib/aris-heard-name.js';
 
-const MODEL_ID = 'scribe_v1'; // general-purpose, reliable starting model per ElevenLabs' own guidance
+// scribe_v2 is the batch model that accepts keyterms. scribe_v1 ignores
+// or rejects them. One keyterm, "ARIS", biases the name. ElevenLabs adds
+// a surcharge on the transcription when keyterms are sent. Same API key.
+const MODEL_ID = 'scribe_v2';
+const KEYTERMS = ['ARIS'];
 const MAX_AUDIO_BYTES = 15 * 1024 * 1024; // ~15MB — generous for a spoken practice turn, guards against abuse
 
 export default async (request, context) => {
@@ -79,6 +84,7 @@ export default async (request, context) => {
   const ext = contentType.includes('mp4') ? 'mp4' : contentType.includes('ogg') ? 'ogg' : 'webm';
   const form = new FormData();
   form.append('model_id', MODEL_ID);
+  for (const term of KEYTERMS) form.append('keyterms', term);
   form.append('file', new Blob([audioBuffer], { type: contentType }), `clip.${ext}`);
 
   let upstream;
@@ -125,7 +131,8 @@ export default async (request, context) => {
   // ONLY tags has no real words and should read as "nothing was said,"
   // and a clip with real speech plus a stray tag should send the clean
   // words, not a message with a bracketed tag embedded in it.
-  const text = rawText.replace(/\[[^\]]*\]/g, '').replace(/\s{2,}/g, ' ').trim();
+  const cleaned = rawText.replace(/\[[^\]]*\]/g, '').replace(/\s{2,}/g, ' ').trim();
+  const text = normalizeHeardName(cleaned);
 
   console.log(`aris-transcribe: transcribed ${audioBuffer.byteLength} bytes -> raw="${rawText.slice(0, 80)}" cleaned="${text.slice(0, 80)}"`);
 

@@ -29,6 +29,11 @@
     var analyser = null;
     var timeBuf = null;
     var vad = root.ForgeTalk.createVad();
+    var capture = null;
+    var heldWav = null;
+    var sessionReady = false;
+    var openedStop = null;
+    var researchSpoken = false;
     var recorder = null;
     var chunks = [];
     var clipToken = 0;
@@ -112,7 +117,10 @@
         throw wrapped;
       }).then(function (micStream) {
         var AC = root.AudioContext || root.webkitAudioContext;
-        if (!AC) return { stream: micStream, analyser: null };
+        function stopTracks() {
+          micStream.getTracks().forEach(function (track) { track.stop(); });
+        }
+        if (!AC) return { stream: micStream, analyser: null, capture: null, stop: stopTracks };
         var ctx = unlockCtx || new AC();
         unlockCtx = ctx;
         return Promise.resolve(ctx.resume()).catch(function () {}).then(function () {
@@ -120,13 +128,89 @@
           var node = ctx.createAnalyser();
           node.fftSize = 2048;
           source.connect(node);
-          return { stream: micStream, analyser: node };
+          var sampleRate = ctx.sampleRate || 48000;
+          // Start the ring buffer as soon as the mic is granted, before
+          // the session handshake or any greeting finishes, so the first
+          // utterance is not waiting on those and the onset is kept.
+          // Without a script processor, capture stays null and the analyser
+          // fallback records the old way.
+          heldWav = null;
+          sessionReady = false;
+          var processor = null;
+          var mute = null;
+          capture = null;
+          if (typeof ctx.createScriptProcessor === 'function') {
+            capture = root.ForgeTalk.createTalkCapture({ sampleRate: sampleRate, preRollMs: root.ForgeTalk.PRE_ROLL_MS });
+            processor = ctx.createScriptProcessor(4096, 1, 1);
+            mute = ctx.createGain();
+            mute.gain.value = 0;
+            processor.onaudioprocess = function (event) {
+              if (!capture) return;
+              var input = event.inputBuffer.getChannelData(0);
+              var copy = new Float32Array(input.length);
+              copy.set(input);
+              var mode = (machine && (machine.phase === 'speaking' || headsAudio)) ? 'speaking' : 'listening';
+              var dt = (input.length / sampleRate) * 1000;
+              onCapture(capture.push(copy, dt, mode));
+            };
+            source.connect(processor);
+            processor.connect(mute);
+            mute.connect(ctx.destination);
+          }
+          return {
+            stream: micStream,
+            analyser: node,
+            capture: capture,
+            stop: function () {
+              try { if (processor) processor.disconnect(); } catch (err) {}
+              try { if (mute) mute.disconnect(); } catch (err) {}
+              try { source.disconnect(); } catch (err) {}
+              stopTracks();
+            },
+          };
         });
       });
     }
 
+    function onCapture(result) {
+      if (!result) return;
+      if (result.event === 'speech_start') {
+        if (!sessionReady || !machine) return;
+        showWarning = false;
+        headsUpPlayed = false;
+        stopHeadsAudio();
+        if (machine.phase === 'speaking' || machine.phase === 'thinking') {
+          turn += 1;
+          abortFlag = true;
+          haltPlayback();
+          machine.memberSpeechStart(now());
+          autoSpeak = true;
+          researchSpoken = false;
+          render();
+          return;
+        }
+        if (machine.phase === 'listening') {
+          machine.noteMemberSpeech(now());
+          render();
+        }
+        return;
+      }
+      if (result.event === 'speech_reject') return;
+      if (result.event !== 'speech_end' || !result.wav || result.wav.length <= 44) return;
+      var blob = new Blob([result.wav], { type: 'audio/wav' });
+      var gate = root.ForgeTalk.holdOpeningClip({ ready: sessionReady, wav: heldWav }, { event: 'speech_end', wav: result.wav });
+      if (!gate.send) {
+        heldWav = blob;
+        return;
+      }
+      heldWav = null;
+      sendClip(blob, 'audio/wav');
+    }
+
     function releaseMic() {
       loopOn = false;
+      sessionReady = false;
+      heldWav = null;
       if (raf) cancelAnimationFrame(raf);
       raf = 0;
       clipToken += 1;
@@ -135,11 +219,15 @@
       }
       recorder = null;
       chunks = [];
-      if (stream) {
+      if (openedStop) {
+        try { openedStop(); } catch (err) {}
+        openedStop = null;
+      } else if (stream) {
         stream.getTracks().forEach(function (track) { track.stop(); });
-        stream = null;
       }
+      stream = null;
       analyser = null;
+      capture = null;
       vad.reset();
     }
 
@@ -174,9 +262,13 @@
 
     function adoptMic(opened) {
       stream = opened.stream;
+      openedStop = opened.stop || null;
       analyser = opened.analyser;
       timeBuf = analyser ? new Uint8Array(analyser.fftSize) : null;
-      vad.reset();
+      // Do not reset capture here. It has been recording since the mic
+      // opened, including audio from before this handshake finished.
+      if (!opened.capture) vad.reset();
+      sessionReady = true;
       loopOn = true;
       lastFrame = 0;
       var frame = function () {
@@ -193,7 +285,9 @@
           render();
           playHeadsUp();
         }
-        if (analyser && timeBuf && machine.capture) {
+        // PCM capture owns voice activity when it is running. The analyser
+        // path is only the fallback when the browser has no script processor.
+        if (!capture && analyser && timeBuf && machine.capture) {
           analyser.getByteTimeDomainData(timeBuf);
           var dt = lastFrame ? t - lastFrame : 50;
           lastFrame = t;
@@ -203,6 +297,13 @@
         raf = requestAnimationFrame(frame);
       };
       raf = requestAnimationFrame(frame);
+      if (heldWav) {
+        var blob = heldWav;
+        heldWav = null;
+        sendClip(blob, 'audio/wav');
+      } else if (capture && capture.pending() && machine) {
+        machine.noteMemberSpeech(now());
+      }
     }
 
     function handleVad(heard) {
@@ -304,6 +405,7 @@
         }
         autoSpeak = true;
         spokenCount = 0;
+        researchSpoken = false;
         enqueueReply(text);
       }).catch(function () {
         fail(COPY.hearing);
@@ -738,6 +840,13 @@
     }
 
     function releaseOpened(opened) {
+      sessionReady = false;
+      heldWav = null;
+      capture = null;
+      if (opened && typeof opened.stop === 'function') {
+        opened.stop();
+        return;
+      }
       if (opened && opened.stream) opened.stream.getTracks().forEach(function (track) { track.stop(); });
     }
 
@@ -775,6 +884,23 @@
         if (machine.phase === 'off' || machine.phase === 'paused' || machine.phase === 'capped') return;
         pauseSession();
       },
+      onResearch: function (text) {
+        if (!autoSpeak || !machine) return;
+        if (machine.phase === 'off' || machine.phase === 'paused' || machine.phase === 'capped') return;
+        if (researchSpoken) return;
+        researchSpoken = true;
+        var line = String(text || 'Let me research that').replace(/\s+/g, ' ').trim();
+        if (!/[.!?]$/.test(line)) line += '.';
+        clips.push({
+          text: line,
+          prev: clips.length ? clips[clips.length - 1].text : '',
+          next: '',
+          state: 'queued',
+          controller: null,
+          buffer: null,
+        });
+        drivePlayback();
+      },
       onTypedSend: function () {
         if (!machine) return;
         if (machine.phase === 'off' || machine.phase === 'paused' || machine.phase === 'capped') return;
@@ -782,6 +908,7 @@
         discardRecording();
         autoSpeak = true;
         spokenCount = 0;
+        researchSpoken = false;
         machine.markThinking(now());
         render();
       },

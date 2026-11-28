@@ -12,14 +12,9 @@ async function systemPromptFor(promptKey, flag) {
   const copy = path.join(dir, 'aris-stream.mjs');
   fs.copyFileSync(path.join(edge, 'aris-stream.js'), copy);
   fs.mkdirSync(path.join(dir, 'lib'));
-  fs.copyFileSync(path.join(edge, 'lib', 'speech-text.js'), path.join(dir, 'lib', 'speech-text.js'));
-  fs.copyFileSync(path.join(edge, 'lib', 'membership.js'), path.join(dir, 'lib', 'membership.js'));
-  const memoryLib = path.join(edge, 'lib', 'aris-memory.js');
-  if (fs.existsSync(memoryLib)) fs.copyFileSync(memoryLib, path.join(dir, 'lib', 'aris-memory.js'));
-  const resolveLib = path.join(edge, 'lib', 'resolve-uploads.js');
-  if (fs.existsSync(resolveLib)) fs.copyFileSync(resolveLib, path.join(dir, 'lib', 'resolve-uploads.js'));
-  const sanitizeLib = path.join(edge, 'lib', 'anthropic-messages.js');
-  if (fs.existsSync(sanitizeLib)) fs.copyFileSync(sanitizeLib, path.join(dir, 'lib', 'anthropic-messages.js'));
+  for (const file of fs.readdirSync(path.join(edge, 'lib'))) {
+    if (file.endsWith('.js')) fs.copyFileSync(path.join(edge, 'lib', file), path.join(dir, 'lib', file));
+  }
   globalThis.__forgeTestMembership = async () => ({ ok: true, status: 200, memberId: 'mem_test', active: true, empire: true });
   const env = { ANTHROPIC_API_KEY: 'test-key', COMPS_ARIS_LIVE: flag };
   globalThis.Netlify = { env: { get: k => env[k] } };
