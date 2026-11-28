@@ -39,10 +39,16 @@
     var researchSpoken = false;
     var utteranceLive = false;
     var priming = false;
-    var bargeWatch = root.ForgeTalk.createBargeWatch();
+    var bargeWatch = root.ForgeTalk.createBargeWatch(root.ForgeTalk.bargeWatchOptions(root));
     var bargeHold = false;
     var bargeToken = 0;
     var currentSpoken = '';
+    var playingSpoken = '';
+    var previousSpoken = '';
+    var currentPrev = '';
+    var bargeArmedAt = 0;
+    var lastArmLog = 0;
+    var ducked = false;
     var bargeLeadText = '';
     var lastRms = 0;
     var recorder = null;
@@ -228,6 +234,9 @@
       bargeToken += 1;
       bargeHold = false;
       bargeWatch.reset();
+      ducked = false;
+      playingSpoken = '';
+      previousSpoken = '';
       stopSources();
       if (headsAudio) {
         try { headsAudio.stop(); } catch (err) {}
@@ -329,9 +338,12 @@
     }
 
     function handleSpeakerLevel(rms, dt, t) {
-      if (lastStatus && lastStatus.style === 'turn') return;
+      // Turn-taking closes the mic and must not duck or stop the reply.
+      if (turnStyle()) return;
+      syncPlayingSentence(t);
       if (bargeHold || utteranceLive) return;
       var gate = bargeWatch.push({ rms: rms, dt: dt, now: t });
+      if (gate === 'arm' || gate === 'candidate') logBargeArm(rms, t);
       if (gate === 'arm' && !priming) {
         startRecorder('hold');
         priming = true;
@@ -344,8 +356,94 @@
       if (gate === 'candidate') {
         bargeHold = true;
         priming = false;
+        bargeArmedAt = t;
+        logPlayback('barge-candidate');
+        duckPlayback();
         confirmBarge();
       }
+    }
+
+    function logBargeArm(rms, t) {
+      if (t - lastArmLog < 500) return;
+      lastArmLog = t;
+      var ceiling = bargeWatch.limit ? bargeWatch.limit() : 0;
+      var platform = bargeWatch.platform || 'desktop';
+      logPlayback('barge-arm level=' + Number(rms).toFixed(3) + ' limit=' + Number(ceiling).toFixed(3) + ' platform=' + platform);
+    }
+
+    function rampActiveGain(value, rampMs) {
+      if (turnStyle()) return;
+      var ctx = audioContext();
+      if (!ctx) return;
+      var at = ctx.currentTime;
+      var ramp = Math.max(0.01, (Number(rampMs) || 50) / 1000);
+      activeSources.forEach(function (item) {
+        if (!item.gain || !item.gain.gain) return;
+        try {
+          var param = item.gain.gain;
+          param.cancelScheduledValues(at);
+          param.setValueAtTime(param.value, at);
+          param.linearRampToValueAtTime(value, at + ramp);
+          if (value >= 0.99 && item.endAt && item.endAt > at + ramp + 0.02) {
+            var fade = 0.015;
+            param.setValueAtTime(1, Math.max(at + ramp, item.endAt - fade));
+            param.linearRampToValueAtTime(0, item.endAt);
+          }
+        } catch (err) {}
+      });
+    }
+
+    function duckPlayback() {
+      if (turnStyle()) return;
+      var plan = root.ForgeTalk.bargeGainPlan('duck');
+      rampActiveGain(plan.gain, plan.rampMs);
+      ducked = true;
+      logPlayback('barge-duck');
+    }
+
+    function restorePlayback() {
+      if (!ducked || turnStyle()) return;
+      var plan = root.ForgeTalk.bargeGainPlan('restore');
+      rampActiveGain(plan.gain, plan.rampMs);
+      ducked = false;
+      logPlayback('barge-restore');
+    }
+
+    // The sentence coming out of the speakers, plus the one before it.
+    // currentSpoken is only the last clip we scheduled, which can be ahead.
+    function syncPlayingSentence(t) {
+      var ctx = audioContext();
+      if (!ctx || !activeSources.length) return;
+      var audioNow = ctx.currentTime;
+      var latest = null;
+      var i;
+      for (i = 0; i < activeSources.length; i += 1) {
+        var item = activeSources[i];
+        if (!item || item.startAt == null) continue;
+        if (audioNow + 0.001 < item.startAt) continue;
+        if (item.endAt != null && audioNow > item.endAt) continue;
+        if (!latest || item.startAt >= latest.startAt) latest = item;
+      }
+      if (!latest || latest.opened) return;
+      latest.opened = true;
+      if (latest.text && latest.text !== playingSpoken) {
+        previousSpoken = playingSpoken;
+        playingSpoken = latest.text;
+      }
+      if (bargeWatch.noteSentence) bargeWatch.noteSentence(t);
+    }
+
+    function spokenForEcho() {
+      syncPlayingSentence(now());
+      if (playingSpoken) return { spoken: playingSpoken, previous: previousSpoken };
+      return { spoken: currentSpoken, previous: currentPrev };
+    }
+
+    function rejectBarge(reason) {
+      logPlayback('barge-rejected ' + reason);
+      bargeHold = false;
+      bargeWatch.reset();
+      restorePlayback();
     }
 
     function takeRecording() {
@@ -385,14 +483,15 @@
     }
 
     function confirmBarge() {
+      if (turnStyle()) return;
       var token = bargeToken;
-      var spoken = currentSpoken;
+      var pair = spokenForEcho();
+      var spoken = pair.spoken;
+      var previous = pair.previous;
       takeRecording().then(function (blob) {
         if (token !== bargeToken) return null;
         if (!blob || blob.size < 800) {
-          logPlayback('barge-rejected');
-          bargeHold = false;
-          bargeWatch.reset();
+          rejectBarge('short-clip');
           return null;
         }
         startRecorder('hold');
@@ -400,12 +499,16 @@
         return transcribe(blob, blob.type).then(function (text) {
           transcribeSince = 0;
           if (token !== bargeToken || !bargeHold) return;
-          if (root.ForgeTalk.interruptionIsEcho(text, spoken)) {
-            logPlayback('barge-rejected');
-            bargeHold = false;
+          if (!text) {
             bargeLeadText = '';
             discardRecording();
-            bargeWatch.reset();
+            rejectBarge('empty');
+            return;
+          }
+          if (root.ForgeTalk.interruptionIsEcho(text, spoken, previous)) {
+            bargeLeadText = '';
+            discardRecording();
+            rejectBarge('echo');
             return;
           }
           bargeLeadText = text;
@@ -415,15 +518,15 @@
       }).catch(function () {
         transcribeSince = 0;
         if (token !== bargeToken) return;
-        logPlayback('barge-rejected');
-        bargeHold = false;
         discardRecording();
-        bargeWatch.reset();
+        rejectBarge('error');
       });
     }
 
     function commitBarge() {
-      logPlayback('barge-in');
+      if (turnStyle()) return;
+      var latency = bargeArmedAt ? Math.max(0, now() - bargeArmedAt) : 0;
+      logPlayback('barge-in confirmed ' + latency + 'ms');
       showWarning = false;
       headsUpPlayed = false;
       stopHeadsAudio();
@@ -732,7 +835,13 @@
       var remainMs = Math.max(0, (plan.startAt + plan.playFor - ctx.currentTime) * 1000);
       speechDeadline = Math.max(speechDeadline, now() + remainMs);
       lastProgress = now();
-      activeSources.push({ source: source, gain: gain });
+      activeSources.push({
+        source: source,
+        gain: gain,
+        startAt: plan.startAt,
+        endAt: endAt,
+        text: (hooks && hooks.text) || '',
+      });
       source.onended = function () {
         activeSources = activeSources.filter(function (item) { return item.source !== source; });
         if (hooks && hooks.onended) hooks.onended();
@@ -798,6 +907,7 @@
         if (clip.state !== 'ready') break;
         var source = scheduleBuffer(clip.buffer, token, {
           follow: true,
+          text: clip.text,
           onended: function () {
             if (clip.state === 'playing') clip.state = 'done';
             if (token !== playToken) return;
@@ -814,7 +924,8 @@
         }
         clip.state = 'playing';
         currentSpoken = clip.text;
-        bargeWatch.noteSentence(now());
+        currentPrev = clip.prev || '';
+        if (bargeWatch.noteScheduled) bargeWatch.noteScheduled();
         clipCursor += 1;
         if (machine && machine.phase !== 'speaking') {
           machine.markSpeaking(now());

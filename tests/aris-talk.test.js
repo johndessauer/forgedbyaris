@@ -538,7 +538,7 @@ test('speaker echo does not stop playback, and a louder sustained voice can', ()
 
   const session = fs.readFileSync(path.join(root, 'assets/js/aris-talk-session.js'), 'utf8');
   assert.match(session, /createBargeWatch/);
-  assert.match(session, /logPlayback\('barge-in'\)/);
+  assert.match(session, /logPlayback\('barge-in confirmed '/);
   assert.match(session, /logPlayback\('queue-end'\)/);
   assert.match(session, /logPlayback\('tts-error'\)/);
   assert.match(session, /ARIS talk state:/);

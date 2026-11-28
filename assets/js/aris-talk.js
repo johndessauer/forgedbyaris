@@ -855,14 +855,29 @@
   // What the mic loop should do for one voice-activity event.
   // While ARIS is speaking, the first loud frames only arm the recorder.
   // Playback stops once that loudness holds long enough to be the member.
-  function interruptionIsEcho(heard, spoken) {
+  // Echo is only the playing sentence (plus the one before it) coming back
+  // through the speakers. A short command is the member, even when those
+  // words also appear in the reply.
+  var BARGE_COMMANDS = {
+    stop: true,
+    wait: true,
+    no: true,
+    pause: true,
+    aris: true,
+    'hold on': true,
+    'hang on': true,
+  };
+
+  function interruptionIsEcho(heard, spoken, previous) {
     var h = normalizeEcho(heard);
-    var s = normalizeEcho(spoken);
     if (!h) return true;
+    if (BARGE_COMMANDS[h]) return false;
+    var heardWords = h.split(' ').filter(Boolean);
+    if (heardWords.length < 4) return false;
+    var s = normalizeEcho([spoken, previous].filter(Boolean).join(' '));
     if (!s) return false;
-    if (h === s || s.indexOf(h) !== -1) return true;
-    var words = h.split(' ').filter(function (word) { return word.length > 2; });
-    if (!words.length) return true;
+    var words = heardWords.filter(function (word) { return word.length > 2; });
+    if (!words.length) return false;
     var hits = 0;
     var i;
     for (i = 0; i < words.length; i += 1) {
@@ -871,46 +886,139 @@
     return hits / words.length >= 0.75;
   }
 
-  // iPhone speaker echo is loud and echo cancellation is weak. A barge-in
-  // has to stay above the level we are actually hearing from playback, for
-  // about half a second, and not during the attack of a new sentence.
+  // iPhone speaker echo is loud and echo cancellation is weak, so iOS keeps
+  // an unbroken half-second above a 0.10 floor. Desktop Chrome ducks the
+  // member's voice between syllables, so a dip must not zero the hold:
+  // about 250ms of loud frames inside a 400ms window, floor about 0.06.
+  // Scheduling the next sentence must not clear a hold already in progress.
   var BARGE_HOLD_MS = 500;
   var BARGE_GRACE_MS = 300;
   var BARGE_RATIO = 2.5;
   var BARGE_FLOOR = 0.1;
+  var BARGE_FLOOR_DESKTOP = 0.06;
+  var BARGE_HOLD_DESKTOP_MS = 250;
+  var BARGE_WINDOW_DESKTOP_MS = 400;
+  var BARGE_GRACE_DESKTOP_MS = 80;
+  var BARGE_ARM_MS = 80;
+  var BARGE_DUCK_GAIN = 0.15;
+  var BARGE_DUCK_MS = 50;
+
+  function isIosTalkDevice(ua, touchPoints) {
+    var agent = String(ua || '');
+    if (/iPad|iPhone|iPod/i.test(agent)) return true;
+    // iPadOS desktop mode reports Macintosh and a touch screen. A MacBook
+    // running Chrome stays on the desktop gate even if it has a touchscreen.
+    if (/Macintosh/i.test(agent) && Number(touchPoints) > 1 && !/Chrome|Chromium|CriOS|Edg\/|Firefox|FxiOS/i.test(agent)) {
+      return true;
+    }
+    return false;
+  }
+
+  function readTuneNumber(storage, key) {
+    try {
+      if (!storage || typeof storage.getItem !== 'function') return null;
+      var raw = storage.getItem(key);
+      if (raw == null || String(raw).trim() === '') return null;
+      var n = Number(raw);
+      if (!Number.isFinite(n) || n <= 0) return null;
+      return n;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function bargeWatchOptions(env) {
+    var source = env || {};
+    var nav = source.navigator || null;
+    var ua = source.ua != null ? source.ua : (nav && nav.userAgent) || '';
+    var touch = source.touchPoints != null ? source.touchPoints : (nav && nav.maxTouchPoints) || 0;
+    var storage = null;
+    if (Object.prototype.hasOwnProperty.call(source, 'storage')) storage = source.storage;
+    else {
+      try { storage = source.localStorage || null; } catch (err) { storage = null; }
+    }
+    var platform = source.talkPlatform;
+    if (platform !== 'ios' && platform !== 'desktop') {
+      platform = isIosTalkDevice(ua, touch) ? 'ios' : 'desktop';
+    }
+    var ios = platform === 'ios';
+    var floor = readTuneNumber(storage, 'arisBargeFloor');
+    var hold = readTuneNumber(storage, 'arisBargeHoldMs');
+    return {
+      platform: platform,
+      floor: floor != null ? floor : (ios ? BARGE_FLOOR : BARGE_FLOOR_DESKTOP),
+      holdMs: hold != null ? hold : (ios ? BARGE_HOLD_MS : BARGE_HOLD_DESKTOP_MS),
+      graceMs: ios ? BARGE_GRACE_MS : BARGE_GRACE_DESKTOP_MS,
+      strict: ios,
+      ratio: BARGE_RATIO,
+    };
+  }
+
+  function bargeGainPlan(action) {
+    if (action === 'duck') return { gain: BARGE_DUCK_GAIN, rampMs: BARGE_DUCK_MS };
+    return { gain: 1, rampMs: BARGE_DUCK_MS };
+  }
 
   function createBargeWatch(options) {
     var opts = options || {};
-    var holdMs = opts.holdMs == null ? BARGE_HOLD_MS : opts.holdMs;
-    var graceMs = opts.graceMs == null ? BARGE_GRACE_MS : opts.graceMs;
+    var platform = opts.platform === 'ios' || opts.platform === 'desktop' ? opts.platform : 'legacy';
+    var strict = opts.strict != null ? opts.strict : platform !== 'desktop';
+    var floor = opts.floor != null ? opts.floor : (platform === 'desktop' ? BARGE_FLOOR_DESKTOP : BARGE_FLOOR);
+    var holdMs = opts.holdMs != null ? opts.holdMs : (platform === 'desktop' ? BARGE_HOLD_DESKTOP_MS : BARGE_HOLD_MS);
+    var graceMs = opts.graceMs != null ? opts.graceMs : (platform === 'desktop' ? BARGE_GRACE_DESKTOP_MS : BARGE_GRACE_MS);
     var ratio = opts.ratio == null ? BARGE_RATIO : opts.ratio;
-    var floor = opts.floor == null ? BARGE_FLOOR : opts.floor;
+    var windowMs = opts.windowMs != null ? opts.windowMs : (strict ? 0 : Math.max(BARGE_WINDOW_DESKTOP_MS, holdMs + 150));
     var initialBaseline = opts.baseline == null ? 0.03 : opts.baseline;
     var baseline = initialBaseline;
     var sentenceAt = 0;
     var hasSentence = false;
     var loudMs = 0;
+    var frames = [];
 
     function limit() {
       return Math.max(floor, baseline * ratio);
     }
 
+    function clearLoud() {
+      loudMs = 0;
+      frames.length = 0;
+    }
+
+    function prune(t) {
+      var cutoff = t - windowMs;
+      while (frames.length && frames[0].end <= cutoff) {
+        var old = frames.shift();
+        if (old.loud) loudMs -= old.dt;
+      }
+      if (loudMs < 0) loudMs = 0;
+    }
+
     return {
+      platform: platform,
+      strict: strict,
+      floor: floor,
       holdMs: holdMs,
       graceMs: graceMs,
+      windowMs: windowMs,
       limit: limit,
       baseline: function () { return baseline; },
+      // Playback start. Opens the short dead zone only when no hold is
+      // already building. A sentence scheduled ahead of the speakers must
+      // use noteScheduled instead.
       noteSentence: function (now) {
-        sentenceAt = Number(now) || 0;
         hasSentence = true;
-        loudMs = 0;
+        if (loudMs > 0) return;
+        sentenceAt = Number(now) || 0;
+      },
+      noteScheduled: function () {
+        hasSentence = true;
       },
       reset: function () {
-        loudMs = 0;
+        clearLoud();
       },
       release: function () {
         baseline = initialBaseline;
-        loudMs = 0;
+        clearLoud();
         hasSentence = false;
         sentenceAt = 0;
       },
@@ -919,21 +1027,32 @@
         var dt = Math.max(0, Number(sample && sample.dt) || 0);
         var t = Number(sample && sample.now) || 0;
         var ceiling = limit();
-        if (hasSentence && t - sentenceAt < graceMs) {
+        if (hasSentence && loudMs <= 0 && t - sentenceAt < graceMs) {
           baseline = baseline * 0.7 + rms * 0.3;
-          loudMs = 0;
+          clearLoud();
           return 'grace';
         }
-        if (rms >= ceiling) {
+        var loud = rms >= ceiling;
+        if (strict) {
+          if (!loud) {
+            baseline = baseline * 0.8 + rms * 0.2;
+            var wasLoud = loudMs > 0;
+            loudMs = 0;
+            return wasLoud ? 'idle' : 'quiet';
+          }
           loudMs += dt;
-          if (loudMs >= holdMs) return 'candidate';
-          if (loudMs >= 80) return 'arm';
-          return 'rise';
+        } else {
+          var had = loudMs > 0;
+          frames.push({ end: t, dt: dt, loud: loud });
+          if (loud) loudMs += dt;
+          else baseline = baseline * 0.8 + rms * 0.2;
+          prune(t);
+          if (!loud && loudMs <= 0) return had ? 'idle' : 'quiet';
         }
-        baseline = baseline * 0.8 + rms * 0.2;
-        var wasLoud = loudMs > 0;
-        loudMs = 0;
-        return wasLoud ? 'idle' : 'quiet';
+        if (loudMs >= holdMs) return 'candidate';
+        if (loudMs >= BARGE_ARM_MS) return 'arm';
+        if (loudMs > 0) return 'rise';
+        return 'quiet';
       },
     };
   }
@@ -1370,11 +1489,20 @@
     talkTimeBlocked: talkTimeBlocked,
     planVadAction: planVadAction,
     createBargeWatch: createBargeWatch,
+    bargeWatchOptions: bargeWatchOptions,
+    bargeGainPlan: bargeGainPlan,
+    isIosTalkDevice: isIosTalkDevice,
     createTalkWatchdog: createTalkWatchdog,
     simulateTalkTurns: simulateTalkTurns,
     interruptionIsEcho: interruptionIsEcho,
     BARGE_HOLD_MS: BARGE_HOLD_MS,
     BARGE_GRACE_MS: BARGE_GRACE_MS,
+    BARGE_FLOOR: BARGE_FLOOR,
+    BARGE_FLOOR_DESKTOP: BARGE_FLOOR_DESKTOP,
+    BARGE_HOLD_DESKTOP_MS: BARGE_HOLD_DESKTOP_MS,
+    BARGE_WINDOW_DESKTOP_MS: BARGE_WINDOW_DESKTOP_MS,
+    BARGE_DUCK_GAIN: BARGE_DUCK_GAIN,
+    BARGE_DUCK_MS: BARGE_DUCK_MS,
     monthKeyFromDate: monthKeyFromDate,
     cleanSeconds: cleanSeconds,
     applyUsage: applyUsage,
