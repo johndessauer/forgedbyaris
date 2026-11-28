@@ -662,6 +662,37 @@
     return { state: held, send: send };
   }
 
+  // A mid-question breath is often longer than the old 900ms cutoff.
+  // Ending there sent a partial question, then the rest of the sentence
+  // was treated as an interruption and the answer was cut off.
+  var DEFAULT_SILENCE_MS = 1800;
+  // iOS Safari can fire pagehide or visibility hidden for a moment when
+  // the mic and playback share the audio session. Wait this long, and
+  // only pause if the page is still hidden.
+  var HIDE_PAUSE_MS = 2000;
+
+  function createHidePause(delayMs) {
+    var wait = delayMs == null ? HIDE_PAUSE_MS : delayMs;
+    var due = 0;
+    return {
+      delayMs: wait,
+      hidden: function (now) {
+        if (!due) due = now + wait;
+        return { pause: false };
+      },
+      visible: function () {
+        due = 0;
+        return { pause: false };
+      },
+      tick: function (now, visibilityState) {
+        if (!due || now < due) return { pause: false };
+        due = 0;
+        if (visibilityState === 'visible') return { pause: false };
+        return { pause: true };
+      },
+    };
+  }
+
   function rmsFromTimeDomain(samples) {
     if (!samples || !samples.length) return 0;
     var sum = 0;
@@ -679,7 +710,7 @@
     var bargeRms = opts.bargeRms == null ? 0.09 : opts.bargeRms;
     var speechFrames = opts.speechFrames == null ? 4 : opts.speechFrames;
     var bargeFrames = opts.bargeFrames == null ? 8 : opts.bargeFrames;
-    var silenceLimit = opts.silenceMs == null ? 900 : opts.silenceMs;
+    var silenceLimit = opts.silenceMs == null ? DEFAULT_SILENCE_MS : opts.silenceMs;
     var minUtteranceMs = opts.minUtteranceMs == null ? 280 : opts.minUtteranceMs;
     var run = 0;
     var inSpeech = false;
@@ -944,6 +975,9 @@
     holdOpeningClip: holdOpeningClip,
     markCaptureReady: markCaptureReady,
     PRE_ROLL_MS: PRE_ROLL_MS,
+    DEFAULT_SILENCE_MS: DEFAULT_SILENCE_MS,
+    HIDE_PAUSE_MS: HIDE_PAUSE_MS,
+    createHidePause: createHidePause,
     createVad: createVad,
     statusLabel: statusLabel,
     buttonLabel: buttonLabel,

@@ -70,6 +70,46 @@ test('transcription hints ARIS and normalizes a misheard opening', async () => {
     assert.equal(form.get('model_id'), 'scribe_v2');
     assert.deepEqual(form.getAll('keyterms'), ['ARIS']);
     assert.equal(JSON.stringify(json).includes('test-key'), false);
+    assert.equal(mod.clipExtension('audio/mp4'), 'mp4');
+    assert.equal(mod.clipExtension('audio/aac'), 'mp4');
+    assert.equal(mod.clipExtension('audio/wav'), 'wav');
+  } finally {
+    globalThis.fetch = previousFetch;
+    globalThis.Netlify = previousNetlify;
+    if (previousMembership) globalThis.__forgeTestMembership = previousMembership;
+    else delete globalThis.__forgeTestMembership;
+  }
+});
+
+test('a scribe_v2 keyterm error falls back to scribe_v1 and still fixes the name', async () => {
+  const mod = await loadTranscribe();
+  const previousFetch = globalThis.fetch;
+  const previousNetlify = globalThis.Netlify;
+  const previousMembership = globalThis.__forgeTestMembership;
+  const calls = [];
+  globalThis.__forgeTestMembership = async () => ({ ok: true, status: 200, memberId: 'mem_test', active: true });
+  globalThis.Netlify = { env: { get: (key) => (key === 'ELEVENLABS_API_KEY' ? 'test-key' : '') } };
+  globalThis.fetch = async (url, init) => {
+    const form = init.body;
+    calls.push({ model: form.get('model_id'), keyterms: form.getAll('keyterms'), file: form.get('file') && form.get('file').name });
+    if (calls.length === 1) return new Response(JSON.stringify({ detail: 'bad keyterms' }), { status: 400 });
+    return new Response(JSON.stringify({ text: 'Harris, is there rail service' }), { status: 200 });
+  };
+  try {
+    const res = await mod.default(new Request('https://x/api/aris-transcribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'audio/mp4', Authorization: 'Bearer tok' },
+      body: new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]),
+    }), {});
+    const json = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(json.text, 'ARIS, is there rail service');
+    assert.equal(calls.length, 2);
+    assert.equal(calls[0].model, 'scribe_v2');
+    assert.deepEqual(calls[0].keyterms, ['ARIS']);
+    assert.equal(calls[1].model, 'scribe_v1');
+    assert.deepEqual(calls[1].keyterms, []);
+    assert.equal(calls[1].file, 'clip.mp4');
   } finally {
     globalThis.fetch = previousFetch;
     globalThis.Netlify = previousNetlify;

@@ -366,6 +366,37 @@ test('list markers, clock times, and markdown stay in one spoken chunk', () => {
   assert.ok(plan.nextStart < plan.startAt + plan.playFor);
 });
 
+test('a mid-question pause does not end the turn, and a long research wait does not pause', () => {
+  const vad = createVad();
+  assert.equal(talk.DEFAULT_SILENCE_MS, 1800);
+  assert.equal(vad.push(0.2, 40, 'listening'), 'noise');
+  assert.equal(vad.push(0.2, 40, 'listening'), 'noise');
+  assert.equal(vad.push(0.2, 40, 'listening'), 'noise');
+  assert.equal(vad.push(0.2, 40, 'listening'), 'speech_start');
+  assert.equal(vad.push(0.2, 400, 'listening'), 'speech');
+  assert.equal(vad.push(0.01, 1200, 'listening'), 'speech');
+  assert.equal(vad.push(0.2, 200, 'listening'), 'speech');
+  assert.equal(vad.push(0.01, 1800, 'listening'), 'speech_end');
+
+  const session = createTalkSession({ idleMs: 120000 });
+  assert.equal(session.start(0).phase, 'listening');
+  session.noteMemberSpeech(1000);
+  session.markThinking(5000);
+  const duringResearch = session.tick(5000 + 3 * 60 * 1000);
+  assert.equal(duringResearch.paused, undefined);
+  assert.equal(session.phase, 'thinking');
+  session.markSpeaking(200000);
+  assert.equal(session.tick(200000 + 3 * 60 * 1000).phase, 'speaking');
+
+  const hide = talk.createHidePause();
+  assert.equal(hide.hidden(0).pause, false);
+  assert.equal(hide.tick(500, 'hidden').pause, false);
+  assert.equal(hide.visible().pause, false);
+  assert.equal(hide.tick(hide.delayMs + 10, 'visible').pause, false);
+  hide.hidden(0);
+  assert.equal(hide.tick(hide.delayMs, 'hidden').pause, true);
+});
+
 test('pre-roll keeps the onset that voice activity used to notice speech', () => {
   const { createTalkCapture, createPreRoll, holdOpeningClip, markCaptureReady, PRE_ROLL_MS } = talk;
   assert.ok(PRE_ROLL_MS >= 300 && PRE_ROLL_MS <= 500);
@@ -589,9 +620,11 @@ test('coach page gates Talk Mode and the dashboard Ask ARIS box does not get it'
   assert.equal(/createRequire\s*\(\s*import\.meta\.url\s*\)/.test(fn), false);
   assert.equal(/createRequire\s*\(\s*import\.meta\.url\s*\)/.test(session), false);
   assert.match(session, /\/api\/aris-transcribe/);
-  assert.match(session, /createTalkCapture/);
   assert.match(session, /onResearch/);
-  assert.match(session, /heldWav/);
+  assert.equal(session.includes('createScriptProcessor'), false);
+  assert.match(session, /new MediaRecorder/);
+  assert.match(session, /createHidePause/);
+  assert.match(session, /DEFAULT_SILENCE_MS/);
   assert.match(session, /\/api\/aris-voice/);
   assert.match(session, /\/api\/aris-talk/);
   assert.equal(/SpeechRecognition|webkitSpeechRecognition/.test(session), false);
