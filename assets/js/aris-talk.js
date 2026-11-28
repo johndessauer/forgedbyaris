@@ -36,6 +36,7 @@
     mic: "I couldn't access your microphone. Check your browser's permission settings and try again. You can keep typing.",
     failed: 'Talk Mode stopped. You can keep typing, and you can play a reply with the speaker button.',
     missed: "I didn't catch that. I'm listening again.",
+    here: "I'm here.",
     hearing: 'I had trouble hearing that. Talk Mode stopped. You can keep typing, and you can play a reply with the speaker button.',
     unavailable: 'Talk Mode is unavailable right now. You can keep typing.',
     confirmPause: 'Talk Mode paused — tap to resume',
@@ -748,7 +749,8 @@
     var graceMs = opts.graceMs == null ? BARGE_GRACE_MS : opts.graceMs;
     var ratio = opts.ratio == null ? BARGE_RATIO : opts.ratio;
     var floor = opts.floor == null ? BARGE_FLOOR : opts.floor;
-    var baseline = opts.baseline == null ? 0.03 : opts.baseline;
+    var initialBaseline = opts.baseline == null ? 0.03 : opts.baseline;
+    var baseline = initialBaseline;
     var sentenceAt = 0;
     var hasSentence = false;
     var loudMs = 0;
@@ -769,6 +771,12 @@
       },
       reset: function () {
         loudMs = 0;
+      },
+      release: function () {
+        baseline = initialBaseline;
+        loudMs = 0;
+        hasSentence = false;
+        sentenceAt = 0;
       },
       push: function (sample) {
         var rms = Number(sample && sample.rms) || 0;
@@ -792,6 +800,85 @@
         return wasLoud ? 'idle' : 'quiet';
       },
     };
+  }
+
+  // A turn that never comes back to listening is what makes the second or
+  // third exchange feel hung. These limits are wall-clock, not frame counts.
+  var WATCH_THINKING_MS = 75000;
+  var WATCH_SPEAKING_MS = 25000;
+  var WATCH_TRANSCRIBE_MS = 20000;
+  var WATCH_LISTENING_MS = 130000;
+
+  function createTalkWatchdog() {
+    var phase = 'off';
+    var since = 0;
+    return {
+      limits: {
+        thinking: WATCH_THINKING_MS,
+        speaking: WATCH_SPEAKING_MS,
+        transcribing: WATCH_TRANSCRIBE_MS,
+        listening: WATCH_LISTENING_MS,
+      },
+      phase: function () { return phase; },
+      enter: function (next, now) {
+        var name = next || 'off';
+        var changed = name !== phase;
+        if (changed) {
+          phase = name;
+          since = now;
+        }
+        return { changed: changed, phase: phase };
+      },
+      tick: function (now, info) {
+        var extra = info || {};
+        var age = since ? Math.max(0, now - since) : 0;
+        if (extra.transcribeSince != null && now - extra.transcribeSince >= WATCH_TRANSCRIBE_MS) {
+          return { recover: true, from: 'transcribing', age: now - extra.transcribeSince };
+        }
+        if (phase === 'thinking') {
+          var thought = extra.lastProgress == null ? since : extra.lastProgress;
+          if (now - thought >= WATCH_THINKING_MS) {
+            return { recover: true, from: 'thinking', age: now - thought };
+          }
+        }
+        if (phase === 'speaking') {
+          var progress = extra.lastProgress == null ? since : extra.lastProgress;
+          if (now - progress >= WATCH_SPEAKING_MS) {
+            return { recover: true, from: 'speaking', age: now - progress };
+          }
+        }
+        if (phase === 'listening' && extra.silentSince != null && now - extra.silentSince >= WATCH_LISTENING_MS) {
+          return { recover: true, from: 'listening', age: now - extra.silentSince };
+        }
+        return { recover: false, from: phase, age: age };
+      },
+    };
+  }
+
+  function simulateTalkTurns(count) {
+    var watch = createTalkWatchdog();
+    var phase = 'listening';
+    var t = 0;
+    var log = ['listening'];
+    var n;
+    watch.enter('listening', 0);
+    for (n = 0; n < count; n += 1) {
+      t += 400;
+      phase = 'thinking';
+      watch.enter(phase, t);
+      log.push(phase);
+      t += 1500;
+      phase = 'speaking';
+      watch.enter(phase, t);
+      log.push(phase);
+      t += 2000;
+      var stalled = watch.tick(t, { lastProgress: t });
+      if (stalled.recover) phase = 'listening';
+      phase = 'listening';
+      watch.enter(phase, t);
+      log.push(phase);
+    }
+    return { phase: phase, turns: count, log: log };
   }
 
   function planVadAction(state, heard) {
@@ -1089,6 +1176,8 @@
     talkTimeBlocked: talkTimeBlocked,
     planVadAction: planVadAction,
     createBargeWatch: createBargeWatch,
+    createTalkWatchdog: createTalkWatchdog,
+    simulateTalkTurns: simulateTalkTurns,
     interruptionIsEcho: interruptionIsEcho,
     BARGE_HOLD_MS: BARGE_HOLD_MS,
     BARGE_GRACE_MS: BARGE_GRACE_MS,

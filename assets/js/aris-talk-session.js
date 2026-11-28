@@ -67,6 +67,16 @@
     var flushTimer = 0;
     var unlockCtx = null;
     var enabled = false;
+    var loggedPhase = '';
+    var watchdog = root.ForgeTalk.createTalkWatchdog();
+    var lastProgress = 0;
+    var speechDeadline = 0;
+    var micOpening = false;
+    var micReviveAt = 0;
+    var watchTimer = 0;
+    var transcribeSince = 0;
+    var silentSince = 0;
+    var cueUntil = 0;
 
     function now() { return Date.now(); }
 
@@ -75,15 +85,33 @@
       return token ? { Authorization: 'Bearer ' + token } : {};
     }
 
+    function logState(name) {
+      try { console.info('ARIS talk state: ' + name); } catch (err) {}
+    }
+
     function render() {
       var phase = machine ? machine.phase : 'off';
+      if (phase !== loggedPhase) {
+        logState(phase);
+        loggedPhase = phase;
+        watchdog.enter(phase, now());
+        if (phase === 'listening') {
+          silentSince = now();
+          if (bargeWatch.release) bargeWatch.release();
+        }
+        if (phase === 'speaking') lastProgress = now();
+      }
       btn.hidden = !enabled;
       btn.textContent = root.ForgeTalk.buttonLabel(phase);
       btn.classList.toggle('active', phase === 'listening' || phase === 'thinking' || phase === 'speaking');
       btn.setAttribute('aria-pressed', (phase === 'listening' || phase === 'thinking' || phase === 'speaking' || phase === 'paused') ? 'true' : 'false');
       var showStatus = phase === 'listening' || phase === 'thinking' || phase === 'speaking';
       statusEl.hidden = !showStatus;
-      if (showStatus) statusEl.textContent = root.ForgeTalk.statusLabel(phase, showWarning);
+      if (showStatus) {
+        statusEl.textContent = (phase === 'listening' && now() < cueUntil)
+          ? COPY.here
+          : root.ForgeTalk.statusLabel(phase, showWarning);
+      }
       resumeEl.hidden = phase !== 'paused';
       if (page.setPushToTalkEnabled) {
         page.setPushToTalkEnabled(!(phase === 'listening' || phase === 'thinking' || phase === 'speaking'));
@@ -202,6 +230,7 @@
       lastFrame = 0;
       var frame = function () {
         if (!loopOn || !machine) return;
+        audioContext();
         var t = now();
         var hidden = hidePause.tick(t, document.visibilityState);
         if (hidden.pause) {
@@ -227,7 +256,12 @@
           lastRms = rms;
           if (machine.phase === 'speaking') handleSpeakerLevel(rms, dt, t);
           else handleVad(vad.push(rms, dt, 'listening'));
+          if (machine.phase === 'speaking' && activeSources.length && t < speechDeadline + 1200) {
+            var playing = audioContext();
+            if (playing && playing.state === 'running') lastProgress = t;
+          }
         }
+        watchdogTick();
         raf = requestAnimationFrame(frame);
       };
       raf = requestAnimationFrame(frame);
@@ -269,7 +303,10 @@
         render();
         return;
       }
-      if (plan.note && machine.phase === 'listening') machine.noteMemberSpeech(now());
+      if (plan.note && machine.phase === 'listening') {
+        machine.noteMemberSpeech(now());
+        silentSince = now();
+      }
       if (plan.ensureRecorder) startRecorder();
       if (plan.finish) finishRecorder();
     }
@@ -302,17 +339,30 @@
         var rec = recorder;
         var mime = rec.mimeType || 'audio/webm';
         var pending = chunks.slice();
+        var settled = false;
+        function finish(blob) {
+          if (settled) return;
+          settled = true;
+          resolve(blob);
+        }
         rec.onstop = function () {
+          if (settled) return;
           var extra = chunks.slice();
           chunks = [];
-          recorder = null;
-          resolve(new Blob(pending.concat(extra), { type: mime }));
+          if (recorder === rec) recorder = null;
+          finish(new Blob(pending.concat(extra), { type: mime }));
         };
         try { rec.stop(); }
         catch (err) {
-          recorder = null;
-          resolve(null);
+          if (recorder === rec) recorder = null;
+          finish(null);
         }
+        root.setTimeout(function () {
+          if (settled) return;
+          if (recorder === rec) recorder = null;
+          chunks = [];
+          finish(null);
+        }, 2500);
       });
     }
 
@@ -328,7 +378,9 @@
           return null;
         }
         startRecorder('hold');
+        transcribeSince = now();
         return transcribe(blob, blob.type).then(function (text) {
+          transcribeSince = 0;
           if (token !== bargeToken || !bargeHold) return;
           if (root.ForgeTalk.interruptionIsEcho(text, spoken)) {
             logPlayback('barge-rejected');
@@ -343,6 +395,7 @@
           commitBarge();
         });
       }).catch(function () {
+        transcribeSince = 0;
         if (token !== bargeToken) return;
         logPlayback('barge-rejected');
         bargeHold = false;
@@ -383,31 +436,48 @@
       chunks = [];
       try {
         recorder = new MediaRecorder(stream);
+        recorder._intent = intent || 'send';
+        recorder.ondataavailable = function (event) {
+          if (event.data && event.data.size) chunks.push(event.data);
+        };
+        recorder.onstop = function () {
+          var mime = (recorder && recorder.mimeType) || 'audio/webm';
+          var intentNow = recorder && recorder._intent;
+          var blob = new Blob(chunks, { type: mime });
+          chunks = [];
+          if (mine !== clipToken) return;
+          if (intentNow === 'send') sendClip(blob, mime);
+        };
+        try { recorder.start(200); }
+        catch (err) { recorder.start(); }
       } catch (err) {
-        fail(COPY.failed);
-        return;
+        logPlayback('recorder-error');
+        recorder = null;
       }
-      recorder._intent = intent || 'send';
-      recorder.ondataavailable = function (event) {
-        if (event.data && event.data.size) chunks.push(event.data);
-      };
-      recorder.onstop = function () {
-        var mime = (recorder && recorder.mimeType) || 'audio/webm';
-        var intentNow = recorder && recorder._intent;
-        var blob = new Blob(chunks, { type: mime });
-        chunks = [];
-        if (mine !== clipToken) return;
-        if (intentNow === 'send') sendClip(blob, mime);
-      };
-      try { recorder.start(200); }
-      catch (err) { recorder.start(); }
     }
 
     function finishRecorder() {
-      clipToken += 0;
-      if (recorder && recorder.state === 'recording') {
-        try { recorder.stop(); } catch (err) {}
-      }
+      if (!recorder || recorder.state !== 'recording') return;
+      var rec = recorder;
+      var mine = clipToken;
+      var mime = rec.mimeType || 'audio/webm';
+      var fired = false;
+      var prior = rec.onstop;
+      rec.onstop = function (event) {
+        if (fired) return;
+        fired = true;
+        if (prior) prior(event);
+      };
+      try { rec.stop(); }
+      catch (err) { fired = true; }
+      root.setTimeout(function () {
+        if (fired || mine !== clipToken) return;
+        fired = true;
+        var blob = new Blob(chunks, { type: mime });
+        chunks = [];
+        recorder = null;
+        sendClip(blob, mime);
+      }, 2500);
     }
 
     function discardRecording() {
@@ -426,7 +496,9 @@
       }
       machine.memberSpeechEnd(now());
       render();
+      transcribeSince = now();
       transcribe(blob, mime).then(function (text) {
+        transcribeSince = 0;
         var lead = bargeLeadText;
         bargeLeadText = '';
         var full = [lead, text].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
@@ -447,7 +519,8 @@
         researchSpoken = false;
         enqueueReply(full);
       }).catch(function () {
-        fail(COPY.hearing);
+        transcribeSince = 0;
+        recoverToListening('transcribing');
       });
     }
 
@@ -455,7 +528,9 @@
       var mine = turn;
       replyChain = replyChain.catch(function () {}).then(function () {
         if (mine !== turn || !machine) return;
+        stopSources();
         abortFlag = false;
+        lastProgress = now();
         machine.markThinking(now());
         render();
         return page.sendText(text).then(function () {
@@ -464,7 +539,7 @@
         });
       }).catch(function () {
         if (mine !== turn) return;
-        fail(COPY.failed);
+        recoverToListening('reply');
       });
     }
 
@@ -479,6 +554,10 @@
       if (playbackBusy() || activeSources.length) return;
       if (machine.phase === 'thinking' || machine.phase === 'speaking') {
         logPlayback('queue-end');
+        clips = [];
+        clipCursor = 0;
+        spokenCount = 0;
+        nextStart = 0;
         machine.markListening(now());
         showWarning = false;
         headsUpPlayed = false;
@@ -593,6 +672,9 @@
         return null;
       }
       if (follow) nextStart = plan.nextStart;
+      var remainMs = Math.max(0, (plan.startAt + plan.playFor - ctx.currentTime) * 1000);
+      speechDeadline = Math.max(speechDeadline, now() + remainMs);
+      lastProgress = now();
       activeSources.push({ source: source, gain: gain });
       source.onended = function () {
         activeSources = activeSources.filter(function (item) { return item.source !== source; });
@@ -608,7 +690,17 @@
       if (clips[index + 1] && !clip.next) clip.next = clips[index + 1].text;
       var controller = typeof root.AbortController === 'function' ? new root.AbortController() : null;
       clip.controller = controller;
+      var voiceTimer = root.setTimeout(function () {
+        if (token !== playToken || clip.state !== 'fetch') return;
+        clip.state = 'skipped';
+        logPlayback('tts-error');
+        if (controller) {
+          try { controller.abort(); } catch (err) {}
+        }
+        drivePlayback();
+      }, 12000);
       requestVoice(clip.text, clip.prev, clip.next, controller).then(function (bytes) {
+        root.clearTimeout(voiceTimer);
         if (token !== playToken || clip.state === 'cancelled') return null;
         if (!bytes) {
           clip.state = 'skipped';
@@ -629,7 +721,8 @@
         clip.state = 'ready';
         drivePlayback();
       }).catch(function (err) {
-        if (token !== playToken || clip.state === 'cancelled') return;
+        root.clearTimeout(voiceTimer);
+        if (token !== playToken || clip.state === 'cancelled' || clip.state === 'skipped') return;
         if (err && err.name === 'AbortError') return;
         clip.state = 'skipped';
         logPlayback('tts-error');
@@ -776,7 +869,94 @@
 
     function flushSafe() {
       if (ending) return;
-      flush().catch(function () { fail(COPY.unavailable); });
+      flush().catch(function () { logState('usage'); });
+    }
+
+    function playHereCue() {
+      cueUntil = now() + 2500;
+      render();
+      requestVoice(COPY.here, '', '').then(function (bytes) {
+        if (!bytes || !machine || machine.phase !== 'listening') return null;
+        return decodeVoice(bytes);
+      }).then(function (buffer) {
+        if (!buffer || !machine || machine.phase !== 'listening') return;
+        scheduleBuffer(buffer, playToken, { follow: false, onended: function () {} });
+      }).catch(function () {});
+    }
+
+    function recoverToListening(reason) {
+      logState('recover-' + reason);
+      turn += 1;
+      abortFlag = true;
+      autoSpeak = true;
+      showWarning = false;
+      bargeHold = false;
+      utteranceLive = false;
+      priming = false;
+      transcribeSince = 0;
+      bargeLeadText = '';
+      haltPlayback();
+      discardRecording();
+      vad.reset();
+      if (bargeWatch.release) bargeWatch.release();
+      audioContext();
+      if (machine && machine.phase !== 'listening' && machine.phase !== 'off' && machine.phase !== 'paused' && machine.phase !== 'capped') {
+        machine.markListening(now());
+      }
+      lastProgress = now();
+      silentSince = now();
+      render();
+      playHereCue();
+    }
+
+    function micAlive() {
+      if (!stream || !stream.getAudioTracks) return false;
+      return stream.getAudioTracks().some(function (track) { return track.readyState === 'live'; });
+    }
+
+    function ensureMic() {
+      if (micOpening || !machine) return;
+      var phase = machine.phase;
+      if (phase !== 'listening' && phase !== 'thinking' && phase !== 'speaking') return;
+      if (micAlive()) {
+        micReviveAt = 0;
+        return;
+      }
+      if (micReviveAt && now() - micReviveAt < 20000) return;
+      micReviveAt = now();
+      micOpening = true;
+      openMic().then(function (opened) {
+        micOpening = false;
+        if (!opened || !opened.stream || !machine) return;
+        if (stream) {
+          stream.getTracks().forEach(function (track) {
+            try { track.stop(); } catch (err) {}
+          });
+        }
+        stream = opened.stream;
+        analyser = opened.analyser;
+        timeBuf = analyser ? new Uint8Array(analyser.fftSize) : timeBuf;
+        logState('mic-restart');
+      }).catch(function () {
+        micOpening = false;
+        logState('mic-dead');
+      });
+    }
+
+    function watchdogTick() {
+      if (!machine || ending) return;
+      var decision = watchdog.tick(now(), {
+        lastProgress: lastProgress,
+        silentSince: machine.phase === 'listening' ? silentSince : null,
+        transcribeSince: transcribeSince || null,
+      });
+      if (!decision.recover) return;
+      if (decision.from === 'listening') {
+        logState('listening-idle');
+        pauseSession();
+        return;
+      }
+      recoverToListening(decision.from);
     }
 
     function fail(note) {
@@ -911,6 +1091,7 @@
 
     page.armHooks({
       onDelta: function (text) {
+        lastProgress = now();
         if (!autoSpeak || !machine) return;
         if (machine.phase === 'off' || machine.phase === 'paused' || machine.phase === 'capped') return;
         queueNewSentences(text, false);
@@ -934,6 +1115,7 @@
         pauseSession();
       },
       onResearch: function (text) {
+        lastProgress = now();
         if (!autoSpeak || !machine) return;
         if (machine.phase === 'off' || machine.phase === 'paused' || machine.phase === 'capped') return;
         if (researchSpoken) return;
@@ -963,7 +1145,7 @@
       },
       onStreamError: function () {
         if (!machine || machine.phase === 'off' || machine.phase === 'paused') return;
-        fail(null);
+        recoverToListening('stream');
       },
       shouldAbort: function () { return abortFlag; },
     });
@@ -986,6 +1168,11 @@
       if (!machine) return;
       if (machine.phase === 'listening' || machine.phase === 'speaking') flushSafe();
     }, 15000);
+    watchTimer = root.setInterval(function () {
+      if (!machine) return;
+      ensureMic();
+      watchdogTick();
+    }, 2000);
 
     getStatus().then(function (status) {
       lastStatus = status;
