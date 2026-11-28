@@ -1121,6 +1121,12 @@
     return '';
   }
   let isLoading = false;
+  let coachStreamAbort = null;
+
+  function abortCoachStream() {
+    if (!coachStreamAbort) return;
+    try { coachStreamAbort.abort(); } catch (e) {}
+  }
   let talkHooks = null;
   let talkSendFromMode = false;
 
@@ -2128,6 +2134,22 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
       return;
     }
 
+    abortCoachStream();
+    coachStreamAbort = typeof AbortController === 'function' ? new AbortController() : null;
+    const signal = coachStreamAbort ? coachStreamAbort.signal : null;
+    const abortPoll = setInterval(() => {
+      if (talkHook('shouldAbort')) abortCoachStream();
+    }, 400);
+    try {
+      return await streamARISBody(depth, signal);
+    } finally {
+      clearInterval(abortPoll);
+      if (coachStreamAbort && coachStreamAbort.signal === signal) coachStreamAbort = null;
+    }
+  }
+
+  async function streamARISBody(depth, signal) {
+
     // Usage tracking for the 14-day inactive list — fire-and-forget.
     if (depth === 0 && currentMemberToken) {
       fetch('/api/member-stats', {
@@ -2148,7 +2170,8 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
         messages: messagesForModel(),
         conversationId: currentConversationId,
         tools: CRM_TOOLS
-      })
+      }),
+      signal: signal || undefined
     });
 
     if (!res.ok) {
@@ -2182,7 +2205,7 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
     const blockTypes = {}; // index -> 'text' | 'tool_use'
 
     while (true) {
-      if (talkHook('shouldAbort')) {
+      if ((signal && signal.aborted) || talkHook('shouldAbort')) {
         try { await reader.cancel(); } catch (e) {}
         const partial = talkSpeakable(accumulatedText).trim();
         if (partial && Object.keys(toolBlocks).length === 0) {
@@ -2195,7 +2218,25 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
         talkHook('onDiscard');
         return;
       }
-      const { done, value } = await reader.read();
+      let chunk;
+      try {
+        chunk = await reader.read();
+      } catch (err) {
+        if ((signal && signal.aborted) || (err && err.name === 'AbortError') || talkHook('shouldAbort')) {
+          const partial = talkSpeakable(accumulatedText).trim();
+          if (partial && Object.keys(toolBlocks).length === 0) {
+            streamHandle.finalize(partial);
+            conversationHistory.push({ role: 'assistant', content: partial });
+            saveHistory();
+          } else {
+            streamHandle.remove();
+          }
+          talkHook('onDiscard');
+          return;
+        }
+        throw err;
+      }
+      const { done, value } = chunk;
       if (done) break;
       buffer += decoder.decode(value, { stream: true });
       const events = buffer.split('\n\n');
@@ -2356,8 +2397,12 @@ When you need one of those tools, I'll tell you. I'll send you there with a reas
       await streamARIS(0);
     } catch (err) {
       removeTyping();
-      appendMessage('aris', 'Connection interrupted. Check your network and try again.');
-      talkHook('onStreamError');
+      if (err && err.name === 'AbortError') {
+        talkHook('onDiscard');
+      } else {
+        appendMessage('aris', 'Connection interrupted. Check your network and try again.');
+        talkHook('onStreamError');
+      }
     }
 
     isLoading = false;

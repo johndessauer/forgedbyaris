@@ -499,14 +499,60 @@ test('speaker echo does not stop playback, and a louder sustained voice can', ()
   assert.equal(talk.interruptionIsEcho('What about the schools', 'Sophisticated renters will Google it.'), false);
   assert.equal(talk.BARGE_HOLD_MS >= 400 && talk.BARGE_HOLD_MS <= 600, true);
   assert.equal(talk.BARGE_GRACE_MS, 300);
+  var learned = talk.createBargeWatch({ baseline: 0.03 });
+  learned.noteSentence(0);
+  learned.push({ rms: 0.5, dt: 40, now: 10 });
+  assert.ok(learned.baseline() > 0.1);
+  learned.release();
+  assert.equal(learned.baseline(), 0.03);
+
+  var stuck = talk.createTalkWatchdog();
+  stuck.enter('speaking', 0);
+  assert.equal(stuck.tick(10000, { lastProgress: 9000 }).recover, false);
+  assert.equal(stuck.tick(30000, { lastProgress: 0 }).recover, true);
+  assert.equal(stuck.tick(30000, { lastProgress: 0 }).from, 'speaking');
+  stuck.enter('thinking', 0);
+  assert.equal(stuck.tick(5000, { transcribeSince: 4000 }).recover, false);
+  assert.equal(stuck.tick(80000, { lastProgress: 70000 }).recover, false);
+  assert.equal(stuck.tick(80000, { lastProgress: 0 }).from, 'thinking');
+  assert.equal(stuck.tick(20000, { transcribeSince: 0 }).from, 'transcribing');
+  assert.equal(stuck.tick(20000, { transcribeSince: 0 }).recover, true);
+  var many = talk.simulateTalkTurns(10);
+  assert.equal(many.phase, 'listening');
+  assert.equal(many.turns, 10);
+  assert.equal(many.recovered, null);
+  assert.ok(many.log.filter(function (name) { return name === 'listening'; }).length >= 11);
+
+  var mogulStall = talk.simulateTalkTurns(1, { style: 'natural', stall: true });
+  assert.equal(mogulStall.recovered.from, 'speaking');
+  assert.equal(mogulStall.phase, 'listening');
+  assert.equal(talk.statusLabel(mogulStall.phase, false), 'Listening');
+
+  var turnStall = talk.simulateTalkTurns(1, { style: 'turn', stall: true });
+  assert.equal(turnStall.style, 'turn');
+  assert.equal(turnStall.recovered.from, 'speaking');
+  assert.equal(turnStall.recovered.phase, 'ready');
+  assert.equal(turnStall.phase, 'ready');
+  assert.equal(talk.statusLabel(turnStall.phase, false), 'Your turn — tap Talk');
+  assert.equal(talk.COPY.yourTurn, 'Your turn — tap Talk');
 
   const session = fs.readFileSync(path.join(root, 'assets/js/aris-talk-session.js'), 'utf8');
   assert.match(session, /createBargeWatch/);
   assert.match(session, /logPlayback\('barge-in'\)/);
   assert.match(session, /logPlayback\('queue-end'\)/);
   assert.match(session, /logPlayback\('tts-error'\)/);
-  assert.equal(session.includes("fail(COPY.failed);"), true);
-  assert.equal(/catch \(function \(err\) \{\s*if \(token !== playToken[\s\S]*fail\(COPY\.failed\)/.test(session), false);
+  assert.match(session, /ARIS talk state:/);
+  assert.match(session, /createTalkWatchdog/);
+  assert.match(session, /recoverToListening/);
+  assert.match(session, /function recoverToListening\(reason\) \{[\s\S]*?returnToMember\(\)/);
+  assert.equal(/function recoverToListening\(reason\) \{[\s\S]*?machine\.markListening\(/.test(session), false);
+  assert.match(session, /logPlayback\('recorder-error'\)/);
+  assert.match(session, /speechDeadline/);
+  assert.match(session, /recoverToListening\('stream'\)/);
+  assert.equal(/tts-error[\s\S]{0,80}fail\(/.test(session), false);
+  const coach = fs.readFileSync(path.join(root, 'aris-coach.html'), 'utf8');
+  assert.match(coach, /abortCoachStream/);
+  assert.match(coach, /talkHook\('shouldAbort'\)/);
 });
 
 test('unlimited members skip the cap and other members do not', async () => {
