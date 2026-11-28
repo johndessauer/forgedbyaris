@@ -14,9 +14,16 @@
 //                           Unset or anything else is off.
 //   TALK_MODE_ALLOWLIST     Comma-separated Memberstack ids or emails. Those
 //                           members see Talk Mode even when the global flag is off.
-//   TALK_MODE_UNLIMITED     Same comma list. Those members skip the monthly cap.
+//   TALK_MODE_UNLIMITED     Same comma list. Those members skip the monthly cap,
+//                           the Mogul gate, and the extra-minutes pack.
 //                           Usage is still recorded. Nothing is hardcoded.
-//   ARIS_TALK_CAP_MINUTES   Per-member monthly cap. Default 30. 0 blocks Talk Mode.
+//   TALK_MOGUL_MEMBER_IDS   Comma-separated Memberstack ids or emails treated as
+//                           Mogul for testing. The stored Mogul badge is
+//                           education_level_awards.level = 'mogul'. REALWISE
+//                           is not in this repo. See isMogul() in aris-talk.js.
+//   ARIS_TALK_CAP_MINUTES   Per-member monthly cap for students who are not Mogul.
+//                           Default 30. 0 blocks Talk Mode. Mogul is 600 minutes.
+//                           Ignored for members on TALK_MODE_UNLIMITED.
 //   ARIS_TALK_IDLE_SECONDS  Client idle pause. Default 120. Clamped to 120–180.
 //   ARIS_TALK_ALERT_MINUTES Total Talk Mode minutes across all members in the UTC
 //                           month that write one aris_talk_alert_log row and one
@@ -35,18 +42,21 @@ const {
   COPY,
   WARN_LEAD_MS,
   MAX_CHUNK_SECONDS,
-  capMinutesFromEnv,
   alertMinutesFromEnv,
   idleMsFromEnv,
   envFlagOn,
   parseAllowlist,
   talkModeAccess,
   talkUnlimited,
+  talkAllowance,
+  capWarning,
+  packOffer,
   monthKeyFromDate,
   cleanSeconds,
   evaluateMonthAlert,
   createMemoryStore,
 } = require('../../assets/js/aris-talk');
+const { readUsage, mogulAward } = require('./_Lib/aris-talk-usage');
 
 const MEMBER_UNAVAILABLE = 'Talk Mode is unavailable right now.';
 
@@ -81,16 +91,10 @@ function createSupabaseStore() {
       };
     },
     async read(memberId, monthKey) {
-      const { data, error } = await supabase
-        .from('aris_talk_usage')
-        .select('listen_seconds, speak_seconds')
-        .eq('memberstack_id', memberId)
-        .eq('month_key', monthKey)
-        .maybeSingle();
-      if (error) throw error;
-      const listen = data ? Number(data.listen_seconds) || 0 : 0;
-      const speak = data ? Number(data.speak_seconds) || 0 : 0;
-      return { listenSeconds: listen, speakSeconds: speak, usedSeconds: listen + speak };
+      return readUsage(supabase, memberId, monthKey);
+    },
+    async mogulAward(memberId) {
+      return mogulAward(supabase, memberId);
     },
     async monthTotal(monthKey) {
       const { data, error } = await supabase
@@ -180,34 +184,30 @@ async function flagMonth(store, env, monthKey, log) {
 // a Postgres integer. Unlimited members still store their seconds.
 const UNLIMITED_CAP_SECONDS = 100000000;
 
-function statusBody(usedSeconds, capSeconds, idleMs, monthKey, unlimited) {
-  const used = Math.max(0, usedSeconds);
-  if (unlimited) {
-    return {
-      enabled: true,
-      unlimited: true,
-      capSeconds: capSeconds,
-      usedSeconds: used,
-      remainingSeconds: UNLIMITED_CAP_SECONDS,
-      capped: false,
-      idleMs: idleMs,
-      warnLeadMs: WARN_LEAD_MS,
-      monthKey: monthKey,
-      capMessage: '',
-    };
-  }
-  const remaining = Math.max(0, capSeconds - used);
+function statusBody(usedSeconds, allowance, idleMs, monthKey) {
+  const used = Math.max(0, Math.floor(Number(usedSeconds) || 0));
+  const capSeconds = allowance.capSeconds;
+  const warning = allowance.unlimited ? { level: 0, message: '' } : capWarning(used, capSeconds);
+  const capped = !allowance.unlimited && used >= capSeconds;
+  const offer = (!allowance.unlimited && capped && allowance.packSupported !== false) ? packOffer() : null;
   return {
     enabled: true,
-    unlimited: false,
+    unlimited: !!allowance.unlimited,
+    mogul: !!allowance.mogul,
+    style: allowance.unlimited ? 'natural' : allowance.style,
     capSeconds: capSeconds,
+    baseCapSeconds: allowance.baseCapSeconds,
+    packSeconds: allowance.packSeconds || 0,
     usedSeconds: used,
-    remainingSeconds: remaining,
-    capped: used >= capSeconds,
+    remainingSeconds: allowance.unlimited ? UNLIMITED_CAP_SECONDS : Math.max(0, capSeconds - used),
+    capped: capped,
     idleMs: idleMs,
     warnLeadMs: WARN_LEAD_MS,
     monthKey: monthKey,
-    capMessage: used >= capSeconds ? COPY.cap : '',
+    capMessage: capped ? COPY.cap : '',
+    warnLevel: capped ? 0 : warning.level,
+    warnMessage: capped ? '' : warning.message,
+    packOffer: offer,
   };
 }
 
@@ -226,20 +226,49 @@ function createHandler(deps) {
     const unlimitedList = parseAllowlist(env.TALK_MODE_UNLIMITED);
     const idAllow = !!(id && allowList.indexOf(id) !== -1);
     const idUnlimited = !!(id && unlimitedList.indexOf(id) !== -1);
+    const mogulList = parseAllowlist(env.TALK_MOGUL_MEMBER_IDS);
+    const idMogul = !!(id && mogulList.indexOf(id) !== -1);
     let email = '';
+    let member = { id: memberId };
     const needEmail = (!idAllow && !envFlagOn(env.TALK_MODE_ENABLED) && allowList.length)
-      || (!idUnlimited && unlimitedList.length);
+      || (!idUnlimited && unlimitedList.length)
+      || (!idMogul && mogulList.length);
     if (needEmail) {
       try {
-        email = emailOf(await getMember(memberId));
+        const loaded = await getMember(memberId);
+        if (loaded) member = loaded;
+        email = emailOf(member);
       } catch (err) {
         log.error('aris-talk: member lookup failed');
         email = '';
       }
     }
+    if (!member.id) member.id = memberId;
     const access = talkModeAccess({ env: env, memberId: memberId, email: email });
     access.unlimited = talkUnlimited({ env: env, memberId: memberId, email: email });
+    access.email = email;
+    access.member = member;
     return access;
+  }
+
+  async function allowanceFor(access, memberId, monthKey) {
+    const row = await store.read(memberId, monthKey);
+    let award = false;
+    if (!access.unlimited && typeof store.mogulAward === 'function') {
+      award = !!(await store.mogulAward(memberId));
+    }
+    const allowance = talkAllowance({
+      env: env,
+      member: access.member,
+      memberId: memberId,
+      email: access.email,
+      awards: { mogul: award },
+      packSeconds: row.packSeconds,
+      usedSeconds: row.usedSeconds,
+      packSupported: row.packSupported,
+      unlimited: access.unlimited,
+    });
+    return { row: row, allowance: allowance };
   }
 
   return async function handler(event) {
@@ -257,15 +286,13 @@ function createHandler(deps) {
     if (!access.enabled) return json(200, { enabled: false });
 
     const monthKey = monthKeyFromDate(now());
-    const capSeconds = capMinutesFromEnv(env) * 60;
     const idleMs = idleMsFromEnv(env);
-    const storeCap = access.unlimited ? UNLIMITED_CAP_SECONDS : capSeconds;
 
     if (event.httpMethod === 'GET') {
       try {
-        const row = await store.read(memberId, monthKey);
+        const loaded = await allowanceFor(access, memberId, monthKey);
         await flagMonth(store, env, monthKey, log);
-        return json(200, statusBody(row.usedSeconds, capSeconds, idleMs, monthKey, access.unlimited));
+        return json(200, statusBody(loaded.row.usedSeconds, loaded.allowance, idleMs, monthKey));
       } catch (err) {
         log.error('aris-talk: status failed');
         return json(503, { enabled: false, error: MEMBER_UNAVAILABLE });
@@ -286,6 +313,8 @@ function createHandler(deps) {
     }
 
     try {
+      const before = await allowanceFor(access, memberId, monthKey);
+      const storeCap = before.allowance.unlimited ? UNLIMITED_CAP_SECONDS : before.allowance.capSeconds;
       const saved = await store.add({
         memberId: memberId,
         monthKey: monthKey,
@@ -296,7 +325,18 @@ function createHandler(deps) {
         maxChunkSeconds: MAX_CHUNK_SECONDS,
       });
       await flagMonth(store, env, monthKey, log);
-      const payload = statusBody(saved.usedSeconds, capSeconds, idleMs, monthKey, access.unlimited);
+      const after = talkAllowance({
+        env: env,
+        member: access.member,
+        memberId: memberId,
+        email: access.email,
+        awards: { mogul: before.allowance.mogul },
+        packSeconds: before.allowance.packSeconds,
+        usedSeconds: saved.usedSeconds,
+        packSupported: before.allowance.packSupported,
+        unlimited: before.allowance.unlimited,
+      });
+      const payload = statusBody(saved.usedSeconds, after, idleMs, monthKey);
       payload.acceptedListen = saved.acceptedListen;
       payload.acceptedSpeak = saved.acceptedSpeak;
       payload.replayed = !!saved.replayed;

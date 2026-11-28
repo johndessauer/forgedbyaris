@@ -690,6 +690,24 @@
     text-align: center;
   }
   .talk-resume:hover { background: rgba(200,155,60,0.2); }
+  .talk-pack {
+    display: block;
+    width: 100%;
+    margin-top: 8px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--orange);
+    background: rgba(255,107,43,0.12);
+    color: var(--orange);
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+  }
+  .talk-pack:hover { background: rgba(255,107,43,0.22); }
+  .talk-pack:disabled { opacity: 0.6; cursor: wait; }
+  .talk-pack[hidden] { display: none !important; }
 
   .input-hint.recording-active {
     color: var(--orange);
@@ -944,6 +962,7 @@
       <div class="input-hint" id="input-hint">Press Enter to send &nbsp;·&nbsp; Shift+Enter for new line &nbsp;·&nbsp; 📎 PDF, Excel, Word, CSV, or photo up to 25MB &nbsp;·&nbsp; Or paste a Google Sheets or Docs link shared so anyone with the link can view &nbsp;·&nbsp; 🎤 Click to speak to ARIS</div>
       <p class="talk-status" id="talk-status" hidden></p>
       <button class="talk-resume" id="talk-resume" type="button" hidden>Talk Mode paused — tap to resume</button>
+      <button class="talk-pack" id="talk-pack" type="button" hidden>Add 60 more minutes this month for $19.97.</button>
     </div>
 
     <div style="text-align:center; padding: 16px 28px 12px; border-top: 1px solid rgba(200,155,60,0.15);">

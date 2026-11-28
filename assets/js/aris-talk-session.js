@@ -7,6 +7,11 @@
  * and starts a new turn. Two minutes without member speech pauses the
  * mic so no further minutes are counted. The control stays hidden
  * until /api/aris-talk says this member is allowed.
+ *
+ * style "turn" (below Mogul) closes the mic after each utterance and
+ * does not barge in. style "natural" keeps this hands-free loop.
+ * PR #143 adds recoverToListening(). That recovery should call
+ * returnToMember() so a turn-taking session does not reopen the mic.
  */
 (function (root, factory) {
   var api = factory(root);
@@ -20,6 +25,7 @@
     var btn = document.getElementById('talk-btn');
     var statusEl = document.getElementById('talk-status');
     var resumeEl = document.getElementById('talk-resume');
+    var packBtn = document.getElementById('talk-pack');
     if (!btn || !statusEl || !resumeEl) return;
 
     var COPY = root.ForgeTalk.COPY;
@@ -64,6 +70,8 @@
     var headsUpPlayed = false;
     var headsAudio = null;
     var capNoted = false;
+    var notedWarn = 0;
+    var packBuying = false;
     var flushTimer = 0;
     var unlockCtx = null;
     var enabled = false;
@@ -81,10 +89,18 @@
       btn.textContent = root.ForgeTalk.buttonLabel(phase);
       btn.classList.toggle('active', phase === 'listening' || phase === 'thinking' || phase === 'speaking');
       btn.setAttribute('aria-pressed', (phase === 'listening' || phase === 'thinking' || phase === 'speaking' || phase === 'paused') ? 'true' : 'false');
-      var showStatus = phase === 'listening' || phase === 'thinking' || phase === 'speaking';
+      var showStatus = phase === 'listening' || phase === 'thinking' || phase === 'speaking' || phase === 'ready';
       statusEl.hidden = !showStatus;
       if (showStatus) statusEl.textContent = root.ForgeTalk.statusLabel(phase, showWarning);
       resumeEl.hidden = phase !== 'paused';
+      if (packBtn) {
+        var offer = lastStatus && lastStatus.packOffer;
+        var showPack = phase === 'capped' && !!offer;
+        packBtn.hidden = !showPack;
+        if (showPack && offer.label) packBtn.textContent = offer.label;
+      }
+      if (lastStatus && lastStatus.style === 'turn') btn.title = 'Tap to take your turn with ARIS';
+      else btn.title = 'Talk with ARIS hands-free';
       if (page.setPushToTalkEnabled) {
         page.setPushToTalkEnabled(!(phase === 'listening' || phase === 'thinking' || phase === 'speaking'));
       }
@@ -243,6 +259,7 @@
         phase: machine.phase,
         priming: priming,
         utteranceLive: utteranceLive,
+        allowBarge: !(lastStatus && lastStatus.style === 'turn'),
       }, heard);
       if (plan.prime) {
         startRecorder();
@@ -275,6 +292,7 @@
     }
 
     function handleSpeakerLevel(rms, dt, t) {
+      if (lastStatus && lastStatus.style === 'turn') return;
       if (bargeHold || utteranceLive) return;
       var gate = bargeWatch.push({ rms: rms, dt: dt, now: t });
       if (gate === 'arm' && !priming) {
@@ -418,12 +436,51 @@
       chunks = [];
     }
 
+    function turnStyle() {
+      return !!(lastStatus && lastStatus.style === 'turn');
+    }
+
+    // Hands-free returns to listening. Turn-taking closes the mic and waits
+    // for another tap. PR #143's recoverToListening() should call this
+    // instead of machine.markListening() so a stall recovery stays in style.
+    function returnToMember() {
+      if (!machine) return;
+      if (turnStyle()) {
+        machine.yieldTurn(now());
+        releaseMic();
+        flushSafe();
+        return;
+      }
+      machine.markListening(now());
+    }
+
+    function closeMicForTurn() {
+      loopOn = false;
+      if (raf) cancelAnimationFrame(raf);
+      raf = 0;
+      bargeHold = false;
+      priming = false;
+      utteranceLive = false;
+      if (stream) {
+        stream.getTracks().forEach(function (track) {
+          try { track.stop(); } catch (err) {}
+        });
+        stream = null;
+      }
+      analyser = null;
+      vad.reset();
+    }
+
     function sendClip(blob, mime) {
       if (!machine || machine.phase === 'paused' || machine.phase === 'off' || machine.phase === 'capped') return;
       if (!blob || blob.size < 1000) {
-        if (machine.phase === 'listening') render();
+        if (turnStyle()) {
+          returnToMember();
+          render();
+        } else if (machine.phase === 'listening') render();
         return;
       }
+      if (turnStyle()) closeMicForTurn();
       machine.memberSpeechEnd(now());
       render();
       transcribe(blob, mime).then(function (text) {
@@ -432,13 +489,14 @@
         var full = [lead, text].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
         if (!machine || machine.phase === 'off' || machine.phase === 'paused' || machine.phase === 'capped') return;
         if (!full) {
-          machine.markListening(now());
-          statusEl.textContent = COPY.missed;
+          if (turnStyle() && page.appendNote) page.appendNote(COPY.missedTurn);
+          else statusEl.textContent = COPY.missed;
+          returnToMember();
           render();
           return;
         }
         if (root.ForgeTalk.isEchoOf(full, COPY.headsUp)) {
-          machine.markListening(now());
+          returnToMember();
           render();
           return;
         }
@@ -479,7 +537,7 @@
       if (playbackBusy() || activeSources.length) return;
       if (machine.phase === 'thinking' || machine.phase === 'speaking') {
         logPlayback('queue-end');
-        machine.markListening(now());
+        returnToMember();
         showWarning = false;
         headsUpPlayed = false;
         render();
@@ -766,6 +824,10 @@
         return postUsage(batch);
       }).then(function (body) {
         inflight = null;
+        if (body) {
+          lastStatus = body;
+          noteApproach(body);
+        }
         if (root.ForgeTalk.talkTimeBlocked(body)) showCap();
         return body;
       });
@@ -796,13 +858,24 @@
       return pending;
     }
 
+    function noteApproach(status) {
+      if (!status || !status.warnLevel || status.warnLevel <= notedWarn) return;
+      notedWarn = status.warnLevel;
+      if (status.warnMessage && page.appendNote) page.appendNote(status.warnMessage);
+    }
+
     function showCap() {
       turn += 1;
       autoSpeak = false;
       showWarning = false;
       haltPlayback();
       releaseMic();
-      if (!machine) machine = root.ForgeTalk.createTalkSession({ idleMs: lastStatus && lastStatus.idleMs });
+      if (!machine) {
+        machine = root.ForgeTalk.createTalkSession({
+          idleMs: lastStatus && lastStatus.idleMs,
+          style: lastStatus && lastStatus.style,
+        });
+      }
       if (machine.phase !== 'capped') machine.cap(now());
       if (!capNoted && page.appendNote) {
         capNoted = true;
@@ -853,8 +926,11 @@
 
     function ensureMachine(status) {
       var idle = status && status.idleMs;
-      if (!machine || (machine.phase === 'capped' && status && !status.capped) || (idle && machine.idleMs !== idle && machine.phase === 'off')) {
-        machine = root.ForgeTalk.createTalkSession({ idleMs: idle || undefined });
+      var style = status && status.style === 'turn' ? 'turn' : 'natural';
+      var staleStyle = machine && machine.style && machine.style !== style;
+      var idlePhase = machine && (machine.phase === 'off' || machine.phase === 'ready');
+      if (!machine || staleStyle || (machine.phase === 'capped' && status && !status.capped) || (idle && machine.idleMs !== idle && idlePhase)) {
+        machine = root.ForgeTalk.createTalkSession({ idleMs: idle || undefined, style: style });
       }
     }
 
@@ -968,8 +1044,45 @@
       shouldAbort: function () { return abortFlag; },
     });
 
+    function buyPack() {
+      if (!packBtn || packBuying) return;
+      if (!lastStatus || !lastStatus.packOffer) return;
+      packBuying = true;
+      packBtn.disabled = true;
+      fetch('/api/aris-talk-pack', {
+        method: 'POST',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, tokenHeader()),
+        body: JSON.stringify({ action: 'checkout' }),
+      }).then(function (res) {
+        return res.json().then(function (data) {
+          return { ok: res.ok, data: data };
+        });
+      }).then(function (result) {
+        if (result.ok && result.data && result.data.url) {
+          root.location.href = result.data.url;
+          return;
+        }
+        packBuying = false;
+        packBtn.disabled = false;
+        if (page.appendNote) page.appendNote((result.data && result.data.error) || COPY.packFailed);
+      }).catch(function () {
+        packBuying = false;
+        packBtn.disabled = false;
+        if (page.appendNote) page.appendNote(COPY.packFailed);
+      });
+    }
+
+    function notePackReturn(status) {
+      var search = '';
+      try { search = (root.location && root.location.search) || ''; } catch (err) { search = ''; }
+      if (!search || search.indexOf('talkpack=') === -1 || !page.appendNote) return;
+      if (search.indexOf('talkpack=success') === -1) return;
+      page.appendNote(status && !root.ForgeTalk.talkTimeBlocked(status) ? COPY.packReady : COPY.packPending);
+    }
+
     btn.addEventListener('click', onTalkPointer);
     resumeEl.addEventListener('click', onTalkPointer);
+    if (packBtn) packBtn.addEventListener('click', buyPack);
     document.addEventListener('visibilitychange', function () {
       if (!machine || machine.phase === 'off' || machine.phase === 'paused' || machine.phase === 'capped') return;
       if (document.visibilityState === 'hidden') hidePause.hidden(now());
@@ -992,10 +1105,12 @@
       if (!status || !status.enabled) return;
       enabled = true;
       ensureMachine(status);
+      noteApproach(status);
       if (status.capped) {
         machine.cap(now());
       }
       render();
+      notePackReturn(status);
     }).catch(function () {
       enabled = false;
       btn.hidden = true;
