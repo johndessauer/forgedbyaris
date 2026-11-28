@@ -152,6 +152,20 @@ Repeat the permission, listen, spoken reply, barge-in, idle pause, resume, and t
 
 Firefox and Safari do not use the browser's built-in speech recognizer. Each of them should still transcribe through the same path as the existing microphone button.
 
+### Barge-in (hands-free only)
+
+Below Mogul, turn-taking does not duck or stop playback when the member talks over ARIS. The checks below are for a Mogul or `TALK_MODE_UNLIMITED` account.
+
+Desktop counts about 250ms of loud mic frames inside a 400ms window, with a floor of about 0.06, so a syllable dip does not cancel the hold. iPhone and iPad, including iPadOS in desktop mode, stay at a floor of 0.10 and still need an unbroken half-second. Scheduling the next sentence does not clear a hold that is already building. A short dead zone applies only when a clip actually starts playing.
+
+The echo check uses the sentence that is playing and the one before it. A transcript is echo only when it has at least 4 words and at least 75% of the longer words overlap. `stop`, `wait`, `hold on`, `hang on`, `no`, `pause`, and `ARIS` are never echo.
+
+When the gate arms, playback drops to about 15% within about 50ms. It returns to full volume if the clip is rejected, and it stops fully when the interruption is confirmed. Console lines are prefixed `ARIS talk playback:` (`barge-arm`, `barge-candidate`, `barge-duck`, `barge-in confirmed`, `barge-rejected`, `barge-restore`).
+
+Optional tuning, no deploy: in the console set `localStorage.arisBargeFloor` and `localStorage.arisBargeHoldMs` to positive numbers, then reload the coach.
+
+MacBook Chrome, after merge, on https://forgedbyaris.com (Memberstack login does not work on a Netlify preview). While ARIS reads a long answer, talk over it 5 times on speakers and 5 times on headphones. Pass means ARIS ducks within about half a second and stops within about 1.5 seconds each time. Filter the console for `ARIS talk` and confirm `barge-arm` and `barge-in` lines.
+
 ### Cap, Mogul, and the extra-minutes pack
 
 Use an account that is not on `TALK_MODE_UNLIMITED`. That list skips the cap and the pack.
