@@ -667,6 +667,7 @@
   .talk-btn.active { background: var(--orange); border-color: var(--orange); color: white; }
   .talk-btn[hidden],
   .talk-resume[hidden],
+  .talk-interrupt[hidden],
   .talk-status[hidden] { display: none !important; }
   .talk-status {
     font-size: 12px;
@@ -708,6 +709,22 @@
   .talk-pack:hover { background: rgba(255,107,43,0.22); }
   .talk-pack:disabled { opacity: 0.6; cursor: wait; }
   .talk-pack[hidden] { display: none !important; }
+  .talk-interrupt {
+    display: block;
+    width: 100%;
+    margin-top: 8px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--orange);
+    background: rgba(255,107,43,0.16);
+    color: var(--orange);
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    text-align: center;
+  }
+  .talk-interrupt:hover { background: rgba(255,107,43,0.28); }
 
   .input-hint.recording-active {
     color: var(--orange);
@@ -961,6 +978,7 @@
       </div>
       <div class="input-hint" id="input-hint">Press Enter to send &nbsp;·&nbsp; Shift+Enter for new line &nbsp;·&nbsp; 📎 PDF, Excel, Word, CSV, or photo up to 25MB &nbsp;·&nbsp; Or paste a Google Sheets or Docs link shared so anyone with the link can view &nbsp;·&nbsp; 🎤 Click to speak to ARIS</div>
       <p class="talk-status" id="talk-status" hidden></p>
+      <button class="talk-interrupt" id="talk-interrupt" type="button" hidden>Interrupt</button>
       <button class="talk-resume" id="talk-resume" type="button" hidden>Talk Mode paused — tap to resume</button>
       <button class="talk-pack" id="talk-pack" type="button" hidden>Add 60 more minutes this month for $19.97.</button>
     </div>

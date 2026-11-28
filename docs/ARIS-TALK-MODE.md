@@ -11,7 +11,8 @@ This file is internal. It is not linked from the site.
 - A Talk control next to the existing microphone.
 - A status line: Listening, Thinking, or Speaking. Below Mogul the status also says: Your turn — tap Talk.
 - Mogul (and anyone on `TALK_MODE_UNLIMITED`) gets the hands-free loop. If they talk over ARIS, playback stops and that speech becomes the next turn.
-- Below Mogul, Talk Mode is turn-taking. The member taps Talk, speaks, and the microphone closes while ARIS answers. There is no barge-in and the microphone is not left open. They tap Talk again for the next turn.
+- Below Mogul, Talk Mode is turn-taking. The member taps Talk, speaks, and the microphone closes while ARIS answers. Talking over ARIS does not stop the reply, and the microphone is not left open. They tap Talk again for the next turn.
+- While ARIS is speaking, an Interrupt control is shown. Space does the same thing when the cursor is not in a text field. Either one stops playback immediately and listens for the member. This works in both the hands-free loop and turn-taking.
 - After 2 minutes with no member speech during a listening turn (configurable, 2–3 minutes), Talk Mode pauses. The microphone turns off, playback stops, and minutes stop counting. The control reads: Talk Mode paused — tap to resume. About 15 seconds before that, ARIS shows a note and speaks a short heads-up.
 - At 90% and 95% of the monthly cap, ARIS posts a short heads-up in the chat. At the cap, Talk Mode stops. Typing and the speaker button still work. A student who has hit the cap can add 60 minutes for $19.97. That button is hidden until the cap is hit. The extra minutes count for the current month only.
 - Spoken turns are saved as text in the same chat. Audio is not stored.
@@ -38,9 +39,9 @@ Set these in Netlify. None are required for the merge. Defaults keep Talk Mode o
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `TALK_MODE_ENABLED` | off | `true`, `1`, `on`, or `yes` shows Talk Mode to every member. Anything else, including unset, hides it. |
-| `TALK_MODE_ALLOWLIST` | empty | Comma-separated Memberstack member ids and/or emails who see Talk Mode while the global flag is off. Example: `mem_abc123, john@thedessauergroup.com` |
-| `TALK_MODE_UNLIMITED` | empty | Same comma list of Memberstack ids and/or emails. Those members skip the monthly cap, the Mogul check, and the extra-minutes pack. They keep hands-free Talk Mode. Their minutes are still stored. Unset means everyone is capped. |
-| `TALK_MOGUL_MEMBER_IDS` | empty | Comma-separated Memberstack ids and/or emails treated as Mogul, for testing. This does not replace the education badge. |
+| `TALK_MODE_ALLOWLIST` | empty | Memberstack member ids and/or emails who see Talk Mode while the global flag is off. Separate entries with commas, semicolons, or whitespace. Example: `mem_abc123, john@thedessauergroup.com` |
+| `TALK_MODE_UNLIMITED` | empty | Same kind of list. Those members skip the monthly cap, the Mogul check, and the extra-minutes pack. They keep hands-free Talk Mode. Their minutes are still stored. Unset means everyone is capped. |
+| `TALK_MOGUL_MEMBER_IDS` | empty | Memberstack ids and/or emails treated as Mogul, for testing, with the same separators. This does not replace the education badge. |
 | `ARIS_TALK_CAP_MINUTES` | `30` | Monthly cap for a student who is not Mogul. Counts listening time and speaking time. Paused time and the gap between turns are not counted. `0` blocks Talk Mode. Mogul students get 600 minutes instead. Ignored for members on `TALK_MODE_UNLIMITED`. |
 | `TALK_PACK_LIVE_CHECKOUT` | off | Must be the string `true` before a live secret key is accepted for the extra-minutes pack. Leave it unset. The pack stays in test mode. |
 | `TALK_PACK_STRIPE_WEBHOOK_SECRET` | empty | Signing secret for the test-mode webhook endpoint described below. The pack is not credited until this is set. |
@@ -152,19 +153,25 @@ Repeat the permission, listen, spoken reply, barge-in, idle pause, resume, and t
 
 Firefox and Safari do not use the browser's built-in speech recognizer. Each of them should still transcribe through the same path as the existing microphone button.
 
-### Barge-in (hands-free only)
+### Barge-in (hands-free) and Interrupt (both styles)
 
-Below Mogul, turn-taking does not duck or stop playback when the member talks over ARIS. The checks below are for a Mogul or `TALK_MODE_UNLIMITED` account.
+Below Mogul, turn-taking does not duck or stop playback when the member talks over ARIS. Space and the Interrupt control still stop playback in both styles. The checks below for talking over ARIS are for a Mogul or `TALK_MODE_UNLIMITED` account.
 
-Desktop counts about 250ms of loud mic frames inside a 400ms window, with a floor of about 0.06, so a syllable dip does not cancel the hold. iPhone and iPad, including iPadOS in desktop mode, stay at a floor of 0.10 and still need an unbroken half-second. Scheduling the next sentence does not clear a hold that is already building. A short dead zone applies only when a clip actually starts playing.
+Desktop counts about 250ms of loud mic frames inside a 400ms window, so a syllable dip does not cancel the hold. The loud line is the echo floor, not a fixed volume: `limit = max(0.035, baseline × 1.4)`. The baseline starts at the quiet level measured before ARIS speaks. It then moves slowly (about 0.05 per frame) and only on frames that still look like speaker bleed. Frames while a barge is arming or confirming, and frames that look like the member, do not raise it. The first 80ms of a sentence still settles onto steady bleed so ARIS's own voice does not count as an interruption. iPhone and iPad, including iPadOS in desktop mode, stay at a floor of 0.10, a ratio of 2.5, and an unbroken half-second. Scheduling the next sentence does not clear a hold that is already building. A short dead zone applies only when a clip actually starts playing.
 
 The echo check uses the sentence that is playing and the one before it. A transcript is echo only when it has at least 4 words and at least 75% of the longer words overlap. `stop`, `wait`, `hold on`, `hang on`, `no`, `pause`, and `ARIS` are never echo.
 
-When the gate arms, playback drops to about 15% within about 50ms. It returns to full volume if the clip is rejected, and it stops fully when the interruption is confirmed. Console lines are prefixed `ARIS talk playback:` (`barge-arm`, `barge-candidate`, `barge-duck`, `barge-in confirmed`, `barge-rejected`, `barge-restore`).
+Playback drops to about 15% within about 50ms when the gate arms (about 80ms of speech), including any sentence that starts while the duck is on. It returns to full volume if the clip is rejected, and it stops fully when the interruption is confirmed. Console lines are prefixed `ARIS talk playback:` (`barge-arm`, `barge-candidate`, `barge-duck`, `barge-in confirmed`, `barge-rejected`, `barge-restore`, `barge-manual`).
 
-Optional tuning, no deploy: in the console set `localStorage.arisBargeFloor` and `localStorage.arisBargeHoldMs` to positive numbers, then reload the coach.
+Space stops ARIS immediately when focus is not in a text field. The Interrupt control does the same while ARIS is speaking. Both work in natural and turn-taking Talk Mode. They skip the microphone and the echo check, stop playback, and listen for the member. The console line is `ARIS talk playback: barge-manual`.
 
-MacBook Chrome, after merge, on https://forgedbyaris.com (Memberstack login does not work on a Netlify preview). While ARIS reads a long answer, talk over it 5 times on speakers and 5 times on headphones. Pass means ARIS ducks within about half a second and stops within about 1.5 seconds each time. Filter the console for `ARIS talk` and confirm `barge-arm` and `barge-in` lines.
+Optional tuning, no deploy: in the console set `localStorage.arisBargeFloor` and `localStorage.arisBargeHoldMs` to positive numbers, then reload the coach. Those overrides still win over the defaults above.
+
+MacBook Chrome, on https://forgedbyaris.com (Memberstack login does not work on a Netlify preview). While ARIS reads a long answer:
+
+1. Speakers: talk over ARIS 5 times. Pass means ARIS ducks within about half a second and stops within about 1.5 seconds. Filter the console for `ARIS talk` and confirm `barge-arm`, `barge-duck`, and `barge-in` lines.
+2. Headphones: the same 5 interruptions.
+3. Speakers again: click the page so the cursor is not in the text box, then press Space, and click Interrupt. Each one should stop ARIS at once and return to Listening, with a `barge-manual` line. Repeat once in turn-taking (an account that is not Mogul and not on `TALK_MODE_UNLIMITED`).
 
 ### Cap, Mogul, and the extra-minutes pack
 
@@ -174,7 +181,7 @@ Card for the pack, test mode only: `4242 4242 4242 4242`, any future expiry, any
 
 Below Mogul (no education Mogul badge, and not listed in `TALK_MOGUL_MEMBER_IDS`):
 
-1. Tap Talk, speak one sentence, and wait. The microphone must close while ARIS answers. The status then says: Your turn — tap Talk. Talking over ARIS must not cut the reply off.
+1. Tap Talk, speak one sentence, and wait. The microphone must close while ARIS answers. The status then says: Your turn — tap Talk. Talking over ARIS must not cut the reply off. Space, or Interrupt, must stop the reply and listen.
 2. Tap Talk again and confirm the next turn works.
 
 Mogul (either the education badge or `TALK_MOGUL_MEMBER_IDS`):

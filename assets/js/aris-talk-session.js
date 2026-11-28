@@ -25,6 +25,7 @@
     var btn = document.getElementById('talk-btn');
     var statusEl = document.getElementById('talk-status');
     var resumeEl = document.getElementById('talk-resume');
+    var interruptEl = document.getElementById('talk-interrupt');
     var packBtn = document.getElementById('talk-pack');
     if (!btn || !statusEl || !resumeEl) return;
 
@@ -127,6 +128,7 @@
           : root.ForgeTalk.statusLabel(phase, showWarning);
       }
       resumeEl.hidden = phase !== 'paused';
+      if (interruptEl) interruptEl.hidden = !(enabled && phase === 'speaking');
       if (packBtn) {
         var offer = lastStatus && lastStatus.packOffer;
         var showPack = phase === 'capped' && !!offer;
@@ -280,7 +282,10 @@
           var rms = root.ForgeTalk.rmsFromTimeDomain(timeBuf);
           lastRms = rms;
           if (machine.phase === 'speaking') handleSpeakerLevel(rms, dt, t);
-          else handleVad(vad.push(rms, dt, 'listening'));
+          else {
+            if (bargeWatch.observeListening) bargeWatch.observeListening(rms);
+            handleVad(vad.push(rms, dt, 'listening'));
+          }
           if (machine.phase === 'speaking' && activeSources.length && t < speechDeadline + 1200) {
             var playing = audioContext();
             if (playing && playing.state === 'running') lastProgress = t;
@@ -343,7 +348,11 @@
       syncPlayingSentence(t);
       if (bargeHold || utteranceLive) return;
       var gate = bargeWatch.push({ rms: rms, dt: dt, now: t });
-      if (gate === 'arm' || gate === 'candidate') logBargeArm(rms, t);
+      // Duck as soon as speech is being detected, not after the full hold.
+      if (gate === 'arm' || gate === 'candidate') {
+        logBargeArm(rms, t);
+        if (!ducked) duckPlayback();
+      }
       if (gate === 'arm' && !priming) {
         startRecorder('hold');
         priming = true;
@@ -353,12 +362,12 @@
         discardRecording();
         bargeWatch.reset();
       }
+      if (gate === 'idle') restorePlayback();
       if (gate === 'candidate') {
         bargeHold = true;
         priming = false;
         bargeArmedAt = t;
         logPlayback('barge-candidate');
-        duckPlayback();
         confirmBarge();
       }
     }
@@ -520,6 +529,66 @@
         if (token !== bargeToken) return;
         discardRecording();
         rejectBarge('error');
+      });
+    }
+
+    // Space or the Interrupt control. Same stop as a confirmed barge, with
+    // no microphone level and no echo check. Works in natural and turn style.
+    function manualBarge() {
+      if (!machine || machine.phase !== 'speaking') return;
+      logPlayback('barge-manual');
+      bargeLeadText = '';
+      discardRecording();
+      showWarning = false;
+      headsUpPlayed = false;
+      stopHeadsAudio();
+      turn += 1;
+      abortFlag = true;
+      autoSpeak = true;
+      researchSpoken = false;
+      haltPlayback();
+      utteranceLive = false;
+      priming = false;
+      vad.reset();
+      if (loopOn && micAlive()) {
+        resumeListening();
+        return;
+      }
+      reopenMicForListen();
+    }
+
+    function resumeListening() {
+      utteranceLive = false;
+      priming = false;
+      vad.reset();
+      if (machine && machine.phase !== 'off' && machine.phase !== 'paused' && machine.phase !== 'capped') {
+        machine.markListening(now());
+      }
+      silentSince = now();
+      render();
+    }
+
+    function reopenMicForListen() {
+      if (raf) cancelAnimationFrame(raf);
+      raf = 0;
+      loopOn = false;
+      if (stream) {
+        stream.getTracks().forEach(function (track) {
+          try { track.stop(); } catch (err) {}
+        });
+        stream = null;
+      }
+      analyser = null;
+      openMic().then(function (opened) {
+        if (!machine || machine.phase === 'off' || machine.phase === 'paused' || machine.phase === 'capped') {
+          releaseOpened(opened);
+          return;
+        }
+        adoptMic(opened);
+        resumeListening();
+      }).catch(function () {
+        resumeListening();
+        logState('mic-dead');
       });
     }
 
@@ -820,10 +889,15 @@
       var gain = ctx.createGain();
       var fade = plan.fade;
       var endAt = plan.startAt + plan.playFor;
+      var peak = root.ForgeTalk.bargePlaybackPeak(ducked);
       gain.gain.setValueAtTime(0, plan.startAt);
-      gain.gain.linearRampToValueAtTime(1, plan.startAt + fade);
-      gain.gain.setValueAtTime(1, Math.max(plan.startAt + fade, endAt - fade));
-      gain.gain.linearRampToValueAtTime(0, endAt);
+      gain.gain.linearRampToValueAtTime(peak, plan.startAt + fade);
+      if (peak >= 0.99) {
+        gain.gain.setValueAtTime(1, Math.max(plan.startAt + fade, endAt - fade));
+        gain.gain.linearRampToValueAtTime(0, endAt);
+      } else {
+        gain.gain.setValueAtTime(peak, endAt);
+      }
       source.connect(gain);
       gain.connect(ctx.destination);
       try {
@@ -1374,7 +1448,16 @@
 
     btn.addEventListener('click', onTalkPointer);
     resumeEl.addEventListener('click', onTalkPointer);
+    if (interruptEl) interruptEl.addEventListener('click', function (event) {
+      if (event) event.preventDefault();
+      manualBarge();
+    });
     if (packBtn) packBtn.addEventListener('click', buyPack);
+    document.addEventListener('keydown', function (event) {
+      if (!root.ForgeTalk.isManualBargeKey(event, machine && machine.phase)) return;
+      event.preventDefault();
+      manualBarge();
+    });
     document.addEventListener('visibilitychange', function () {
       if (!machine || machine.phase === 'off' || machine.phase === 'paused' || machine.phase === 'capped') return;
       if (document.visibilityState === 'hidden') hidePause.hidden(now());

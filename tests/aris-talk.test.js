@@ -614,6 +614,32 @@ test('unlimited members skip the cap and other members do not', async () => {
   assert.match(src, /TALK_MODE_UNLIMITED/);
 });
 
+test('allowlists split on commas, semicolons, and whitespace', () => {
+  assert.deepEqual(
+    talk.parseAllowlist(' Mem_A; b@example.com \n mem_c\tmem_d '),
+    ['mem_a', 'b@example.com', 'mem_c', 'mem_d']
+  );
+  assert.deepEqual(talk.parseAllowlist(''), []);
+  assert.deepEqual(talk.parseAllowlist('mem_a,, ; mem_b'), ['mem_a', 'mem_b']);
+  assert.equal(talk.talkModeAccess({
+    env: { TALK_MODE_ALLOWLIST: 'mem_a;b@example.com' },
+    memberId: 'other',
+    email: 'b@example.com',
+  }).reason, 'allowlist');
+  assert.equal(talk.talkUnlimited({
+    env: { TALK_MODE_UNLIMITED: 'mem_a mem_b' },
+    memberId: 'mem_b',
+  }), true);
+  assert.equal(talk.talkUnlimited({
+    env: { TALK_MODE_UNLIMITED: 'owner@example.com;mem_other' },
+    email: 'owner@example.com',
+  }), true);
+  assert.equal(talk.isMogul(null, {
+    env: { TALK_MOGUL_MEMBER_IDS: 'mem_mogul; coach@example.com' },
+    email: 'coach@example.com',
+  }), true);
+});
+
 test('Talk Mode stays off unless the global flag or allowlist matches', () => {
   assert.deepEqual(talkModeAccess({ env: {}, memberId: 'mem_john', email: 'john@thedessauergroup.com' }), {
     enabled: false,
@@ -728,6 +754,44 @@ test('allowlisted member can add minutes, hit the cap, and raise the log alert o
   const again = await call(handler, 'GET');
   assert.equal(again.body.capped, true);
   assert.equal(lines.filter((line) => line.startsWith('ARIS_TALK_ALERT')).length, 1);
+});
+
+test('status log names style and unlimited and skips member secrets', async () => {
+  const store = talk.createMemoryStore();
+  const { handler, lines } = handlerFor({
+    TALK_MODE_ENABLED: 'true',
+    TALK_MODE_UNLIMITED: 'mem_john; owner@example.com',
+  }, store);
+  const status = await call(handler, 'GET');
+  assert.equal(status.body.unlimited, true);
+  assert.equal(status.body.style, 'natural');
+  const logged = lines.filter((line) => line.indexOf('ARIS talk status:') === 0);
+  assert.equal(logged.length, 1);
+  assert.match(logged[0], /style=natural/);
+  assert.match(logged[0], /unlimited=yes/);
+  assert.equal(/mem_|@|allowlist|secret/i.test(logged[0]), false);
+
+  const turn = handlerFor({ TALK_MODE_ENABLED: 'true' }, talk.createMemoryStore(), {
+    enforce: async () => ({ access: { memberId: 'mem_pat', active: true } }),
+    getMember: async () => ({ auth: { email: 'pat@example.com' } }),
+  });
+  const turnStatus = await call(turn.handler, 'GET');
+  assert.equal(turnStatus.body.style, 'turn');
+  assert.equal(turnStatus.body.unlimited, false);
+  const turnLog = turn.lines.filter((line) => line.indexOf('ARIS talk status:') === 0);
+  assert.equal(turnLog.length, 1);
+  assert.match(turnLog[0], /style=turn/);
+  assert.match(turnLog[0], /unlimited=no/);
+  assert.equal(/pat@|mem_pat/.test(turnLog[0]), false);
+
+  const added = await call(handler, 'POST', {
+    action: 'add',
+    listenSeconds: 1,
+    speakSeconds: 1,
+    requestId: 'status-log-1',
+  });
+  assert.equal(added.body.unlimited, true);
+  assert.equal(lines.filter((line) => line.indexOf('ARIS talk status:') === 0).length, 2);
 });
 
 test('global flag does not need an email lookup', async () => {
