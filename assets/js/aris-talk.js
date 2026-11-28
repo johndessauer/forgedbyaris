@@ -104,6 +104,27 @@
     return { enabled: false, reason: 'off' };
   }
 
+  // Same comma list as the allowlist. A match skips the monthly cap.
+  // Ids and emails are compared case-insensitively. Nothing is hardcoded.
+  function talkUnlimited(input) {
+    var opts = input || {};
+    var env = opts.env || {};
+    var list = parseAllowlist(env.TALK_MODE_UNLIMITED);
+    if (!list.length) return false;
+    var id = String(opts.memberId || '').trim().toLowerCase();
+    var email = String(opts.email || '').trim().toLowerCase();
+    if (id && list.indexOf(id) !== -1) return true;
+    if (email && list.indexOf(email) !== -1) return true;
+    return false;
+  }
+
+  function talkTimeBlocked(status) {
+    if (!status || status.unlimited) return false;
+    if (status.capped) return true;
+    var remaining = Number(status.remainingSeconds);
+    return Number.isFinite(remaining) && remaining <= 0;
+  }
+
   function monthKeyFromDate(date) {
     var d = date instanceof Date ? date : new Date(date);
     if (Number.isNaN(d.getTime())) throw new Error('bad date');
@@ -693,6 +714,38 @@
     };
   }
 
+  // What the mic loop should do for one voice-activity event.
+  // While ARIS is speaking, the first loud frames only arm the recorder.
+  // Playback stops once that loudness holds long enough to be the member.
+  function planVadAction(state, heard) {
+    var phase = state && state.phase;
+    var priming = !!(state && state.priming);
+    var live = !!(state && state.utteranceLive);
+    var hot = phase === 'listening' || phase === 'speaking' || phase === 'thinking';
+    if (heard === 'noise' && hot && !live) {
+      return { prime: !priming, discard: false, barge: false, finish: false };
+    }
+    if (heard === 'silence' && priming && !live) {
+      return { clearPrime: true, discard: true, barge: false, finish: false };
+    }
+    if (heard === 'speech_start' && (phase === 'speaking' || phase === 'thinking')) {
+      return { clearPrime: true, live: true, barge: true, ensureRecorder: true, discard: false, finish: false };
+    }
+    if (heard === 'speech_start' && phase === 'listening') {
+      return { clearPrime: true, live: true, barge: false, note: true, ensureRecorder: true, discard: false, finish: false };
+    }
+    if (heard === 'speech' && phase === 'listening' && live) {
+      return { note: true, barge: false, discard: false, finish: false };
+    }
+    if (heard === 'speech_reject') {
+      return { clearPrime: true, live: false, discard: true, barge: false, finish: false };
+    }
+    if (heard === 'speech_end' && phase === 'listening' && live) {
+      return { clearPrime: true, live: false, finish: true, barge: false, discard: false };
+    }
+    return { barge: false, discard: false, finish: false };
+  }
+
   function rmsFromTimeDomain(samples) {
     if (!samples || !samples.length) return 0;
     var sum = 0;
@@ -707,9 +760,11 @@
   function createVad(options) {
     var opts = options || {};
     var speechRms = opts.speechRms == null ? 0.045 : opts.speechRms;
-    var bargeRms = opts.bargeRms == null ? 0.09 : opts.bargeRms;
+    // Higher than normal listening so speaker bleed does not trip it, and
+    // only a short run of frames so a real interruption is not ignored.
+    var bargeRms = opts.bargeRms == null ? 0.065 : opts.bargeRms;
     var speechFrames = opts.speechFrames == null ? 4 : opts.speechFrames;
-    var bargeFrames = opts.bargeFrames == null ? 8 : opts.bargeFrames;
+    var bargeFrames = opts.bargeFrames == null ? 4 : opts.bargeFrames;
     var silenceLimit = opts.silenceMs == null ? DEFAULT_SILENCE_MS : opts.silenceMs;
     var minUtteranceMs = opts.minUtteranceMs == null ? 280 : opts.minUtteranceMs;
     var run = 0;
@@ -953,6 +1008,9 @@
     envFlagOn: envFlagOn,
     parseAllowlist: parseAllowlist,
     talkModeAccess: talkModeAccess,
+    talkUnlimited: talkUnlimited,
+    talkTimeBlocked: talkTimeBlocked,
+    planVadAction: planVadAction,
     monthKeyFromDate: monthKeyFromDate,
     cleanSeconds: cleanSeconds,
     applyUsage: applyUsage,

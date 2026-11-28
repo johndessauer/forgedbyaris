@@ -465,6 +465,95 @@ test('member-facing Talk Mode copy never names a vendor', () => {
   assert.match(COPY.cap, /speaker button/);
 });
 
+test('speaker bleed does not barge in, and a sustained member voice does', () => {
+  const bleed = createVad();
+  assert.equal(bleed.push(0.05, 50, 'speaking'), 'silence');
+  assert.equal(bleed.push(0.05, 80, 'speaking'), 'silence');
+
+  const vad = createVad();
+  assert.equal(vad.push(0.08, 40, 'speaking'), 'noise');
+  assert.equal(vad.push(0.08, 40, 'speaking'), 'noise');
+  assert.equal(vad.push(0.08, 40, 'speaking'), 'noise');
+  assert.equal(vad.push(0.08, 40, 'speaking'), 'speech_start');
+
+  const arm = talk.planVadAction({ phase: 'speaking', priming: false, utteranceLive: false }, 'noise');
+  assert.equal(arm.prime, true);
+  assert.equal(arm.barge, false);
+  assert.equal(arm.discard, false);
+  const go = talk.planVadAction({ phase: 'speaking', priming: true, utteranceLive: false }, 'speech_start');
+  assert.equal(go.barge, true);
+  assert.equal(go.ensureRecorder, true);
+  assert.equal(go.discard, false);
+  const keep = talk.planVadAction({ phase: 'listening', priming: false, utteranceLive: true }, 'speech');
+  assert.equal(keep.note, true);
+  assert.equal(keep.finish, false);
+  const done = talk.planVadAction({ phase: 'listening', priming: false, utteranceLive: true }, 'speech_end');
+  assert.equal(done.finish, true);
+  assert.equal(done.discard, false);
+  const blip = talk.planVadAction({ phase: 'speaking', priming: true, utteranceLive: false }, 'silence');
+  assert.equal(blip.discard, true);
+  assert.equal(blip.barge, false);
+});
+
+test('unlimited members skip the cap and other members do not', async () => {
+  const store = talk.createMemoryStore();
+  const env = {
+    TALK_MODE_ENABLED: 'true',
+    TALK_MODE_UNLIMITED: 'Mem_John',
+    ARIS_TALK_CAP_MINUTES: '1',
+  };
+  const { handler } = handlerFor(env, store);
+  const over = await call(handler, 'POST', {
+    action: 'add',
+    listenSeconds: 50,
+    speakSeconds: 40,
+    requestId: 'owner-1',
+  });
+  assert.equal(over.body.unlimited, true);
+  assert.equal(over.body.capped, false);
+  assert.equal(over.body.acceptedListen, 50);
+  assert.equal(over.body.acceptedSpeak, 40);
+  assert.equal(talk.talkTimeBlocked(over.body), false);
+  const status = await call(handler, 'GET');
+  assert.equal(status.body.capped, false);
+  assert.equal(status.body.unlimited, true);
+  assert.ok(status.body.remainingSeconds > 0);
+
+  const other = handlerFor({
+    TALK_MODE_ENABLED: 'true',
+    ARIS_TALK_CAP_MINUTES: '1',
+  }, talk.createMemoryStore(), {
+    enforce: async () => ({ access: { memberId: 'mem_other', active: true } }),
+  });
+  const blocked = await call(other.handler, 'POST', {
+    action: 'add',
+    listenSeconds: 50,
+    speakSeconds: 40,
+    requestId: 'other-1',
+  });
+  assert.equal(blocked.body.unlimited, false);
+  assert.equal(blocked.body.capped, true);
+  assert.equal(talk.talkTimeBlocked(blocked.body), true);
+
+  const byEmail = handlerFor({
+    TALK_MODE_ENABLED: 'true',
+    TALK_MODE_UNLIMITED: 'owner@example.com',
+    ARIS_TALK_CAP_MINUTES: '1',
+  }, talk.createMemoryStore(), {
+    enforce: async () => ({ access: { memberId: 'mem_owner', active: true } }),
+    getMember: async () => ({ auth: { email: 'owner@example.com' } }),
+  });
+  const mailed = await call(byEmail.handler, 'GET');
+  assert.equal(mailed.body.unlimited, true);
+  assert.equal(mailed.body.capped, false);
+
+  const src = fs.readFileSync(path.join(root, 'assets/js/aris-talk.js'), 'utf8')
+    + fs.readFileSync(path.join(root, 'netlify/functions/aris-talk.js'), 'utf8')
+    + fs.readFileSync(path.join(root, 'docs/ARIS-TALK-MODE.md'), 'utf8');
+  assert.equal(src.includes('mem_cmrjn9b9z1x7p0sql1r0j3fxs'), false);
+  assert.match(src, /TALK_MODE_UNLIMITED/);
+});
+
 test('Talk Mode stays off unless the global flag or allowlist matches', () => {
   assert.deepEqual(talkModeAccess({ env: {}, memberId: 'mem_john', email: 'john@thedessauergroup.com' }), {
     enabled: false,

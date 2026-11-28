@@ -14,6 +14,8 @@
 //                           Unset or anything else is off.
 //   TALK_MODE_ALLOWLIST     Comma-separated Memberstack ids or emails. Those
 //                           members see Talk Mode even when the global flag is off.
+//   TALK_MODE_UNLIMITED     Same comma list. Those members skip the monthly cap.
+//                           Usage is still recorded. Nothing is hardcoded.
 //   ARIS_TALK_CAP_MINUTES   Per-member monthly cap. Default 30. 0 blocks Talk Mode.
 //   ARIS_TALK_IDLE_SECONDS  Client idle pause. Default 120. Clamped to 120–180.
 //   ARIS_TALK_ALERT_MINUTES Total Talk Mode minutes across all members in the UTC
@@ -39,6 +41,7 @@ const {
   envFlagOn,
   parseAllowlist,
   talkModeAccess,
+  talkUnlimited,
   monthKeyFromDate,
   cleanSeconds,
   evaluateMonthAlert,
@@ -173,11 +176,30 @@ async function flagMonth(store, env, monthKey, log) {
   }
 }
 
-function statusBody(usedSeconds, capSeconds, idleMs, monthKey) {
+// Large enough that the SQL cap check never trips, and small enough for
+// a Postgres integer. Unlimited members still store their seconds.
+const UNLIMITED_CAP_SECONDS = 100000000;
+
+function statusBody(usedSeconds, capSeconds, idleMs, monthKey, unlimited) {
   const used = Math.max(0, usedSeconds);
+  if (unlimited) {
+    return {
+      enabled: true,
+      unlimited: true,
+      capSeconds: capSeconds,
+      usedSeconds: used,
+      remainingSeconds: UNLIMITED_CAP_SECONDS,
+      capped: false,
+      idleMs: idleMs,
+      warnLeadMs: WARN_LEAD_MS,
+      monthKey: monthKey,
+      capMessage: '',
+    };
+  }
   const remaining = Math.max(0, capSeconds - used);
   return {
     enabled: true,
+    unlimited: false,
     capSeconds: capSeconds,
     usedSeconds: used,
     remainingSeconds: remaining,
@@ -199,8 +221,15 @@ function createHandler(deps) {
   const log = d.log || console;
 
   async function allow(memberId) {
+    const id = String(memberId || '').trim().toLowerCase();
+    const allowList = parseAllowlist(env.TALK_MODE_ALLOWLIST);
+    const unlimitedList = parseAllowlist(env.TALK_MODE_UNLIMITED);
+    const idAllow = !!(id && allowList.indexOf(id) !== -1);
+    const idUnlimited = !!(id && unlimitedList.indexOf(id) !== -1);
     let email = '';
-    if (!envFlagOn(env.TALK_MODE_ENABLED) && parseAllowlist(env.TALK_MODE_ALLOWLIST).length) {
+    const needEmail = (!idAllow && !envFlagOn(env.TALK_MODE_ENABLED) && allowList.length)
+      || (!idUnlimited && unlimitedList.length);
+    if (needEmail) {
       try {
         email = emailOf(await getMember(memberId));
       } catch (err) {
@@ -208,7 +237,9 @@ function createHandler(deps) {
         email = '';
       }
     }
-    return talkModeAccess({ env: env, memberId: memberId, email: email });
+    const access = talkModeAccess({ env: env, memberId: memberId, email: email });
+    access.unlimited = talkUnlimited({ env: env, memberId: memberId, email: email });
+    return access;
   }
 
   return async function handler(event) {
@@ -228,12 +259,13 @@ function createHandler(deps) {
     const monthKey = monthKeyFromDate(now());
     const capSeconds = capMinutesFromEnv(env) * 60;
     const idleMs = idleMsFromEnv(env);
+    const storeCap = access.unlimited ? UNLIMITED_CAP_SECONDS : capSeconds;
 
     if (event.httpMethod === 'GET') {
       try {
         const row = await store.read(memberId, monthKey);
         await flagMonth(store, env, monthKey, log);
-        return json(200, statusBody(row.usedSeconds, capSeconds, idleMs, monthKey));
+        return json(200, statusBody(row.usedSeconds, capSeconds, idleMs, monthKey, access.unlimited));
       } catch (err) {
         log.error('aris-talk: status failed');
         return json(503, { enabled: false, error: MEMBER_UNAVAILABLE });
@@ -259,12 +291,12 @@ function createHandler(deps) {
         monthKey: monthKey,
         listenSeconds: listenSeconds,
         speakSeconds: speakSeconds,
-        capSeconds: capSeconds,
+        capSeconds: storeCap,
         requestId: requestId,
         maxChunkSeconds: MAX_CHUNK_SECONDS,
       });
       await flagMonth(store, env, monthKey, log);
-      const payload = statusBody(saved.usedSeconds, capSeconds, idleMs, monthKey);
+      const payload = statusBody(saved.usedSeconds, capSeconds, idleMs, monthKey, access.unlimited);
       payload.acceptedListen = saved.acceptedListen;
       payload.acceptedSpeak = saved.acceptedSpeak;
       payload.replayed = !!saved.replayed;

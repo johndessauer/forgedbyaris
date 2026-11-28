@@ -128,10 +128,10 @@ export function classifyResearch(text) {
     return 'research';
   }
   if (coaching) return 'skip';
-  const asks = /\?/.test(raw) || /^(what|who|when|where|which|is|are|does|do|did|has|have|was|were|how (?:many|much|far|long))\b/i.test(raw);
-  if (!asks) return 'skip';
-  if (/\bwhat about\b/i.test(raw)) return 'skip';
-  return 'research';
+  // Only a real outside fact is searched. A general question, including
+  // "am I able to ask you about that", is coaching and must not show
+  // "Let me research that".
+  return 'skip';
 }
 
 export function classifyMessages(messages) {

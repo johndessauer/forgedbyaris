@@ -34,7 +34,8 @@ Set these in Netlify. None are required for the merge. Defaults keep Talk Mode o
 | --- | --- | --- |
 | `TALK_MODE_ENABLED` | off | `true`, `1`, `on`, or `yes` shows Talk Mode to every member. Anything else, including unset, hides it. |
 | `TALK_MODE_ALLOWLIST` | empty | Comma-separated Memberstack member ids and/or emails who see Talk Mode while the global flag is off. Example: `mem_abc123, john@thedessauergroup.com` |
-| `ARIS_TALK_CAP_MINUTES` | `30` | Per-member cap for the UTC month. Counts listening time and speaking time. Paused time is not counted. `0` blocks Talk Mode. |
+| `TALK_MODE_UNLIMITED` | empty | Same comma list of Memberstack ids and/or emails. Those members skip the monthly cap. Their minutes are still stored. Unset means everyone is capped. |
+| `ARIS_TALK_CAP_MINUTES` | `30` | Per-member cap for the UTC month. Counts listening time and speaking time. Paused time is not counted. `0` blocks Talk Mode. Ignored for members on `TALK_MODE_UNLIMITED`. |
 | `ARIS_TALK_IDLE_SECONDS` | `120` | Silence before pause. Values outside 120–180 are clamped into that range. |
 | `ARIS_TALK_ALERT_MINUTES` | `300` | When all members' Talk Mode seconds this UTC month reach this many minutes, the function writes one `aris_talk_alert_log` row and one `ARIS_TALK_ALERT` line to the function log. `0` turns the flag off. |
 
