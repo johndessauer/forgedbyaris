@@ -348,6 +348,23 @@ test('list markers, clock times, and markdown stay in one spoken chunk', () => {
   assert.deepEqual(divided.sentences, ['Post the offer.', 'Send the scripts.']);
   assert.equal(divided.sentences.join(' ').includes('---'), false);
 
+  const google = segmentSpeech('Sophisticated renters will Google it. They still call you.', true);
+  assert.deepEqual(google.sentences, [
+    'Sophisticated renters will Google it.',
+    'They still call you.',
+  ]);
+  const quoted = segmentSpeech('He said "Google it." Then he left.', true);
+  assert.match(quoted.sentences.join(' '), /Google it/);
+  assert.match(quoted.sentences.join(' '), /Then he left/);
+  const dash = segmentSpeech('Sophisticated renters — the careful ones — will Google it. Then they call.', true);
+  assert.match(dash.sentences.join(' '), /Sophisticated renters/);
+  assert.match(dash.sentences.join(' '), /will Google it/);
+  assert.match(dash.sentences.join(' '), /Then they call/);
+  const quoteBlock = segmentSpeech('> Sophisticated renters will Google it.\n\nThey still call.', true);
+  assert.match(quoteBlock.sentences.join(' '), /Sophisticated renters will Google it/);
+  assert.match(quoteBlock.sentences.join(' '), /They still call/);
+  assert.equal(quoteBlock.sentences.join(' ').includes('>'), false);
+
   assert.deepEqual(planPrefetch(['playing', 'queued', 'queued', 'queued'], 2), [1, 2]);
   assert.deepEqual(planPrefetch(['queued', 'queued', 'queued', 'queued'], 2), [0, 1, 2]);
   assert.deepEqual(planPrefetch(['playing', 'fetch', 'queued', 'queued'], 2), [2]);
@@ -465,34 +482,31 @@ test('member-facing Talk Mode copy never names a vendor', () => {
   assert.match(COPY.cap, /speaker button/);
 });
 
-test('speaker bleed does not barge in, and a sustained member voice does', () => {
-  const bleed = createVad();
-  assert.equal(bleed.push(0.05, 50, 'speaking'), 'silence');
-  assert.equal(bleed.push(0.05, 80, 'speaking'), 'silence');
+test('speaker echo does not stop playback, and a louder sustained voice can', () => {
+  const watch = talk.createBargeWatch({ baseline: 0.08, floor: 0.1, ratio: 2.5, holdMs: 500, graceMs: 300 });
+  watch.noteSentence(0);
+  var t;
+  for (t = 0; t < 1000; t += 50) {
+    assert.notEqual(watch.push({ rms: 0.09, dt: 50, now: t }), 'candidate');
+  }
+  const loud = talk.createBargeWatch({ baseline: 0.04, floor: 0.1, ratio: 2.5, holdMs: 500, graceMs: 300 });
+  loud.noteSentence(0);
+  assert.equal(loud.push({ rms: 0.4, dt: 50, now: 100 }), 'grace');
+  assert.equal(loud.push({ rms: 0.4, dt: 200, now: 400 }), 'arm');
+  assert.equal(loud.push({ rms: 0.4, dt: 300, now: 700 }), 'candidate');
+  assert.equal(talk.interruptionIsEcho('', 'Sophisticated renters will Google it.'), true);
+  assert.equal(talk.interruptionIsEcho('Sophisticated renters will Google it', 'Sophisticated renters will Google it.'), true);
+  assert.equal(talk.interruptionIsEcho('What about the schools', 'Sophisticated renters will Google it.'), false);
+  assert.equal(talk.BARGE_HOLD_MS >= 400 && talk.BARGE_HOLD_MS <= 600, true);
+  assert.equal(talk.BARGE_GRACE_MS, 300);
 
-  const vad = createVad();
-  assert.equal(vad.push(0.08, 40, 'speaking'), 'noise');
-  assert.equal(vad.push(0.08, 40, 'speaking'), 'noise');
-  assert.equal(vad.push(0.08, 40, 'speaking'), 'noise');
-  assert.equal(vad.push(0.08, 40, 'speaking'), 'speech_start');
-
-  const arm = talk.planVadAction({ phase: 'speaking', priming: false, utteranceLive: false }, 'noise');
-  assert.equal(arm.prime, true);
-  assert.equal(arm.barge, false);
-  assert.equal(arm.discard, false);
-  const go = talk.planVadAction({ phase: 'speaking', priming: true, utteranceLive: false }, 'speech_start');
-  assert.equal(go.barge, true);
-  assert.equal(go.ensureRecorder, true);
-  assert.equal(go.discard, false);
-  const keep = talk.planVadAction({ phase: 'listening', priming: false, utteranceLive: true }, 'speech');
-  assert.equal(keep.note, true);
-  assert.equal(keep.finish, false);
-  const done = talk.planVadAction({ phase: 'listening', priming: false, utteranceLive: true }, 'speech_end');
-  assert.equal(done.finish, true);
-  assert.equal(done.discard, false);
-  const blip = talk.planVadAction({ phase: 'speaking', priming: true, utteranceLive: false }, 'silence');
-  assert.equal(blip.discard, true);
-  assert.equal(blip.barge, false);
+  const session = fs.readFileSync(path.join(root, 'assets/js/aris-talk-session.js'), 'utf8');
+  assert.match(session, /createBargeWatch/);
+  assert.match(session, /logPlayback\('barge-in'\)/);
+  assert.match(session, /logPlayback\('queue-end'\)/);
+  assert.match(session, /logPlayback\('tts-error'\)/);
+  assert.equal(session.includes("fail(COPY.failed);"), true);
+  assert.equal(/catch \(function \(err\) \{\s*if \(token !== playToken[\s\S]*fail\(COPY\.failed\)/.test(session), false);
 });
 
 test('unlimited members skip the cap and other members do not', async () => {
